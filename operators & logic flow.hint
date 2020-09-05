@@ -1,0 +1,122 @@
+import 'stdlib'
+
+
+// *******************
+// **** OPERATORS ****
+// *******************
+
+
+// ****** Mathematical operators (+, -, *, /, %)
+print(1 + 1) // addition
+print(3 - 10) // subtraction
+print(5 * 2) // multiplication
+print(10 / 2) // division (diving always returns a float). Division by zero throws an error.
+print(2 ** 2) // exponentiation
+print(25 % 2) // modulus
+
+// The operators follow the PEMDAS format
+// Parenthesis -> Exponents -> Multiplication -> Division -> Addition -> Subtraction
+print(4 + 5 ** 2 - 3 * 4) // 17
+
+// ****** Assigment (=) & Augmented assignment Operators (+=, -=, *=)
+// The "=" sysmbol assigns the lefthandside value to the righthandside parameter or variable
+let AugmentedOpeation = 10
+let initialNumber = 4
+// Augmented assignment operators
+AugmentedOpeation += 7 // 10 + 7 = 17
+AugmentedOpeation -= 3 // 17 - 3 = 14
+AugmentedOpeation *= 2 // 14 * 2 = 28
+AugmentedOpeation /= initialNumber // 28 / 4 = 7
+AugmentedOpeation **= 2 // 7 ^ 2 = 49
+AugmentedOpeation %= 5 // 49 % 4 = 5
+
+// ****** Increment & Decrement operators (++, --)
+let incrementDecrement = 3
+incrementDecrement++ // 4
+incrementDecrement-- // 3
+
+// ****** Logical "and", "or", "not" operators (&&, ||, !)
+print(true && false) // false
+print(true and false) // false
+print("Hello!" || 0) // 0 is equal to false, therefore prints "Hello!"
+print("Hello!" or 0) // "Hello!"
+print(!false) // The "!" operator switches from true to false and viceversa therefore prints "true".
+print(not false) // true
+
+// ****** Equality operators (==, !=)
+print(2 == 3) // 2 is not equal to 3, therefore prints "false".
+print(2 equals 3) // false
+print(2 != 3) // 2 is indeed not equal to 3, therefore prints "true".
+print(2 not equals 3) // true
+
+// ****** The 'is' operator
+// The 'is' operator checks the type
+// of a variable or expression
+let x, y = ("hello", false)
+print(2 is Int) // true
+print(x is String and x equals "hello") // true
+print(y is not Bool) // false
+
+// ****** Comparison operators (<, >, <=, >=)
+print(1 > 2) // "false" since 1 is not greater than 2
+print(10 < 40) // "true" since 10 is not greater than 40
+print(20 >= 20) // "true" since 20 is not less than 20
+print(4 <= 3) // "false" since 4 is not less than or equal to 3
+
+// NOTE: In general, BlueBerry Script Follows the same format for operators as JavaScript
+// VISIT: https://www.w3schools.com/js/js_arithmetic.asp
+
+// ****** Language-specific operators
+// (E)  executes the expression iniside the parenthesis.
+// [,]  indexed access operator. E.g.: MyArray[2] Accesses the third element in an array.
+// !!   asserts that an expression is non-null.
+// ?    marks a type as nullable or optional. 
+// ?.   performs a safe call (calls a method or accesses a property if the receiver is non-null).
+// ?:   takes the right-hand value if the left-hand value is null (the elvis operator). Also the ternary operator.
+// \    scapes a character in a string literal.
+// .    class member accessor.
+// ..   creates an inclusive range. E.g.: 1..5 == [1, 2, 3, 4, 5]
+// ...  merges the contents of an array into another (the rest operator).
+// _    used to make big integers more readible. E.g.: 14_532_000 is exactly the same as 14532000.
+// ;    separates multiple statements on the same line.
+// $(E) references an expression or variable in a string template, where "E" is the expression or variable.
+// =>   shorthand function return operator. Visit the 'functions.bbs' for an example.
+// @    decorator invocation operator
+
+
+// *************************
+// **** Range Operators ****
+// *************************
+let range1: Int[] = 3..7; // Creates an inclusive range from 3 to 7, i.e., [3, 4, 5, 6, 7]
+
+
+// ********************
+// **** Logic Flow ****
+// ********************
+
+
+// ****** Basic Logic Control
+
+// 'if' statement
+if (Math.PI not equals 3) {
+    print("Engineers are wrong...")
+}
+
+// if-else statement
+if (6 % 2 == 1) {
+    print("Mathematics is broken!!")
+} else {
+    print("Pheww! That was close.")
+}
+
+// if-elif-else staement
+if (AugmentedOpeation equals 10) {
+    print("The operation resulted in 10.")
+} elif (AugmentedOpeation equals 5) {
+    print("The operation resulted in 5.")
+} else {
+    print("The operation did not result in 10 or 5.")
+}
+
+// Ternary operator (shorthand if-else statement)
+let weekend1 = "Let's Party! :)" if (Date.weekDay == "saturday" or Date.weekDay == "sunday") else "Let's work :("

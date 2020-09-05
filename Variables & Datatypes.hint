@@ -1,0 +1,172 @@
+import 'stdlib'
+
+
+// ******************************
+// **** Variable Declaration ****
+// ******************************
+
+// To delcare a variable, use the "let" keyword.
+let name = "Bob"
+
+// Assumed datatypes are supported, but if you
+// want to specify the datatype explicitly, you can
+// do so by placing a colon after the name of the variable
+// and before the equal sign.
+let age: Int = 34
+
+// To declare constants, use the "const" keyword.
+// Constants must be initialized upeon declaration
+const eyeColor = "hazel"
+
+// Structured binding
+let x, y = [1, 2] // let x = 1; let y = 2;
+let z, w = ("hello", false) // let z = "hello"; let w = false;
+let m, p = [1, 2, 3] // let m = 1; let p = 2; // 3 does not get assigned to anything
+
+
+
+// *******************
+// **** Datatypes ****
+// *******************
+
+// ****** Primitive datatypes
+let string_variable: String = "some string"
+let integer_variable: Int = 123
+let real_variable: Real = 22/7
+let boolean_variable: Bool = false
+let array_variable: Array<any> = [1, 2, "hello", 3.14]
+// Dictionaries have a combination of methods from Java's HashMaps and JS's Objects.
+let dictionary_variable: Dict<any> = { name: "Fausto", age: 19 }
+let set_variable: Set<String> = { "Blueberry", "Raspberry", "Strawberry" }
+
+// ****** Other primitive datatypes
+// Function: An uninvoked function.
+// void: Used ONLY when a function does not return a value (and thus returning the default value of null).
+// any: Accepts any datatype.
+// Null: A single-value datatype for null expressions/variables. See bellow.
+
+// ****** Printing the datatype of a variable
+print(type(real_variable)) // Real
+
+// ****** Strings
+let the_string = "This is a string"
+print(the_string.toLowercase().replace("i", "e")) // "thes es a streng"
+// String templating. The "$(E)" operator
+print("We say that $(the_string), you know") // "We say that This is a tring, you know"
+// String concatenation
+print("We say that " + the_string) // "We say that This is a tring"
+// String multiplication
+print("I Love NY\n" * 3) // "I Love NY"
+                         // "I Love NY"
+                         // "I Love NY"
+print("I have 20 characters".length()) // 20
+
+
+// ****** Array datatypes
+let single_type: String[] = ["fausto", "Genesis", "Martha", "Robert"] // this array can only contain string elements
+const mixed_types: <String, Int> = ["age", 22] // This array can contain any number of strings or integers
+let fixed_length_single_type: Int[3] = [2019, 2020, 2021] // this array can only contain three integer elements
+const fixed_legth_mixed_types: <String, Int, Bool>[3] = ["Mary", 22, false] // this array can only contain 5 elements of types string, int, or boolean
+let lowerLimitArray: String[..3] = ["US", "China"] // this array can contain 3 or less elemnts (inclusive)
+const upperLimitArrays: Int[4..] = [2, 5, 7, 1, 7] // this array can contain 4 or more elemnts (inclusive)
+let upperAndLowerLimitArrays: <Real, Int>[2..5] = [22, 22/2, 22/3, 22/4] // this array can contain 2 to 5 elements (inclusive)
+
+// ****** Tuples: Ordered, typed arrays
+// Tuples always have fixed length, can be defined in one of two ways
+let location: (String, String, Int) = ("Concord", "North Carolina", 28027) // Unexplicitly specifying the length
+
+// ****** Null -> NULL itself means absence of data
+// It is not required for a variable to be initialized.
+// If a variable it not initialized, a datatype must be
+// specified, and the variable will hold a value of null
+let someUndefinedVariable: String
+// Variables can be initialized with a null-value.
+let someNullVariable: Null = null
+// Sometimes a varibale may hold a value of null or another value.
+// In that case, you use the NString, NInt, NReal,
+// NBool, NDict, or NSet datatypes accordingly. Using these
+// datatypes tells the compiler that the variable is of type
+// String, Int, Real, Bool, Dict, or Set respectivaly, but it
+// may also be Null. This can be useful if you don't know when
+// a function may return a null value, and prevents compiler errors.
+// For example, the variable bellow will hold a value of null instead
+// of throwing a compiler error because string_variable cannot be
+// typecaseted to an integer, but the variable can still hold the value of null.
+let someNullVariable: NInt = string_variable as Int
+// The above line is equivalent to `let someNullVariable: Int | Null = string_variable as Int`
+
+
+// *********************
+// **** Typecasting ****
+// *********************
+
+// The "as" operaror is used to cast the left-hand-side
+// expression into the type specified in the right-hand-side.
+// The "as" operator throws a RunTimeError if the left side
+// cannot be typecasted into the type of the right side.
+
+print("3.14" as Int) // 3
+print(false as String) // "false"
+print(5 as Real) // 5.0
+print(2.62 as Int) // 2
+
+
+// **************************
+// **** Custom Datatypes ****
+// **************************
+
+// ****** type -> Defines a custom type for a variable
+type customType = String | String[] | Int;
+let cVar: customType = "Hello World";
+
+// ****** Structure for dictionary objects
+// Hinton Script has support for dictionaries (JSON objects).
+struct PostData {
+    title: String,
+    id: Int,
+    isPublic: Bool = false,
+    location: Int | String,
+    attachment: NString
+}
+// Because the "attachment" key in the "PostData" structure has type NString,
+// it is not required to be declared in the dictionary, and calling it will return
+// a value of null. Similarly, isPublic also does not require to be defined
+// in the dictionary because it has been initialized in the structure. All other
+// properties are required to be present in the dictionary.
+const heroPost: PostData = {
+    id: 32,
+    title: "Welcome to the First Post",
+    location: "Concord, NC",
+    isPublic: true // overrides the initialized value.
+}
+print((heroPost.id, heroPost.title, heroPost.attachment), separator=",") // 32, Welcome to the First Post, Null
+
+// ****** Enumerables
+// By default, the keys in an enumerable
+// will be mapped to an integer starting
+// at 0, and up to n-1, where n in the
+// number of elements in the enumerable.
+enum defaultEnum {
+    value1,
+    value2,
+    value3,
+    value4
+}
+// Enumerables have similar properties as dictionaries
+print(defaultEnum.value3) // value3
+print(defaultEnum.value2.val()) // 1
+
+// Enumerables can also hold other values
+// Members of an enum must all have the same type.
+enum customEnum {
+    english = "hello world",
+    spanish = "hola mundo",
+    italian = "ciao mondo"
+}
+print(customEnum.spanish.val()) // "hola mundo"
+
+// Enumerables should only be used as data structure.
+let myVar: customEnum = customEnum.italian
+
+print(typeof(5)) // Int
+print(typeof(defaultEnum)) // Enum

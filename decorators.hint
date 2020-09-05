@@ -1,0 +1,16 @@
+import 'stdlib'
+
+
+// *** THIS IS EXPERIMENTAL AND NEEDS REVIEWING
+
+
+// Decorators modify the data of the
+// object, variable or function they
+// they are decorating.
+
+decorator addPeriod(target) {
+    // Do something with target
+}
+
+
+

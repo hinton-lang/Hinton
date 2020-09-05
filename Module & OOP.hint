@@ -1,0 +1,28 @@
+import "stdlib"
+
+
+class ParentClass {
+    // Access modifiers work just like in TypeScript,
+    // except for mothod access modifiers, see bellow.
+    readonly prop1 = "something";
+    public prop2: Int;
+    private prop3: any;
+    
+
+    // The init function is used to initialize the class's constructor.
+    init(readonly param1: String, private readonly param2: Int, param3: any) {
+        self.prop3 = param3;
+    }
+
+
+    private method1() {
+
+    }
+
+    public method2() {
+
+    }
+
+
+}
+

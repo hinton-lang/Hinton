@@ -1,0 +1,173 @@
+import 'stdlib'
+
+// *************************
+// **** Function Basics ****
+// *************************
+
+// ****** Basic Function Definition
+// The "void" return datatype is used specify
+// that the function will not return anything.
+func sayHi(): void {
+    print("Hello World")
+}
+sayHi() // Calling a function
+
+// Because the function does not retrun a value
+// (has return type of void), printing it out
+// like this will print null.
+print( sayHi() ) // null
+
+// ****** Function with parameters
+func subtract(n1: Float, n2: Float): Float {
+    return n1 - n2
+}
+print(subtract(20, 5)) // 15.0
+// Function arguments can also be named
+// on the function invocation statement
+print(subtract(n2=5, n1=20)) // 15.0
+
+
+// ****** Compacted Function Definition
+func stout(output: any): void => print(output)
+stout("From a compacted function...")
+
+// ****** Functions with rest operator as parameter
+func addAll(...values: Int | Float): Int | Float {
+    return Math.sum(...values) // "Math" is a global module
+}
+
+// ****** Lambda Functions
+let lambdaFunction = (x) => x * 5;
+print(lambdaFunction(2)) // 32
+
+
+// ****** Function Composition (Callbacks)
+func arithmetic(oper: Function, x: Int): Int | Float => oper(x)
+func powerOf2(x) => x ** 2;
+print(arithmetic(powerOf2, 5)) // 25
+
+
+// *********************************
+// **** The 'Function' Datatype ****
+// *********************************
+
+/**
+ * When a functuon name is called without parenthesis, we
+ * are calling the function definition. However, when a
+ * function name is called with parenthesis, we are invoking
+ * that function. All uninvoked functions have a 'Function'
+ * type. Once the function is invoked, the type collapses to
+ * the return type of the function.
+*/
+func myFunction() => return 5;
+print(myFunction) // This will print 'Function' to the console
+print(myFunction()) // This will return '5' to the console
+
+
+
+// *****************************
+// **** Generator Functions ****
+// *****************************
+
+// A generator function returns all the 'yield'
+// values in sequence of declaration
+genr func myGenerator1(): Int {
+    yield 1
+    yield 2
+    yield 3
+
+    // The 'yield' keyword can only be used inside
+    // generator functions, and is a replacemenet for
+    // the 'return' keyword. Using the 'return' keyword
+    // inside a generator function will stop the function
+    // from yielding any other values.
+    yield 4
+}
+
+// Generator functions must be intialized first in order
+// to be used outside a loop (calling the .next() method).
+const generator = myGenerator1(); // Initializes the generator.
+
+// The '.nex()' method returns the next value in the iterator.
+print(generator.next()) // {val: 1, done: false}
+print(generator.next()) // {val: 2, done: false}
+print(generator.next()) // {val: 3, done: false}
+print(generator.next()) // {val: 4, done: true}
+print(generator.next()) // null
+
+
+// The 'yield' keyword can be used anywhere
+// inside a generator function.
+genr func myGenerator2(): Int {
+    for (let i in range(4)) {
+        yield i + 1
+    }
+}
+
+// Visit the loops.hint file for
+// more information about loops
+for (let n: Int in myGenerator2()) {
+    print(n)// 1\n 2\n 3\n 4\n
+}
+
+
+// ********************************
+// **** Asynchronous Functions ****
+// ********************************
+
+// An asynchronous function does not block the
+// execution of code when the function is invoked.
+async func myAsyncFunction(filepath: String): String {
+    // Using the await keyword will tell
+    // the process to wait until the expression
+    // is complete before continuing with the code
+    // inside the function
+    let file = await filereader.readFile(filepath) // *REVISE FILESYSTEM API*
+    return reader.decode(file) // *REVISE FILESYSTEM API*
+
+    // Use 'throw' to throw an exception (equivalent to 'reject()' in JS promises).
+}
+
+// With this code the program will continue to execute
+// the code while waiting to read the 'heavy' file. Once
+// the file is read, it will print the contents of that
+// file to the console.
+myAsyncFunction("path/to/heavy/file.txt").then(contents => print(contents)).catch(e => print(e))
+print("Example of Async function") 
+
+// Hinton Script supports top-level await.
+
+// If you wish to wait for the execution of
+// an asyncrhonous function, place an 'await'
+// stamement before the function invokation.
+await myAsyncFunction("path/to/heavy/file.txt").then(contents => print(contents)).catch(e => print(e))
+print("Waited for the Async function")
+
+// Asynchronous function invokation shorthand.
+// (notice that the .then() memeber invokation is missing)
+let fileContents = await myAsyncFunction("path/to/heavy/file.txt").catch(e => print(e))
+print(fileContents)
+
+
+
+// ******************************************
+// **** Asynchronous Generator Functions ****
+// ******************************************
+
+// Suppose there is an asynchronous function called
+// 'download' that takes in a parameter (url: string)
+// as argument. The function makes a url request which
+// may take any amount of time to complete. The async
+// function 'download' can be implemented in an
+// async-generator function as follows:
+
+async genr func myAsyncGenerator(): any {
+    yield await download("https://resource1.url")
+    yield await download("https://resource2.url")
+    yield await download("https://resource3.url")
+}
+
+// Visit the loops.hint for more information on loops.
+for await (let resource: any in myAsyncGenerator()) {
+    print(resource)
+}
