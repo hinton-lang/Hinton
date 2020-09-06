@@ -6,9 +6,12 @@ Keywords in Hinton Script are special words that have syntactical meaning based 
 - `if-elif-else`: Together, the `if`, `elif` and `else` statements define the logic flow statements of a program.
 - `and`: Logical binary operator that returns true when both of the operands are true.
 - `or`: Logical binary operator that returns true if at least one of the operands is true.
+- `xor`: Logical binary operator that returns true ONLY if one operand is true, and the other one is false.
 - `not`: Logical unary operator that negates the value of the operand.
 - `equals`: Logical binary operator that returns true if both operands are equal.
 - `is`: Type-checking logical binary operator that returns true if the type of the left-hand-side operand matches the type of the right-hand-side built-in type.
+- `instanceof`: Logical binary operator that checks if the the left-hand-side operand is an instance of the class expressed in the right-hand-side.
+
 
 ## Other Operators
 - `mod`: Binary operator that returns the arithmetic modulus of the operands. `3 mod 2 // 1`
@@ -39,7 +42,7 @@ Hinton Script is a statically typed language, which means that declarations must
 - `any`: Any type.
 
 ### Nullable Primitive types.
-In Hinton Script, assigning a value of `Null` to an identifier that does not have `Null` in its set of possible types will result in a RuntimeError. To prevent errors, Hinton Script provides primitive nullable types, that is, identifiers that can be a primitive type or a null. The bellow types are equivalent to `PrimitiveType | Null`;
+In Hinton Script, assigning a value of `null` to an identifier that does not have `Null` in its set of possible types will result in a RuntimeError. To prevent errors, Hinton Script provides primitive nullable types, that is, identifiers that can be a primitive type or a null. The bellow types are equivalent to `PrimitiveType | Null`;
 - `NInt`: Nullable integers.
 - `NReal`: Nullable real-valued numbers. Includes integers (with a .0 suffix).
 - `NString`: Nullable double quoted strings.
@@ -47,6 +50,8 @@ In Hinton Script, assigning a value of `Null` to an identifier that does not hav
 - `NDict`: Nullable dictionaries.
 - `NSet`: Nullable sets.
 - `NFunction`: Nullable functions.
+
+** **Note**:  
 
 ## Object-Oriented Programming
 - `class`: Defines a class.
