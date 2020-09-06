@@ -19,45 +19,43 @@ let irrational_constants: Set<Real> = { 3.14, 2.72, 1.62 }
 
 ## Sets support the following methods:
 ```swift
-let employees = Set<String> = { "Karla", "Ivon", "Jake", "Tamiya" }
-let engineers = Set<String> = { "Tamiya", "Ivon" }
+// Gets the size of the set s
+s.size()
 
-// Gets the size of the set
-employees.size() // 4
+// Test whether the element e is in the set s
+e in s
+s.contains(e)
 
-// Test whether every element in engineers is in employees
-engineers.isSubset(employees) // true
-employees.isSubset(engineers) // false
+// Test whether every element in s is in t
+s.isSubset(t)
 
-// Test whether every element in employees is in engineers
-engineers.isSuperset(employees) // false
+// Test whether every element in t is in s
+s.isSuperset(t)
 
-// New set with elements from both engineers and some_names
-let some_names = { "Carlos", "Tamiya", "James" }
-engineers.union(some_names) // { "Carlos", "James", "Ivon", "Tamiya" }
+// New set with elements from both s and t
+s.union(t)
 
-// New set with elements common to engineers and some_names
-engineers.intersection(some_names) // { "Tamiya" }
+// New set with elements common to s and t
+s.intersection(t)
 
-// New set with elements in employees but not in engineers
-employees.difference(engineers) // { "Karla", "Jake" }
+// New set with elements in s but not in t
+s.difference(t)
 
-// New set with elements in either engineers or some_names but not both
-engineers.symmetric_difference(some_names) // { "Carlos", "Ivon", "James" }
+// New set with elements in either s or t but not both
+s.sym_difference(t)
 
-// New set with a shallow copy of employees
-employees.copy() // { "Karla", "Ivon", "Jake", "Tamiya" }
+// New set with a shallow copy of the set s
+s.copy()
 
-// Adds an element to employees
-employees.add("Tashir") // { "Karla", "Ivon", "Jake", "Tamiya", "Tashir" }
+// Adds the element e to the set s
+s.add(e)
 
-// Removes an element from some_names
-some_names.remove("James") // { "Carlos", "Tamiya" }
+// Removes the element e from the set s
+s.remove(e) // { "Carlos", "Tamiya" }
 
-// Removes and returns an arbitrary element from employees; raises KeyError if empty.
-// For the purposes of this example, let's assume that the element "Jake" was removed from the set.
-employees.pop() // "James"
+// Removes and returns an arbitrary element from s; raises KeyError if empty.
+s.pop()
 
-// Removes all elements from engineers
-engineers.clear()
+// Removes all elements from s
+s.clear()
 ```
