@@ -1,4 +1,4 @@
-import { NeuralNetwork, Activations } from 'sdtlib@ML'
+import { NeuralNetwork, Layer, Activations } from 'sdtlib@ML'
 
 
 const Neural_Network = new NeuralNetwork(

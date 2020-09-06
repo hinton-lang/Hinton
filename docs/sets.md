@@ -6,7 +6,7 @@ Sets can be defined as follows:
 let first_five_primes: Set<Int> = { 2, 3, 5, 7, 11 }
 ```
 
-Like other collections, sets support `x in set`, `set.length()`, and `for x in set`. Being an unordered collection, sets do not record element position or order of insertion. Accordingly, sets do not support indexing, slicing, or other sequence-like behavior.
+Like other collections, sets support `x in set`, `set.size()`, and `for x in set`. Being an unordered collection, sets do not record element position or order of insertion. Accordingly, sets do not support indexing, slicing, or other sequence-like behavior.
 
 ## The 'Set<>' Datatype
 To define a set, a type must be provided within the angled brackets. Only one type is supported, and all the elements of the set must be the same type. For example:
