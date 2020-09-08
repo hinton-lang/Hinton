@@ -1,28 +1,107 @@
+// The import statment (without the "from" statement)
+// imports all exported components from a program.
 import "stdlib"
 
+// The import-from statement imports the
+// defined components from a program.
+import { print } from "stdlib";
 
+
+// ***** Classes
 class ParentClass {
-    // Access modifiers work just like in TypeScript,
-    // except for mothod access modifiers, see bellow.
-    readonly prop1 = "something";
+    // These are class fields for class instances.
+    final prop1 = "something";
     public prop2: Int;
     private prop3: any;
+
+    // These are static fields
+    static final sProp1 = "Something";
+    public static sProp2: Int;
+    private static sProp3: any;
     
 
     // The init function is used to initialize the class's constructor.
-    init(readonly param1: String, private readonly param2: Int, param3: any) {
+    init(final param1: String, private final param2: Int, param3: any) {
+        // The class instance is accessed internally
+        // though the self keyword.
         self.prop3 = param3;
     }
 
 
-    private method1() {
+    // These are class methods for class instances
+    private method1() { }
+    public method2() { }
 
-    }
-
-    public method2() {
-
-    }
-
-
+    // These are static methods
+    public static method3() { }
 }
 
+
+// ***** Class Inheritance.
+// The ChildClass will inherit all the  methods and fields
+// of the ParentClass. It will also inherit the class parameters,
+// unless a constructor is defined for the ChildClass.
+class ChildClass extends ParentClass {
+    init(final param1: String, private final param2: Int, param3: any) {
+        // A class can only extend ONE class at a time, and if the
+        // parent class received any methods, AND a constructor is defined
+        // for the child class, then a super(...params*) statement must be defined
+        // at the top of the constructor
+        super(param1, param2, param3);
+    }
+
+    // **** Overriding inherited members
+    // In the case what we want to override the implementation
+    // of an inherited member (like changing it's accessor defintion)
+    // one must label the memeber with the "override" keyword.
+    override private static method3() {
+        // Now, the "method3" static method can
+        // only be accessed from within ChildClass,
+        // but will still be publicly accessible
+        // through the ParentClass.
+    }
+}
+
+
+
+// ***** Interface Implementation
+
+// An interface defines methods and fields a class
+// must include in its definition.
+interface MyClassInterface {
+    // The implementer class must have this method
+    private method1(param1: String) => void;
+    
+    // The implementer class must have this field
+    static myStaticField1: Int;
+
+    // Fields and methods labeled as "optional"
+    // do not have to be implemented in the class.
+    optional public static final field2: Real;
+
+    // etc...
+}
+
+// A class can implement multiple interfaces, and all required
+// members defined in those interfaces must be implemented
+// in the class's definition.
+class ImplementerClass implements MyClassInterface {
+    private method1(param1: String) => void {
+        print("Something")
+    }
+    
+    static myStaticField1: Int = 22;
+
+    // Because the field "field2" is optional
+    // in the interface definition, it is not
+    // required in the class implementation.
+    // public static final field2: Real;
+}
+
+// ***** Exporting components
+// In Hinton, functions, classes and contants
+// can be exported from a program file to be
+// imported by other programs.
+export class MyClass {}
+export const myConstant {}
+export func MyFunc() {}

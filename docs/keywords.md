@@ -32,6 +32,7 @@ Hinton Script is a statically typed language, which means that declarations must
 ### Primitive types
 - `Int`: Integers.
 - `Real`: Real-valued numbers. Includes integers (with a .0 suffix).
+- `Complex`: Complex numbers. Written `a ± bi` where `a` and `b` are of type `Real`.
 - `String`: Double quoted strings.
 - `Bool`: Booleans.
 - `Dict`: Dictionaries.
@@ -45,28 +46,29 @@ Hinton Script is a statically typed language, which means that declarations must
 In Hinton Script, assigning a value of `null` to an identifier that does not have `Null` in its set of possible types will result in a RuntimeError. To prevent errors, Hinton Script provides primitive nullable types, that is, identifiers that can be a primitive type or a null. The bellow types are equivalent to `PrimitiveType | Null`;
 - `NInt`: Nullable integers.
 - `NReal`: Nullable real-valued numbers. Includes integers (with a .0 suffix).
+- `NComplex`: Nullable complex numbers.
 - `NString`: Nullable double quoted strings.
 - `NBool`: Nullable booleans.
 - `NDict`: Nullable dictionaries.
 - `NSet`: Nullable sets.
 - `NFunction`: Nullable functions.
 
-** **Note**:  
-
 ## Object-Oriented Programming
 - `class`: Defines a class.
 - `self`: Internal class member accessor.
 - `interface`: Defines a class interface.
+- `optional`: Marks a field or method as optional in an `interface` definition.
 - `implements`: Used to specify the interfaces a class is implementing.
 - `extends`: Used to specify the parent class a child class inherits.
-- `imports`: Used to import exported components from a program.
+- `override`: Overrides a field of method definition inherited from a parent class.
+- `import`: Used to import exported components from a program.
 - `from`: In a `import-from` statement, defines the path of the exporting program.
+- `export`: Exports declarations (except var. declaration with `let`) from a program.
 - `public`: Method accessor modifier. Makes a member of a class accessible outside the class.
 - `private`: Method accessor modifier. Makes a member of a class only available from within the class.
 - `static`: Makes a member of a class static.
 - `final`: Used to make a class member immutable.
-- `method`: Defines a class method.
-- `super()`: ...
+- `super()`: Used to call superclass methods, and to access the superclass constructor
 - `init()`: Defines a class constructor.
 
 ## Looping
@@ -91,3 +93,4 @@ In Hinton Script, assigning a value of `null` to an identifier that does not hav
 
 ## Statements
 - `return`: The return statement of a function or method.
+- `await`: In the general context, `await` is used to "wait" for an asynchronous function to complete.

@@ -1,6 +1,5 @@
 import { NeuralNetwork, Layer, Activations } from 'sdtlib@ML'
 
-
 const Neural_Network = new NeuralNetwork(
     input_size = 748,
     output_size = 10,

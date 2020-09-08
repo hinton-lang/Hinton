@@ -18,7 +18,7 @@ sayHi() // Calling a function
 print( sayHi() ) // null
 
 // ****** Function with parameters
-func subtract(n1: Float, n2: Float): Float {
+func subtract(n1: Real, n2: Real): Real {
     return n1 - n2
 }
 print(subtract(20, 5)) // 15.0
@@ -32,7 +32,7 @@ func stout(output: any): void => print(output)
 stout("From a compacted function...")
 
 // ****** Functions with rest operator as parameter
-func addAll(...values: Int | Float): Int | Float {
+func addAll(...values: Int | Real): Int | Real {
     return Math.sum(...values) // "Math" is a global module
 }
 
@@ -42,7 +42,7 @@ print(lambdaFunction(2)) // 32
 
 
 // ****** Function Composition (Callbacks)
-func arithmetic(oper: Function, x: Int): Int | Float => oper(x)
+func arithmetic(oper: Function, x: Int): Int | Real => oper(x)
 func powerOf2(x) => x ** 2;
 print(arithmetic(powerOf2, 5)) // 25
 
@@ -62,6 +62,43 @@ print(arithmetic(powerOf2, 5)) // 25
 func myFunction() => return 5;
 print(myFunction) // This will print 'Function' to the console
 print(myFunction()) // This will return '5' to the console
+
+
+// ***** More specific function types
+// Suppose we have a function 'm' that receives a callbac
+// function 'f'. Instead of defining f with a generic
+// function type, we can be more specific about the parameters
+// the function f receives, as well as what type of data it returns.
+// To do that, Hinto Script follows the same format as TypeScript.
+// For example, suppose that f is a callback that has a parameter 'x'
+// of type Int, and returns a value of type String.
+func m(f: (x: Int) => String): void {
+    // The datatype of f is still 'Function', but
+    // the interpreter will now have more information
+    // about what type of function f should be.
+    print( typeOf(f) ) // Function
+
+    // However, the function f receives an Int
+    // argument and returns a string, so the following
+    // code prints 'String' to the console.
+    print( typeOf(f(1)) ) // String
+
+    // See bellow on how to implement
+    // the function m.
+    print( f(44) )
+}
+
+// Implementing th function m.
+// The callback function can be defined
+// directly as a lambda function.
+m(x => {
+    print( typeOf(x) ) // Int
+
+    // Because we specified that the function
+    // f returns a string, we must return a string
+    // in this callback.
+    return (x + " - Some String");
+});
 
 
 
