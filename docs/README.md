@@ -9,7 +9,14 @@ A general overview of what I imagine Hinton Script to be like.
     - `--allow-network`: Grants permission to access the computer's network.
     - `--allow-read`: For accessing or reading any file from the file system.
     - `--allow-write`: For writing data and saving files into the file system.
-- **Dynamically Typed**: In Hinton Script, types are inferred by default, but once a type is assigned to an identifier, it cannot be changed. The type system is very similar (if not the same) to the ones used by well established programming languages like TypeScript and Swift.
+- **Dynamically Typed**: In Hinton Script, types are inferred by default, but once a type is assigned to an identifier, it cannot be changed.
+    - Inferred type
+        - Variables (unless a value was not assigned upon declaration)
+        - Constants (unless a value was not assigned upon declaration)
+        - Class fields (unless a value was not assigned upon declaration)
+    - Type declaration required
+        - Function parameters
+        - Function return.
 - **Feature Rich**: The goal of Hinton Script is to make the programmer's life easier, and unlike any other programming language, it actually does so. Hinton Script provides tons of methods attached to the built-in types, as well as many packages and modules with a great focus on A.I, Mathematics, Physics, and the likes.
 - **Easy GitHub Integration**: The HB manager (Hinton Bucket Manager) provides an easy way of creating a project. Just type `$ hb new {project name} --git` on the console, and the command line will walk you through all the files and folders needed for a general application, as well as the ability to integrate GitHub into the project. The files generated include:
     - ./.git (folder)

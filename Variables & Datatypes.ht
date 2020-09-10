@@ -133,7 +133,7 @@ struct PostData {
 // a value of null. Similarly, isPublic also does not require to be defined
 // in the dictionary because it has been initialized in the structure. All other
 // properties are required to be present in the dictionary.
-const heroPost: PostData = {
+const heroPost: Dict<PostData> = {
     id: 32,
     title: "Welcome to the First Post",
     location: "Concord, NC",
