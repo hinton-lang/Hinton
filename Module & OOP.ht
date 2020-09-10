@@ -25,6 +25,24 @@ class ParentClass {
         // The class instance is accessed internally
         // though the self keyword.
         self.prop3 = param3;
+
+        // Methods inside a class can be called
+        // by string name. `self.members` is an
+        // inmutable dictionary containing the
+        // name of the instance memebers as keys,
+        // and their values represent the value of
+        // each member respectively.
+        self.members["method3"]("A String argument")
+    }
+
+
+    // A static block is a block that gets executed every time
+    // a static instance is executed. It is like "init", but static.
+    // For example, when ParentClass.sProp1 is called.
+    // And like init, only one static block is allowed per class.
+    static {
+        self.sProp2 = 4;
+        self.sProp3 = "Some static value";
     }
 
 
@@ -34,6 +52,12 @@ class ParentClass {
 
     // These are static methods
     public static method3() { }
+
+    // Method overload is supported just like in Java.
+    // Either the return type of the parameters must be
+    // different between two functions with the same name
+    // for the compiler not to throw an error.
+    public static method3(someParam: String) { }
 }
 
 
@@ -46,7 +70,7 @@ class ChildClass extends ParentClass {
         // A class can only extend ONE class at a time, and if the
         // parent class received any methods, AND a constructor is defined
         // for the child class, then a super(...params*) statement must be defined
-        // at the top of the constructor
+        // as the first statement of the constructor
         super(param1, param2, param3);
     }
 
