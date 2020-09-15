@@ -44,13 +44,13 @@ let myNewArrayFromSlice_Backwards = arrayToSlice[1:5:-1] // [5, 4, 3, 2]
 
 
 // ***** Array mapping
-let someOddNumbers = firstFivePrimes.map(prime => prime - 1);
-print(someOddNumbers) // [1, 2, 4, 6, 10]
+let someEvenNumbers = firstFivePrimes.map(prime => prime - 1);
+print(someEvenNumbers) // [1, 2, 4, 6, 10]
 
 
 // ***** Array Filtering
-let powersOfTwo = someOddNumbers.filter(x => {
-    for (let n: Int = 0; n < x; n++) if (2 ** n == x) return true
+let powersOfTwo = someEvenNumbers.filter(x => {
+    for (n in 0..x) if (2 ** n == x) return true
     return false
 });
 print(powersOfTwo) // [1, 2, 4]

@@ -39,8 +39,8 @@ Hinton Script is a statically typed language, which means that declarations must
 - `Set`: Sets.
 - `Function`: Functions.
 - `Null`: Null value.
-- `void`: Functions with empty return statement.
-- `any`: Any type.
+- `Void`: Functions with empty return statement.
+- `Any`: Any type.
 
 ### Nullable Primitive types.
 In Hinton Script, assigning a value of `null` to an identifier that does not have `Null` in its set of possible types will result in a RuntimeError. To prevent errors, Hinton Script provides primitive nullable types, that is, identifiers that can be a primitive type or a null. The bellow types are equivalent to `PrimitiveType | Null`;
@@ -75,8 +75,7 @@ In Hinton Script, assigning a value of `null` to an identifier that does not hav
 - `while`: While loops.
 - `for`: Used in `for` loops, and `for-in` loops.
 - `in`: Used in `for-in` loops.
-- `repeat`: Used in `repeat-until` loops.
-- `until`: Ued in `repeat-until` loops.
+- `repeat`: Used in `repeat-while` loops.
 - `break`: Stops a loop from executing.
 - `continue`: Re-starts the loop at the current statement.
 - `await`: In the context of loops, `await` is used in a `for-await` statement to loop through the yielded values of an asynchronous generator function.
@@ -94,3 +93,4 @@ In Hinton Script, assigning a value of `null` to an identifier that does not hav
 ## Statements
 - `return`: The return statement of a function or method.
 - `await`: In the general context, `await` is used to "wait" for an asynchronous function to complete.
+- `yield`: Used to yield values of a generator function.

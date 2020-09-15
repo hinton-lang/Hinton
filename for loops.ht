@@ -1,4 +1,4 @@
-import 'sdtlib'
+import { someLib } from 'stdlib'
 
 // ***** For-In lops
 
@@ -9,7 +9,7 @@ for (let n: Int in 0...10) {
 
 // The range() function works the
 // same way as in python.
-for (let n: Int in range(10)) {
+for (let n: Real in range(10)) {
     print(n) // 0\n 1\n 3\n 4\n 5\n 6\n 7\n 8\n 9\n
 }
 
@@ -53,17 +53,17 @@ for (let i = 0; i < groupMembers.length(); i++) {
 // ***** While loop
 let m = 0;
 while (m < 20) {
-    if (m % 2 === 0) print(m.toString() + " is an even number")
+    if (m % 2 == 0) print(m.toString() + " is an even number")
     m++;
 }
 
 
-// ***** Reap-Until loops (do-while loops)
+// ***** Reap-While loops (do-while loops)
 m = 0;
 repeat {
-    if (m % 2 === 0) print(m.toString() + " is an even number")
+    if (m % 2 == 0) print(m.toString() + " is an even number")
     m++;
-} until (m >= 20);
+} while (m < 20);
 
 
 // ***** Comprehensive Lists

@@ -1,0 +1,25 @@
+{
+    "name": "HintonScript",
+    "displayName": "Hinton Script Language Support",
+    "description": "Provides syntax highlight for the Hinton Script programming language.",
+    "version": "0.0.1",
+    "engines": {
+        "vscode": "^1.49.0"
+    },
+    "categories": [
+        "Programming Languages"
+    ],
+    "contributes": {
+        "languages": [{
+            "id": "hinton",
+            "aliases": ["Hinton Script", "hinton"],
+            "extensions": [".ht",".hinton"],
+            "configuration": "./language-configuration.json"
+        }],
+        "grammars": [{
+            "language": "hinton",
+            "scopeName": "soruce.hinton",
+            "path": "./syntaxes/hinton.tmLanguage.json"
+        }]
+    }
+}

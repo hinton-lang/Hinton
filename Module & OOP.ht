@@ -47,17 +47,17 @@ class ParentClass {
 
 
     // These are class methods for class instances
-    private method1() { }
-    public method2() { }
+    private func method1() { }
+    public func method2() { }
 
     // These are static methods
-    public static method3() { }
+    public static func method3() { }
 
     // Method overload is supported just like in Java.
     // Either the return type of the parameters must be
     // different between two functions with the same name
     // for the compiler not to throw an error.
-    public static method3(someParam: String) { }
+    public static func method3(someParam: String) { }
 }
 
 
