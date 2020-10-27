@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="jar" name="HintC:jar">
+    <output-path>$PROJECT_DIR$/out/artifacts/HintC_jar</output-path>
+    <root id="archive" name="HintC.jar">
+      <element id="module-output" name="HintC" />
+    </root>
+  </artifact>
+</component>

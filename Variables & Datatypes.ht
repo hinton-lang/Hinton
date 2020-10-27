@@ -34,9 +34,9 @@ let string_variable: String = "some string"
 let integer_variable: Int = 123
 let real_variable: Real = 22/7
 let boolean_variable: Bool = false
-let array_variable: Array<any> = [1, 2, "hello", 3.14]
+let array_variable: [Any, 4] = [1, 2, "hello", 3.14]
 // Dictionaries have a combination of methods from Java's HashMaps and JS's Objects.
-let dictionary_variable: Dict<any> = { name: "Fausto", age: 19 }
+let dictionary_variable: Dict<Any> = { name: "Fausto", age: 19 }
 let set_variable: Set<String> = { "Blueberry", "Raspberry", "Strawberry" }
 
 // ****** Other primitive datatypes
@@ -63,17 +63,20 @@ print("I have 20 characters".length()) // 20
 
 
 // ****** Array datatypes
-let single_type: String[] = ["fausto", "Genesis", "Martha", "Robert"] // this array can only contain string elements
-const mixed_types: <String, Int> = ["age", 22] // This array can contain any number of strings or integers
-let fixed_length_single_type: Int[3] = [2019, 2020, 2021] // this array can only contain three integer elements
-const fixed_legth_mixed_types: <String, Int, Bool>[3] = ["Mary", 22, false] // this array can only contain 5 elements of types string, int, or boolean
-let lowerLimitArray: String[..3] = ["US", "China"] // this array can contain 3 or less elemnts (inclusive)
-const upperLimitArrays: Int[4..] = [2, 5, 7, 1, 7] // this array can contain 4 or more elemnts (inclusive)
-let upperAndLowerLimitArrays: <Real, Int>[2..5] = [22, 22/2, 22/3, 22/4] // this array can contain 2 to 5 elements (inclusive)
+// Arrays can hold multiple data types at the same time,
+// but thet have fixed length. The first entry of the array definition
+// determines the data type/s that the array can hold, the second value
+// can be an integer to define a 1-dimensional array, or an n-tuple to
+// define an n-dimensional array.
+let single_type_array: [String, 4] = ["fausto", "Genesis", "Martha", "Robert"] // this array can only contain string elements
+const mixed_types_array: [String | Int, 2] = ["age", 22] // This array can contain any number of strings or integers
+let muldimensional_array: [Int, (2, 3)] = [
+    [0, 0, 4]
+    [0, 1, 6],
+]
 
 // ****** Tuples: Ordered, typed arrays
-// Tuples always have fixed length, can be defined in one of two ways
-let location: (String, String, Int) = ("Concord", "North Carolina", 28027) // Unexplicitly specifying the length
+let location: (String, String, Int) = ("Concord", "North Carolina", 28027)
 
 // ****** Null -> NULL itself means absence of data
 // It is not required for a variable to be initialized.
@@ -106,7 +109,7 @@ let someNullVariable: NInt = string_variable as Int
 // cannot be typecasted into the type of the right side.
 
 print("3.14" as Int) // 3
-print(false as String) // "false"
+print(false as String) // "0"
 print(5 as Real) // 5.0
 print(2.62 as Int) // 2
 
@@ -116,7 +119,7 @@ print(2.62 as Int) // 2
 // **************************
 
 // ****** type -> Defines a custom type for a variable
-type customType = String | String[] | Int;
+type customType = String | [String, 2] | Int;
 let cVar: customType = "Hello World";
 
 // ****** Structure for dictionary objects

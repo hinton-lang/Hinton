@@ -38,7 +38,7 @@ class ParentClass {
 
     // A static block is a block that gets executed every time
     // a static instance is executed. It is like "init", but static.
-    // For example, when ParentClass.sProp1 is called.
+    // For example, this block is sxecuted when ParentClass.sProp1 is called.
     // And like init, only one static block is allowed per class.
     static {
         self.sProp2 = 4;
@@ -87,7 +87,6 @@ class ChildClass extends ParentClass {
 }
 
 
-
 // ***** Interface Implementation
 
 // An interface defines methods and fields a class
@@ -127,5 +126,5 @@ class ImplementerClass implements MyClassInterface {
 // can be exported from a program file to be
 // imported by other programs.
 export class MyClass {}
-export const myConstant {}
+export const myConstant = 0.3;
 export func MyFunc() {}

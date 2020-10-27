@@ -20,7 +20,7 @@ import 'stdlib'
 // zip(), range()
 
 // ***** Classes
-// Integer(), String(), Float(), Complex(), Error(), Vector()
+// Integer, String, Float, Complex, Error, Vector
 
 // ***** Math Namespace
 // The Math namespace is a collection of

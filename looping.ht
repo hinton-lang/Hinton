@@ -24,11 +24,6 @@ for (let member: String in groupMembers) {
     print(member)
 }
 
-// With index position
-for (let member: String, index in groupMembers) {
-    print("#${index.toString()}: ${member}")
-}
-
 // For-In loops also work on dictionaries
 let someDict = {
     name: "Ivon",
@@ -56,14 +51,6 @@ while (m < 20) {
     if (m % 2 == 0) print(m.toString() + " is an even number")
     m++;
 }
-
-
-// ***** Reap-While loops (do-while loops)
-m = 0;
-repeat {
-    if (m % 2 == 0) print(m.toString() + " is an even number")
-    m++;
-} while (m < 20);
 
 
 // ***** Comprehensive Lists
@@ -119,7 +106,7 @@ while (true) {
 // of the loop inmediatelly, and proceeds to the next
 // iteration of the loop.
 
-for (let i = 0; i < groupMembers.length(); i++) {
+for (let i in range(groupMembers.length() - 1)) {
     let member = groupMembers[i];
 
     // Skips the iteration of the loop if
@@ -128,3 +115,38 @@ for (let i = 0; i < groupMembers.length(); i++) {
 
     print("Group Member #" + i.toString() + ": " + member)
 }
+
+
+// ***** Generic Loops
+// Generic loops work the same way the "loop"
+// statemet works in Rust.
+
+loop {
+    print("Hello World") // This will print forever.
+}
+
+let loopVar = 0;
+loop {
+
+    print("Hello World");
+
+    if (loopVar == 10) {
+        break; // The loop will break when loopVar equals 10
+    } else {
+        loopVar ++;
+    }
+}
+
+
+let someLoopVar = 0;
+let myLoopValue = loop {
+    if (someLoopVar == 20) {
+        // Inside a generic loop, we can break the
+        // loop and return a value.
+        break "The loop has ended";
+    } else {
+        someLoopVar ++;
+    }
+}
+
+print(myLoopValue) // "The loop has ended"
