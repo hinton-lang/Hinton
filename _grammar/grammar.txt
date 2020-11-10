@@ -1,8 +1,8 @@
 // Each of these rules have a corresponding method in the Parser class.
 
 -> program: (statement_list)* // A program is any single file
--> statement_list: statement | statement SEMI statement_list
--> statement: compound_statement | declarations | reDeclaration | statement_list | empty | PASS
+-> statement_list: statement | compound_statement | statement SEMI statement_list
+-> statement: declarations | reDeclaration
 -> compound_statement: LCURLY statement_list RCURLY
 
 // Declarations can be: variable, constant, function, enum, struct, or class declarations

@@ -8,10 +8,10 @@ public enum BuiltInTypes {
     BOOLEAN("Bool"),
 
     // Other Types
-    ANY("any"),
-    NULL("null"),
+    ANY("Any"),
+    NULL("Null"),
     FUNC("Function"),
-    VOID("VOID");
+    VOID("Void");
 
     private BuiltInTypes(String t) { }
 }

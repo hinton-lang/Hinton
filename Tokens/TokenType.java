@@ -34,29 +34,20 @@ public enum TokenType {
     IF_KEYWORD,
     ELIF_KEYWORD,
     ELSE_KEYWORD,
-
     CUSTOM_IDENTIFIER,
 
     // Types
     INTEGER_TYPE,
-    NINTEGER_TYPE,
     REAL_TYPE,
-    NREAL_TYPE,
     STRING_TYPE,
-    NSTRING_TYPE,
     CHARACTER_TYPE,
-    NCHARACTER_TYPE,
     BOOLEAN_TYPE,
-    NBOOLEAN_TYPE,
     DICTIONARY_TYPE,
-    NDICTIONARY_TYPE,
     SET_TYPE,
-    NSET_TYPE,
     FUNCTION_TYPE,
-    NFUNCTION_TYPE,
     VOID_TYPE,
     ANY_TYPE,
-    NONE_TYPE,
+    NULL_TYPE,
 
     // Separators and Delimiters
     OPEN_PARENTHESIS,
@@ -71,12 +62,13 @@ public enum TokenType {
     DOT_SEPARATOR,
 
     // Value Literals
-    NONE_LITERAL,
+    NULL_LITERAL,
     BOOLEAN_LITERAL_TRUE,
     BOOLEAN_LITERAL_FALSE,
     STRING_LITERAL,
     INTEGER_LITERAL,
     REAL_LITERAL,
+    CHAR_LITERAL,
 
     // Others
     BAD_CHARACTER,
@@ -84,6 +76,5 @@ public enum TokenType {
     INLINE_COMMENT,
     BLOCK_COMMENT,
     WHITESPACE,
-    PASS_STATEMENT,
     END_OF_FILE
 }

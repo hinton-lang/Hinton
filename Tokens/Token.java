@@ -32,64 +32,61 @@ public class Token {
 
 
     /** Maps the keyword's names to their corresponding token types. */
-    public static HashMap<String, TokenType> Keywords = new HashMap<>() {{
+    public static HashMap<String, TokenType> Keywords = new HashMap<>();
+    
+    /**
+     * Static Constructor
+     */
+    static {
         // Control Flow
-        // "while", "for", "in", "break", "continue", "repeat", "until"
+        // "while", "for", "loop" "in", "break", "continue",
 
         // // Logic flow and operators
         // "not", "equals", "is",
-        put("if", TokenType.IF_KEYWORD);
-        put("elif", TokenType.ELIF_KEYWORD);
-        put("else", TokenType.ELSE_KEYWORD);
-        put("and", TokenType.LOGICAL_AND);
-        put("or", TokenType.LOGICAL_OR);
-        put("not", TokenType.LOGICAL_NOT);
-        put("equals", TokenType.LOGICAL_EQUALS);
-        put("is", TokenType.LOGICAL_IS);
-        put("mod", TokenType.ARITHMETIC_MODULUS);
+        Keywords.put("if", TokenType.IF_KEYWORD);
+        Keywords.put("elif", TokenType.ELIF_KEYWORD);
+        Keywords.put("else", TokenType.ELSE_KEYWORD);
+        Keywords.put("and", TokenType.LOGICAL_AND);
+        Keywords.put("or", TokenType.LOGICAL_OR);
+        Keywords.put("not", TokenType.LOGICAL_NOT);
+        Keywords.put("equals", TokenType.LOGICAL_EQUALS);
+        Keywords.put("is", TokenType.LOGICAL_IS);
+        Keywords.put("mod", TokenType.ARITHMETIC_MODULUS);
 
         // // Module and OOP (no 'protected' keyword)
         // "import", "export", "new", "class", "readonly", "public",
         // "private", "self", "instanceof", "abstract", "implements",
         // "extends", "init", "static",
+        
 
         // Static Types
-        put("Int", TokenType.INTEGER_TYPE);
-        put("NInt", TokenType.NINTEGER_TYPE);
-        put("Real", TokenType.REAL_TYPE);
-        put("NReal", TokenType.NREAL_TYPE);
-        put("Char", TokenType.CHARACTER_TYPE);
-        put("NChar", TokenType.CHARACTER_TYPE);
-        put("String", TokenType.STRING_TYPE);
-        put("NString", TokenType.NSTRING_TYPE);
-        put("Bool", TokenType.BOOLEAN_TYPE);
-        put("NBool", TokenType.NBOOLEAN_TYPE);
-        put("Dict", TokenType.DICTIONARY_TYPE);
-        put("NDict", TokenType.NDICTIONARY_TYPE);
-        put("Set", TokenType.SET_TYPE);
-        put("NSet", TokenType.NSET_TYPE);
-        put("Function", TokenType.FUNCTION_TYPE);
-        put("NFunction", TokenType.NFUNCTION_TYPE);
-        put("void", TokenType.VOID_TYPE);
-        put("any", TokenType.ANY_TYPE);
-        put("None", TokenType.NONE_TYPE);
+        Keywords.put("Int", TokenType.INTEGER_TYPE);
+        Keywords.put("Real", TokenType.REAL_TYPE);
+        Keywords.put("Char", TokenType.CHARACTER_TYPE);
+        Keywords.put("String", TokenType.STRING_TYPE);
+        Keywords.put("Bool", TokenType.BOOLEAN_TYPE);
+        Keywords.put("Dict", TokenType.DICTIONARY_TYPE);
+        Keywords.put("Set", TokenType.SET_TYPE);
+        Keywords.put("Function", TokenType.FUNCTION_TYPE);
+        Keywords.put("Void", TokenType.VOID_TYPE);
+        Keywords.put("Any", TokenType.ANY_TYPE);
+        Keywords.put("Null", TokenType.NULL_TYPE);
 
         // Keyword Literals
-        put("true", TokenType.BOOLEAN_LITERAL_TRUE);
-        put("false", TokenType.BOOLEAN_LITERAL_FALSE);
-        put("none", TokenType.NONE_LITERAL);
+        Keywords.put("true", TokenType.BOOLEAN_LITERAL_TRUE);
+        Keywords.put("false", TokenType.BOOLEAN_LITERAL_FALSE);
+        Keywords.put("null", TokenType.NULL_LITERAL);
 
 
         // Other
         // "async", "await", "as"
-        put("pass", TokenType.PASS_STATEMENT);
 
         // Declarations
         // "return", "yield", "enum", "define",
-        put("let", TokenType.LET_KEYWORD);
-        put("const", TokenType.CONST_KEYWORD);
-        put("func", TokenType.FUNC_KEYWORD);
-    }};
+        Keywords.put("let", TokenType.LET_KEYWORD);
+        Keywords.put("const", TokenType.CONST_KEYWORD);
+        Keywords.put("func", TokenType.FUNC_KEYWORD);
+    }
 }
 
 

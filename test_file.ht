@@ -1,1 +1,7 @@
-let m: Char = 3;
+let m: Char = 3; let k = 6
+
+// {
+//     let x = 2;
+// }
+
+// let p = 5;

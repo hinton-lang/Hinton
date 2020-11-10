@@ -80,14 +80,22 @@ public class Parser {
      * Grammar Rule -> statement_list: statement | statement SEMI statement_list
      */
     private ArrayList<AST> statement_list() {
-        ArrayList<AST> results = this.statement();
+        ArrayList<AST> results = new ArrayList<>();
 
         Token token = this.currentToken();
 
-        while (token.type == TokenType.SEMICOLON_SEPARATOR) {
-            this.delete(TokenType.SEMICOLON_SEPARATOR);
+        if (token.type == TokenType.OPEN_CURLY_BRACES) {
+            results.add(this.compound_statement());
+        } else {
             results.addAll(this.statement());
+
             token = this.currentToken();
+
+            while (token.type == TokenType.SEMICOLON_SEPARATOR) {
+                this.delete(TokenType.SEMICOLON_SEPARATOR);
+                results.addAll(this.statement_list());
+                token = this.currentToken();
+            }
         }
 
         return results;
@@ -105,19 +113,18 @@ public class Parser {
         TokenType[] declarationTypes = {
             TokenType.LET_KEYWORD, // declaring a variable
             TokenType.CONST_KEYWORD, // declaring a constant
-            TokenType.FUNC_KEYWORD, // declaring a constant
+            TokenType.FUNC_KEYWORD, // declaring a function
         };
 
         if (Arrays.asList(declarationTypes).contains(token.type)) {
             nodes.addAll(this.declarations());
         } else if (token.type == TokenType.CUSTOM_IDENTIFIER) {
             nodes.addAll(this.reDeclarations());
-        } else if (token.type == TokenType.OPEN_CURLY_BRACES) {
-            nodes.add(this.compound_statement());
-        } else if (token.type == TokenType.PASS_STATEMENT) {
-            this.delete(TokenType.PASS_STATEMENT);
-            nodes.add(this.empty());
-        } else {
+        } 
+        // else if (token.type == TokenType.OPEN_CURLY_BRACES) {
+        //     nodes.add(this.compound_statement());
+        // }
+        else {
             // Standalone expressions allow having expressions without declaring a variable.
             // To allow standalone expressions in the code, uncomment the following line,
             // and comment the line bellow it.
@@ -333,8 +340,8 @@ public class Parser {
         } if (this.currentToken().type == TokenType.VOID_TYPE) {
             this.delete(TokenType.VOID_TYPE);
             return new TypeDef(BuiltInTypes.VOID);
-        } if (this.currentToken().type == TokenType.NONE_TYPE) {
-            this.delete(TokenType.NONE_TYPE);
+        } if (this.currentToken().type == TokenType.NULL_TYPE) {
+            this.delete(TokenType.NULL_TYPE);
             return new TypeDef(BuiltInTypes.NULL);
         } else {
             this.delete(TokenType.ANY_TYPE);
@@ -449,8 +456,8 @@ public class Parser {
                 this.delete(TokenType.CLOSE_PARENTHESIS);
                 node = n;
                 break;
-            case NONE_LITERAL:
-                this.delete(TokenType.NONE_LITERAL);
+            case NULL_LITERAL:
+                this.delete(TokenType.NULL_LITERAL);
                 node = this.empty();
                 break;
             default:
