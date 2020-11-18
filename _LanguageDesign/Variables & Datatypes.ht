@@ -24,6 +24,21 @@ let z, w = ("hello", false) // let z = "hello"; let w = false;
 let m, p = [1, 2, 3] // let m = 1; let p = 2; // 3 does not get assigned to anything
 
 
+// By default, you cannot change the type of
+// a variable once it is declared or a value has
+// been assigned to them. In the case that the
+// variable's type MUST change during execution,
+// the `let-flex` statment allows for flexible
+// variable type.
+// An example would be when a variable is declared
+// with a value, but it may change to one of multiple
+// types later in the code. 
+// In practise this is a bad choise, as it may
+// increase the chances of encountering
+// run-time errors.
+let flex flexible_type = 33;
+flexible_type = "Hello World"; // This is okay
+
 
 // *******************
 // **** Datatypes ****
