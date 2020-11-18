@@ -1,4 +1,4 @@
-# Magic Interpreter 🔮
+# The Hinton Language 🔮
 A simple interpreter witten in Java for a toy language. This is custom interpretation of the series of articles titled ["Let’s Build A Simple Interpreter"](https://ruslanspivak.com/lsbasi-part1/) by Ruslan Spivak in his blog.
  
  At the moment, the Interpreter can accurately identify and label different tokens inside a `.toy` file. Some of the tokens it can identify include, but are not limited to:
@@ -18,3 +18,6 @@ The general idea of an interpreter implementation is as follows:
 2. The contents of the source file are read and inputted into a [Lexer](https://github.com/faustotnc/Interpreter/tree/master/Lexer) that converts the input text into a list of [Tokens](https://github.com/faustotnc/Interpreter/tree/master/Tokens).
 3. The tokens are then fed into a [Parser](https://github.com/faustotnc/Interpreter/tree/master/Parser) which generates an [Abstract Syntax Tree (AST)](https://github.com/faustotnc/Interpreter/tree/master/AbstractSyntaxTree). The AST is a type of abstract data structure that represents the syntactic anatomy of the source code.
 4. Finally, an [Interpreter](https://github.com/faustotnc/Interpreter/tree/master/Interpreter) takes the AST and "visits" each node and leaf of the AST until it has completed executing the source code.
+
+## The Selfish Idea
+Hopefully, at some point during my career as a computer scientist, Hinton will become a full programming language.
