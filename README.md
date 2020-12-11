@@ -1,7 +1,7 @@
 # The Hinton Language 🔮
-A simple interpreter witten in Java for a toy language. This is custom interpretation of the series of articles titled ["Let’s Build A Simple Interpreter"](https://ruslanspivak.com/lsbasi-part1/) by Ruslan Spivak in his blog.
+This is a simple interpreter written in Java for a toy language called Hinton. The code is a custom interpretation of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
  
- At the moment, the Interpreter can accurately identify and label different tokens inside a `.toy` file. Some of the tokens it can identify include, but are not limited to:
+ At the moment, the Interpreter can accurately identify and label different tokens inside a `.ht` file. Some of the tokens it can identify include, but are not limited to:
   - Keywords: `let`, `const`, `func`, `if`, `elif`, `else`, + more.
   - Static Types: `String`, `Int`, `Real`, `void`, `None`, + more.
   - Literals: `"String Sequences"`, `2342`, `3.1242`, `true`, `false`, `none`, + more.

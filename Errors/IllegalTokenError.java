@@ -14,6 +14,6 @@ public class IllegalTokenError extends Error {
      * @param token The current token
      */
 	public IllegalTokenError(Token token) {
-        super("Unexpected Illegal Token '" + token.text + "' on line " + token.linePos + ":" + token.columnPos);
+        super("Unexpected Illegal Token '" + token.lexeme + "' on line " + token.linePos + ":" + token.columnPos);
     }
 }
