@@ -1,148 +1,144 @@
 package org.hinton_lang.Lexer;
 
-import org.hinton_lang.Helper.Regex;
-import org.hinton_lang.Tokens.Token;
-import org.hinton_lang.Tokens.TokenType;
-import org.hinton_lang.Errors.IllegalTokenError;
-
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.util.ArrayList;
 import java.util.Scanner;
-// import java.util.Vector;
 
+// Project-specific
+import org.hinton_lang.Helper.Regex;
+import org.hinton_lang.Tokens.*;
+import static org.hinton_lang.Tokens.TokenType.*;
+import org.hinton_lang.Errors.IllegalTokenError;
 
 /**
- * Lexical Analyzer that takes an input file and converts the contents
- * of the file into a list of tokens based on the rules defined by the Tokenizer.
+ * Lexical Analyzer that takes an input file and converts the contents of the
+ * file into a list of tokens based on the rules defined by the Tokenizer.
  */
 public class Lexer {
-    private final String filePath;
-    //public Vector<String> codeLines = new Vector<>();
-    public int currentLineNum = 1;
-    public int currentCharPos = 0;
-    private int currentLineLength = 0;
-    private String currentLineText = "";
+    private final String sourceCode;
+    public int currLineNum = 1;
+    public int currCharPos = 0;
+    private int currLineLength = 0;
+    private String currLineText = "";
     public ArrayList<Token> TokensList = new ArrayList<>();
 
-
     /**
-     * Lexical Analyzer that takes an input file and converts the contents
-     * of the file into a list of tokens based on the rules defined by the Tokenizer.
-     * @param filePath The path to the file that will be tokenized.
+     * Lexical Analyzer that takes an input file and converts the contents of the
+     * file into a list of tokens based on the rules defined by the Tokenizer.
+     * 
+     * @param source The raw source text.
      */
-    public Lexer(String filePath) { this.filePath = filePath; }
-
+    public Lexer(String source) {
+        this.sourceCode = source;
+    }
 
     /**
      * Generates a list of tokens from the input file.
+     * 
      * @return A ArrayList<Token> that contains the generated tokens.
      */
-    public ArrayList<Token> lex() {
-        try {
-            File testFile = new File(filePath);
-            Scanner reader = new Scanner(testFile);
-            for (currentLineNum = 1; reader.hasNextLine(); currentLineNum++) this.analyzeLine(reader);
-            reader.close();
-        } catch (FileNotFoundException e) {
-            System.out.println("File Not Found!!");
+    public ArrayList<Token> lexTokens() {
+        Scanner reader = new Scanner(sourceCode);
+
+        for (currLineNum = 1; reader.hasNextLine(); currLineNum++) {
+            this.analyzeLine(reader);
         }
 
         return TokensList;
     }
 
-
     private char prevChar() {
-        return currentLineText.toCharArray()[this.currentCharPos - 1];
+        return currLineText.toCharArray()[this.currCharPos - 1];
     }
 
     protected char nextChar() {
-        return currentLineText.toCharArray()[this.currentCharPos + 1];
+        return currLineText.toCharArray()[this.currCharPos + 1];
     }
 
     protected boolean hasNextChar() {
-        return currentCharPos < currentLineText.length();
+        return currCharPos < currLineText.length();
     }
 
     private boolean isIllegalIdentifierChar(char currentChar) {
         return Regex.Match(currentChar, "(@|%|!|&|\\*|\\(|\\)|-|\\+|=|\\{|\\}|\\[|\\]|\\||;|:|<|>|,|\\.|\\/|\\?|`|~)");
     }
 
-
     /**
      * Analyzes each line of the input file
+     * 
      * @param reader The File Scanner's reader.
      */
     private void analyzeLine(Scanner reader) {
         String lineData = reader.nextLine();
-        //codeLines.add(lineData); // Add the line to the code lines.
-        this.currentLineText = lineData;
+        // codeLines.add(lineData); // Add the line to the code lines.
+        this.currLineText = lineData;
         boolean isLastLine = !reader.hasNextLine();
         boolean skippedLine = false;
 
         // **** EMPTY LINES ****
-        if (lineData.equals("") && !isLastLine) return;
+        if (lineData.equals("") && !isLastLine)
+            return;
 
         // **** LINE COMMENTS ****
-        if (lineData.trim().startsWith("//")) skippedLine = true;
+        if (lineData.trim().startsWith("//"))
+            skippedLine = true;
         // **** SINGLE-LINE BLOCK COMMENTS
-        if (lineData.trim().startsWith("/*") && lineData.trim().endsWith("*/")) skippedLine = true;
+        if (lineData.trim().startsWith("/*") && lineData.trim().endsWith("*/"))
+            skippedLine = true;
 
         // Analyze the line if it is not a comment
         if (!skippedLine) {
             // Finds tokens in the current line
-            currentLineLength = lineData.length();
+            currLineLength = lineData.length();
             this.Tokenize(lineData);
         }
 
         // End of file
         if (isLastLine) {
-            Token currentToken = new Token(TokenType.END_OF_FILE, currentLineNum, currentCharPos, "EOF", null);
+            Token currentToken = new Token(END_OF_FILE, currLineNum, currCharPos, "EOF", null);
             this.TokensList.add(currentToken);
         }
     }
 
-
     /**
      * Tokenize the sequences of characters in each line.
+     * 
      * @param lineData The line to tokenize.
-     * @throws IllegalTokenError If the character is not recognized by the tokenizer.
+     * @throws IllegalTokenError If the character is not recognized by the
+     *                           tokenizer.
      */
     private void Tokenize(String lineData) throws IllegalTokenError {
         char[] line = lineData.toCharArray();
 
-        for (this.currentCharPos = 0; this.currentCharPos < line.length; this.currentCharPos++) {
-            char currentChar = line[this.currentCharPos];
+        for (this.currCharPos = 0; this.currCharPos < line.length; this.currCharPos++) {
+            char currentChar = line[this.currCharPos];
 
             // **** Whitespace
-            if (Character.isWhitespace(currentChar)) continue;
+            if (Character.isWhitespace(currentChar))
+                continue;
             // **** Inline Comments
-            if (currentChar == '/' && this.nextChar() == '/') break;
+            if (currentChar == '/' && this.nextChar() == '/')
+                break;
 
-
-            // **** Arithmetic Operators, i.e.,   + - * / ** %
+            // **** Arithmetic Operators, i.e., + - * / ** %
             final String arithmeticOperator = "(\\+|-|\\*|%)";
             if (Regex.Match(currentChar, arithmeticOperator) || (currentChar == '/' && this.nextChar() != '/')) {
                 this.AddArithmeticOperatorToken(currentChar);
                 continue;
             }
 
-
-            // **** Logical Operators, i.e.,   > = < ! & | ~ ^
+            // **** Logical Operators, i.e., > = < ! & | ~ ^
             final String logicalOperator = ">|=|<|!|&|~|\\^|\\|";
             if (Regex.Match(currentChar, logicalOperator)) {
                 LogicalOrBitwiseOperator.add(this, currentChar);
                 continue;
             }
 
-
-            // **** Separators & Paired-Delimiters, i.e.,   ( ) { } ; , [ ] : .
+            // **** Separators & Paired-Delimiters, i.e., ( ) { } ; , [ ] : .
             final String separator = "\\(|\\)|\\{|\\}|;|,|\\[|\\]|:";
             if (Regex.Match(currentChar, separator) || (currentChar == '.' && !Character.isDigit(nextChar()))) {
                 this.AddSeparatorAndPunctuationToken(currentChar);
                 continue;
             }
-
 
             // **** Numeric Literals
             if (Character.isDigit(currentChar) || (currentChar == '.' && Character.isDigit(nextChar()))) {
@@ -150,13 +146,11 @@ public class Lexer {
                 continue;
             }
 
-
             // **** String Literals
             if (currentChar == '"') {
                 this.AddStringLiteralToken(line);
                 continue;
             }
-
 
             // **** Keywords & Identifiers
             if (Character.isAlphabetic(currentChar) || currentChar == '_' || currentChar == '$') {
@@ -164,98 +158,121 @@ public class Lexer {
                 continue;
             }
 
-
             // **** Bad Character
-            Token currentToken = new Token(TokenType.BAD_CHARACTER, currentLineNum, currentCharPos,
-                    Character.toString(currentChar), null);
+            Token currentToken = new Token(BAD_CHARACTER, currLineNum, currCharPos, Character.toString(currentChar),
+                    null);
             throw new IllegalTokenError(currentToken);
         }
     }
 
-
     /**
      * Adds an arithmetic operator to the tokens list.
+     * 
      * @param operator The current character
      */
     private void AddArithmeticOperatorToken(char operator) {
         TokenType tokenType;
 
-        if (operator == '+') { tokenType = TokenType.ARITHMETIC_PLUS; }
-        else if (operator == '-') { tokenType = TokenType.ARITHMETIC_MINUS; }
-        else if (operator == '*' && this.nextChar() != '*') { tokenType = TokenType.ARITHMETIC_MULT; }
-        else if (operator == '*' && this.nextChar() == '*') { tokenType = TokenType.ARITHMETIC_EXPONENT; }
-        else if (operator == '/') { tokenType = TokenType.ARITHMETIC_DIVISION; }
-        else { tokenType = TokenType.ARITHMETIC_MODULUS; }
+        if (operator == '+') {
+            tokenType = PLUS;
+        } else if (operator == '-') {
+            tokenType = MINUS;
+        } else if (operator == '*' && this.nextChar() != '*') {
+            tokenType = MULT;
+        } else if (operator == '*' && this.nextChar() == '*') {
+            tokenType = EXPO;
+        } else if (operator == '/') {
+            tokenType = DIV;
+        } else {
+            tokenType = MOD;
+        }
 
         String tokenChar = (operator == '*' && this.nextChar() == '*') ? "**" : Character.toString(operator);
-        Token currentToken = new Token(tokenType, currentLineNum, this.currentCharPos, tokenChar, null);
-        if (operator == '*' && this.nextChar() == '*') this.currentCharPos++;
+        Token currentToken = new Token(tokenType, currLineNum, this.currCharPos, tokenChar, null);
+        if (operator == '*' && this.nextChar() == '*')
+            this.currCharPos++;
         this.TokensList.add(currentToken);
     }
 
-
-
     /**
      * Adds a separator token or a paired-delimiter to the tokens list
+     * 
      * @param op The current character.
      */
     private void AddSeparatorAndPunctuationToken(char op) {
         TokenType tokenType;
 
         // ( ) { } ; , [ ] : .
-        if (op == '(') { tokenType = TokenType.OPEN_PARENTHESIS; }
-        else if (op == ')') { tokenType = TokenType.CLOSE_PARENTHESIS; }
-        else if (op == '{') { tokenType = TokenType.OPEN_CURLY_BRACES; }
-        else if (op == '}') { tokenType = TokenType.CLOSE_CURLY_BRACES; }
-        else if (op == ';') { tokenType = TokenType.SEMICOLON_SEPARATOR; }
-        else if (op == ',') { tokenType = TokenType.COMMA_SEPARATOR; }
-        else if (op == '[') { tokenType = TokenType.OPEN_SQUARE_BRAKET; }
-        else if (op == ']') { tokenType = TokenType.CLOSE_SQUARE_BRAKET; }
-        else if (op == ':') { tokenType = TokenType.COLON_SEPARATOR; }
-        else if (op == '.' && hasNextChar() && nextChar() == '.') { tokenType = TokenType.RANGE_OPERATOR; }
-        else { tokenType = TokenType.DOT_SEPARATOR; }
+        if (op == '(') {
+            tokenType = L_PARENTHESIS;
+        } else if (op == ')') {
+            tokenType = R_PARENTHESIS;
+        } else if (op == '{') {
+            tokenType = L_CURLY_BRACES;
+        } else if (op == '}') {
+            tokenType = R_CURLY_BRACES;
+        } else if (op == ';') {
+            tokenType = SEMICOLON_SEPARATOR;
+        } else if (op == ',') {
+            tokenType = COMMA_SEPARATOR;
+        } else if (op == '[') {
+            tokenType = L_SQUARE_BRAKET;
+        } else if (op == ']') {
+            tokenType = R_SQUARE_BRAKET;
+        } else if (op == ':') {
+            tokenType = COLON_SEPARATOR;
+        } else if (op == '.' && hasNextChar() && nextChar() == '.') {
+            tokenType = RANGE_OPERATOR;
+        } else {
+            tokenType = DOT_SEPARATOR;
+        }
 
-        String opText = (tokenType == TokenType.RANGE_OPERATOR) ? ".." : Character.toString(op);
-        Token currentToken = new Token(tokenType, this.currentLineNum, this.currentCharPos, opText, null);
+        String opText = (tokenType == RANGE_OPERATOR) ? ".." : Character.toString(op);
+        Token currentToken = new Token(tokenType, this.currLineNum, this.currCharPos, opText, null);
         this.TokensList.add(currentToken);
 
         // Accounts for the fact that the range operator takes two characters
-        if (tokenType == TokenType.RANGE_OPERATOR) currentCharPos++;
+        if (tokenType == RANGE_OPERATOR)
+            currCharPos++;
     }
-
-
 
     /**
      * Adds a numeric literal to the tokens list
+     * 
      * @param charSequence The current character
      */
     private void AddNumericLiteralToken(char[] charSequence) {
-        final int start = this.currentCharPos;
+        final int start = this.currCharPos;
         char currentChar;
         StringBuilder numString = new StringBuilder();
         boolean foundFloat = false;
 
-        while (currentCharPos < currentLineLength) {
-            currentChar = charSequence[this.currentCharPos];
+        while (currCharPos < currLineLength) {
+            currentChar = charSequence[this.currCharPos];
 
-            if (Character.isWhitespace(currentChar)) break;
+            if (Character.isWhitespace(currentChar))
+                break;
             // Support for range operator.
-            if (hasNextChar() && currentChar == '.' && nextChar() == '.') break;
+            if (hasNextChar() && currentChar == '.' && nextChar() == '.')
+                break;
             // Support for real numbers and numbers with underscores.
-            if (!Regex.Match(currentChar, "[0-9]|_|\\.") || (currentChar == '.' && foundFloat)) break;
-            if (currentChar == '.') foundFloat = true;
+            if (!Regex.Match(currentChar, "[0-9]|_|\\.") || (currentChar == '.' && foundFloat))
+                break;
+            if (currentChar == '.')
+                foundFloat = true;
 
             numString.append(currentChar);
-            currentCharPos++;
+            currCharPos++;
         }
 
         // Adjusts the currentCharPos for the Tokenizer's for-loop.
-        currentCharPos--;
+        currCharPos--;
 
         // Removes the underscores.
         StringBuilder noUnderscores = new StringBuilder();
-        for (char digit: numString.toString().toCharArray()) {
-            if (digit == '_') continue;
+        for (char digit : numString.toString().toCharArray()) {
+            if (digit == '_')
+                continue;
             noUnderscores.append(digit);
         }
 
@@ -264,74 +281,74 @@ public class Lexer {
         double doubleVal = Double.parseDouble(noUnderscores.toString());
 
         // The number's representation in the language
-        TokenType numType = (!foundFloat) ? TokenType.INTEGER_LITERAL : TokenType.REAL_LITERAL;
+        TokenType numType = (!foundFloat) ? INTEGER_LITERAL : REAL_LITERAL;
 
         Token currentToken;
         if (!foundFloat) {
-            currentToken = new Token(numType, this.currentLineNum, start, noUnderscores.toString(), (int)doubleVal);
+            currentToken = new Token(numType, this.currLineNum, start, noUnderscores.toString(), (int) doubleVal);
         } else {
-            currentToken = new Token(numType, this.currentLineNum, start, noUnderscores.toString(), doubleVal);
+            currentToken = new Token(numType, this.currLineNum, start, noUnderscores.toString(), doubleVal);
         }
         this.TokensList.add(currentToken);
     }
 
-
-
     /**
      * Adds a string literal to the tokens list.
+     * 
      * @param charSequence The current line
      */
     private void AddStringLiteralToken(char[] charSequence) {
-        final int start = this.currentCharPos;
+        final int start = this.currCharPos;
         char currentChar;
         StringBuilder stringLiteral = new StringBuilder();
 
-        while (currentCharPos < currentLineLength) {
-            currentChar = charSequence[this.currentCharPos];
+        while (currCharPos < currLineLength) {
+            currentChar = charSequence[this.currCharPos];
             stringLiteral.append(currentChar);
 
-            // Breaks the loop when it finds the closing quotes, and the found quotes are not escaped.
-            if ((currentChar == '"' && currentCharPos != start) && this.prevChar() != '\\') break;
+            // Breaks the loop when it finds the closing quotes, and the found quotes are
+            // not escaped.
+            if ((currentChar == '"' && currCharPos != start) && this.prevChar() != '\\')
+                break;
 
-            currentCharPos++;
+            currCharPos++;
         }
 
-        Token currentToken = new Token(TokenType.STRING_LITERAL, this.currentLineNum, start, stringLiteral.toString(),
+        Token currentToken = new Token(STRING_LITERAL, this.currLineNum, start, stringLiteral.toString(),
                 stringLiteral);
         this.TokensList.add(currentToken);
     }
 
-
     /**
-     * Finds keywords or identifiers in the code.
-     * If a word outside quotes is not a keyword, then it
-     * must be an identifier created by the programmer.
+     * Finds keywords or identifiers in the code. If a word outside quotes is not a
+     * keyword, then it must be an identifier created by the programmer.
+     * 
      * @param charSequence The current line
      */
     private void AddKeywordsOrIdentifierTokens(char[] charSequence) {
-        final int start = this.currentCharPos;
+        final int start = this.currCharPos;
         char currentChar;
         StringBuilder keyword = new StringBuilder();
 
+        while (currCharPos < currLineLength) {
+            currentChar = charSequence[this.currCharPos];
 
-        while (currentCharPos < currentLineLength) {
-            currentChar = charSequence[this.currentCharPos];
-
-            if (Character.isWhitespace(currentChar) || isIllegalIdentifierChar(currentChar)) break;
+            if (Character.isWhitespace(currentChar) || isIllegalIdentifierChar(currentChar))
+                break;
             keyword.append(currentChar);
 
-            currentCharPos++;
+            currCharPos++;
         }
 
         // Adjusts the currentCharPos for the Tokenizer's for-loop.
-        currentCharPos--;
+        currCharPos--;
 
         Token currentToken;
         if (Token.Keywords.containsKey(keyword.toString())) {
             TokenType kwType = Token.Keywords.get(keyword.toString());
-            currentToken = new Token(kwType, currentLineNum, start,keyword.toString(), null);
+            currentToken = new Token(kwType, currLineNum, start, keyword.toString(), null);
         } else {
-            currentToken = new Token(TokenType.CUSTOM_IDENTIFIER, currentLineNum, start, keyword.toString(), null);
+            currentToken = new Token(CUSTOM_IDENTIFIER, currLineNum, start, keyword.toString(), null);
         }
         TokensList.add(currentToken);
     }

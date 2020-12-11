@@ -14,6 +14,6 @@ public class UnexpectedTokenError extends Error {
      * @param token The current token
      */
 	public UnexpectedTokenError(Token token) {
-        super("Unexpected Token '" + token.text + "' on line " + token.linePos + ":" + token.columnPos);
+        super("Unexpected Token '" + token.lexeme + "' on line " + token.linePos + ":" + token.columnPos);
     }
 }
