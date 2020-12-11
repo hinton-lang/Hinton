@@ -2,15 +2,14 @@ package org.hinton_lang.Parser;
 
 import java.util.List;
 
+// Project-specific
 import org.hinton_lang.Tokens.*;
 import static org.hinton_lang.Tokens.TokenType.*;
 import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Hinton;
+import org.hinton_lang.Errors.ParseError;
 
 public class Parser {
-    private static class ParseError extends RuntimeException {
-    }
-
     private final List<Token> tokens;
     private int current = 0;
 
@@ -18,6 +17,11 @@ public class Parser {
         this.tokens = tokens;
     }
 
+    /**
+     * Parses the provided list of tokens to generate am Abstract Syntax Tree (AST)
+     * 
+     * @return An AST representation of the source code.
+     */
     public Expr parse() {
         try {
             return expression();
@@ -26,6 +30,13 @@ public class Parser {
         }
     }
 
+    /**
+     * Checks if the current token matches any of the provided tokens.
+     * 
+     * @param types The tokens to be matched against the current token
+     * @return True if the current token matches any of the provided tokens, false
+     *         otherwise.
+     */
     private boolean match(TokenType... types) {
         for (TokenType type : types) {
             if (check(type)) {
@@ -37,6 +48,15 @@ public class Parser {
         return false;
     }
 
+    /**
+     * Consume the current token, making sure that the current token is the token we
+     * expected to consume.
+     * 
+     * @param type    The token we expect to consume
+     * @param message A message displayed in the case that the current token is not
+     *                the type we expected to consume
+     * @return The consumed token
+     */
     private Token consume(TokenType type, String message) {
         if (check(type))
             return advance();
@@ -44,30 +64,64 @@ public class Parser {
         throw error(peek(), message);
     }
 
+    /**
+     * Checks that the current token matches the provided type without consuming the
+     * current token.
+     * 
+     * @param type The type we expect to see
+     * @return True if the current token matches the provided type, false otherwise.
+     */
     private boolean check(TokenType type) {
         if (isAtEnd())
             return false;
         return peek().type == type;
     }
 
+    /**
+     * Advances the token pointer to the next token.
+     * 
+     * @return The previous token (before advancing).
+     */
     private Token advance() {
         if (!isAtEnd())
             current++;
         return previous();
     }
 
+    /**
+     * Checks whether we are currently reading the last token or not.
+     * 
+     * @return True if we are at the last token, false otherwise
+     */
     private boolean isAtEnd() {
         return peek().type == END_OF_FILE;
     }
 
+    /**
+     * Gets the current token from the list without consuming it.
+     * 
+     * @return The current token.
+     */
     private Token peek() {
         return tokens.get(current);
     }
 
+    /**
+     * Gets the previous token from the list without consuming it.
+     * 
+     * @return The previous token.
+     */
     private Token previous() {
         return tokens.get(current - 1);
     }
 
+    /**
+     * Reports a Parse error whe the token found was not expected.
+     * 
+     * @param token   The unexpected token.
+     * @param message The message to display to the user.
+     * @return The error.
+     */
     private ParseError error(Token token, String message) {
         Hinton.error(token, message);
         return new ParseError();
@@ -97,10 +151,20 @@ public class Parser {
         }
     }
 
+    /**
+     * Matches an expression as specified in the grammar.cfg file.
+     * 
+     * @return An expression.
+     */
     private Expr expression() {
         return equality();
     }
 
+    /**
+     * Matches an equality expression as specified in the grammar.cfg file.
+     * 
+     * @return An equality expression.
+     */
     private Expr equality() {
         Expr expr = comparison();
 
@@ -113,6 +177,11 @@ public class Parser {
         return expr;
     }
 
+    /**
+     * Matches a comparison expression as specified in the grammar.cfg file.
+     * 
+     * @return A comparison expression.
+     */
     private Expr comparison() {
         Expr term = term();
 
@@ -125,6 +194,11 @@ public class Parser {
         return term;
     }
 
+    /**
+     * Matches a term expression as specified in the grammar.cfg file.
+     * 
+     * @return A term expression.
+     */
     private Expr term() {
         Expr expr = factor();
 
@@ -137,6 +211,11 @@ public class Parser {
         return expr;
     }
 
+    /**
+     * Matches a factor expression as specified in the grammar.cfg file.
+     * 
+     * @return A factor expression.
+     */
     private Expr factor() {
         Expr expr = expo();
 
@@ -149,6 +228,11 @@ public class Parser {
         return expr;
     }
 
+    /**
+     * Matches a exponentiation expression as specified in the grammar.cfg file.
+     * 
+     * @return A exponentiation expression.
+     */
     private Expr expo() {
         Expr expr = unary();
 
@@ -161,6 +245,11 @@ public class Parser {
         return expr;
     }
 
+    /**
+     * Matches a unary expression as specified in the grammar.cfg file.
+     * 
+     * @return A unary expression.
+     */
     private Expr unary() {
         if (match(LOGICAL_NOT, MINUS, PLUS)) {
             Token operator = previous();
@@ -171,6 +260,12 @@ public class Parser {
         }
     }
 
+    /**
+     * Matches a primary (terminal) expression as specified in the grammar.cfg file.
+     * These serve as a base-case for the recursive nature of the parser.
+     * 
+     * @return A primary (terminal) expression.
+     */
     private Expr primary() {
         if (match(BOOL_LITERAL_FALSE))
             return new Expr.Literal(false);

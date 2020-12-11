@@ -9,10 +9,10 @@ The toy programming language supports the following tokens:
 
 ## Literals
 - Strings: `"This is a string"`
-- Integers: `2345`, `2_3_4_5`
+- Integers: `2345`, `2_3_4_5`, etc...
 - Reals: `.342`, `0.342`, `8.99`, `9.89_54`, etc...
 - Booleans: `true`, `false`
-- Others: `none`
+- Others: `null`
 
 ## Arithmetic Operators
 - Addition: `+`
@@ -43,10 +43,7 @@ The toy programming language supports the following tokens:
 `( )`, `;`, `{ }`, `,`, `[ ]`, `.`, `:`
 
 ## Keywords and Identifiers
-- Declarations: `let`, `const`, `func`
+- Declarations: `let`, `const`, `func`, `class`
 - Static Types: `Int`, `NInt`, `Real`, `NReal`, `String`, `NString`, `Bool`, `NBool`,
 `Dict`, `NDict`, `Set`, `NSet`, `Function`, `NFunction`, `void`, `any`, `None`,
-- Logic Flow: `if`, `elif`, `else`
-
-## Others
-- Skip Statement: `pass`
+- Logic Flow: `if`, `elif`, `else`, `for`, `while`
