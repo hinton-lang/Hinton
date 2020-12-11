@@ -9,7 +9,9 @@ This is a simple interpreter written in Java for a toy language called Hinton. T
   - Logical Operators: `<`, `>`, `==`, `equals`, `!`, `not`, + more.
   - Delimiters & Separators: `()`, `,`, `{}`, `:`, `[]`, `.`, and `;`
   
-The next step for this project is to implement a Parser (currently on the works), which will take the generated tokens and compose an Abstract Syntax Tree that an interpreter can then read.
+It is also able to parse complex grammatical rules as specified inside the `grammar.cfg` file in order to generate an Abstract Syntax Tree: Some of the rule include, but are not limited to:
+  - Expressions following a certain order of precedence.
+  - Terminals that evaluate to a specific value.
    
 ## The General Idea
 The general idea of an interpreter implementation is as follows:
