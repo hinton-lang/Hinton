@@ -82,7 +82,7 @@ public class Hinton {
 
         System.out.println(new ASTPrinter().print(expression));
 
-        // Prints the tokens - Debug only
+        // // Prints the tokens - Debug only
         // for (Token token : tokens) {
         // System.out.println(token);
         // }

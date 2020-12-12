@@ -9,7 +9,9 @@ The current grammar rules:
 ```
 expression      -> equality ;
 equality        -> comparison ( ( "!=" | "==" ) comparison )* ;
-comparison      -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+comparison      -> logic_or ( ( ">" | ">=" | "<" | "<=" ) logic_or )* ;
+logic_or        -> logic_and ("||" logic_and)* ;
+logic_and       -> term ("&&" term)* ;
 term            -> factor ( ( "-" | "+" ) factor )* ;
 factor          -> expo ( ( "/" | "*" | "%" ) expo )* ;
 expo            -> unary ("**" unary)* ;

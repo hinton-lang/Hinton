@@ -183,9 +183,43 @@ public class Parser {
      * @return A comparison expression.
      */
     private Expr comparison() {
-        Expr term = term();
+        Expr term = logicOr();
 
         while (match(LESS_THAN, LESS_THAN_EQ, GREATER_THAN, GREATER_THAN_EQ)) {
+            Token operator = previous();
+            Expr right = logicOr();
+            term = new Expr.Binary(term, operator, right);
+        }
+
+        return term;
+    }
+
+    /**
+     * Matches a logical "OR" expression as specified in the grammar.cfg file.
+     * 
+     * @return A logical "OR" expression
+     */
+    private Expr logicOr() {
+        Expr term = logicAnd();
+
+        while (match(LOGICAL_OR)) {
+            Token operator = previous();
+            Expr right = logicAnd();
+            term = new Expr.Binary(term, operator, right);
+        }
+
+        return term;
+    }
+
+    /**
+     * Matches a logical "AND" expression as specified in the grammar.cfg file.
+     * 
+     * @return A logical "AND" expression
+     */
+    private Expr logicAnd() {
+        Expr term = term();
+
+        while (match(LOGICAL_AND)) {
             Token operator = previous();
             Expr right = term();
             term = new Expr.Binary(term, operator, right);
