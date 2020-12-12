@@ -56,16 +56,18 @@ public class Token {
         Keywords.put("as", TokenType.AS_OPERATOR);
 
         // Module and OOP (no 'protected' keyword)
-        Keywords.put("class", TokenType.CLASS_KEYWORD);
         Keywords.put("import", TokenType.IMPORT_KEYWORD);
+        Keywords.put("from", TokenType.FROM_KEYWORD);
         Keywords.put("export", TokenType.EXPORT_KEYWORD);
         Keywords.put("new", TokenType.NEW_KEYWORD);
         Keywords.put("init", TokenType.INIT_KEYWORD);
-        Keywords.put("readonly", TokenType.READONLY_KEYWORD);
+        Keywords.put("final", TokenType.FINAL_KEYWORD);
         Keywords.put("public", TokenType.PUBLIC_KEYWORD);
         Keywords.put("private", TokenType.PRIVATE_KEYWORD);
         Keywords.put("static", TokenType.STATIC_KEYWORD);
+        Keywords.put("optional", TokenType.OPTIONAL_KEYWORD);
         Keywords.put("abstract", TokenType.ABSTRACT_KEYWORD);
+        Keywords.put("override", TokenType.OVERRIDE_KEYWORD);
         Keywords.put("self", TokenType.SELF_KEYWORD);
         Keywords.put("instanceof", TokenType.INSTANCEOF_KEYWORD);
         Keywords.put("implements", TokenType.IMPLEMENTS_KEYWORD);
@@ -89,17 +91,20 @@ public class Token {
         Keywords.put("false", TokenType.BOOL_LITERAL_FALSE);
         Keywords.put("null", TokenType.NULL_LITERAL);
 
+        // Declarations
+        Keywords.put("let", TokenType.LET_KEYWORD);
+        Keywords.put("flex", TokenType.FLEX_KEYWORD);
+        Keywords.put("const", TokenType.CONST_KEYWORD);
+        Keywords.put("func", TokenType.FUNC_KEYWORD);
+        Keywords.put("class", TokenType.CLASS_KEYWORD);
+        Keywords.put("enum", TokenType.ENUM_KEYWORD);
+        Keywords.put("struct", TokenType.STRUCT_KEYWORD);
+        Keywords.put("interface", TokenType.INTERFACE_KEYWORD);
+
         // Other
         Keywords.put("async", TokenType.ASYNC_KEYWORD);
         Keywords.put("await", TokenType.AWAIT_KEYWORD);
-
-        // Declarations
-        // "define"
-        Keywords.put("let", TokenType.LET_KEYWORD);
-        Keywords.put("const", TokenType.CONST_KEYWORD);
-        Keywords.put("func", TokenType.FUNC_KEYWORD);
         Keywords.put("return", TokenType.RETURN_KEYWORD);
         Keywords.put("yield", TokenType.YIELD_KEYWORD);
-        Keywords.put("enum", TokenType.ENUM_KEYWORD);
     }
 }

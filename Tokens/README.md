@@ -21,6 +21,7 @@ The toy programming language supports the following tokens:
 - Division: `/` (both integer and real)
 - Exponentiation: `**`
 - Remainder: `%`, `mod`
+- Range: `..`
 
 ## Logical Operators
 - Less than: `<`, `<=`
@@ -30,6 +31,7 @@ The toy programming language supports the following tokens:
 - And: `&&`, `and`
 - Or: `||`, `or`
 - Type Checking: `is`
+- Type Casting: `as`
 
 ## Bitwise Operators
 - Right Shift: `>>`
@@ -43,7 +45,9 @@ The toy programming language supports the following tokens:
 `( )`, `;`, `{ }`, `,`, `[ ]`, `.`, `:`
 
 ## Keywords and Identifiers
-- Declarations: `let`, `const`, `func`, `class`
-- Static Types: `Int`, `NInt`, `Real`, `NReal`, `String`, `NString`, `Bool`, `NBool`,
-`Dict`, `NDict`, `Set`, `NSet`, `Function`, `NFunction`, `void`, `any`, `None`,
-- Logic Flow: `if`, `elif`, `else`, `for`, `while`
+- Declarations: `let`, `const`, `func`, `class`, `enum`, `struct`, `interface`
+- Static Types: `Int`, `Real`, `String`, `Bool`, `Dict`, `Set`, `Function`, `Void`, `Any`, `None`
+- Logic Flow: `if`, `elif`, `else`, `for`, `while`, `loop`, `break`, `continue`
+- Modules and OOP: `import`, `export`, `new`, `init`, `final`, `public`, `private`, `static`, `abstract`, `self`, `instanceof`, `implements`,
+`extends`, `override`, `optional`
+- Other: `async`, `await`, `return`, `yield`
