@@ -18,6 +18,8 @@ public class Hinton {
     static boolean hadError = false;
 
     public static void main(String[] args) throws IOException {
+        // runFile("/Users/faustotnc/Documents/GitHub/Hinton-Lang/src/org/hinton_lang/m.ht");
+
         if (args.length > 1) {
             System.out.println("Usage: ht [script]");
             System.exit(64);
@@ -79,6 +81,11 @@ public class Hinton {
             return;
 
         System.out.println(new ASTPrinter().print(expression));
+
+        // Prints the tokens - Debug only
+        // for (Token token : tokens) {
+        // System.out.println(token);
+        // }
     }
 
     /**

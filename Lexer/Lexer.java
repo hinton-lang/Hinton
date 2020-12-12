@@ -20,6 +20,7 @@ public class Lexer {
     private int currLineLength = 0;
     private String currLineText = "";
     public ArrayList<Token> TokensList = new ArrayList<>();
+    private boolean isInsideBlockComment = false;
 
     /**
      * Lexical Analyzer that takes an input file and converts the contents of the
@@ -118,6 +119,19 @@ public class Lexer {
             // **** Inline Comments
             if (currentChar == '/' && this.nextChar() == '/')
                 break;
+            // **** Multiline Block Comments
+            if (currentChar == '/' && nextChar() == '*') {
+                this.currCharPos++; // skip the first comment star
+                this.isInsideBlockComment = true;
+            }
+            if (isInsideBlockComment) {
+                if (currentChar == '*' && nextChar() == '/') {
+                    this.isInsideBlockComment = false;
+                }
+
+                this.currCharPos++;
+                continue;
+            }
 
             // **** Arithmetic Operators, i.e., + - * / ** %
             final String arithmeticOperator = "(\\+|-|\\*|%)";
