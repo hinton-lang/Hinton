@@ -36,12 +36,13 @@ public class Token {
      */
     static {
         // Control Flow
-        // "loop" "in", "break", "continue",
         Keywords.put("for", TokenType.FOR_KEYWORD);
         Keywords.put("while", TokenType.WHILE_KEYWORD);
+        Keywords.put("loop", TokenType.LOOP_KEYWORD);
+        Keywords.put("break", TokenType.BREAK_KEYWORD);
+        Keywords.put("continue", TokenType.CONTINUE_KEYWORD);
 
-        // // Logic flow and operators
-        // "not", "equals", "is",
+        // Logic flow and operators
         Keywords.put("if", TokenType.IF_KEYWORD);
         Keywords.put("elif", TokenType.ELIF_KEYWORD);
         Keywords.put("else", TokenType.ELSE_KEYWORD);
@@ -50,13 +51,25 @@ public class Token {
         Keywords.put("not", TokenType.LOGICAL_NOT);
         Keywords.put("equals", TokenType.LOGICAL_EQ);
         Keywords.put("is", TokenType.LOGICAL_IS);
+        Keywords.put("in", TokenType.IN_OPERATOR);
         Keywords.put("mod", TokenType.MOD);
+        Keywords.put("as", TokenType.AS_OPERATOR);
 
-        // // Module and OOP (no 'protected' keyword)
-        // "import", "export", "new", "class", "readonly", "public",
-        // "private", "self", "instanceof", "abstract", "implements",
-        // "extends", "init", "static",
+        // Module and OOP (no 'protected' keyword)
         Keywords.put("class", TokenType.CLASS_KEYWORD);
+        Keywords.put("import", TokenType.IMPORT_KEYWORD);
+        Keywords.put("export", TokenType.EXPORT_KEYWORD);
+        Keywords.put("new", TokenType.NEW_KEYWORD);
+        Keywords.put("init", TokenType.INIT_KEYWORD);
+        Keywords.put("readonly", TokenType.READONLY_KEYWORD);
+        Keywords.put("public", TokenType.PUBLIC_KEYWORD);
+        Keywords.put("private", TokenType.PRIVATE_KEYWORD);
+        Keywords.put("static", TokenType.STATIC_KEYWORD);
+        Keywords.put("abstract", TokenType.ABSTRACT_KEYWORD);
+        Keywords.put("self", TokenType.SELF_KEYWORD);
+        Keywords.put("instanceof", TokenType.INSTANCEOF_KEYWORD);
+        Keywords.put("implements", TokenType.IMPLEMENTS_KEYWORD);
+        Keywords.put("extends", TokenType.EXTENDS_KEYWORD);
 
         // Static Types
         Keywords.put("Int", TokenType.INTEGER_TYPE);
@@ -77,15 +90,16 @@ public class Token {
         Keywords.put("null", TokenType.NULL_LITERAL);
 
         // Other
-        // "async", "await", "as"
+        Keywords.put("async", TokenType.ASYNC_KEYWORD);
+        Keywords.put("await", TokenType.AWAIT_KEYWORD);
 
         // Declarations
-        // yield", "enum", "define",
+        // "define"
         Keywords.put("let", TokenType.LET_KEYWORD);
         Keywords.put("const", TokenType.CONST_KEYWORD);
         Keywords.put("func", TokenType.FUNC_KEYWORD);
         Keywords.put("return", TokenType.RETURN_KEYWORD);
+        Keywords.put("yield", TokenType.YIELD_KEYWORD);
+        Keywords.put("enum", TokenType.ENUM_KEYWORD);
     }
 }
-
-;
