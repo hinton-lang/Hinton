@@ -328,8 +328,11 @@ public class Lexer {
             currCharPos++;
         }
 
-        Token currentToken = new Token(STRING_LITERAL, this.currLineNum, start, stringLiteral.toString(),
-                stringLiteral);
+        // Removes the opening and closing quotes from the string
+        // So that they can be stored by java as raw strings
+        String rawString = stringLiteral.substring(1, stringLiteral.length() - 1);
+
+        Token currentToken = new Token(STRING_LITERAL, this.currLineNum, start, rawString, rawString);
         this.TokensList.add(currentToken);
     }
 

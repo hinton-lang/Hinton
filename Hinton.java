@@ -13,9 +13,13 @@ import org.hinton_lang.Lexer.Lexer;
 import org.hinton_lang.Tokens.*;
 import org.hinton_lang.Parser.*;
 import org.hinton_lang.Parser.AST.*;
+import org.hinton_lang.Errors.RuntimeError;
+import org.hinton_lang.Interpreter.Interpreter;
 
 public class Hinton {
+    private static final Interpreter interpreter = new Interpreter();
     static boolean hadError = false;
+    static boolean hadRuntimeError = false;
 
     public static void main(String[] args) throws IOException {
         // runFile("/Users/faustotnc/Documents/GitHub/Hinton-Lang/src/org/hinton_lang/m.ht");
@@ -43,6 +47,8 @@ public class Hinton {
         // Indicate an error in the exit code.
         if (hadError)
             System.exit(65);
+        if (hadRuntimeError)
+            System.exit(70);
     }
 
     /**
@@ -74,13 +80,13 @@ public class Hinton {
         List<Token> tokens = lexer.lexTokens();
 
         Parser parser = new Parser(tokens);
-        Expr expression = parser.parse();
+        List<Stmt> statements = parser.parse();
 
         // Stop if there was a syntax error.
         if (hadError)
             return;
 
-        System.out.println(new ASTPrinter().print(expression));
+        interpreter.interpret(statements);
 
         // // Prints the tokens - Debug only
         // for (Token token : tokens) {
@@ -89,7 +95,7 @@ public class Hinton {
     }
 
     /**
-     * Reports an error to the console.
+     * Reports an error to the console
      * 
      * @param line    The line of source code that caused the error.
      * @param where   The position fo the error.
@@ -122,5 +128,10 @@ public class Hinton {
         } else {
             report(token.linePos, " at '" + token.lexeme + "'", message);
         }
+    }
+
+    public static void runtimeError(RuntimeError error) {
+        System.err.println(error.getMessage() + "\n[line " + error.token.linePos + "]");
+        hadRuntimeError = true;
     }
 }
