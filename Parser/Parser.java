@@ -1,5 +1,6 @@
 package org.hinton_lang.Parser;
 
+import java.util.ArrayList;
 import java.util.List;
 
 // Project-specific
@@ -8,6 +9,7 @@ import static org.hinton_lang.Tokens.TokenType.*;
 import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.ParseError;
+import org.hinton_lang.Parser.AST.Stmt;
 
 public class Parser {
     private final List<Token> tokens;
@@ -22,12 +24,13 @@ public class Parser {
      * 
      * @return An AST representation of the source code.
      */
-    public Expr parse() {
-        try {
-            return expression();
-        } catch (ParseError error) {
-            return null;
+    public List<Stmt> parse() {
+        List<Stmt> statements = new ArrayList<>();
+        while (!isAtEnd()) {
+            statements.add(statement());
         }
+
+        return statements;
     }
 
     /**
@@ -145,10 +148,48 @@ public class Parser {
                     // case PRINT:
                 case RETURN_KEYWORD:
                     return;
+                default:
+                    break;
             }
 
             advance();
         }
+    }
+
+    /**
+     * Matches a statement as specified in the grammar.cfg file.
+     * 
+     * @return A statement.
+     */
+    private Stmt statement() {
+        if (match(PRINT_KEYWORD))
+            return printStatement();
+
+        return expressionStatement();
+    }
+
+    /**
+     * Matches a print statement as specified in the grammar.cfg file.
+     * 
+     * @return A print statement.
+     */
+    private Stmt printStatement() {
+        consume(L_PARENTHESIS, "Expected '(' after \"print\" keyword.");
+        Expr value = expression();
+        consume(R_PARENTHESIS, "Expected ')' after expression.");
+        // consume(SEMICOLON_SEPARATOR, "Expected ';'");
+        return new Stmt.Print(value);
+    }
+
+    /**
+     * Matches an expression statement as specified in the grammar.cfg file.
+     * 
+     * @return An expression statement.
+     */
+    private Stmt expressionStatement() {
+        Expr expr = expression();
+        // consume(SEMICOLON_SEPARATOR, "Expect ';' after expression.");
+        return new Stmt.Expression(expr);
     }
 
     /**
