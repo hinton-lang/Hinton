@@ -19,3 +19,7 @@ let a, b, c = 4;
 print(a)
 print(b)
 print(c)
+
+if (null or true) {
+    print(null and true)
+}

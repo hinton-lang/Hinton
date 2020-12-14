@@ -7,10 +7,11 @@ import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Envornment.Environment;
 import org.hinton_lang.Parser.AST.Stmt;
+import org.hinton_lang.Tokens.TokenType;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     // Used to store variables
-    private Environment environment = new Environment();
+    public Environment environment = new Environment();
 
     /**
      * Executes the given list of statements (program).
@@ -54,6 +55,21 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Object visitLiteralExpr(Expr.Literal expr) {
         return expr.value;
+    }
+
+    @Override
+    public Object visitLogicalExpr(Expr.Logical expr) {
+        Object left = evaluate(expr.left);
+
+        if (expr.operator.type == TokenType.LOGICAL_OR) {
+            if (EvalUnaryExpr.isTruthy(left))
+                return left;
+        } else {
+            if (!EvalUnaryExpr.isTruthy(left))
+                return left;
+        }
+
+        return evaluate(expr.right);
     }
 
     /**
@@ -120,6 +136,16 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Void visitExpressionStmt(Stmt.Expression stmt) {
         evaluate(stmt.expression);
+        return null;
+    }
+
+    @Override
+    public Void visitIfStmt(Stmt.If stmt) {
+        if (EvalUnaryExpr.isTruthy(evaluate(stmt.condition))) {
+            execute(stmt.thenBranch);
+        } else if (stmt.elseBranch != null) {
+            execute(stmt.elseBranch);
+        }
         return null;
     }
 

@@ -11,10 +11,12 @@ public class EvalUnaryExpr {
      * @param object The object whose boolean value will be computed.
      * @return The boolean value of the provided object.
      */
-    private static boolean truthiness(Object object) {
+    public static boolean isTruthy(Object object) {
         if (object == null)
             return false;
         if (object instanceof Integer && (int) object == 0)
+            return false;
+        if (object instanceof Double && (int) object == 0.0)
             return false;
         if (object instanceof Boolean)
             return (boolean) object;
@@ -40,7 +42,7 @@ public class EvalUnaryExpr {
      * @return (Boolean) The negation of the provided object.
      */
     public static boolean evalLogicNegation(Object right) {
-        return !truthiness(right);
+        return !isTruthy(right);
     }
 
     /**

@@ -44,7 +44,6 @@ public class Token {
 
         // Logic flow and operators
         Keywords.put("if", TokenType.IF_KEYWORD);
-        Keywords.put("elif", TokenType.ELIF_KEYWORD);
         Keywords.put("else", TokenType.ELSE_KEYWORD);
         Keywords.put("and", TokenType.LOGICAL_AND);
         Keywords.put("or", TokenType.LOGICAL_OR);
