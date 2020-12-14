@@ -27,7 +27,7 @@ public class Parser {
     public List<Stmt> parse() {
         List<Stmt> statements = new ArrayList<>();
         while (!isAtEnd()) {
-            statements.add(declaration());
+            statements.addAll(declaration());
         }
 
         return statements;
@@ -189,17 +189,33 @@ public class Parser {
      * 
      * @return A variable declaration.
      */
-    private Stmt varDeclaration() {
-        Token name = consume(IDENTIFIER, "Expect variable name.");
+    private ArrayList<Stmt> varDeclaration() {
+        ArrayList<Token> declarations = new ArrayList<>();
 
-        Expr initializer = null;
+        // Gets at least one variable name, or a list of
+        // names separated by a comma
+        declarations.add(consume(IDENTIFIER, "Expect variable name."));
+        while (match(COMMA_SEPARATOR)) {
+            declarations.add(consume(IDENTIFIER, "Expect variable name."));
+        }
+
+        // Since the .forEach loop bellow requires the
+        // variables to be final, we use an array of size
+        // one to represent the value of the variable.
+        Expr[] initializer = { null };
         if (match(EQUALS_SIGN)) {
-            initializer = expression();
+            initializer[0] = expression();
         }
 
         consume(SEMICOLON_SEPARATOR, "Expect ';' after variable declaration.");
 
-        return new Stmt.Var(name, initializer);
+        // Assigns the value to the names.
+        ArrayList<Stmt> statements = new ArrayList<>();
+        declarations.forEach((a) -> {
+            statements.add(new Stmt.Var(a, initializer[0]));
+        });
+
+        return statements;
     }
 
     /**
@@ -207,14 +223,29 @@ public class Parser {
      * 
      * @return A variable declaration.
      */
-    private Stmt constDeclaration() {
-        Token name = consume(IDENTIFIER, "Expect constant name.");
+    private ArrayList<Stmt> constDeclaration() {
+        ArrayList<Token> declarations = new ArrayList<>();
 
-        consume(EQUALS_SIGN, "Expect equals sign.");
+        // Gets at least one constant name, or a list of
+        // names separated by a comma
+        declarations.add(consume(IDENTIFIER, "Expect variable name."));
+        while (match(COMMA_SEPARATOR)) {
+            declarations.add(consume(IDENTIFIER, "Expect variable name."));
+        }
+
+        // Gets the value
+        match(EQUALS_SIGN);
         Expr initializer = expression();
+
         consume(SEMICOLON_SEPARATOR, "Expect ';' after variable declaration.");
 
-        return new Stmt.Const(name, initializer);
+        // Assigns the value to the names.
+        ArrayList<Stmt> statements = new ArrayList<>();
+        declarations.forEach((a) -> {
+            statements.add(new Stmt.Var(a, initializer));
+        });
+
+        return statements;
     }
 
     /**
@@ -237,7 +268,7 @@ public class Parser {
         List<Stmt> statements = new ArrayList<>();
 
         while (!check(R_CURLY_BRACES) && !isAtEnd()) {
-            statements.add(declaration());
+            statements.addAll(declaration());
         }
 
         consume(R_CURLY_BRACES, "Expect '}' after block.");
@@ -281,14 +312,16 @@ public class Parser {
      * 
      * @return A declaration expression
      */
-    private Stmt declaration() {
+    private ArrayList<Stmt> declaration() {
         try {
             if (match(LET_KEYWORD))
                 return varDeclaration();
             if (match(CONST_KEYWORD))
                 return constDeclaration();
 
-            return statement();
+            ArrayList<Stmt> statements = new ArrayList<Stmt>();
+            statements.add(statement());
+            return statements;
         } catch (ParseError error) {
             synchronize();
             return null;

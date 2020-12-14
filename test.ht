@@ -12,3 +12,10 @@ const myConstant = "Hello People";
 
 print(x)
 print(myConstant)
+
+
+let a, b, c = 4;
+
+print(a)
+print(b)
+print(c)
