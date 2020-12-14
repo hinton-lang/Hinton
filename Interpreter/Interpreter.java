@@ -50,6 +50,24 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     /**
+     * Computes the boolean value of the provided object.
+     * 
+     * @param object The object whose boolean value will be computed.
+     * @return The boolean value of the provided object.
+     */
+    public static boolean isTruthy(Object object) {
+        if (object == null)
+            return false;
+        if (object instanceof Integer && (int) object == 0)
+            return false;
+        if (object instanceof Double && (int) object == 0.0)
+            return false;
+        if (object instanceof Boolean)
+            return (boolean) object;
+        return true;
+    }
+
+    /**
      * Visits a literal expression.
      */
     @Override
@@ -57,15 +75,18 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return expr.value;
     }
 
+    /**
+     * Visits a logical expression.
+     */
     @Override
     public Object visitLogicalExpr(Expr.Logical expr) {
         Object left = evaluate(expr.left);
 
         if (expr.operator.type == TokenType.LOGICAL_OR) {
-            if (EvalUnaryExpr.isTruthy(left))
+            if (isTruthy(left))
                 return left;
         } else {
-            if (!EvalUnaryExpr.isTruthy(left))
+            if (!isTruthy(left))
                 return left;
         }
 
@@ -139,9 +160,12 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         return null;
     }
 
+    /**
+     * Visits an if statement.
+     */
     @Override
     public Void visitIfStmt(Stmt.If stmt) {
-        if (EvalUnaryExpr.isTruthy(evaluate(stmt.condition))) {
+        if (isTruthy(evaluate(stmt.condition))) {
             execute(stmt.thenBranch);
         } else if (stmt.elseBranch != null) {
             execute(stmt.elseBranch);
@@ -173,6 +197,17 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         }
 
         environment.defineVar(stmt.name.lexeme, value);
+        return null;
+    }
+
+    /**
+     * Visits a while statement.
+     */
+    @Override
+    public Void visitWhileStmt(Stmt.While stmt) {
+        while (isTruthy(evaluate(stmt.condition))) {
+            execute(stmt.body);
+        }
         return null;
     }
 

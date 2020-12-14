@@ -91,6 +91,9 @@ public class Environment {
         throw new RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
     }
 
+    /**
+     * Converts the hashmap into a readable string.
+     */
     public String toString() {
         StringBuilder str = new StringBuilder("{");
 

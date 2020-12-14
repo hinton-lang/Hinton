@@ -1,4 +1,5 @@
 
+// Variable declararion and scopes
 let x = 55;
 let y = 23;
 
@@ -20,6 +21,30 @@ print(a)
 print(b)
 print(c)
 
-if (null or true) {
-    print(null and true)
+
+// Conditionals
+if (null and true) {
+    print("First statement")
+} else if (true) {
+    print("Middle statement")
+} else {
+    print("last statement")
+}
+
+// "While" looping
+print("WHILE-LOOPS")
+let wl = 1;
+print(wl)
+while(wl < 10) wl = wl + 1;
+print(wl)
+
+// "For" looping
+print("FOR-LOOPS")
+let d = 0;
+let temp;
+
+for (let i = 1; d < 10000; i = temp + i) {
+    print(d);
+    temp = d;
+    d = i;
 }
