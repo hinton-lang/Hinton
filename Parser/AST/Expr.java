@@ -1,21 +1,37 @@
 package org.hinton_lang.Parser.AST;
 
-// Project-specific
+import java.util.List;
 import org.hinton_lang.Tokens.Token;
 
 public abstract class Expr {
 
     public interface Visitor<R> {
+        public R visitAssignExpr(Assign expr);
         public R visitBinaryExpr(Binary expr);
-
         public R visitGroupingExpr(Grouping expr);
-
         public R visitLiteralExpr(Literal expr);
-
         public R visitUnaryExpr(Unary expr);
+        public R visitVariableExpr(Variable expr);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
+
+
+    public static class Assign extends Expr {
+        public final Token name;
+        public final Expr value;
+
+        public Assign(Token name, Expr value) {
+            this.name = name;
+            this.value = value;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitAssignExpr(this);
+        }
+    }
+
 
     public static class Binary extends Expr {
         public final Expr left;
@@ -34,6 +50,7 @@ public abstract class Expr {
         }
     }
 
+
     public static class Grouping extends Expr {
         public final Expr expression;
 
@@ -46,6 +63,7 @@ public abstract class Expr {
             return visitor.visitGroupingExpr(this);
         }
     }
+
 
     public static class Literal extends Expr {
         public final Object value;
@@ -60,6 +78,7 @@ public abstract class Expr {
         }
     }
 
+
     public static class Unary extends Expr {
         public final Token operator;
         public final Expr right;
@@ -72,6 +91,20 @@ public abstract class Expr {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitUnaryExpr(this);
+        }
+    }
+
+
+    public static class Variable extends Expr {
+        public final Token name;
+
+        public Variable(Token name) {
+            this.name = name;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitVariableExpr(this);
         }
     }
 }

@@ -13,8 +13,8 @@ public class EvalBinaryExpr {
      * @param right    The right operand.
      */
     private static void checkNumberOperands(Token operator, Object left, Object right) {
-        if ((left instanceof Boolean || left instanceof Double || left instanceof Integer)
-                && (right instanceof Boolean || right instanceof Double || right instanceof Integer))
+        if ((left instanceof Double || left instanceof Integer)
+                && (right instanceof Double || right instanceof Integer))
             return;
 
         throw new RuntimeError(operator, "Operands must be numbers.");
@@ -43,26 +43,6 @@ public class EvalBinaryExpr {
      * @param right The right operand.
      */
     public static Object evalAddition(Token opr, Object left, Object right) {
-        // Converts boolean operands to strings when one operand is
-        // a boolean and the other operand is a string.
-        if (left instanceof Boolean && right instanceof String) {
-            left = Boolean.toString((Boolean) left);
-        }
-        if (right instanceof Boolean && left instanceof String) {
-            right = Boolean.toString((Boolean) right);
-        }
-
-        // Converts boolean operands to strings when one operand is
-        // a boolean and the other operand is a string.
-        if (left instanceof Boolean
-                && (right instanceof Double || right instanceof Integer || right instanceof Boolean)) {
-            left = (Boolean) left ? 1 : 0;
-        }
-        if (right instanceof Boolean
-                && (left instanceof Double || left instanceof Integer || left instanceof Boolean)) {
-            right = (Boolean) right ? 1 : 0;
-        }
-
         // Addition or reals
         if (left instanceof Double && right instanceof Double) {
             return (double) left + (double) right;
@@ -98,7 +78,7 @@ public class EvalBinaryExpr {
             return (int) left + (String) right;
         }
 
-        throw new RuntimeError(opr, "Operands must be numbers or strings or booleans");
+        throw new RuntimeError(opr, "Operands must be numbers or strings.");
     }
 
     /**
@@ -110,13 +90,6 @@ public class EvalBinaryExpr {
      */
     public static Object evalSubtraction(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
-
-        if (left instanceof Boolean) {
-            left = (Boolean) left ? 1 : 0;
-        }
-        if (right instanceof Boolean) {
-            right = (Boolean) right ? 1 : 0;
-        }
 
         if (left instanceof Double && right instanceof Double) {
             return (double) left - (double) right;
@@ -140,13 +113,6 @@ public class EvalBinaryExpr {
      */
     public static Object evalDivision(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
-
-        if (left instanceof Boolean) {
-            left = (Boolean) left ? 1 : 0;
-        }
-        if (right instanceof Boolean) {
-            right = (Boolean) right ? 1 : 0;
-        }
 
         // Prevents division by zero
         if (right instanceof Integer && (int) right == 0) {
@@ -181,13 +147,6 @@ public class EvalBinaryExpr {
     public static Object evalMultiplication(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof Boolean) {
-            left = (Boolean) left ? 1 : 0;
-        }
-        if (right instanceof Boolean) {
-            right = (Boolean) right ? 1 : 0;
-        }
-
         if (left instanceof String)
             return ((String) left).repeat((int) right);
         if (right instanceof String)
@@ -216,13 +175,6 @@ public class EvalBinaryExpr {
     public static Object evalModulus(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof Boolean) {
-            left = (Boolean) left ? 1 : 0;
-        }
-        if (right instanceof Boolean) {
-            right = (Boolean) right ? 1 : 0;
-        }
-
         if (left instanceof Double && right instanceof Double) {
             return (double) left % (double) right;
         }
@@ -245,13 +197,6 @@ public class EvalBinaryExpr {
      */
     public static Object evalExponent(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
-
-        if (left instanceof Boolean) {
-            left = (Boolean) left ? 1 : 0;
-        }
-        if (right instanceof Boolean) {
-            right = (Boolean) right ? 1 : 0;
-        }
 
         if (left instanceof Double && right instanceof Double) {
             return Math.pow((double) left, (double) right);

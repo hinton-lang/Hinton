@@ -27,7 +27,7 @@ public class Parser {
     public List<Stmt> parse() {
         List<Stmt> statements = new ArrayList<>();
         while (!isAtEnd()) {
-            statements.add(statement());
+            statements.add(declaration());
         }
 
         return statements;
@@ -164,6 +164,8 @@ public class Parser {
     private Stmt statement() {
         if (match(PRINT_KEYWORD))
             return printStatement();
+        if (match(L_CURLY_BRACES))
+            return new Stmt.Block(block());
 
         return expressionStatement();
     }
@@ -177,8 +179,42 @@ public class Parser {
         consume(L_PARENTHESIS, "Expected '(' after \"print\" keyword.");
         Expr value = expression();
         consume(R_PARENTHESIS, "Expected ')' after expression.");
-        // consume(SEMICOLON_SEPARATOR, "Expected ';'");
+        if (check(SEMICOLON_SEPARATOR))
+            consume(SEMICOLON_SEPARATOR, "Expected ';'");
         return new Stmt.Print(value);
+    }
+
+    /**
+     * Matches a variable declaration as specified in the grammar.cfg file.
+     * 
+     * @return A variable declaration.
+     */
+    private Stmt varDeclaration() {
+        Token name = consume(IDENTIFIER, "Expect variable name.");
+
+        Expr initializer = null;
+        if (match(EQUALS_SIGN)) {
+            initializer = expression();
+        }
+
+        consume(SEMICOLON_SEPARATOR, "Expect ';' after variable declaration.");
+
+        return new Stmt.Var(name, initializer);
+    }
+
+    /**
+     * Matches a variable declaration as specified in the grammar.cfg file.
+     * 
+     * @return A variable declaration.
+     */
+    private Stmt constDeclaration() {
+        Token name = consume(IDENTIFIER, "Expect constant name.");
+
+        consume(EQUALS_SIGN, "Expect equals sign.");
+        Expr initializer = expression();
+        consume(SEMICOLON_SEPARATOR, "Expect ';' after variable declaration.");
+
+        return new Stmt.Const(name, initializer);
     }
 
     /**
@@ -188,8 +224,47 @@ public class Parser {
      */
     private Stmt expressionStatement() {
         Expr expr = expression();
-        // consume(SEMICOLON_SEPARATOR, "Expect ';' after expression.");
+        consume(SEMICOLON_SEPARATOR, "Expect ';' after expression.");
         return new Stmt.Expression(expr);
+    }
+
+    /**
+     * Matches a block statement as specified in the grammar.cfg file.
+     * 
+     * @return A block statement.
+     */
+    private List<Stmt> block() {
+        List<Stmt> statements = new ArrayList<>();
+
+        while (!check(R_CURLY_BRACES) && !isAtEnd()) {
+            statements.add(declaration());
+        }
+
+        consume(R_CURLY_BRACES, "Expect '}' after block.");
+        return statements;
+    }
+
+    /**
+     * Matches an assignment statement as specified in the grammar.cfg file.
+     * 
+     * @return An assignment statement.
+     */
+    private Expr assignment() {
+        Expr expr = equality();
+
+        if (match(EQUALS_SIGN)) {
+            Token equals = previous();
+            Expr value = assignment();
+
+            if (expr instanceof Expr.Variable) {
+                Token name = ((Expr.Variable) expr).name;
+                return new Expr.Assign(name, value);
+            }
+
+            error(equals, "Invalid assignment target.");
+        }
+
+        return expr;
     }
 
     /**
@@ -198,7 +273,26 @@ public class Parser {
      * @return An expression.
      */
     private Expr expression() {
-        return equality();
+        return assignment();
+    }
+
+    /**
+     * MAtches a declaration statement as specified in the grammar.cfg file.
+     * 
+     * @return A declaration expression
+     */
+    private Stmt declaration() {
+        try {
+            if (match(LET_KEYWORD))
+                return varDeclaration();
+            if (match(CONST_KEYWORD))
+                return constDeclaration();
+
+            return statement();
+        } catch (ParseError error) {
+            synchronize();
+            return null;
+        }
     }
 
     /**
@@ -351,6 +445,10 @@ public class Parser {
 
         if (match(INTEGER_LITERAL, REAL_LITERAL, STRING_LITERAL)) {
             return new Expr.Literal(previous().literal);
+        }
+
+        if (match(IDENTIFIER)) {
+            return new Expr.Variable(previous());
         }
 
         if (match(L_PARENTHESIS)) {

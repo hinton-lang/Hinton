@@ -365,7 +365,7 @@ public class Lexer {
             TokenType kwType = Token.Keywords.get(keyword.toString());
             currentToken = new Token(kwType, currLineNum, start, keyword.toString(), null);
         } else {
-            currentToken = new Token(CUSTOM_IDENTIFIER, currLineNum, start, keyword.toString(), null);
+            currentToken = new Token(IDENTIFIER, currLineNum, start, keyword.toString(), null);
         }
         TokensList.add(currentToken);
     }

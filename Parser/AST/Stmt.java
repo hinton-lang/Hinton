@@ -6,12 +6,31 @@ import org.hinton_lang.Tokens.Token;
 public abstract class Stmt {
 
     public interface Visitor<R> {
+        public R visitBlockStmt(Block stmt);
+
         public R visitExpressionStmt(Expression stmt);
+
         public R visitPrintStmt(Print stmt);
+
+        public R visitVarStmt(Var stmt);
+
+        public R visitConstStmt(Const stmt);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
 
+    public static class Block extends Stmt {
+        public final List<Stmt> statements;
+
+        public Block(List<Stmt> statements) {
+            this.statements = statements;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitBlockStmt(this);
+        }
+    }
 
     public static class Expression extends Stmt {
         public final Expr expression;
@@ -26,7 +45,6 @@ public abstract class Stmt {
         }
     }
 
-
     public static class Print extends Stmt {
         public final Expr expression;
 
@@ -37,6 +55,36 @@ public abstract class Stmt {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitPrintStmt(this);
+        }
+    }
+
+    public static class Var extends Stmt {
+        public final Token name;
+        public final Expr initializer;
+
+        public Var(Token name, Expr initializer) {
+            this.name = name;
+            this.initializer = initializer;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitVarStmt(this);
+        }
+    }
+
+    public static class Const extends Stmt {
+        public final Token name;
+        public final Expr initializer;
+
+        public Const(Token name, Expr initializer) {
+            this.name = name;
+            this.initializer = initializer;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitConstStmt(this);
         }
     }
 }
