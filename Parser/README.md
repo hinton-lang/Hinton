@@ -7,7 +7,28 @@
 
 The current grammar rules:
 ```
-expression      -> equality ;
+program         -> declaration* EOF ;
+
+declaration     -> varDecl
+                | constDecl
+                | statement ;
+
+varDecl         -> "let" IDENTIFIER ( "=" expression )? ";" ;
+constDecl       -> "const" IDENTIFIER "=" expression ";" ;
+
+statement       -> exprStmt
+                | printStmt
+                | block ;
+
+block           -> "{" declaration* "}" ;
+
+exprStmt        -> expression ";" ;
+printStmt       -> "print" "(" expression ")" ";"? ;
+
+
+expression      -> assignment ;
+assignment      -> IDENTIFIER "=" assignment
+                | equality ;
 equality        -> comparison ( ( "!=" | "==" ) comparison )* ;
 comparison      -> logic_or ( ( ">" | ">=" | "<" | "<=" ) logic_or )* ;
 logic_or        -> logic_and ("||" logic_and)* ;
@@ -17,6 +38,8 @@ factor          -> expo ( ( "/" | "*" | "%" ) expo )* ;
 expo            -> unary ("**" unary)* ;
 unary           -> ( "!" | "-" | "+" ) unary | primary ;
 
-primary         -> INTEGER | REAL | STRING | "true" | "false" | "null"
+primary         -> INTEGER | REAL | STRING
+                | "true" | "false" | "null"
                 | "(" expression ")" ;
+                | IDENTIFIER ;
 ```
