@@ -2,7 +2,7 @@
 This is a simple interpreter written in Java for a toy language called Hinton. The code is a custom interpretation of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
  
  At the moment, the Interpreter can accurately identify and label different tokens inside a `.ht` file. Some of the tokens it can identify include, but are not limited to:
-  - Keywords: `let`, `const`, `func`, `if`, `elif`, `else`, + more.
+  - Keywords: `let`, `const`, `func`, `if`, `else`, + more.
   - Static Types: `String`, `Int`, `Real`, `void`, `None`, + more.
   - Literals: `"String Sequences"`, `2342`, `3.1242`, `true`, `false`, `none`, + more.
   - Arithmetic Operators: `+`, `-`, `*`, `/`, `**`, `%`, and `mod`.
@@ -13,6 +13,9 @@ It is able to parse complex grammatical rules as specified inside the `grammar.c
   - Expressions following a certain order of precedence.
   - Terminals that evaluate to a specific value.
   - Print statements
+  - Variable and Constant declarations
+  - Conditional statements
+  - Looping statements
 
 It is also able to execute those expressions and statements.
    

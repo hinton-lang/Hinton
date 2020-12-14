@@ -87,6 +87,7 @@ public class Hinton {
             return;
 
         interpreter.interpret(statements);
+        System.out.println(interpreter.environment);
 
         // // Prints the tokens - Debug only
         // for (Token token : tokens) {

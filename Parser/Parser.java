@@ -166,8 +166,24 @@ public class Parser {
             return printStatement();
         if (match(L_CURLY_BRACES))
             return new Stmt.Block(block());
+        if (match(IF_KEYWORD))
+            return ifStatement();
 
         return expressionStatement();
+    }
+
+    private Stmt ifStatement() {
+        consume(L_PARENTHESIS, "Expect '(' after 'if'.");
+        Expr condition = expression();
+        consume(R_PARENTHESIS, "Expect ')' after if condition.");
+
+        Stmt thenBranch = statement();
+        Stmt elseBranch = null;
+        if (match(ELSE_KEYWORD)) {
+            elseBranch = statement();
+        }
+
+        return new Stmt.If(condition, thenBranch, elseBranch);
     }
 
     /**
@@ -202,18 +218,21 @@ public class Parser {
         // Since the .forEach loop bellow requires the
         // variables to be final, we use an array of size
         // one to represent the value of the variable.
-        Expr[] initializer = { null };
+        Expr initializer = null;
         if (match(EQUALS_SIGN)) {
-            initializer[0] = expression();
+            initializer = expression();
         }
 
+        // Requires a semicolon at the end of the declaration
         consume(SEMICOLON_SEPARATOR, "Expect ';' after variable declaration.");
 
-        // Assigns the value to the names.
+        // Holds the declaration statements
         ArrayList<Stmt> statements = new ArrayList<>();
-        declarations.forEach((a) -> {
-            statements.add(new Stmt.Var(a, initializer[0]));
-        });
+
+        // Assigns the value to the names.
+        for (Token name : declarations) {
+            statements.add(new Stmt.Var(name, initializer));
+        }
 
         return statements;
     }
@@ -228,22 +247,25 @@ public class Parser {
 
         // Gets at least one constant name, or a list of
         // names separated by a comma
-        declarations.add(consume(IDENTIFIER, "Expect variable name."));
+        declarations.add(consume(IDENTIFIER, "Expect constant name."));
         while (match(COMMA_SEPARATOR)) {
-            declarations.add(consume(IDENTIFIER, "Expect variable name."));
+            declarations.add(consume(IDENTIFIER, "Expect constant name."));
         }
 
         // Gets the value
         match(EQUALS_SIGN);
         Expr initializer = expression();
 
-        consume(SEMICOLON_SEPARATOR, "Expect ';' after variable declaration.");
+        // Requires a semicolon at the end of the declaration
+        consume(SEMICOLON_SEPARATOR, "Expect ';' after constant declaration.");
+
+        // Holds the declaration statements
+        ArrayList<Stmt> statements = new ArrayList<>();
 
         // Assigns the value to the names.
-        ArrayList<Stmt> statements = new ArrayList<>();
-        declarations.forEach((a) -> {
-            statements.add(new Stmt.Var(a, initializer));
-        });
+        for (Token name : declarations) {
+            statements.add(new Stmt.Var(name, initializer));
+        }
 
         return statements;
     }
@@ -281,7 +303,7 @@ public class Parser {
      * @return An assignment statement.
      */
     private Expr assignment() {
-        Expr expr = equality();
+        Expr expr = logicOr();
 
         if (match(EQUALS_SIGN)) {
             Token equals = previous();
@@ -351,11 +373,11 @@ public class Parser {
      * @return A comparison expression.
      */
     private Expr comparison() {
-        Expr term = logicOr();
+        Expr term = term();
 
         while (match(LESS_THAN, LESS_THAN_EQ, GREATER_THAN, GREATER_THAN_EQ)) {
             Token operator = previous();
-            Expr right = logicOr();
+            Expr right = term();
             term = new Expr.Binary(term, operator, right);
         }
 
@@ -373,7 +395,7 @@ public class Parser {
         while (match(LOGICAL_OR)) {
             Token operator = previous();
             Expr right = logicAnd();
-            term = new Expr.Binary(term, operator, right);
+            term = new Expr.Logical(term, operator, right);
         }
 
         return term;
@@ -385,12 +407,12 @@ public class Parser {
      * @return A logical "AND" expression
      */
     private Expr logicAnd() {
-        Expr term = term();
+        Expr term = equality();
 
         while (match(LOGICAL_AND)) {
             Token operator = previous();
-            Expr right = term();
-            term = new Expr.Binary(term, operator, right);
+            Expr right = equality();
+            term = new Expr.Logical(term, operator, right);
         }
 
         return term;

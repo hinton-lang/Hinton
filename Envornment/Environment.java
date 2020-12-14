@@ -90,4 +90,16 @@ public class Environment {
 
         throw new RuntimeError(name, "Undefined variable '" + name.lexeme + "'.");
     }
+
+    public String toString() {
+        StringBuilder str = new StringBuilder("{");
+
+        values.forEach((n, v) -> {
+            str.append(n + "=" + v.getValue().toString() + ",");
+        });
+
+        str.append("}");
+
+        return str.toString();
+    }
 }
