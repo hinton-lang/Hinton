@@ -1,5 +1,6 @@
 package org.hinton_lang.Parser;
 
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -168,10 +169,80 @@ public class Parser {
             return new Stmt.Block(block());
         if (match(IF_KEYWORD))
             return ifStatement();
+        if (match(WHILE_KEYWORD))
+            return whileStatement();
+        if (match(FOR_KEYWORD))
+            return forStatement();
 
         return expressionStatement();
     }
 
+    /**
+     * Matches a for-statement as specified in the grammar.cfg file.
+     * 
+     * @return A for-statement.
+     */
+    private Stmt forStatement() {
+        consume(L_PARENTHESIS, "Expect '(' after 'for'.");
+
+        // Gets the loop's initializer
+        Stmt initializer;
+        if (match(SEMICOLON_SEPARATOR)) {
+            initializer = null;
+        } else if (match(LET_KEYWORD)) {
+            // In for-statements, we only accept single-variable
+            // declarations. TODO: Fix this to throw an error when
+            // the programmer tries to place a multi-variable
+            // declaration in the for-loop's initializer.
+            initializer = varDeclaration().get(0);
+        } else {
+            initializer = expressionStatement();
+        }
+
+        // Gets the condition for the loop
+        Expr condition = null;
+        if (!check(SEMICOLON_SEPARATOR)) {
+            condition = expression();
+        }
+        consume(SEMICOLON_SEPARATOR, "Expect ';' after loop condition.");
+
+        // Gets the increment statement for the loop
+        Expr increment = null;
+        if (!check(R_PARENTHESIS)) {
+            increment = expression();
+        }
+        consume(R_PARENTHESIS, "Expect ')' after for clauses.");
+
+        // Gets the loops body
+        Stmt body = statement();
+
+        // **** The following code converts the for-loop into a while-loop. ****
+
+        // Adds the increment to the end of the loop's body
+        if (increment != null) {
+            body = new Stmt.Block(Arrays.asList(body, new Stmt.Expression(increment)));
+        }
+
+        // Creates a while loop with the condition and the body
+        if (condition == null)
+            condition = new Expr.Literal(true);
+        body = new Stmt.While(condition, body);
+
+        // Creates a block with the initializer, followed by the while loop
+        if (initializer != null) {
+            body = new Stmt.Block(Arrays.asList(initializer, body));
+        }
+
+        // Returns a while-loop version of the for-loop.
+        // This is know an "syntactic sugar" in CS.
+        return body;
+    }
+
+    /**
+     * Matches an if-statement as specified in the grammar.cfg file.
+     * 
+     * @return An if-statement.
+     */
     private Stmt ifStatement() {
         consume(L_PARENTHESIS, "Expect '(' after 'if'.");
         Expr condition = expression();
@@ -184,6 +255,20 @@ public class Parser {
         }
 
         return new Stmt.If(condition, thenBranch, elseBranch);
+    }
+
+    /**
+     * Matches a while-statement as specified in the grammar.cfg file.
+     * 
+     * @return An while-statement.
+     */
+    private Stmt whileStatement() {
+        consume(L_PARENTHESIS, "Expect '(' after 'while'.");
+        Expr condition = expression();
+        consume(R_PARENTHESIS, "Expect ')' after condition.");
+        Stmt body = statement();
+
+        return new Stmt.While(condition, body);
     }
 
     /**

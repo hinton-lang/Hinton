@@ -6,24 +6,6 @@ import org.hinton_lang.Tokens.Token;
 public class EvalUnaryExpr {
 
     /**
-     * Computes the boolean value of the provided object.
-     * 
-     * @param object The object whose boolean value will be computed.
-     * @return The boolean value of the provided object.
-     */
-    public static boolean isTruthy(Object object) {
-        if (object == null)
-            return false;
-        if (object instanceof Integer && (int) object == 0)
-            return false;
-        if (object instanceof Double && (int) object == 0.0)
-            return false;
-        if (object instanceof Boolean)
-            return (boolean) object;
-        return true;
-    }
-
-    /**
      * Checks whether the provided operand holds a valid numeric value.
      * 
      * @param operator The operator.
@@ -42,7 +24,7 @@ public class EvalUnaryExpr {
      * @return (Boolean) The negation of the provided object.
      */
     public static boolean evalLogicNegation(Object right) {
-        return !isTruthy(right);
+        return !Interpreter.isTruthy(right);
     }
 
     /**
