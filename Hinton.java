@@ -101,8 +101,8 @@ public class Hinton {
      * @param where   The position fo the error.
      * @param message An error message.
      */
-    private static void report(int line, String where, String message) {
-        System.err.println("[line " + line + "] Error" + where + ": " + message);
+    private static void report(int line, int column, String where, String message) {
+        System.err.println("[line " + line + ":" + column + "] Error" + where + ": " + message);
         hadError = true;
     }
 
@@ -112,8 +112,8 @@ public class Hinton {
      * @param line    The line of the error.
      * @param message The error message.
      */
-    static void error(int line, String message) {
-        report(line, "", message);
+    static void error(int line, int column, String message) {
+        report(line, column, "", message);
     }
 
     /**
@@ -124,9 +124,9 @@ public class Hinton {
      */
     public static void error(Token token, String message) {
         if (token.type == TokenType.END_OF_FILE) {
-            report(token.linePos, " at end", message);
+            report(token.linePos, token.columnPos, " at end", message);
         } else {
-            report(token.linePos, " at '" + token.lexeme + "'", message);
+            report(token.linePos, token.columnPos, " at '" + token.lexeme + "'", message);
         }
     }
 

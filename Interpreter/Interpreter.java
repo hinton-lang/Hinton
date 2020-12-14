@@ -5,8 +5,12 @@ import java.util.List;
 import org.hinton_lang.Parser.AST.*;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
+import org.hinton_lang.Envornment.Environment;
+import org.hinton_lang.Parser.AST.Stmt;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
+    // Used to store variables
+    private Environment environment = new Environment();
 
     /**
      * Executes the given list of statements (program).
@@ -80,6 +84,34 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     /**
+     * Visits a block statement.
+     */
+    @Override
+    public Void visitBlockStmt(Stmt.Block stmt) {
+        executeBlock(stmt.statements, new Environment(environment));
+        return null;
+    }
+
+    /**
+     * Executes the contents of a block statement.
+     * 
+     * @param statements  The statements contained within the block.
+     * @param environment The new environment for this block.
+     */
+    private void executeBlock(List<Stmt> statements, Environment environment) {
+        Environment previous = this.environment;
+        try {
+            this.environment = environment;
+
+            for (Stmt statement : statements) {
+                execute(statement);
+            }
+        } finally {
+            this.environment = previous;
+        }
+    }
+
+    /**
      * Visits an expression statement.
      * 
      * @param stmt The statement to visit.
@@ -105,6 +137,41 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     /**
+     * Visits a variable statement.
+     */
+    @Override
+    public Void visitVarStmt(Stmt.Var stmt) {
+        Object value = null;
+        if (stmt.initializer != null) {
+            value = evaluate(stmt.initializer);
+        }
+
+        environment.defineVar(stmt.name.lexeme, value);
+        return null;
+    }
+
+    /**
+     * Visits a constant statement.
+     */
+    @Override
+    public Void visitConstStmt(Stmt.Const stmt) {
+        Object value = evaluate(stmt.initializer);
+
+        environment.defineConst(stmt.name.lexeme, value);
+        return null;
+    }
+
+    /**
+     * Visits an assignment expression.
+     */
+    @Override
+    public Object visitAssignExpr(Expr.Assign expr) {
+        Object value = evaluate(expr.value);
+        environment.assign(expr.name, value);
+        return value;
+    }
+
+    /**
      * Evaluates a unary expression.
      */
     @Override
@@ -122,6 +189,14 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
         // Unreachable.
         return null;
+    }
+
+    /**
+     * Visits a variable expression.
+     */
+    @Override
+    public Object visitVariableExpr(Expr.Variable expr) {
+        return environment.get(expr.name);
     }
 
     /**

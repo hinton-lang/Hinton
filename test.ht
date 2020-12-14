@@ -1,2 +1,14 @@
-print("hello")
-print("how is it going?")
+
+let x = 55;
+let y = 23;
+
+const myConstant = "Hello People";
+
+{
+    print(y)
+    let y = 82;
+    print(y)
+}
+
+print(x)
+print(myConstant)
