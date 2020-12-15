@@ -10,6 +10,8 @@ public abstract class Expr {
 
         public R visitBinaryExpr(Binary expr);
 
+        public R visitLambdaExpr(Lambda expr);
+
         public R visitCallExpr(Call expr);
 
         public R visitGroupingExpr(Grouping expr);
@@ -54,6 +56,21 @@ public abstract class Expr {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitBinaryExpr(this);
+        }
+    }
+
+    public static class Lambda extends Expr {
+        public final List<Token> params;
+        public final List<Stmt> body;
+
+        public Lambda(List<Token> params, List<Stmt> body) {
+            this.params = params;
+            this.body = body;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitLambdaExpr(this);
         }
     }
 

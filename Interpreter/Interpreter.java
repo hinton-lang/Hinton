@@ -162,7 +162,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      * Visits a break statement.
      */
     @Override
-    public Void visitBreakStmt(Stmt.Break stmt) {
+    public Void visitBreakStmt(Stmt.Break stmt) throws Break {
         // We use a throw-statement to trace back all the
         // way to where the loop's body was executed.
         throw new Break();
@@ -172,7 +172,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      * Visits a continue statement.
      */
     @Override
-    public Void visitContinueStmt(Stmt.Continue stmt) {
+    public Void visitContinueStmt(Stmt.Continue stmt) throws Continue {
         // We use a throw-statement to trace back all the
         // way to where the loop's body was executed.
         throw new Continue();
@@ -255,6 +255,14 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         Object value = evaluate(expr.value);
         environment.assign(expr.name, value);
         return value;
+    }
+
+    /**
+     * Visits a lambda function expression.
+     */
+    @Override
+    public Object visitLambdaExpr(Expr.Lambda expr) {
+        return new HintonLambda(expr, environment);
     }
 
     /**

@@ -53,7 +53,7 @@ for (let i = 1; d < 1000; i = temp + i) {
         print("-- " + x)
         x = x + 1;
 
-        if(x == 2) break
+        if(x == 2) break;
     }
 }
 
@@ -85,3 +85,20 @@ while(true) {
     print(":: Finally!");
     break;
 }
+
+
+
+// lambda functions
+func someLambda(fn) {
+    for (let i = 1; i <= 3; i = i + 1) {
+        print(fn(i))
+    }
+}
+
+someLambda(func(a) {
+    for (let x = 1; x < 10; x = x + 1) {
+        a = a * x;
+    }
+
+    return a;
+});
