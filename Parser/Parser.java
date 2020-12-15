@@ -614,17 +614,48 @@ public class Parser {
      * @return A function call expression.
      */
     private Expr call() {
-        Expr expr = primary();
+        if (match(FUNC_KEYWORD)) {
+            return lambda();
+        } else {
+            Expr expr = primary();
 
-        while (true) {
-            if (match(L_PARENTHESIS)) {
-                expr = finishCall(expr);
-            } else {
-                break;
+            while (true) {
+                if (match(L_PARENTHESIS)) {
+                    expr = finishCall(expr);
+                } else {
+                    break;
+                }
             }
+
+            return expr;
         }
 
-        return expr;
+    }
+
+    /**
+     * Matches a lambda expression as specified in the grammar.cfg file.
+     * 
+     * @return A lambda expression.
+     */
+    private Expr lambda() {
+        consume(L_PARENTHESIS, "Expected '(' before parameters.");
+
+        List<Token> parameters = new ArrayList<>();
+        if (!check(R_PARENTHESIS)) {
+            do {
+                if (parameters.size() >= 255) {
+                    error(peek(), "Can't have more than 255 parameters.");
+                }
+
+                parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+            } while (match(COMMA_SEPARATOR));
+        }
+        consume(R_PARENTHESIS, "Expected ')' for after parameters.");
+
+        consume(L_CURLY_BRACES, "Expect '{' before function body.");
+        List<Stmt> body = block();
+
+        return new Expr.Lambda(parameters, body);
     }
 
     /**
