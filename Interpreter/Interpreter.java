@@ -159,6 +159,26 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     /**
+     * Visits a break statement.
+     */
+    @Override
+    public Void visitBreakStmt(Stmt.Break stmt) {
+        // We use a throw-statement to trace back all the
+        // way to where the loop's body was executed.
+        throw new Break();
+    }
+
+    /**
+     * Visits a continue statement.
+     */
+    @Override
+    public Void visitContinueStmt(Stmt.Continue stmt) {
+        // We use a throw-statement to trace back all the
+        // way to where the loop's body was executed.
+        throw new Continue();
+    }
+
+    /**
      * Visits a function declaration.
      */
     @Override
@@ -205,7 +225,13 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Void visitWhileStmt(Stmt.While stmt) {
         while (isTruthy(evaluate(stmt.condition))) {
-            execute(stmt.body);
+            try {
+                execute(stmt.body);
+            } catch (Continue c) {
+                continue;
+            } catch (Break b) {
+                break;
+            }
         }
         return null;
     }
