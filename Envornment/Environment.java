@@ -10,7 +10,7 @@ public class Environment {
     /** Stores the values for this scope */
     private final Map<String, Value> values = new HashMap<>();
     /** Parent scope */
-    final Environment enclosing;
+    private final Environment enclosing;
 
     public Environment() {
         enclosing = null;
@@ -27,7 +27,7 @@ public class Environment {
      * @param value Tha variable's value.
      */
     public void defineVar(String name, Object value) {
-        values.put(name, new Value(value, false));
+        values.put(name, new Value(value, Symbol.VARIABLE));
     }
 
     /**
@@ -37,7 +37,17 @@ public class Environment {
      * @param value The constant's value.
      */
     public void defineConst(String name, Object value) {
-        values.put(name, new Value(value, true));
+        values.put(name, new Value(value, Symbol.CONSTANT));
+    }
+
+    /**
+     * Defines a function in this scope.
+     * 
+     * @param name  The function's name.
+     * @param value The function's body.
+     */
+    public void defineFunc(String name, Object value) {
+        values.put(name, new Value(value, Symbol.FUNCTION));
     }
 
     /**
@@ -48,7 +58,7 @@ public class Environment {
      */
     public void assign(Token name, Object value) {
         if (values.containsKey(name.lexeme)) {
-            if (values.get(name.lexeme).isConst) {
+            if (values.get(name.lexeme).getSignature() == Symbol.CONSTANT) {
                 throw new RuntimeError(name, "Cannot reassign to constant \"" + name.lexeme + "\".");
             } else {
                 values.get(name.lexeme).setValue(value);
@@ -95,13 +105,28 @@ public class Environment {
      * Converts the hashmap into a readable string.
      */
     public String toString() {
-        StringBuilder str = new StringBuilder("{");
+        StringBuilder str = new StringBuilder("====================\n");
+        str.append("ENVIRONMENT\n");
+        str.append("====================\n");
 
-        values.forEach((n, v) -> {
-            str.append(n + "=" + v.getValue().toString() + ",");
-        });
+        int mx = 0;
+        for (String n : values.keySet()) {
+            if (mx < n.length()) {
+                mx = n.length();
+            }
+        }
 
-        str.append("}");
+        for (String name : values.keySet()) {
+            Object value = values.get(name).getValue();
+
+            if (value == null)
+                value = "null";
+
+            int pad = mx - name.length() + 4;
+            str.append(name).append(" ".repeat(pad)).append("= ").append(value.toString()).append("\n");
+        }
+
+        str.append("====================\n");
 
         return str.toString();
     }

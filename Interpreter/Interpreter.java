@@ -1,17 +1,26 @@
 package org.hinton_lang.Interpreter;
 
 import java.util.List;
+import java.util.ArrayList;
 
 import org.hinton_lang.Parser.AST.*;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Envornment.Environment;
 import org.hinton_lang.Parser.AST.Stmt;
+import org.hinton_lang.RuntimeLib.RuntimeLib;
 import org.hinton_lang.Tokens.TokenType;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
+    // Holds global functions and variables native to Hinton.
+    public final Environment globals = new Environment();
     // Used to store variables
-    public Environment environment = new Environment();
+    public Environment environment = globals;
+
+    public Interpreter() {
+        // Attaches the native functions to the global scope
+        RuntimeLib.nativeFunctions.forEach((fn) -> globals.defineFunc(fn.getFuncName(), fn.getFunc()));
+    }
 
     /**
      * Executes the given list of statements (program).
@@ -26,27 +35,6 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         } catch (RuntimeError error) {
             Hinton.runtimeError(error);
         }
-    }
-
-    /**
-     * Converts the given object to a string for printing.
-     * 
-     * @param object The object to tbe converted.
-     * @return The string version of the object.
-     */
-    private String stringify(Object object) {
-        if (object == null)
-            return "null";
-
-        if (object instanceof Double) {
-            String text = object.toString();
-            if (text.endsWith(".0")) {
-                text = text.substring(0, text.length() - 2);
-            }
-            return text;
-        }
-
-        return object.toString();
     }
 
     /**
@@ -135,7 +123,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      * @param statements  The statements contained within the block.
      * @param environment The new environment for this block.
      */
-    private void executeBlock(List<Stmt> statements, Environment environment) {
+    public void executeBlock(List<Stmt> statements, Environment environment) {
         Environment previous = this.environment;
         try {
             this.environment = environment;
@@ -161,6 +149,30 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     /**
+     * Visits a function declaration statement.
+     */
+    @Override
+    public Void visitFunctionStmt(Stmt.Function stmt) {
+        HintonFunction function = new HintonFunction(stmt, environment);
+        environment.defineFunc(stmt.name.lexeme, function);
+        return null;
+    }
+
+    /**
+     * Visits a function declaration.
+     */
+    @Override
+    public Void visitReturnStmt(Stmt.Return stmt) {
+        Object value = null;
+        if (stmt.value != null)
+            value = evaluate(stmt.value);
+
+        // We use a throw-statement to trace back all the
+        // way to where the function's body was executed.
+        throw new Return(value);
+    }
+
+    /**
      * Visits an if statement.
      */
     @Override
@@ -170,19 +182,6 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         } else if (stmt.elseBranch != null) {
             execute(stmt.elseBranch);
         }
-        return null;
-    }
-
-    /**
-     * Visits a print statement.
-     * 
-     * @param stmt The print statement to visit.
-     * @return VOID.
-     */
-    @Override
-    public Void visitPrintStmt(Stmt.Print stmt) {
-        Object value = evaluate(stmt.expression);
-        System.out.println(stringify(value));
         return null;
     }
 
@@ -258,6 +257,32 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Object visitVariableExpr(Expr.Variable expr) {
         return environment.get(expr.name);
+    }
+
+    /**
+     * Visits a function call expression.
+     */
+    @Override
+    public Object visitCallExpr(Expr.Call expr) {
+        Object callee = evaluate(expr.callee);
+
+        List<Object> arguments = new ArrayList<>();
+        for (Expr argument : expr.arguments) {
+            arguments.add(evaluate(argument));
+        }
+
+        if (!(callee instanceof HintonCallable)) {
+            throw new RuntimeError(expr.paren, "Can only call functions and classes.");
+        }
+
+        HintonCallable function = (HintonCallable) callee;
+
+        if (arguments.size() != function.arity()) {
+            throw new RuntimeError(expr.paren,
+                    "Expected " + function.arity() + " arguments but got " + arguments.size() + ".");
+        }
+
+        return function.call(this, arguments);
     }
 
     /**

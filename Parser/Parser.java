@@ -131,40 +131,12 @@ public class Parser {
         return new ParseError();
     }
 
-    private void synchronize() {
-        advance();
-
-        while (!isAtEnd()) {
-            if (previous().type == SEMICOLON_SEPARATOR)
-                return;
-
-            switch (peek().type) {
-                case CLASS_KEYWORD:
-                case FUNC_KEYWORD:
-                case LET_KEYWORD:
-                case CONST_KEYWORD:
-                case FOR_KEYWORD:
-                case WHILE_KEYWORD:
-                case IF_KEYWORD:
-                    // case PRINT:
-                case RETURN_KEYWORD:
-                    return;
-                default:
-                    break;
-            }
-
-            advance();
-        }
-    }
-
     /**
      * Matches a statement as specified in the grammar.cfg file.
      * 
      * @return A statement.
      */
     private Stmt statement() {
-        if (match(PRINT_KEYWORD))
-            return printStatement();
         if (match(L_CURLY_BRACES))
             return new Stmt.Block(block());
         if (match(IF_KEYWORD))
@@ -173,6 +145,8 @@ public class Parser {
             return whileStatement();
         if (match(FOR_KEYWORD))
             return forStatement();
+        if (match(RETURN_KEYWORD))
+            return returnStatement();
 
         return expressionStatement();
     }
@@ -239,6 +213,20 @@ public class Parser {
     }
 
     /**
+     * Matches a return statement as specified in the grammar.cfg file.
+     * 
+     * @return
+     */
+    private Stmt returnStatement() {
+        Token keyword = previous();
+        Expr value = expression();
+
+        if (check(SEMICOLON_SEPARATOR))
+            consume(SEMICOLON_SEPARATOR, "Expect ';' after return value.");
+        return new Stmt.Return(keyword, value);
+    }
+
+    /**
      * Matches an if-statement as specified in the grammar.cfg file.
      * 
      * @return An if-statement.
@@ -269,20 +257,6 @@ public class Parser {
         Stmt body = statement();
 
         return new Stmt.While(condition, body);
-    }
-
-    /**
-     * Matches a print statement as specified in the grammar.cfg file.
-     * 
-     * @return A print statement.
-     */
-    private Stmt printStatement() {
-        consume(L_PARENTHESIS, "Expected '(' after \"print\" keyword.");
-        Expr value = expression();
-        consume(R_PARENTHESIS, "Expected ')' after expression.");
-        if (check(SEMICOLON_SEPARATOR))
-            consume(SEMICOLON_SEPARATOR, "Expected ';'");
-        return new Stmt.Print(value);
     }
 
     /**
@@ -362,7 +336,8 @@ public class Parser {
      */
     private Stmt expressionStatement() {
         Expr expr = expression();
-        consume(SEMICOLON_SEPARATOR, "Expect ';' after expression.");
+        if (check(SEMICOLON_SEPARATOR))
+            consume(SEMICOLON_SEPARATOR, "Expect ';' after expression.");
         return new Stmt.Expression(expr);
     }
 
@@ -421,18 +396,52 @@ public class Parser {
      */
     private ArrayList<Stmt> declaration() {
         try {
-            if (match(LET_KEYWORD))
-                return varDeclaration();
-            if (match(CONST_KEYWORD))
-                return constDeclaration();
-
             ArrayList<Stmt> statements = new ArrayList<Stmt>();
+
+            if (match(LET_KEYWORD)) {
+                return varDeclaration();
+            }
+            if (match(CONST_KEYWORD)) {
+                return constDeclaration();
+            }
+            if (match(FUNC_KEYWORD)) {
+                statements.add(function("function"));
+                return statements;
+            }
+
             statements.add(statement());
             return statements;
         } catch (ParseError error) {
-            synchronize();
             return null;
         }
+    }
+
+    /**
+     * Matches a function statement as specified in the grammar.cfg file.
+     * 
+     * @param kind The type of function we wish to declare. Could be "function" for
+     *             regular functions, or "method" for class methods.
+     * @return A function declaration statement.
+     */
+    private Stmt.Function function(String kind) {
+        Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
+
+        consume(L_PARENTHESIS, "Expect '(' after " + kind + " name.");
+        List<Token> parameters = new ArrayList<>();
+        if (!check(R_PARENTHESIS)) {
+            do {
+                if (parameters.size() >= 255) {
+                    error(peek(), "Can't have more than 255 parameters.");
+                }
+
+                parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+            } while (match(COMMA_SEPARATOR));
+        }
+        consume(R_PARENTHESIS, "Expect ')' after parameters.");
+
+        consume(L_CURLY_BRACES, "Expect '{' before " + kind + " body.");
+        List<Stmt> body = block();
+        return new Stmt.Function(name, parameters, body);
     }
 
     /**
@@ -565,8 +574,50 @@ public class Parser {
             Expr right = unary();
             return new Expr.Unary(operator, right);
         } else {
-            return primary();
+            return call();
         }
+    }
+
+    /**
+     * Matches a function call expression as specified in the grammar.cfg file.
+     * 
+     * @return A function call expression.
+     */
+    private Expr call() {
+        Expr expr = primary();
+
+        while (true) {
+            if (match(L_PARENTHESIS)) {
+                expr = finishCall(expr);
+            } else {
+                break;
+            }
+        }
+
+        return expr;
+    }
+
+    /**
+     * Helper method to match a function call.
+     * 
+     * @param callee The called function.
+     * @return A function call expression.
+     */
+    private Expr finishCall(Expr callee) {
+        List<Expr> arguments = new ArrayList<>();
+        if (!check(R_PARENTHESIS)) {
+            do {
+                // Hinton only supports 255 arguments for a function call.
+                if (arguments.size() >= 255) {
+                    error(peek(), "Can't have more than 255 arguments.");
+                }
+                arguments.add(expression());
+            } while (match(COMMA_SEPARATOR));
+        }
+
+        Token paren = consume(R_PARENTHESIS, "Expect ')' after arguments.");
+
+        return new Expr.Call(callee, paren, arguments);
     }
 
     /**
