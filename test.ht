@@ -1,12 +1,12 @@
 
 // Variable declararion and scopes
-let x = 55;
+let x = 55 + 1;
 let y = 23;
 
 const myConstant = "Hello People";
 
 {
-    print(y)
+    clock()
     let y = 82;
     print(y)
 }
@@ -43,8 +43,24 @@ print("FOR-LOOPS")
 let d = 0;
 let temp;
 
-for (let i = 1; d < 10000; i = temp + i) {
+for (let i = 1; d < 500; i = temp + i) {
     print(d);
     temp = d;
     d = i;
 }
+
+// Function declaration
+func say(phrase) {
+    print(phrase)
+}
+
+say(input("What to say? >> "))
+
+
+// Recursive functions
+func rec(n) {
+    if (n equals 0) return 0;
+    return n + rec(n - 1);
+}
+
+print(rec(3))

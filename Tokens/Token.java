@@ -105,6 +105,5 @@ public class Token {
         Keywords.put("await", TokenType.AWAIT_KEYWORD);
         Keywords.put("return", TokenType.RETURN_KEYWORD);
         Keywords.put("yield", TokenType.YIELD_KEYWORD);
-        Keywords.put("print", TokenType.PRINT_KEYWORD);
     }
 }
