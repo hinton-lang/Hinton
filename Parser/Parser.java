@@ -145,6 +145,10 @@ public class Parser {
             return whileStatement();
         if (match(FOR_KEYWORD))
             return forStatement();
+        if (match(BREAK_KEYWORD))
+            return breakStatement();
+        if (match(CONTINUE_KEYWORD))
+            return continueStatement();
         if (match(RETURN_KEYWORD))
             return returnStatement();
 
@@ -213,9 +217,35 @@ public class Parser {
     }
 
     /**
+     * Matches a break statement as specified in the grammar.cfg file.
+     * 
+     * @return A break statement.
+     */
+    private Stmt breakStatement() {
+        Token keyword = previous();
+
+        if (check(SEMICOLON_SEPARATOR))
+            consume(SEMICOLON_SEPARATOR, "Expect ';' after return value.");
+        return new Stmt.Break(keyword);
+    }
+
+    /**
+     * Matches a continue statement as specified in the grammar.cfg file.
+     * 
+     * @return A continue statement.
+     */
+    private Stmt continueStatement() {
+        Token keyword = previous();
+
+        if (check(SEMICOLON_SEPARATOR))
+            consume(SEMICOLON_SEPARATOR, "Expect ';' after return value.");
+        return new Stmt.Continue(keyword);
+    }
+
+    /**
      * Matches a return statement as specified in the grammar.cfg file.
      * 
-     * @return
+     * @return A return statement.
      */
     private Stmt returnStatement() {
         Token keyword = previous();

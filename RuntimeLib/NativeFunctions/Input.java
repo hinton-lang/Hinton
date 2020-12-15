@@ -1,7 +1,9 @@
 package org.hinton_lang.RuntimeLib.NativeFunctions;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStreamReader;
 import java.util.List;
-import java.util.Scanner;
 
 import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonCallable;
@@ -33,11 +35,17 @@ public class Input implements NativeFunc {
 
             @Override
             public String call(Interpreter interpreter, List<Object> arguments) {
-                Scanner s = new Scanner(System.in);
-                System.out.println(Helper.stringify(arguments.get(0)));
-                String usrInput = s.nextLine();
-                s.close();
-                return usrInput;
+                InputStreamReader input = new InputStreamReader(System.in);
+                BufferedReader reader = new BufferedReader(input);
+
+                System.out.print(Helper.stringify(arguments.get(0)));
+
+                try {
+                    String usrInput = reader.readLine();
+                    return usrInput;
+                } catch (IOException e) {
+                    return "";
+                }
             }
 
             @Override

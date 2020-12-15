@@ -43,10 +43,18 @@ print("FOR-LOOPS")
 let d = 0;
 let temp;
 
-for (let i = 1; d < 500; i = temp + i) {
+for (let i = 1; d < 1000; i = temp + i) {
     print(d);
     temp = d;
     d = i;
+    
+    let x = 0;
+    while(x <= 5) {
+        print("-- " + x)
+        x = x + 1;
+
+        if(x == 2) break
+    }
 }
 
 // Function declaration
@@ -64,3 +72,16 @@ func rec(n) {
 }
 
 print(rec(3))
+
+// Break and continue statements in loops
+while(true) {
+    let answer = input(":: what is your age? ");
+
+    if (answer != "22") {
+        print(":: Please enter the number 22! ");
+        continue;
+    }
+
+    print(":: Finally!");
+    break;
+}
