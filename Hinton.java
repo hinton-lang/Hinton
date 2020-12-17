@@ -6,6 +6,8 @@ import java.io.InputStreamReader;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 
 // Project-specific
@@ -21,10 +23,32 @@ public class Hinton {
     private static final Interpreter interpreter = new Interpreter();
     static boolean hadError = false;
     static boolean hadRuntimeError = false;
+    public static ArrayList<String> programPermissions = new ArrayList<>();
+    public static ArrayList<String> programArgs = new ArrayList<>();
 
     public static void main(String[] args) throws IOException {
         ProcessArgs argsProcessor = new ProcessArgs(args);
         argsProcessor.run();
+    }
+
+    /**
+     * Sets the program permissions provided in the CLI.
+     * 
+     * @param permissions The program permissions.
+     */
+    public static void setPermissions(ArrayList<String> permissions) {
+        programPermissions = permissions;
+    }
+
+    /**
+     * Sets the program arguments provided in the CLI.
+     * 
+     * @param args The program arguments.
+     */
+    public static void setProgramArgs(String[] args) {
+        for (String arg : args) {
+            programArgs.add(arg);
+        }
     }
 
     /**
@@ -125,7 +149,11 @@ public class Hinton {
     }
 
     public static void runtimeError(RuntimeError error) {
-        System.err.println(error.getMessage() + "\n[line " + error.token.linePos + "]");
+        if (error.token != null) {
+            System.err.println(error.getMessage() + "\n[line " + error.token.linePos + "]");
+        } else {
+            System.err.println(error.getMessage());
+        }
         hadRuntimeError = true;
     }
 }

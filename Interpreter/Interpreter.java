@@ -351,8 +351,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             if (index instanceof Integer) {
                 idx = (int) index;
             } else {
-                // TODO: Throw RuntimeError instead
-                throw new Error("CAN ONLY USE INTEGER FOR ARRAY INDEX.");
+                throw new RuntimeError("Cannot only use Integers as array index.");
             }
 
             // Support for negative indexing
@@ -362,14 +361,12 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             // If even after adjusting for negative index the provided
             // index is out of range, we throw an error.
             if (idx < 0 || idx > (arr1.size() - 1)) {
-                // TODO: Throw RuntimeError instead
-                throw new Error("LIST INDEX OUT OF RANGE.");
+                throw new RuntimeError("Array index out of range.");
             }
 
             return evaluate(arr1.get(idx));
         } else {
-            // TODO: Throw RuntimeError instead
-            throw new Error("INDEX ARRAY ONLY!");
+            throw new RuntimeError("Can only index arrays.");
         }
     }
 
