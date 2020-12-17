@@ -1,104 +1,18 @@
 
-// Variable declararion and scopes
-let x = 55 + 1;
-let y = 23;
-
-const myConstant = "Hello People";
-
-{
-    clock()
-    let y = 82;
-    print(y)
-}
-
-print(x)
-print(myConstant)
 
 
-let a, b, c = 4;
+let a = [1, "hello", true, null, ["A", "B", "C"], false, 2.2];
 
-print(a)
-print(b)
-print(c)
+print(a[4][-3][1])
 
 
-// Conditionals
-if (null and true) {
-    print("First statement")
-} else if (true) {
-    print("Middle statement")
-} else {
-    print("last statement")
-}
+// func factorial(x) {
+//     if (x <= 1) return 1;
 
-// "While" looping
-print("WHILE-LOOPS")
-let wl = 1;
-print(wl)
-while(wl < 10) wl = wl + 1;
-print(wl)
-
-// "For" looping
-print("FOR-LOOPS")
-let d = 0;
-let temp;
-
-for (let i = 1; d < 1000; i = temp + i) {
-    print(d);
-    temp = d;
-    d = i;
-    
-    let x = 0;
-    while(x <= 5) {
-        print("-- " + x)
-        x = x + 1;
-
-        if(x == 2) break;
-    }
-}
-
-// Function declaration
-func say(phrase) {
-    print(phrase)
-}
-
-say(input("What to say? >> "))
+//     return x * factorial(x - 1);
+// }
 
 
-// Recursive functions
-func rec(n) {
-    if (n equals 0) return 0;
-    return n + rec(n - 1);
-}
+// let f = factorial();
 
-print(rec(3))
-
-// Break and continue statements in loops
-while(true) {
-    let answer = input(":: what is your age? ");
-
-    if (answer != "22") {
-        print(":: Please enter the number 22! ");
-        continue;
-    }
-
-    print(":: Finally!");
-    break;
-}
-
-
-
-// lambda functions
-func someLambda(fn) {
-    for (let i = 1; i <= 3; i = i + 1) {
-        print(fn(i))
-    }
-}
-
-someLambda(func(a) {
-    for (let x = 1; x < 10; x = x + 1) {
-        a = a * x;
-    }
-
-    return a;
-});
+// print(f)

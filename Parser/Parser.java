@@ -700,8 +700,17 @@ public class Parser {
         }
 
         if (match(IDENTIFIER)) {
-            return new Expr.Variable(previous());
+            Expr identifier = new Expr.Variable(previous());
+
+            if (match(L_SQUARE_BRAKET)) {
+                return arrayIndexing(identifier);
+            } else {
+                return identifier;
+            }
         }
+
+        if (match(L_SQUARE_BRAKET))
+            return constructArray();
 
         if (match(L_PARENTHESIS)) {
             Expr expr = expression();
@@ -710,5 +719,44 @@ public class Parser {
         }
 
         throw error(peek(), "Expect expression.");
+    }
+
+    /**
+     * Matches an array indexing expression as specified in the grammar.cfg file.
+     * 
+     * @param identifier The identifier to be indexed.
+     * @return An array indexing expression.
+     */
+    private Expr arrayIndexing(Expr identifier) {
+        Expr expr = new Expr.ArrayIndexing(identifier, expression());
+        consume(R_SQUARE_BRAKET, "Expected ']' after array index.");
+
+        while (match(L_SQUARE_BRAKET)) {
+            expr = new Expr.ArrayIndexing(expr, expression());
+            consume(R_SQUARE_BRAKET, "Expected ']' after array index.");
+        }
+
+        return expr;
+    }
+
+    /**
+     * Constructs an array expression as specified in the grammar.cfg file.
+     * 
+     * @return An array expression.
+     */
+    private Expr constructArray() {
+        ArrayList<Expr> expressions = new ArrayList<>();
+
+        if (!match(R_SQUARE_BRAKET)) {
+            expressions.add(expression());
+
+            while (match(COMMA_SEPARATOR)) {
+                expressions.add(expression());
+            }
+
+            consume(R_SQUARE_BRAKET, "Expected ']' after array declaration.");
+        }
+
+        return new Expr.Array(expressions);
     }
 }

@@ -2,6 +2,7 @@ package org.hinton_lang.Interpreter;
 
 import java.util.List;
 import org.hinton_lang.Parser.AST.Stmt;
+import org.hinton_lang.Envornment.DecType;
 import org.hinton_lang.Envornment.Environment;
 
 /**
@@ -28,7 +29,7 @@ public class HintonFunction implements HintonCallable {
         for (int i = 0; i < declaration.params.size(); i++) {
             // We define the passed arguments as variables available within
             // the scope of this particular function.
-            environment.defineVar(declaration.params.get(i).lexeme, arguments.get(i));
+            environment.define(declaration.params.get(i), arguments.get(i), DecType.VARIABLE);
         }
 
         try {

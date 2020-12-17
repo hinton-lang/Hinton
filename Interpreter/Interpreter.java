@@ -6,6 +6,7 @@ import java.util.ArrayList;
 import org.hinton_lang.Parser.AST.*;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
+import org.hinton_lang.Envornment.DecType;
 import org.hinton_lang.Envornment.Environment;
 import org.hinton_lang.Parser.AST.Stmt;
 import org.hinton_lang.RuntimeLib.RuntimeLib;
@@ -19,7 +20,9 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
 
     public Interpreter() {
         // Attaches the native functions to the global scope
-        RuntimeLib.nativeFunctions.forEach((fn) -> globals.defineFunc(fn.getFuncName(), fn.getFunc()));
+        RuntimeLib.nativeFunctions.forEach((fn) -> {
+            globals.defineBuiltIn(fn.getFuncName(), fn.getFunc(), DecType.HINTON_FUNCTION);
+        });
     }
 
     /**
@@ -154,7 +157,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Void visitFunctionStmt(Stmt.Function stmt) {
         HintonFunction function = new HintonFunction(stmt, environment);
-        environment.defineFunc(stmt.name.lexeme, function);
+        environment.define(stmt.name, function, DecType.FUNCTION);
         return null;
     }
 
@@ -215,7 +218,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             value = evaluate(stmt.initializer);
         }
 
-        environment.defineVar(stmt.name.lexeme, value);
+        environment.define(stmt.name, value, DecType.VARIABLE);
         return null;
     }
 
@@ -243,7 +246,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     public Void visitConstStmt(Stmt.Const stmt) {
         Object value = evaluate(stmt.initializer);
 
-        environment.defineConst(stmt.name.lexeme, value);
+        environment.define(stmt.name, value, DecType.CONSTANT);
         return null;
     }
 
@@ -317,6 +320,57 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         }
 
         return function.call(this, arguments);
+    }
+
+    /**
+     * Visits an array expression.
+     */
+    @Override
+    public ArrayList<Expr> visitArrayExpr(Expr.Array expr) {
+        ArrayList<Expr> ar = new ArrayList<>();
+
+        for (int i = 0; i < expr.expressions.size(); i++) {
+            ar.add(expr.expressions.get(i));
+        }
+
+        return ar;
+    }
+
+    /**
+     * Visits an array indexing expression.
+     */
+    @Override
+    public Object visitArrayIndexingExpr(Expr.ArrayIndexing expr) {
+        Object arr = evaluate(expr.arr);
+        Object index = evaluate(expr.index);
+
+        if (arr instanceof ArrayList) {
+            ArrayList<Expr> arr1 = (ArrayList<Expr>) arr;
+
+            int idx;
+            if (index instanceof Integer) {
+                idx = (int) index;
+            } else {
+                // TODO: Throw RuntimeError instead
+                throw new Error("CAN ONLY USE INTEGER FOR ARRAY INDEX.");
+            }
+
+            // Support for negative indexing
+            if (idx < 0)
+                idx = arr1.size() + idx;
+
+            // If even after adjusting for negative index the provided
+            // index is out of range, we throw an error.
+            if (idx < 0 || idx > (arr1.size() - 1)) {
+                // TODO: Throw RuntimeError instead
+                throw new Error("LIST INDEX OUT OF RANGE.");
+            }
+
+            return evaluate(arr1.get(idx));
+        } else {
+            // TODO: Throw RuntimeError instead
+            throw new Error("INDEX ARRAY ONLY!");
+        }
     }
 
     /**

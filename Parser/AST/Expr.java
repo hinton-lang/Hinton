@@ -20,6 +20,10 @@ public abstract class Expr {
 
         public R visitLogicalExpr(Logical expr);
 
+        public R visitArrayExpr(Array expr);
+
+        public R visitArrayIndexingExpr(ArrayIndexing expr);
+
         public R visitUnaryExpr(Unary expr);
 
         public R visitVariableExpr(Variable expr);
@@ -131,6 +135,34 @@ public abstract class Expr {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitLogicalExpr(this);
+        }
+    }
+
+    public static class Array extends Expr {
+        public final List<Expr> expressions;
+
+        public Array(List<Expr> expressions) {
+            this.expressions = expressions;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitArrayExpr(this);
+        }
+    }
+
+    public static class ArrayIndexing extends Expr {
+        public final Expr arr;
+        public final Expr index;
+
+        public ArrayIndexing(Expr arr, Expr index) {
+            this.arr = arr;
+            this.index = index;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitArrayIndexingExpr(this);
         }
     }
 
