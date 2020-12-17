@@ -2,11 +2,11 @@ package org.hinton_lang.Envornment;
 
 public class Value {
     private Object value;
-    public final Symbol signature;
+    public final DecType dclType;
 
-    public Value(Object value, Symbol signature) {
+    public Value(Object value, DecType dclType) {
         this.value = value;
-        this.signature = signature;
+        this.dclType = dclType;
     }
 
     /**
@@ -15,7 +15,7 @@ public class Value {
      * @param value The new value.
      */
     public void setValue(Object value) {
-        if (signature != Symbol.CONSTANT) {
+        if (dclType != DecType.CONSTANT) {
             this.value = value;
         }
     }
@@ -34,7 +34,7 @@ public class Value {
      * 
      * @return The signature type.
      */
-    public Symbol getSignature() {
-        return signature;
+    public DecType getDeclarationType() {
+        return dclType;
     }
 }

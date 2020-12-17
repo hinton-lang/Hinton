@@ -21,33 +21,28 @@ public class Environment {
     }
 
     /**
-     * Defines a variable in this scope.
+     * Defines an object in this scope.
      * 
-     * @param name  The variable's name.
-     * @param value Tha variable's value.
+     * @param name  The object's name.
+     * @param value Tha object's value.
      */
-    public void defineVar(String name, Object value) {
-        values.put(name, new Value(value, Symbol.VARIABLE));
+    public void define(Token name, Object value, DecType decType) {
+        if (values.containsKey(name.lexeme)) {
+            throw new RuntimeError(name, "Cannot redeclare \"" + name.lexeme + "\".");
+        }
+
+        // If the value hasn't been declared, we added to the environment.
+        values.put(name.lexeme, new Value(value, decType));
     }
 
     /**
-     * Defines a constant in this scope.
+     * Defines a built-in objects in this scope.
      * 
-     * @param name  The constant's name.
-     * @param value The constant's value.
+     * @param name  The object's name.
+     * @param value Tha object's value.
      */
-    public void defineConst(String name, Object value) {
-        values.put(name, new Value(value, Symbol.CONSTANT));
-    }
-
-    /**
-     * Defines a function in this scope.
-     * 
-     * @param name  The function's name.
-     * @param value The function's body.
-     */
-    public void defineFunc(String name, Object value) {
-        values.put(name, new Value(value, Symbol.FUNCTION));
+    public void defineBuiltIn(String name, Object value, DecType decType) {
+        values.put(name, new Value(value, decType));
     }
 
     /**
@@ -58,11 +53,16 @@ public class Environment {
      */
     public void assign(Token name, Object value) {
         if (values.containsKey(name.lexeme)) {
-            if (values.get(name.lexeme).getSignature() == Symbol.CONSTANT) {
+            DecType dtype = values.get(name.lexeme).getDeclarationType();
+
+            if (dtype == DecType.CONSTANT) {
                 throw new RuntimeError(name, "Cannot reassign to constant \"" + name.lexeme + "\".");
+            } else if (dtype == DecType.HINTON_FUNCTION) {
+                throw new RuntimeError(name, "Cannot reassign to built-in function \"" + name.lexeme + "\".");
             } else {
                 values.get(name.lexeme).setValue(value);
             }
+
             return;
         }
 
