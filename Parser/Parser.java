@@ -313,7 +313,13 @@ public class Parser {
         }
 
         // Requires a semicolon at the end of the declaration
-        consume(SEMICOLON_SEPARATOR, "Expect ';' after variable declaration.");
+        // if the declaration was not a block
+        if (previous().type != TokenType.R_CURLY_BRACES)
+            consume(SEMICOLON_SEPARATOR, "Expect ';' after constant declaration.");
+
+        // But if there is a semicolon after a curly brace, then we consume it
+        if (check(SEMICOLON_SEPARATOR))
+            advance();
 
         // Holds the declaration statements
         ArrayList<Stmt> statements = new ArrayList<>();
@@ -346,7 +352,13 @@ public class Parser {
         Expr initializer = expression();
 
         // Requires a semicolon at the end of the declaration
-        consume(SEMICOLON_SEPARATOR, "Expect ';' after constant declaration.");
+        // if the declaration was not a block
+        if (previous().type != TokenType.R_CURLY_BRACES)
+            consume(SEMICOLON_SEPARATOR, "Expect ';' after constant declaration.");
+
+        // But if there is a semicolon after a curly brace, then we consume it
+        if (check(SEMICOLON_SEPARATOR))
+            advance();
 
         // Holds the declaration statements
         ArrayList<Stmt> statements = new ArrayList<>();
@@ -622,6 +634,8 @@ public class Parser {
             while (true) {
                 if (match(L_PARENTHESIS)) {
                     expr = finishCall(expr);
+                } else if (match(L_SQUARE_BRAKET)) {
+                    return arrayIndexing(expr);
                 } else {
                     break;
                 }
@@ -699,15 +713,8 @@ public class Parser {
             return new Expr.Literal(previous().literal);
         }
 
-        if (match(IDENTIFIER)) {
-            Expr identifier = new Expr.Variable(previous());
-
-            if (match(L_SQUARE_BRAKET)) {
-                return arrayIndexing(identifier);
-            } else {
-                return identifier;
-            }
-        }
+        if (match(IDENTIFIER))
+            return new Expr.Variable(previous());
 
         if (match(L_SQUARE_BRAKET))
             return constructArray();
