@@ -13,6 +13,7 @@ import org.hinton_lang.Lexer.Lexer;
 import org.hinton_lang.Tokens.*;
 import org.hinton_lang.Parser.*;
 import org.hinton_lang.Parser.AST.*;
+import org.hinton_lang.CLI.ProcessArgs;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.Interpreter;
 
@@ -22,16 +23,8 @@ public class Hinton {
     static boolean hadRuntimeError = false;
 
     public static void main(String[] args) throws IOException {
-        // runFile("/Users/faustotnc/Documents/GitHub/Hinton-Lang/src/org/hinton_lang/m.ht");
-
-        if (args.length > 1) {
-            System.out.println("Usage: ht [script]");
-            System.exit(64);
-        } else if (args.length == 1) {
-            runFile(args[0]);
-        } else {
-            runPrompt();
-        }
+        ProcessArgs argsProcessor = new ProcessArgs(args);
+        argsProcessor.run();
     }
 
     /**
@@ -40,7 +33,7 @@ public class Hinton {
      * @param path The path to the file.
      * @throws IOException Error when the file is not found.
      */
-    private static void runFile(String path) throws IOException {
+    public static void runFile(String path) throws IOException {
         byte[] bytes = Files.readAllBytes(Paths.get(path));
         run(new String(bytes, Charset.defaultCharset()));
 
@@ -56,7 +49,7 @@ public class Hinton {
      * 
      * @throws IOException Error when the line cannot be read.
      */
-    private static void runPrompt() throws IOException {
+    public static void runPrompt() throws IOException {
         InputStreamReader input = new InputStreamReader(System.in);
         BufferedReader reader = new BufferedReader(input);
 

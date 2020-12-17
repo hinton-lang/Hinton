@@ -6,7 +6,8 @@ import java.util.regex.Pattern;
 public class Regex {
     /**
      * Checks whether a character matches a regular expression sequence.
-     * @param c The character to be tested.
+     * 
+     * @param c       The character to be tested.
      * @param pattern The regular expression.
      * @return True if the string matches the regular expression, false otherwise.
      */
@@ -18,7 +19,8 @@ public class Regex {
 
     /**
      * Checks whether a string matches a regular expression sequence.
-     * @param s The string to be tested.
+     * 
+     * @param s       The string to be tested.
      * @param pattern The regular expression.
      * @return True if the string matches the regular expression, false otherwise.
      */
