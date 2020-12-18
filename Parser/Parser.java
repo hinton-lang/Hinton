@@ -1,6 +1,10 @@
 package org.hinton_lang.Parser;
 
 import java.util.Arrays;
+import java.io.IOException;
+import java.nio.charset.Charset;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -10,6 +14,8 @@ import static org.hinton_lang.Tokens.TokenType.*;
 import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.ParseError;
+import org.hinton_lang.Errors.RuntimeError;
+import org.hinton_lang.Lexer.Lexer;
 import org.hinton_lang.Parser.AST.Stmt;
 
 public class Parser {
@@ -151,6 +157,8 @@ public class Parser {
             return continueStatement();
         if (match(RETURN_KEYWORD))
             return returnStatement();
+        if (match(IMPORT_KEYWORD))
+            return importStatement();
 
         return expressionStatement();
     }
@@ -223,9 +231,7 @@ public class Parser {
      */
     private Stmt breakStatement() {
         Token keyword = previous();
-
-        if (check(SEMICOLON_SEPARATOR))
-            consume(SEMICOLON_SEPARATOR, "Expect ';' after return value.");
+        match(SEMICOLON_SEPARATOR); // Optional semicolon
         return new Stmt.Break(keyword);
     }
 
@@ -236,9 +242,7 @@ public class Parser {
      */
     private Stmt continueStatement() {
         Token keyword = previous();
-
-        if (check(SEMICOLON_SEPARATOR))
-            consume(SEMICOLON_SEPARATOR, "Expect ';' after return value.");
+        match(SEMICOLON_SEPARATOR); // Optional semicolon
         return new Stmt.Continue(keyword);
     }
 
@@ -251,9 +255,38 @@ public class Parser {
         Token keyword = previous();
         Expr value = expression();
 
-        if (check(SEMICOLON_SEPARATOR))
-            consume(SEMICOLON_SEPARATOR, "Expect ';' after return value.");
+        match(SEMICOLON_SEPARATOR); // Optional semicolon
+
         return new Stmt.Return(keyword, value);
+    }
+
+    /**
+     * Matches an import statement as specified in the grammar.cfg file.
+     * 
+     * TODO: This is buggy. Finish the implementation to work as expected.
+     * 
+     * @return An import statement.
+     */
+    private Stmt importStatement() {
+        consume(STRING_LITERAL, "Expected model path after import statement.");
+        String path = (String) previous().literal;
+        match(SEMICOLON_SEPARATOR); // Optional semicolon
+
+        try {
+            byte[] bytes = Files.readAllBytes(Paths.get(path));
+            String sourceCode = new String(bytes, Charset.defaultCharset());
+
+            Lexer lexer = new Lexer(sourceCode);
+            List<Token> tokens = lexer.lexTokens();
+
+            Parser parser = new Parser(tokens);
+            List<Stmt> statements = parser.parse();
+
+            return new Stmt.Import(statements);
+        } catch (IOException e) {
+            // TODO: Change to ParserError
+            throw new RuntimeError("Cannot find module " + path);
+        }
     }
 
     /**
@@ -318,7 +351,7 @@ public class Parser {
             consume(SEMICOLON_SEPARATOR, "Expect ';' after constant declaration.");
 
         // But if there is a semicolon after a curly brace, then we consume it
-        if (check(SEMICOLON_SEPARATOR))
+        if (previous().type == TokenType.R_CURLY_BRACES && check(SEMICOLON_SEPARATOR))
             advance();
 
         // Holds the declaration statements
@@ -378,8 +411,7 @@ public class Parser {
      */
     private Stmt expressionStatement() {
         Expr expr = expression();
-        if (check(SEMICOLON_SEPARATOR))
-            consume(SEMICOLON_SEPARATOR, "Expect ';' after expression.");
+        match(SEMICOLON_SEPARATOR); // Optional semicolon
         return new Stmt.Expression(expr);
     }
 
@@ -615,8 +647,26 @@ public class Parser {
             Token operator = previous();
             Expr right = unary();
             return new Expr.Unary(operator, right);
+        } else if (match(FUNC_KEYWORD)) {
+            return lambda();
         } else {
-            return call();
+            Expr expr = primary();
+
+            while (match(L_SQUARE_BRACKET, L_PARENTHESIS)) {
+                // If there is an opening sqr bracket after the expression,
+                // then we must have an array indexing expression.
+                if (previous().type == L_SQUARE_BRACKET) {
+                    expr = arrayIndexing(expr);
+                }
+
+                // If there is an opening parenthesis after the expression,
+                // then we must have a function call expression.
+                if (previous().type == L_PARENTHESIS) {
+                    expr = call(expr);
+                }
+            }
+
+            return expr;
         }
     }
 
@@ -625,25 +675,12 @@ public class Parser {
      * 
      * @return A function call expression.
      */
-    private Expr call() {
-        if (match(FUNC_KEYWORD)) {
-            return lambda();
-        } else {
-            Expr expr = primary();
+    private Expr call(Expr expr) {
+        do {
+            expr = finishCall(expr);
+        } while (match(L_PARENTHESIS));
 
-            while (true) {
-                if (match(L_PARENTHESIS)) {
-                    expr = finishCall(expr);
-                } else if (match(L_SQUARE_BRAKET)) {
-                    return arrayIndexing(expr);
-                } else {
-                    break;
-                }
-            }
-
-            return expr;
-        }
-
+        return expr;
     }
 
     /**
@@ -680,6 +717,7 @@ public class Parser {
      */
     private Expr finishCall(Expr callee) {
         List<Expr> arguments = new ArrayList<>();
+
         if (!check(R_PARENTHESIS)) {
             do {
                 // Hinton only supports 255 arguments for a function call.
@@ -716,7 +754,7 @@ public class Parser {
         if (match(IDENTIFIER))
             return new Expr.Variable(previous());
 
-        if (match(L_SQUARE_BRAKET))
+        if (match(L_SQUARE_BRACKET))
             return constructArray();
 
         if (match(L_PARENTHESIS)) {
@@ -734,14 +772,11 @@ public class Parser {
      * @param identifier The identifier to be indexed.
      * @return An array indexing expression.
      */
-    private Expr arrayIndexing(Expr identifier) {
-        Expr expr = new Expr.ArrayIndexing(identifier, expression());
-        consume(R_SQUARE_BRAKET, "Expected ']' after array index.");
-
-        while (match(L_SQUARE_BRAKET)) {
+    private Expr arrayIndexing(Expr expr) {
+        do {
             expr = new Expr.ArrayIndexing(expr, expression());
-            consume(R_SQUARE_BRAKET, "Expected ']' after array index.");
-        }
+            consume(R_SQUARE_BRACKET, "Expected ']' after array index.");
+        } while (match(L_SQUARE_BRACKET));
 
         return expr;
     }
@@ -754,14 +789,14 @@ public class Parser {
     private Expr constructArray() {
         ArrayList<Expr> expressions = new ArrayList<>();
 
-        if (!match(R_SQUARE_BRAKET)) {
+        if (!match(R_SQUARE_BRACKET)) {
             expressions.add(expression());
 
             while (match(COMMA_SEPARATOR)) {
                 expressions.add(expression());
             }
 
-            consume(R_SQUARE_BRAKET, "Expected ']' after array declaration.");
+            consume(R_SQUARE_BRACKET, "Expected ']' after array declaration.");
         }
 
         return new Expr.Array(expressions);

@@ -9,6 +9,7 @@ import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Envornment.DecType;
 import org.hinton_lang.Envornment.Environment;
 import org.hinton_lang.Parser.AST.Stmt;
+import org.hinton_lang.Parser.AST.Stmt.Import;
 import org.hinton_lang.RuntimeLib.RuntimeLib;
 import org.hinton_lang.Tokens.TokenType;
 
@@ -326,11 +327,18 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      * Visits an array expression.
      */
     @Override
-    public ArrayList<Expr> visitArrayExpr(Expr.Array expr) {
-        ArrayList<Expr> ar = new ArrayList<>();
+    public ArrayList<Object> visitArrayExpr(Expr.Array expr) {
+        ArrayList<Object> ar = new ArrayList<>();
 
         for (int i = 0; i < expr.expressions.size(); i++) {
-            ar.add(expr.expressions.get(i));
+            Expr item = expr.expressions.get(i);
+
+            if (item instanceof Expr.Literal || item instanceof Expr.Array) {
+                ar.add(evaluate(item));
+            } else {
+                ar.add(item);
+            }
+
         }
 
         return ar;
@@ -364,7 +372,13 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
                 throw new RuntimeError("Array index out of range.");
             }
 
-            return evaluate(arr1.get(idx));
+            // If the item in the array is an instance of an expression, then
+            // we evaluate the expression. Otherwise we return the value.
+            if (arr1.get(idx) instanceof Expr) {
+                return evaluate(arr1.get(idx));
+            } else {
+                return arr1.get(idx);
+            }
         } else {
             throw new RuntimeError("Can only index arrays.");
         }
@@ -412,6 +426,17 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         }
 
         // Unreachable.
+        return null;
+    }
+
+    /**
+     * Visits an import statement
+     */
+    @Override
+    public Void visitImportStmt(Import stmts) {
+        for (Stmt stmt : stmts.statements) {
+            stmt.accept(this);
+        }
         return null;
     }
 }

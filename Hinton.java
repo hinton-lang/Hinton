@@ -7,7 +7,7 @@ import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 
 // Project-specific
@@ -46,9 +46,7 @@ public class Hinton {
      * @param args The program arguments.
      */
     public static void setProgramArgs(String[] args) {
-        for (String arg : args) {
-            programArgs.add(arg);
-        }
+        Collections.addAll(programArgs, args);
     }
 
     /**
@@ -105,11 +103,6 @@ public class Hinton {
 
         interpreter.interpret(statements);
         System.out.println(interpreter.environment);
-
-        // // Prints the tokens - Debug only
-        // for (Token token : tokens) {
-        // System.out.println(token);
-        // }
     }
 
     /**
