@@ -6,6 +6,8 @@ import org.hinton_lang.Tokens.Token;
 public abstract class Stmt {
 
     public interface Visitor<R> {
+        public R visitImportStmt(Import stmt);
+
         public R visitBlockStmt(Block stmt);
 
         public R visitExpressionStmt(Expression stmt);
@@ -28,6 +30,19 @@ public abstract class Stmt {
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
+
+    public static class Import extends Stmt {
+        public final List<Stmt> statements;
+
+        public Import(List<Stmt> statements) {
+            this.statements = statements;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitImportStmt(this);
+        }
+    }
 
     public static class Block extends Stmt {
         public final List<Stmt> statements;

@@ -31,9 +31,6 @@ public class Token {
     /** Maps the keyword's names to their corresponding token types. */
     public static HashMap<String, TokenType> Keywords = new HashMap<>();
 
-    /**
-     * Static Constructor
-     */
     static {
         // Control Flow
         Keywords.put("for", TokenType.FOR_KEYWORD);
@@ -68,7 +65,7 @@ public class Token {
         Keywords.put("abstract", TokenType.ABSTRACT_KEYWORD);
         Keywords.put("override", TokenType.OVERRIDE_KEYWORD);
         Keywords.put("self", TokenType.SELF_KEYWORD);
-        Keywords.put("instanceof", TokenType.INSTANCEOF_KEYWORD);
+        Keywords.put("instanceof", TokenType.INSTANCE_OF_KEYWORD);
         Keywords.put("implements", TokenType.IMPLEMENTS_KEYWORD);
         Keywords.put("extends", TokenType.EXTENDS_KEYWORD);
 

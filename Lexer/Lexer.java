@@ -230,9 +230,9 @@ public class Lexer {
         } else if (op == ',') {
             tokenType = COMMA_SEPARATOR;
         } else if (op == '[') {
-            tokenType = L_SQUARE_BRAKET;
+            tokenType = L_SQUARE_BRACKET;
         } else if (op == ']') {
-            tokenType = R_SQUARE_BRAKET;
+            tokenType = R_SQUARE_BRACKET;
         } else if (op == ':') {
             tokenType = COLON_SEPARATOR;
         } else if (op == '.' && hasNextChar() && nextChar() == '.') {
