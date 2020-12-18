@@ -20,6 +20,7 @@ public class RuntimeLib {
             add(new Print()); // Native print function
             add(new Input()); // Native print function
             add(new Clock()); // Native clock function
+            add(new ConvertToInt()); // Native clock function
         }
     };
 }

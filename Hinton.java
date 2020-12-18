@@ -102,7 +102,7 @@ public class Hinton {
             return;
 
         interpreter.interpret(statements);
-        System.out.println(interpreter.environment);
+        // System.out.println(interpreter.environment);
     }
 
     /**
