@@ -9,37 +9,77 @@ The current grammar rules:
 ```
 program         -> declaration* EOF ;
 
+# Declarations ===============================================================
+
 declaration     -> varDecl
                 | constDecl
+                | funDecl
                 | statement ;
 
-varDecl         -> "let" IDENTIFIER ( "=" expression )? ";" ;
-constDecl       -> "const" IDENTIFIER "=" expression ";" ;
+varDecl         -> "let" IDENTIFIER ( "," IDENTIFIER )* ( "=" expression )? ";" ;
+constDecl       -> "const" IDENTIFIER ( "," IDENTIFIER )* "=" expression ";" ;
+
+funDecl         -> "func" function ;
+function        -> IDENTIFIER "(" parameters? ")" block ;
+
+parameters      -> DENTIFIER ( "," IDENTIFIER )* ;
+
+# Satatements ================================================================
 
 statement       -> exprStmt
-                | printStmt
+                | ifStmt
+                | whileStmt
+                | forStmt
+                | breakStmt
+                | contiueStmt
+                | returnStmt
+                | importStmt
                 | block ;
+
+whileStmt       -> "while" "(" expression ")" statement ;
+forStmt         -> "for" "(" ( varDecl | exprStmt | ";" ) expression? ";" expression? ")" statement ;
+
+ifStmt          -> "if" "(" expression ")" statement ( "else" statement )? ;
+
+breakStmt       -> "break" ";"? ;
+continueStmt    -> "continue" ";"? ;
+returnStmt      -> "return" expression? ";"? ;
 
 block           -> "{" declaration* "}" ;
 
-exprStmt        -> expression ";" ;
-printStmt       -> "print" "(" expression ")" ";"? ;
+importStmt      -> "import" STRING ";"? ;
 
+exprStmt        -> expression ";"? ;
+
+
+# Expressions ================================================================
 
 expression      -> assignment ;
 assignment      -> IDENTIFIER "=" assignment
-                | equality ;
-equality        -> comparison ( ( "!=" | "==" ) comparison )* ;
-comparison      -> logic_or ( ( ">" | ">=" | "<" | "<=" ) logic_or )* ;
+                | logic_or ;
 logic_or        -> logic_and ("||" logic_and)* ;
-logic_and       -> term ("&&" term)* ;
+logic_and       -> equality ("&&" equality)* ;
+equality        -> comparison ( ( "!=" | "==" ) comparison )* ;
+comparison      -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
 term            -> factor ( ( "-" | "+" ) factor )* ;
 factor          -> expo ( ( "/" | "*" | "%" ) expo )* ;
 expo            -> unary ("**" unary)* ;
-unary           -> ( "!" | "-" | "+" ) unary | primary ;
+unary           -> ( "!" | "-" | "+" ) unary
+                | arrayIndexing
+                | lambda
+                | call ;
+
+call            -> primary ( "(" arguments? ")" )* ;
+arrayIndexing   -> primary ( "[" expression "]" )* ;
+lambda          -> "func" "(" parameters? ")" block ;
 
 primary         -> INTEGER | REAL | STRING
                 | "true" | "false" | "null"
-                | "(" expression ")" ;
+                | "(" expression ")"
+                | array
                 | IDENTIFIER ;
+
+array           -> "[" (expression ("," expression)*)? "]" ;
+
+arguments       -> expression ( "," expression )* ;
 ```

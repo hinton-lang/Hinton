@@ -1,13 +1,50 @@
 # The Hinton Language 🔮
 This is a simple interpreter written in Java for a functional toy language called Hinton. The code is an extension of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
+
+
+## Installing
+The source code can be downloaded an placed inside an IntelliJ Idea project. That is, inside `IntelliJ Project > src > org > hinton_lang`.
+
+## Hello World
+To run the interpreter, run the program with the following commands:
+
+`run [permissions]? [program filepath] [program flags]?`
+
+For example, to run the `test.ht` file provided in this repository, run the project with the following command:
+
+`run --allow-input ./src/org/hinton_lang/test.ht`
+
+A program can be as simple as printing an expression:
+```swift
+print("Hello World!!")
+```
+
+## Basic Syntax
+```swift
+// This is a comment
+let myVar = "this is a variable";
+const myConst = 3.14;
+
+/**
+* This us a block comment.
+* And the code bellow is a function.
+*/
+func thisIsAFunction(x) {
+    return x ** 2;
+}
+
+print(thisIsAFunction(4)) // 16
+```
  
- At the moment, the Interpreter can accurately identify and label different tokens inside a `.ht` file. Some of the tokens it can identify include, but are not limited to:
+At the moment, the Interpreter can accurately identify and label different tokens inside a `.ht` file. Some of the tokens it can identify include, but are not limited to:
   - Keywords: `let`, `const`, `func`, `if`, `else`, + more.
   - Static Types: `String`, `Int`, `Real`, `void`, `None`, + more.
   - Literals: `"String Sequences"`, `2342`, `3.1242`, `true`, `false`, `none`, + more.
   - Arithmetic Operators: `+`, `-`, `*`, `/`, `**`, `%`, and `mod`.
   - Logical Operators: `<`, `>`, `==`, `equals`, `!`, `not`, + more.
   - Delimiters & Separators: `()`, `,`, `{}`, `:`, `[]`, `.`, and `;`
+
+Visit the [Tokens Folder](https://github.com/faustotnc/Hinton-Lang/tree/master/Tokens) for a complete list of tokens.
   
 It is able to parse complex grammatical rules as specified inside the `grammar.cfg` file in order to generate an Abstract Syntax Tree: Some of the rule include, but are not limited to:
   - Expressions following a certain order of precedence.
@@ -19,15 +56,8 @@ It is able to parse complex grammatical rules as specified inside the `grammar.c
   - Function declarations.
   - Lambda expressions.
 
-It is able to execute full programs as defined by the parser.
-   
-## The General Idea of an Interpreter
-The general idea of an interpreter implementation is as follows:
+Visit the [Parser Folder](https://github.com/faustotnc/Hinton-Lang/tree/master/Parser) for a complete list of grammar rules.
 
-1. The programmer writes a program in a source file.
-2. The contents of the source file are read and inputted into a [Lexer](https://github.com/faustotnc/Hinton-Lang/tree/master/Lexer) that converts the input text into a list of [Tokens](https://github.com/faustotnc/Hinton-Lang/tree/master/Tokens).
-3. The tokens are then fed into a [Parser](https://github.com/faustotnc/Hinton-Lang/tree/master/Parser) which generates an [Abstract Syntax Tree (AST)](https://github.com/faustotnc/Hinton-Lang/tree/master/Parser/AST). The AST is a type of abstract data structure that represents the syntactic anatomy of the source code.
-4. Finally, an [Interpreter](https://github.com/faustotnc/Hinton-Lang/tree/master/Interpreter) takes the AST and "visits" each node and leaf of the AST until it has completed executing the source code.
+Together with the `RuntimeLib` which provides a collection of built-in functions, Hinton is able to interpret full programs.
 
-## The Selfish Idea
-Hopefully, at some point during my career as a computer scientist, Hinton will become a full programming language.
+Visit the [RuntimeLib Folder](https://github.com/faustotnc/Hinton-Lang/tree/master/Parser) for a list of available built-in functions.
