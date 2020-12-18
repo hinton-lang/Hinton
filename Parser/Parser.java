@@ -348,7 +348,7 @@ public class Parser {
         // Requires a semicolon at the end of the declaration
         // if the declaration was not a block
         if (previous().type != TokenType.R_CURLY_BRACES)
-            consume(SEMICOLON_SEPARATOR, "Expect ';' after constant declaration.");
+            consume(SEMICOLON_SEPARATOR, "Expect ';' after variable declaration.");
 
         // But if there is a semicolon after a curly brace, then we consume it
         if (previous().type == TokenType.R_CURLY_BRACES && check(SEMICOLON_SEPARATOR))
@@ -769,7 +769,7 @@ public class Parser {
     /**
      * Matches an array indexing expression as specified in the grammar.cfg file.
      * 
-     * @param identifier The identifier to be indexed.
+     * @param expr The identifier to be indexed.
      * @return An array indexing expression.
      */
     private Expr arrayIndexing(Expr expr) {

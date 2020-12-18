@@ -1,9 +1,10 @@
 # The Hinton Language 🔮
-This is a simple interpreter written in Java for a functional toy language called Hinton. The code is an extension of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
+This is a simple interpreter written in Java for a functional toy language called Hinton. The project is an extension of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
 
 
 ## Installing
-The source code can be downloaded an placed inside an IntelliJ Idea project. That is, inside `IntelliJ Project > src > org > hinton_lang`.
+The source code can be downloaded an placed inside an IntelliJ project. That is, inside
+`[IntelliJ Project] > src > org > hinton_lang`.
 
 ## Hello World
 To run the interpreter, run the program with the following commands:
@@ -21,19 +22,41 @@ print("Hello World!!")
 
 ## Basic Syntax
 ```swift
-// This is a comment
-let myVar = "this is a variable";
-const myConst = 3.14;
-
 /**
-* This us a block comment.
-* And the code bellow is a function.
-*/
-func thisIsAFunction(x) {
-    return x ** 2;
+ * This is a multiline comment
+ * The following is a recursive function
+ */
+func factorial(n) {
+    if (n <= 1) return 1;
+    return n * factorial(n - 1);
 }
 
-print(thisIsAFunction(4)) // 16
+// This is a constant
+const welcome = "Welcome to the program\n";
+
+// Printing to the console
+print(welcome)
+
+// This is a variable.
+// The `input(message: String)` is a function to
+// obtain user input from the console.
+// The `int(x)` is a function to convert the given
+// argument to an integer.
+let x = int(input("Compute the factorial of: "));
+print(factorial(x))
+
+// While loops
+while(true) {
+    let again = input("Compute another? (y/n): ");
+    
+    if (again equals "y") {
+        let x = int(input("Compute the factorial of: "));
+        print(factorial(x))
+        continue;
+    }
+
+    if (again equals "n") break;
+}
 ```
  
 At the moment, the Interpreter can accurately identify and label different tokens inside a `.ht` file. Some of the tokens it can identify include, but are not limited to:
@@ -44,7 +67,7 @@ At the moment, the Interpreter can accurately identify and label different token
   - Logical Operators: `<`, `>`, `==`, `equals`, `!`, `not`, + more.
   - Delimiters & Separators: `()`, `,`, `{}`, `:`, `[]`, `.`, and `;`
 
-Visit the [Tokens Folder](https://github.com/faustotnc/Hinton-Lang/tree/master/Tokens) for a complete list of tokens.
+** Visit the [Tokens Folder](https://github.com/faustotnc/Hinton-Lang/tree/master/Tokens) for a complete list of tokens.
   
 It is able to parse complex grammatical rules as specified inside the `grammar.cfg` file in order to generate an Abstract Syntax Tree: Some of the rule include, but are not limited to:
   - Expressions following a certain order of precedence.
@@ -56,8 +79,8 @@ It is able to parse complex grammatical rules as specified inside the `grammar.c
   - Function declarations.
   - Lambda expressions.
 
-Visit the [Parser Folder](https://github.com/faustotnc/Hinton-Lang/tree/master/Parser) for a complete list of grammar rules.
+** Visit the [Parser Folder](https://github.com/faustotnc/Hinton-Lang/tree/master/Parser) for a complete list of grammar rules.
 
-Together with the `RuntimeLib` which provides a collection of built-in functions, Hinton is able to interpret full programs.
+Together with the `RuntimeLib`, which provides a collection of built-in functions, Hinton is able to interpret full programs.
 
-Visit the [RuntimeLib Folder](https://github.com/faustotnc/Hinton-Lang/tree/master/Parser) for a list of available built-in functions.
+** Visit the [RuntimeLib Folder](https://github.com/faustotnc/Hinton-Lang/tree/master/RuntimeLib) for a list of available built-in functions.
