@@ -23,8 +23,9 @@ public class Environment {
     /**
      * Defines an object in this scope.
      * 
-     * @param name  The object's name.
-     * @param value Tha object's value.
+     * @param name    The object's name.
+     * @param value   Tha object's value.
+     * @param decType The type of declaration.
      */
     public void define(Token name, Object value, DecType decType) {
         if (values.containsKey(name.lexeme)) {
@@ -35,11 +36,37 @@ public class Environment {
         values.put(name.lexeme, new Value(value, decType));
     }
 
+    public Object getAt(int distance, String name) {
+        return ancestor(distance).values.get(name).getValue();
+    }
+
+    public Environment ancestor(int distance) {
+        Environment environment = this;
+        for (int i = 0; i < distance; i++) {
+            environment = environment.enclosing;
+        }
+
+        return environment;
+    }
+
+    public void assignAt(int distance, Token name, Object value) {
+        DecType dtype = ancestor(distance).values.get(name.lexeme).getDeclarationType();
+
+        if (dtype == DecType.CONSTANT) {
+            throw new RuntimeError(name, "Cannot reassign to constant \"" + name.lexeme + "\".");
+        } else if (dtype == DecType.HINTON_FUNCTION) {
+            throw new RuntimeError(name, "Cannot reassign to built-in function \"" + name.lexeme + "\".");
+        } else {
+            ancestor(distance).values.get(name.lexeme).setValue(value);
+        }
+    }
+
     /**
      * Defines a built-in objects in this scope.
      * 
-     * @param name  The object's name.
-     * @param value Tha object's value.
+     * @param name    The object's name.
+     * @param value   Tha object's value.
+     * @param decType The type of declaration.
      */
     public void defineBuiltIn(String name, Object value, DecType decType) {
         values.put(name, new Value(value, decType));
