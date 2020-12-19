@@ -2,6 +2,7 @@ package org.hinton_lang.Interpreter;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.HashMap;
 
 import org.hinton_lang.Parser.AST.*;
 import org.hinton_lang.Hinton;
@@ -11,6 +12,7 @@ import org.hinton_lang.Envornment.Environment;
 import org.hinton_lang.Parser.AST.Stmt;
 import org.hinton_lang.Parser.AST.Stmt.Import;
 import org.hinton_lang.RuntimeLib.RuntimeLib;
+import org.hinton_lang.Tokens.Token;
 import org.hinton_lang.Tokens.TokenType;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
@@ -18,12 +20,25 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     public final Environment globals = new Environment();
     // Used to store variables
     public Environment environment = globals;
+    // A table that holds the declared variables and their scope distance.
+    private final HashMap<Expr, Integer> locals = new HashMap<>();
 
     public Interpreter() {
         // Attaches the native functions to the global scope
         RuntimeLib.nativeFunctions.forEach((fn) -> {
             globals.defineBuiltIn(fn.getFuncName(), fn.getFunc(), DecType.HINTON_FUNCTION);
         });
+    }
+
+    /**
+     * Tells the interpreter how many scopes there are between the current scope and
+     * the scope where the variable is defined.
+     * 
+     * @param expr  The variable expression.
+     * @param depth The scope distance.
+     */
+    public void resolve(Expr expr, int depth) {
+        locals.put(expr, depth);
     }
 
     /**
@@ -257,7 +272,12 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     @Override
     public Object visitAssignExpr(Expr.Assign expr) {
         Object value = evaluate(expr.value);
-        environment.assign(expr.name, value);
+        Integer distance = locals.get(expr);
+        if (distance != null) {
+            environment.assignAt(distance, expr.name, value);
+        } else {
+            globals.assign(expr.name, value);
+        }
         return value;
     }
 
@@ -294,7 +314,23 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      */
     @Override
     public Object visitVariableExpr(Expr.Variable expr) {
-        return environment.get(expr.name);
+        return lookUpVariable(expr.name, expr);
+    }
+
+    /**
+     * Looks up a variable at a certain distance.
+     * 
+     * @param name The name of the variable.
+     * @param expr The variable expression.
+     * @return The variable's value.
+     */
+    private Object lookUpVariable(Token name, Expr expr) {
+        Integer distance = locals.get(expr);
+        if (distance != null) {
+            return environment.getAt(distance, name.lexeme);
+        } else {
+            return globals.get(name);
+        }
     }
 
     /**
