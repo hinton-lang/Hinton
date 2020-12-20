@@ -5,6 +5,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.hinton_lang.Parser.AST.*;
+import org.hinton_lang.Parser.AST.Expr.Instance;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Envornment.DecType;
@@ -153,6 +154,14 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         } finally {
             this.environment = previous;
         }
+    }
+
+    @Override
+    public Void visitClassStmt(Stmt.Class stmt) {
+        environment.define(stmt.name, null, DecType.CLASS);
+        HintonClass klass = new HintonClass(stmt.name.lexeme);
+        environment.assign(stmt.name, klass);
+        return null;
     }
 
     /**
@@ -346,7 +355,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         }
 
         if (!(callee instanceof HintonCallable)) {
-            throw new RuntimeError(expr.paren, "Can only call functions and classes.");
+            throw new RuntimeError(expr.paren, "Can only call functions.");
         }
 
         HintonCallable function = (HintonCallable) callee;
@@ -357,6 +366,32 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         }
 
         return function.call(this, arguments);
+    }
+
+    /**
+     * Visits a class instance expression.
+     */
+    @Override
+    public Object visitInstanceExpr(Instance expr) {
+        Object callee = evaluate(expr.callee);
+
+        List<Object> arguments = new ArrayList<>();
+        for (Expr argument : expr.arguments) {
+            arguments.add(evaluate(argument));
+        }
+
+        if (!(callee instanceof HintonInstantiable)) {
+            throw new RuntimeError(expr.paren, "Can only instantiate classes.");
+        }
+
+        HintonInstantiable function = (HintonInstantiable) callee;
+
+        if (arguments.size() != function.arity()) {
+            throw new RuntimeError(expr.paren,
+                    "Expected " + function.arity() + " arguments but got " + arguments.size() + ".");
+        }
+
+        return function.instantiate(this, arguments);
     }
 
     /**
@@ -384,7 +419,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      * Visits an array indexing expression.
      */
     @Override
-    public Object visitArrayIndexingExpr(Expr.ArrayIndexing expr) {
+    public Object visitIndexingExpr(Expr.Indexing expr) {
         Object arr = evaluate(expr.arr);
         Object index = evaluate(expr.index);
 

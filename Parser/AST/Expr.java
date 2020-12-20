@@ -14,6 +14,8 @@ public abstract class Expr {
 
         public R visitCallExpr(Call expr);
 
+        public R visitInstanceExpr(Instance expr);
+
         public R visitGroupingExpr(Grouping expr);
 
         public R visitLiteralExpr(Literal expr);
@@ -22,7 +24,7 @@ public abstract class Expr {
 
         public R visitArrayExpr(Array expr);
 
-        public R visitArrayIndexingExpr(ArrayIndexing expr);
+        public R visitIndexingExpr(Indexing expr);
 
         public R visitUnaryExpr(Unary expr);
 
@@ -95,6 +97,23 @@ public abstract class Expr {
         }
     }
 
+    public static class Instance extends Expr {
+        public final Expr callee;
+        public final Token paren;
+        public final List<Expr> arguments;
+
+        public Instance(Expr callee, Token paren, List<Expr> arguments) {
+            this.callee = callee;
+            this.paren = paren;
+            this.arguments = arguments;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitInstanceExpr(this);
+        }
+    }
+
     public static class Grouping extends Expr {
         public final Expr expression;
 
@@ -151,18 +170,18 @@ public abstract class Expr {
         }
     }
 
-    public static class ArrayIndexing extends Expr {
+    public static class Indexing extends Expr {
         public final Expr arr;
         public final Expr index;
 
-        public ArrayIndexing(Expr arr, Expr index) {
+        public Indexing(Expr arr, Expr index) {
             this.arr = arr;
             this.index = index;
         }
 
         @Override
         public <R> R accept(Visitor<R> visitor) {
-            return visitor.visitArrayIndexingExpr(this);
+            return visitor.visitIndexingExpr(this);
         }
     }
 

@@ -41,7 +41,8 @@ public class Parser {
     }
 
     /**
-     * Checks if the current token matches any of the provided tokens.
+     * Checks if the current token matches any of the provided tokens and consumes
+     * it.
      * 
      * @param types The tokens to be matched against the current token
      * @return True if the current token matches any of the provided tokens, false
@@ -473,17 +474,17 @@ public class Parser {
             ArrayList<Stmt> statements = new ArrayList<Stmt>();
 
             if (match(LET_KEYWORD)) {
-                return varDeclaration();
-            }
-            if (match(CONST_KEYWORD)) {
-                return constDeclaration();
-            }
-            if (match(FUNC_KEYWORD)) {
+                statements = varDeclaration();
+            } else if (match(CONST_KEYWORD)) {
+                statements = constDeclaration();
+            } else if (match(FUNC_KEYWORD)) {
                 statements.add(function("function"));
-                return statements;
+            } else if (match(CLASS_KEYWORD)) {
+                statements.add(classDeclaration());
+            } else {
+                statements.add(statement());
             }
 
-            statements.add(statement());
             return statements;
         } catch (ParseError error) {
             return null;
@@ -516,6 +517,26 @@ public class Parser {
         consume(L_CURLY_BRACES, "Expect '{' before " + kind + " body.");
         List<Stmt> body = block();
         return new Stmt.Function(name, parameters, body);
+    }
+
+    /**
+     * Matches a class declaration as specified in the grammar.cfg file.
+     * 
+     * @return A class declaration.
+     */
+    private Stmt classDeclaration() {
+        Token name = consume(IDENTIFIER, "Expect class name.");
+        consume(L_CURLY_BRACES, "Expect '{' before class body.");
+
+        List<Stmt.Function> methods = new ArrayList<>();
+        while (!check(R_CURLY_BRACES) && !isAtEnd()) {
+            consume(TokenType.FUNC_KEYWORD, "Expected function declaration.");
+            methods.add(function("method"));
+        }
+
+        consume(R_CURLY_BRACES, "Expect '}' after class body.");
+
+        return new Stmt.Class(name, methods);
     }
 
     /**
@@ -649,6 +670,8 @@ public class Parser {
             return new Expr.Unary(operator, right);
         } else if (match(FUNC_KEYWORD)) {
             return lambda();
+        } else if (match(NEW_KEYWORD)) {
+            return instance();
         } else {
             Expr expr = primary();
 
@@ -681,6 +704,27 @@ public class Parser {
         } while (match(L_PARENTHESIS));
 
         return expr;
+    }
+
+    private Expr instance() {
+        List<Expr> arguments = new ArrayList<>();
+        Expr callee = primary();
+
+        consume(L_PARENTHESIS, "Expected '(' before arguments.");
+
+        if (!check(R_PARENTHESIS)) {
+            do {
+                // Hinton only supports 255 arguments for a class instance.
+                if (arguments.size() >= 255) {
+                    error(peek(), "Can't have more than 255 arguments.");
+                }
+                arguments.add(expression());
+            } while (match(COMMA_SEPARATOR));
+        }
+
+        Token paren = consume(R_PARENTHESIS, "Expect ')' after arguments.");
+
+        return new Expr.Instance(callee, paren, arguments);
     }
 
     /**
@@ -774,7 +818,7 @@ public class Parser {
      */
     private Expr arrayIndexing(Expr expr) {
         do {
-            expr = new Expr.ArrayIndexing(expr, expression());
+            expr = new Expr.Indexing(expr, expression());
             consume(R_SQUARE_BRACKET, "Expected ']' after array index.");
         } while (match(L_SQUARE_BRACKET));
 

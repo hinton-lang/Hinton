@@ -1,35 +1,20 @@
-/**
- * This is a multiline comment
- * The following is a recursive function
- */
-func factorial(n) {
-    if (n <= 1) return 1;
-    return n * factorial(n - 1);
-}
 
-// This is a constant
-const welcome = "Welcome to the program\n";
 
-// Printing to the console
-print(welcome)
 
-// This is a variable.
-// The `input(message: String)` is a function to
-// obtain user input from the console.
-// The `int(x)` is a function to convert the given
-// argument to an integer.
-let x = int(input("Compute the factorial of: "));
-print(factorial(x))
+class Breakfast {
+    func init() {
 
-// While loops
-while(true) {
-    let again = input("Compute another? (y/n): ");
-    
-    if (again equals "y") {
-        let x = int(input("Compute the factorial of: "));
-        print(factorial(x))
-        continue;
     }
 
-    if (again equals "n") break;
+    func cook() {
+        print("Eggs a-fryin'!");
+    }
+    
+    func serve(who) {
+        print "Enjoy your breakfast, " + who + ".";
+    }
 }
+
+let b = new Breakfast();
+
+print(b)
