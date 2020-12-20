@@ -7,29 +7,21 @@ public abstract class Stmt {
 
     public interface Visitor<R> {
         public R visitImportStmt(Import stmt);
-
         public R visitBlockStmt(Block stmt);
-
         public R visitExpressionStmt(Expression stmt);
-
         public R visitFunctionStmt(Function stmt);
-
+        public R visitClassStmt(Class stmt);
         public R visitIfStmt(If stmt);
-
         public R visitBreakStmt(Break stmt);
-
         public R visitContinueStmt(Continue stmt);
-
         public R visitReturnStmt(Return stmt);
-
         public R visitWhileStmt(While stmt);
-
         public R visitVarStmt(Var stmt);
-
         public R visitConstStmt(Const stmt);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
+
 
     public static class Import extends Stmt {
         public final List<Stmt> statements;
@@ -44,6 +36,7 @@ public abstract class Stmt {
         }
     }
 
+
     public static class Block extends Stmt {
         public final List<Stmt> statements;
 
@@ -57,6 +50,7 @@ public abstract class Stmt {
         }
     }
 
+
     public static class Expression extends Stmt {
         public final Expr expression;
 
@@ -69,6 +63,7 @@ public abstract class Stmt {
             return visitor.visitExpressionStmt(this);
         }
     }
+
 
     public static class Function extends Stmt {
         public final Token name;
@@ -87,6 +82,23 @@ public abstract class Stmt {
         }
     }
 
+
+    public static class Class extends Stmt {
+        public final Token name;
+        public final List<Stmt.Function> methods;
+
+        public Class(Token name, List<Stmt.Function> methods) {
+            this.name = name;
+            this.methods = methods;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitClassStmt(this);
+        }
+    }
+
+
     public static class If extends Stmt {
         public final Expr condition;
         public final Stmt thenBranch;
@@ -104,6 +116,7 @@ public abstract class Stmt {
         }
     }
 
+
     public static class Break extends Stmt {
         public final Token keyword;
 
@@ -117,6 +130,7 @@ public abstract class Stmt {
         }
     }
 
+
     public static class Continue extends Stmt {
         public final Token keyword;
 
@@ -129,6 +143,7 @@ public abstract class Stmt {
             return visitor.visitContinueStmt(this);
         }
     }
+
 
     public static class Return extends Stmt {
         public final Token keyword;
@@ -145,6 +160,7 @@ public abstract class Stmt {
         }
     }
 
+
     public static class While extends Stmt {
         public final Expr condition;
         public final Stmt body;
@@ -160,6 +176,7 @@ public abstract class Stmt {
         }
     }
 
+
     public static class Var extends Stmt {
         public final Token name;
         public final Expr initializer;
@@ -174,6 +191,7 @@ public abstract class Stmt {
             return visitor.visitVarStmt(this);
         }
     }
+
 
     public static class Const extends Stmt {
         public final Token name;

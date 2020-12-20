@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Stack;
 
 import org.hinton_lang.Hinton;
+import org.hinton_lang.Envornment.DecType;
 import org.hinton_lang.Envornment.FunctionType;
 import org.hinton_lang.Interpreter.Interpreter;
 import org.hinton_lang.Parser.AST.Expr;
@@ -15,7 +16,10 @@ import org.hinton_lang.Tokens.Token;
 public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     private final Interpreter interpreter;
     private final Stack<Map<String, Boolean>> scopes = new Stack<>();
+    // Keeps track of the type of function being resolved
+    // when resolving a function/method.
     private FunctionType currentFunction = FunctionType.NONE;
+    // True when resolving a loop
     private boolean isInsideLoop = false;
 
     public Resolver(Interpreter interpreter) {
@@ -27,6 +31,13 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         beginScope();
         resolve(stmt.statements);
         endScope();
+        return null;
+    }
+
+    @Override
+    public Void visitClassStmt(Stmt.Class stmt) {
+        declare(stmt.name, DecType.CLASS);
+        define(stmt.name);
         return null;
     }
 
@@ -54,7 +65,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitVarStmt(Stmt.Var stmt) {
-        declare(stmt.name);
+        declare(stmt.name, DecType.VARIABLE);
         if (stmt.initializer != null) {
             resolve(stmt.initializer);
         }
@@ -64,7 +75,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitConstStmt(Stmt.Const stmt) {
-        declare(stmt.name);
+        declare(stmt.name, DecType.CONSTANT);
         if (stmt.initializer != null) {
             resolve(stmt.initializer);
         }
@@ -72,14 +83,23 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         return null;
     }
 
-    private void declare(Token name) {
+    private void declare(Token name, DecType decType) {
         if (scopes.isEmpty())
             return;
 
         Map<String, Boolean> scope = scopes.peek();
 
         if (scope.containsKey(name.lexeme)) {
-            Hinton.error(name, "Variable with this name already exists in this scope.");
+            String type;
+            if (decType == DecType.VARIABLE) {
+                type = "Variable";
+            } else if (decType == DecType.CONSTANT) {
+                type = "Constant";
+            } else {
+                type = "Function";
+            }
+
+            Hinton.error(name, type + " with this name already exists in this scope.");
         }
 
         scope.put(name.lexeme, false);
@@ -119,7 +139,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
     @Override
     public Void visitFunctionStmt(Stmt.Function stmt) {
-        declare(stmt.name);
+        declare(stmt.name, DecType.FUNCTION);
         define(stmt.name);
 
         resolveFunction(stmt, FunctionType.FUNCTION);
@@ -132,7 +152,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
         beginScope();
         for (Token param : function.params) {
-            declare(param);
+            declare(param, DecType.VARIABLE);
             define(param);
         }
         resolve(function.body);
@@ -199,6 +219,17 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     @Override
+    public Void visitInstanceExpr(Expr.Instance expr) {
+        resolve(expr.callee);
+
+        for (Expr argument : expr.arguments) {
+            resolve(argument);
+        }
+
+        return null;
+    }
+
+    @Override
     public Void visitGroupingExpr(Expr.Grouping expr) {
         resolve(expr.expression);
         return null;
@@ -251,7 +282,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
 
         beginScope();
         for (Token param : expr.params) {
-            declare(param);
+            declare(param, DecType.VARIABLE);
             define(param);
         }
         resolve(expr.body);
@@ -271,7 +302,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     @Override
-    public Void visitArrayIndexingExpr(Expr.ArrayIndexing expr) {
+    public Void visitIndexingExpr(Expr.Indexing expr) {
         resolve(expr.arr);
         resolve(expr.index);
         return null;

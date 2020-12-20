@@ -56,7 +56,6 @@ public class Token {
         Keywords.put("from", TokenType.FROM_KEYWORD);
         Keywords.put("export", TokenType.EXPORT_KEYWORD);
         Keywords.put("new", TokenType.NEW_KEYWORD);
-        Keywords.put("init", TokenType.INIT_KEYWORD);
         Keywords.put("final", TokenType.FINAL_KEYWORD);
         Keywords.put("public", TokenType.PUBLIC_KEYWORD);
         Keywords.put("private", TokenType.PRIVATE_KEYWORD);
