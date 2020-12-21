@@ -1,4 +1,4 @@
-package org.hinton_lang.Analysers;
+package org.hinton_lang.Analyzers;
 
 import java.util.HashMap;
 import java.util.List;
@@ -11,6 +11,8 @@ import org.hinton_lang.Envornment.FunctionType;
 import org.hinton_lang.Interpreter.Interpreter;
 import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Parser.AST.Stmt;
+import org.hinton_lang.Parser.AST.Stmt.ClassMember;
+import org.hinton_lang.Parser.AST.Stmt.Field;
 import org.hinton_lang.Tokens.Token;
 
 public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
@@ -38,6 +40,16 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     public Void visitClassStmt(Stmt.Class stmt) {
         declare(stmt.name, DecType.CLASS);
         define(stmt.name);
+
+        for (Stmt.ClassMember member : stmt.members) {
+            if (member.member instanceof Stmt.Function) {
+                FunctionType declaration = FunctionType.METHOD;
+                resolveFunction((Stmt.Function) member.member, declaration);
+            } else {
+                visitFieldStmt((Stmt.Field) member.member);
+            }
+        }
+
         return null;
     }
 
@@ -307,4 +319,37 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         resolve(expr.index);
         return null;
     }
+
+    @Override
+    public Void visitClassMemberStmt(ClassMember stmt) {
+        resolve(stmt.member);
+        return null;
+    }
+
+    @Override
+    public Void visitFieldStmt(Field stmt) {
+        // resolve(stmt.initializer);
+        declare(stmt.name, (stmt.isFinal) ? DecType.FINAL_MEMBER : DecType.MUTABLE_MEMBER);
+
+        if (stmt.initializer != null) {
+            resolve(stmt.initializer);
+        }
+
+        define(stmt.name);
+        return null;
+    }
+
+    @Override
+    public Void visitMemberAccessExpr(Expr.MemberAccess expr) {
+        resolve(expr.object);
+        return null;
+    }
+
+    @Override
+    public Void visitMemberSetterExpr(Expr.MemberSetter expr) {
+        resolve(expr.value);
+        resolve(expr.object);
+        return null;
+    }
+
 }

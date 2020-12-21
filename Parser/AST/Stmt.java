@@ -7,21 +7,35 @@ public abstract class Stmt {
 
     public interface Visitor<R> {
         public R visitImportStmt(Import stmt);
+
         public R visitBlockStmt(Block stmt);
+
         public R visitExpressionStmt(Expression stmt);
+
         public R visitFunctionStmt(Function stmt);
+
         public R visitClassStmt(Class stmt);
+
+        public R visitClassMemberStmt(ClassMember stmt);
+
+        public R visitFieldStmt(Field stmt);
+
         public R visitIfStmt(If stmt);
+
         public R visitBreakStmt(Break stmt);
+
         public R visitContinueStmt(Continue stmt);
+
         public R visitReturnStmt(Return stmt);
+
         public R visitWhileStmt(While stmt);
+
         public R visitVarStmt(Var stmt);
+
         public R visitConstStmt(Const stmt);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
-
 
     public static class Import extends Stmt {
         public final List<Stmt> statements;
@@ -36,7 +50,6 @@ public abstract class Stmt {
         }
     }
 
-
     public static class Block extends Stmt {
         public final List<Stmt> statements;
 
@@ -50,7 +63,6 @@ public abstract class Stmt {
         }
     }
 
-
     public static class Expression extends Stmt {
         public final Expr expression;
 
@@ -63,7 +75,6 @@ public abstract class Stmt {
             return visitor.visitExpressionStmt(this);
         }
     }
-
 
     public static class Function extends Stmt {
         public final Token name;
@@ -82,14 +93,13 @@ public abstract class Stmt {
         }
     }
 
-
     public static class Class extends Stmt {
         public final Token name;
-        public final List<Stmt.Function> methods;
+        public final List<Stmt.ClassMember> members;
 
-        public Class(Token name, List<Stmt.Function> methods) {
+        public Class(Token name, List<Stmt.ClassMember> members) {
             this.name = name;
-            this.methods = methods;
+            this.members = members;
         }
 
         @Override
@@ -98,6 +108,39 @@ public abstract class Stmt {
         }
     }
 
+    public static class ClassMember extends Stmt {
+        public final Boolean isPrivate;
+        public final Boolean isStatic;
+        public final Stmt member;
+
+        public ClassMember(Boolean isPrivate, Boolean isStatic, Stmt member) {
+            this.isPrivate = isPrivate;
+            this.isStatic = isStatic;
+            this.member = member;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitClassMemberStmt(this);
+        }
+    }
+
+    public static class Field extends Stmt {
+        public final Token name;
+        public final Boolean isFinal;
+        public final Expr initializer;
+
+        public Field(Token name, Boolean isFinal, Expr initializer) {
+            this.name = name;
+            this.isFinal = isFinal;
+            this.initializer = initializer;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitFieldStmt(this);
+        }
+    }
 
     public static class If extends Stmt {
         public final Expr condition;
@@ -116,7 +159,6 @@ public abstract class Stmt {
         }
     }
 
-
     public static class Break extends Stmt {
         public final Token keyword;
 
@@ -130,7 +172,6 @@ public abstract class Stmt {
         }
     }
 
-
     public static class Continue extends Stmt {
         public final Token keyword;
 
@@ -143,7 +184,6 @@ public abstract class Stmt {
             return visitor.visitContinueStmt(this);
         }
     }
-
 
     public static class Return extends Stmt {
         public final Token keyword;
@@ -160,7 +200,6 @@ public abstract class Stmt {
         }
     }
 
-
     public static class While extends Stmt {
         public final Expr condition;
         public final Stmt body;
@@ -176,7 +215,6 @@ public abstract class Stmt {
         }
     }
 
-
     public static class Var extends Stmt {
         public final Token name;
         public final Expr initializer;
@@ -191,7 +229,6 @@ public abstract class Stmt {
             return visitor.visitVarStmt(this);
         }
     }
-
 
     public static class Const extends Stmt {
         public final Token name;

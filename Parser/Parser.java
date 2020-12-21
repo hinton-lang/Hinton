@@ -447,6 +447,9 @@ public class Parser {
             if (expr instanceof Expr.Variable) {
                 Token name = ((Expr.Variable) expr).name;
                 return new Expr.Assign(name, value);
+            } else if (expr instanceof Expr.MemberAccess) {
+                Expr.MemberAccess get = (Expr.MemberAccess) expr;
+                return new Expr.MemberSetter(get.object, get.name, value);
             }
 
             error(equals, "Invalid assignment target.");
@@ -528,15 +531,73 @@ public class Parser {
         Token name = consume(IDENTIFIER, "Expect class name.");
         consume(L_CURLY_BRACES, "Expect '{' before class body.");
 
-        List<Stmt.Function> methods = new ArrayList<>();
+        List<Stmt.ClassMember> members = new ArrayList<>();
         while (!check(R_CURLY_BRACES) && !isAtEnd()) {
-            consume(TokenType.FUNC_KEYWORD, "Expected function declaration.");
-            methods.add(function("method"));
+            members.add(classMember());
         }
 
         consume(R_CURLY_BRACES, "Expect '}' after class body.");
 
-        return new Stmt.Class(name, methods);
+        return new Stmt.Class(name, members);
+    }
+
+    /**
+     * Matches a class member as specified in the grammar.cfg file.
+     * 
+     * @return A class member.
+     */
+    private Stmt.ClassMember classMember() {
+        // Gets the access modifier
+        boolean isPrivate = false;
+        if (match(PRIVATE_KEYWORD)) {
+            isPrivate = true;
+        } else if (match(PUBLIC_KEYWORD)) {
+            isPrivate = false;
+        } else {
+            Hinton.error(tokens.get(current), "Expected access modifier.");
+            throw new ParseError();
+        }
+
+        // Gets the member type
+        boolean isStatic = match(STATIC_KEYWORD) ? true : false;
+
+        if (match(FUNC_KEYWORD)) {
+            return new Stmt.ClassMember(isPrivate, isStatic, function("method"));
+        } else {
+            return new Stmt.ClassMember(isPrivate, isStatic, field());
+        }
+    }
+
+    /**
+     * Matches a field declaration as specified in the grammar.cfg file.
+     * 
+     * @return A field declaration.
+     */
+    private Stmt.Field field() {
+        // Gets whether the field is final
+        boolean isFinal = match(FINAL_KEYWORD) ? true : false;
+
+        // Get the field's name
+        Token name = consume(IDENTIFIER, "Expected an identifier for field declaration.");
+
+        // Since the .forEach loop bellow requires the
+        // variables to be final, we use an array of size
+        // one to represent the value of the variable.
+        Expr initializer = null;
+        if (match(EQUALS_SIGN)) {
+            initializer = expression();
+        }
+
+        // Requires a semicolon at the end of the declaration
+        // if the declaration was not a block
+        if (previous().type != TokenType.R_CURLY_BRACES)
+            consume(SEMICOLON_SEPARATOR, "Expect ';' after variable declaration.");
+
+        // But if there is a semicolon after a curly brace, then we consume it
+        if (previous().type == TokenType.R_CURLY_BRACES && check(SEMICOLON_SEPARATOR))
+            advance();
+
+        return new Stmt.Field(name, isFinal, initializer);
     }
 
     /**
@@ -675,7 +736,7 @@ public class Parser {
         } else {
             Expr expr = primary();
 
-            while (match(L_SQUARE_BRACKET, L_PARENTHESIS)) {
+            while (match(L_SQUARE_BRACKET, L_PARENTHESIS, DOT_SEPARATOR)) {
                 // If there is an opening sqr bracket after the expression,
                 // then we must have an array indexing expression.
                 if (previous().type == L_SQUARE_BRACKET) {
@@ -686,6 +747,13 @@ public class Parser {
                 // then we must have a function call expression.
                 if (previous().type == L_PARENTHESIS) {
                     expr = call(expr);
+                }
+
+                // If there is a dot separator after the expression,
+                // then we must have a member access expression.
+                if (previous().type == DOT_SEPARATOR) {
+                    Token name = consume(IDENTIFIER, "Expect property name after '.'.");
+                    expr = new Expr.MemberAccess(expr, name);
                 }
             }
 
