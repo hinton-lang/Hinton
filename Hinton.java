@@ -15,7 +15,7 @@ import org.hinton_lang.Lexer.Lexer;
 import org.hinton_lang.Tokens.*;
 import org.hinton_lang.Parser.*;
 import org.hinton_lang.Parser.AST.*;
-import org.hinton_lang.Analysers.Resolver;
+import org.hinton_lang.Analyzers.Resolver;
 import org.hinton_lang.CLI.ProcessArgs;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.Interpreter;

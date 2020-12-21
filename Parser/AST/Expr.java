@@ -16,6 +16,10 @@ public abstract class Expr {
 
         public R visitInstanceExpr(Instance expr);
 
+        public R visitMemberAccessExpr(MemberAccess expr);
+
+        public R visitMemberSetterExpr(MemberSetter expr);
+
         public R visitGroupingExpr(Grouping expr);
 
         public R visitLiteralExpr(Literal expr);
@@ -111,6 +115,38 @@ public abstract class Expr {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitInstanceExpr(this);
+        }
+    }
+
+    public static class MemberAccess extends Expr {
+        public final Expr object;
+        public final Token name;
+
+        public MemberAccess(Expr object, Token name) {
+            this.object = object;
+            this.name = name;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitMemberAccessExpr(this);
+        }
+    }
+
+    public static class MemberSetter extends Expr {
+        public final Expr object;
+        public final Token name;
+        public final Expr value;
+
+        public MemberSetter(Expr object, Token name, Expr value) {
+            this.object = object;
+            this.name = name;
+            this.value = value;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitMemberSetterExpr(this);
         }
     }
 
