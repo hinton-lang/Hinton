@@ -1,4 +1,6 @@
-package org.hinton_lang.Interpreter;
+package org.hinton_lang.Interpreter.HintonFunctions;
+
+import org.hinton_lang.Interpreter.Interpreter;
 
 import java.util.List;
 

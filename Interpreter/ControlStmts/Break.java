@@ -1,4 +1,4 @@
-package org.hinton_lang.Interpreter;
+package org.hinton_lang.Interpreter.ControlStmts;
 
 /**
  * Used to break from a loop, even when the break statement is deep within many

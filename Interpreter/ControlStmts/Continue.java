@@ -1,4 +1,4 @@
-package org.hinton_lang.Interpreter;
+package org.hinton_lang.Interpreter.ControlStmts;
 
 /**
  * Used to restart a loop, even when the continue statement is deep within many

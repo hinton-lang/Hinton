@@ -14,12 +14,6 @@ public abstract class Stmt {
 
         public R visitFunctionStmt(Function stmt);
 
-        public R visitClassStmt(Class stmt);
-
-        public R visitClassMemberStmt(ClassMember stmt);
-
-        public R visitFieldStmt(Field stmt);
-
         public R visitIfStmt(If stmt);
 
         public R visitBreakStmt(Break stmt);
@@ -90,55 +84,6 @@ public abstract class Stmt {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitFunctionStmt(this);
-        }
-    }
-
-    public static class Class extends Stmt {
-        public final Token name;
-        public final List<Stmt.ClassMember> members;
-
-        public Class(Token name, List<Stmt.ClassMember> members) {
-            this.name = name;
-            this.members = members;
-        }
-
-        @Override
-        public <R> R accept(Visitor<R> visitor) {
-            return visitor.visitClassStmt(this);
-        }
-    }
-
-    public static class ClassMember extends Stmt {
-        public final Boolean isPrivate;
-        public final Boolean isStatic;
-        public final Stmt member;
-
-        public ClassMember(Boolean isPrivate, Boolean isStatic, Stmt member) {
-            this.isPrivate = isPrivate;
-            this.isStatic = isStatic;
-            this.member = member;
-        }
-
-        @Override
-        public <R> R accept(Visitor<R> visitor) {
-            return visitor.visitClassMemberStmt(this);
-        }
-    }
-
-    public static class Field extends Stmt {
-        public final Token name;
-        public final Boolean isFinal;
-        public final Expr initializer;
-
-        public Field(Token name, Boolean isFinal, Expr initializer) {
-            this.name = name;
-            this.isFinal = isFinal;
-            this.initializer = initializer;
-        }
-
-        @Override
-        public <R> R accept(Visitor<R> visitor) {
-            return visitor.visitFieldStmt(this);
         }
     }
 

@@ -4,16 +4,15 @@ import java.util.List;
 import java.util.ArrayList;
 import java.util.HashMap;
 
+import org.hinton_lang.Interpreter.ControlStmts.*;
+import org.hinton_lang.Interpreter.HintonFunctions.*;
+import org.hinton_lang.Interpreter.HintonArrays.*;
 import org.hinton_lang.Parser.AST.*;
-import org.hinton_lang.Parser.AST.Expr.Instance;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
-import org.hinton_lang.Envornment.DecType;
-import org.hinton_lang.Envornment.Environment;
-import org.hinton_lang.Parser.AST.Stmt;
+import org.hinton_lang.Envornment.*;
 import org.hinton_lang.RuntimeLib.RuntimeLib;
-import org.hinton_lang.Tokens.Token;
-import org.hinton_lang.Tokens.TokenType;
+import org.hinton_lang.Tokens.*;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     // Holds global functions and variables native to Hinton.
@@ -153,47 +152,6 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         } finally {
             this.environment = previous;
         }
-    }
-
-    /**
-     * Visits a class statement.
-     */
-    @Override
-    public Void visitClassStmt(Stmt.Class stmt) {
-        environment.define(stmt.name, null, DecType.CLASS);
-
-        HashMap<String, ClassMember> staticMembers = new HashMap<>();
-        HashMap<String, ClassMember> instanceMembers = new HashMap<>();
-
-        // Adds instance or static methods and fields to the class definition.
-        for (Stmt.ClassMember member : stmt.members) {
-            if (member.member instanceof Stmt.Function) {
-                Stmt.Function method = (Stmt.Function) member.member;
-                HintonFunction function = new HintonFunction(method, environment);
-                ClassMember val = new ClassMember(member, function);
-
-                if (member.isStatic) {
-                    staticMembers.put(method.name.lexeme, val);
-                } else {
-                    instanceMembers.put(method.name.lexeme, val);
-                }
-            } else {
-                Stmt.Field field = (Stmt.Field) member.member;
-                ClassMember val = new ClassMember(member, evaluate(field.initializer));
-
-                if (member.isStatic) {
-                    staticMembers.put(field.name.lexeme, val);
-                } else {
-                    instanceMembers.put(field.name.lexeme, val);
-                }
-            }
-
-        }
-
-        HintonClass klass = new HintonClass(stmt.name.lexeme, staticMembers, instanceMembers);
-
-        environment.assign(stmt.name, klass);
-        return null;
     }
 
     /**
@@ -401,50 +359,24 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     /**
-     * Visits a class instance expression.
-     */
-    @Override
-    public Object visitInstanceExpr(Instance expr) {
-        Object callee = evaluate(expr.callee);
-
-        List<Object> arguments = new ArrayList<>();
-        for (Expr argument : expr.arguments) {
-            arguments.add(evaluate(argument));
-        }
-
-        if (!(callee instanceof HintonInstantiable)) {
-            throw new RuntimeError(expr.paren, "Can only instantiate classes.");
-        }
-
-        HintonInstantiable function = (HintonInstantiable) callee;
-
-        if (arguments.size() != function.arity()) {
-            throw new RuntimeError(expr.paren,
-                    "Expected " + function.arity() + " arguments but got " + arguments.size() + ".");
-        }
-
-        return function.instantiate(this, arguments);
-    }
-
-    /**
      * Visits an array expression.
      */
     @Override
-    public ArrayList<Object> visitArrayExpr(Expr.Array expr) {
-        ArrayList<Object> ar = new ArrayList<>();
+    public HintonArray visitArrayExpr(Expr.Array expr) {
+        ArrayList<Object> arr = new ArrayList<>();
 
         for (int i = 0; i < expr.expressions.size(); i++) {
             Expr item = expr.expressions.get(i);
 
-            if (item instanceof Expr.Literal || item instanceof Expr.Array) {
-                ar.add(evaluate(item));
+            if (item instanceof Expr.Literal || item instanceof Expr.Array || item instanceof Expr.Call) {
+                arr.add(evaluate(item));
             } else {
-                ar.add(item);
+                arr.add(item);
             }
 
         }
 
-        return ar;
+        return new HintonArray(arr);
     }
 
     /**
@@ -544,51 +476,14 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     }
 
     /**
-     * Visits a class member statement.
-     */
-    @Override
-    public Void visitClassMemberStmt(Stmt.ClassMember stmt) {
-        if (stmt.member instanceof Stmt.Function) {
-            visitFunctionStmt((Stmt.Function) stmt.member);
-        } else {
-            visitFieldStmt((Stmt.Field) stmt.member);
-        }
-        return null;
-    }
-
-    /**
-     * Visits a field statement.
-     */
-    @Override
-    public Void visitFieldStmt(Stmt.Field stmt) {
-        Object value = null;
-        if (stmt.initializer != null) {
-            value = evaluate(stmt.initializer);
-        }
-
-        if (stmt.isFinal) {
-            environment.define(stmt.name, value, DecType.FINAL_MEMBER);
-        } else {
-            environment.define(stmt.name, value, DecType.MUTABLE_MEMBER);
-        }
-        return null;
-    }
-
-    /**
      * Visits a member access expression.
      */
     @Override
     public Object visitMemberAccessExpr(Expr.MemberAccess expr) {
         Object object = evaluate(expr.object);
 
-        // Accessing members of a class instance.
-        if (object instanceof HintonInstance) {
-            return ((HintonInstance) object).getInstanceMember(expr.name).value;
-        }
-
-        // Accessing members of a static class.
-        if (object instanceof HintonClass) {
-            return ((HintonClass) object).getStaticMember(expr.name).value;
+        if (object instanceof HintonArray) {
+            return ((HintonArray) object).getProperty(expr.name);
         }
 
         throw new RuntimeError(expr.name, "Only instances have properties.");
@@ -601,12 +496,12 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
     public Object visitMemberSetterExpr(Expr.MemberSetter expr) {
         Object object = evaluate(expr.object);
 
-        if (!(object instanceof HintonInstance)) {
-            throw new RuntimeError(expr.name, "Only instances have fields.");
-        }
+        // if (!(object instanceof HintonInstance)) {
+        // throw new RuntimeError(expr.name, "Only instances have fields.");
+        // }
 
         Object value = evaluate(expr.value);
-        ((HintonInstance) object).setMemberValue(expr.name, value);
+        // ((HintonInstance) object).setMemberValue(expr.name, value);
         return value;
     }
 }

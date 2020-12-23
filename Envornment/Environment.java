@@ -36,6 +36,22 @@ public class Environment {
         values.put(name.lexeme, new Value(value, decType));
     }
 
+    /**
+     * Defines an object in this scope.
+     * 
+     * @param name    The object's name.
+     * @param value   Tha object's value.
+     * @param decType The type of declaration.
+     */
+    public void define(String name, Object value, DecType decType) {
+        if (values.containsKey(name)) {
+            throw new RuntimeError("Cannot redeclare \"" + name + "\".");
+        }
+
+        // If the value hasn't been declared, we added to the environment.
+        values.put(name, new Value(value, decType));
+    }
+
     public Object getAt(int distance, String name) {
         return ancestor(distance).values.get(name).getValue();
     }
