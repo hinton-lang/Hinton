@@ -8,7 +8,7 @@ import java.util.List;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Helper.Helper;
-import org.hinton_lang.Interpreter.HintonCallable;
+import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 import org.hinton_lang.Interpreter.Interpreter;
 
 /**

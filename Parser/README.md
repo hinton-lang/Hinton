@@ -13,25 +13,24 @@ program         -> declaration* EOF ;
 
 declaration     -> varDecl
                 | constDecl
-                | funDecl
+                | function
                 | statement ;
 
 varDecl         -> "let" IDENTIFIER ( "," IDENTIFIER )* ( "=" expression )? ";" ;
 constDecl       -> "const" IDENTIFIER ( "," IDENTIFIER )* "=" expression ";" ;
 
-funDecl         -> "func" function ;
-function        -> IDENTIFIER "(" parameters? ")" block ;
+function        -> "func" IDENTIFIER "(" parameters? ")" block ;
 
-parameters      -> DENTIFIER ( "," IDENTIFIER )* ;
+parameters      -> IDENTIFIER ( "," IDENTIFIER )* ;
 
-# Satatements ================================================================
+# Statements ================================================================
 
 statement       -> exprStmt
                 | ifStmt
                 | whileStmt
                 | forStmt
                 | breakStmt
-                | contiueStmt
+                | continueStmt
                 | returnStmt
                 | importStmt
                 | block ;
@@ -55,7 +54,7 @@ exprStmt        -> expression ";"? ;
 # Expressions ================================================================
 
 expression      -> assignment ;
-assignment      -> IDENTIFIER "=" assignment
+assignment      -> ( (call | indexing | memberAccess) "." )? IDENTIFIER "=" assignment
                 | logic_or ;
 logic_or        -> logic_and ("||" logic_and)* ;
 logic_and       -> equality ("&&" equality)* ;
@@ -65,12 +64,14 @@ term            -> factor ( ( "-" | "+" ) factor )* ;
 factor          -> expo ( ( "/" | "*" | "%" ) expo )* ;
 expo            -> unary ("**" unary)* ;
 unary           -> ( "!" | "-" | "+" ) unary
-                | arrayIndexing
+                | indexing
                 | lambda
+                | memberAccess
                 | call ;
 
 call            -> primary ( "(" arguments? ")" )* ;
-arrayIndexing   -> primary ( "[" expression "]" )* ;
+indexing        -> primary ( "[" expression "]" )* ;
+memberAccess    -> primary ("." IDENTIFIER)* ;
 lambda          -> "func" "(" parameters? ")" block ;
 
 primary         -> INTEGER | REAL | STRING

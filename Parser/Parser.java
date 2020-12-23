@@ -482,8 +482,6 @@ public class Parser {
                 statements = constDeclaration();
             } else if (match(FUNC_KEYWORD)) {
                 statements.add(function("function"));
-            } else if (match(CLASS_KEYWORD)) {
-                statements.add(classDeclaration());
             } else {
                 statements.add(statement());
             }
@@ -520,84 +518,6 @@ public class Parser {
         consume(L_CURLY_BRACES, "Expect '{' before " + kind + " body.");
         List<Stmt> body = block();
         return new Stmt.Function(name, parameters, body);
-    }
-
-    /**
-     * Matches a class declaration as specified in the grammar.cfg file.
-     * 
-     * @return A class declaration.
-     */
-    private Stmt classDeclaration() {
-        Token name = consume(IDENTIFIER, "Expect class name.");
-        consume(L_CURLY_BRACES, "Expect '{' before class body.");
-
-        List<Stmt.ClassMember> members = new ArrayList<>();
-        while (!check(R_CURLY_BRACES) && !isAtEnd()) {
-            members.add(classMember());
-        }
-
-        consume(R_CURLY_BRACES, "Expect '}' after class body.");
-
-        return new Stmt.Class(name, members);
-    }
-
-    /**
-     * Matches a class member as specified in the grammar.cfg file.
-     * 
-     * @return A class member.
-     */
-    private Stmt.ClassMember classMember() {
-        // Gets the access modifier
-        boolean isPrivate = false;
-        if (match(PRIVATE_KEYWORD)) {
-            isPrivate = true;
-        } else if (match(PUBLIC_KEYWORD)) {
-            isPrivate = false;
-        } else {
-            Hinton.error(tokens.get(current), "Expected access modifier.");
-            throw new ParseError();
-        }
-
-        // Gets the member type
-        boolean isStatic = match(STATIC_KEYWORD) ? true : false;
-
-        if (match(FUNC_KEYWORD)) {
-            return new Stmt.ClassMember(isPrivate, isStatic, function("method"));
-        } else {
-            return new Stmt.ClassMember(isPrivate, isStatic, field());
-        }
-    }
-
-    /**
-     * Matches a field declaration as specified in the grammar.cfg file.
-     * 
-     * @return A field declaration.
-     */
-    private Stmt.Field field() {
-        // Gets whether the field is final
-        boolean isFinal = match(FINAL_KEYWORD) ? true : false;
-
-        // Get the field's name
-        Token name = consume(IDENTIFIER, "Expected an identifier for field declaration.");
-
-        // Since the .forEach loop bellow requires the
-        // variables to be final, we use an array of size
-        // one to represent the value of the variable.
-        Expr initializer = null;
-        if (match(EQUALS_SIGN)) {
-            initializer = expression();
-        }
-
-        // Requires a semicolon at the end of the declaration
-        // if the declaration was not a block
-        if (previous().type != TokenType.R_CURLY_BRACES)
-            consume(SEMICOLON_SEPARATOR, "Expect ';' after variable declaration.");
-
-        // But if there is a semicolon after a curly brace, then we consume it
-        if (previous().type == TokenType.R_CURLY_BRACES && check(SEMICOLON_SEPARATOR))
-            advance();
-
-        return new Stmt.Field(name, isFinal, initializer);
     }
 
     /**
@@ -731,8 +651,6 @@ public class Parser {
             return new Expr.Unary(operator, right);
         } else if (match(FUNC_KEYWORD)) {
             return lambda();
-        } else if (match(NEW_KEYWORD)) {
-            return instance();
         } else {
             Expr expr = primary();
 
@@ -772,27 +690,6 @@ public class Parser {
         } while (match(L_PARENTHESIS));
 
         return expr;
-    }
-
-    private Expr instance() {
-        List<Expr> arguments = new ArrayList<>();
-        Expr callee = primary();
-
-        consume(L_PARENTHESIS, "Expected '(' before arguments.");
-
-        if (!check(R_PARENTHESIS)) {
-            do {
-                // Hinton only supports 255 arguments for a class instance.
-                if (arguments.size() >= 255) {
-                    error(peek(), "Can't have more than 255 arguments.");
-                }
-                arguments.add(expression());
-            } while (match(COMMA_SEPARATOR));
-        }
-
-        Token paren = consume(R_PARENTHESIS, "Expect ')' after arguments.");
-
-        return new Expr.Instance(callee, paren, arguments);
     }
 
     /**

@@ -1,4 +1,4 @@
-package org.hinton_lang.Interpreter;
+package org.hinton_lang.Interpreter.ControlStmts;
 
 /**
  * Used to return values from a function, even when the return statement is deep

@@ -1,21 +1,23 @@
-package org.hinton_lang.Interpreter;
+package org.hinton_lang.Interpreter.HintonFunctions;
 
 import java.util.List;
 
-import org.hinton_lang.Parser.AST.Expr;
+import org.hinton_lang.Interpreter.Interpreter;
+import org.hinton_lang.Interpreter.ControlStmts.Return;
+import org.hinton_lang.Parser.AST.Stmt;
 import org.hinton_lang.Envornment.DecType;
 import org.hinton_lang.Envornment.Environment;
 
 /**
- * Represents a lambda expression.
+ * Represents a function declaration.
  */
-public class HintonLambda implements HintonCallable {
-    private final Expr.Lambda declaration;
+public class HintonFunction implements HintonCallable {
+    private final Stmt.Function declaration;
     // For functions declared within the another function's body,
     // we use the parent's function as the enclosing (closure) scope.
     private final Environment closure;
 
-    public HintonLambda(Expr.Lambda declaration, Environment closure) {
+    public HintonFunction(Stmt.Function declaration, Environment closure) {
         this.declaration = declaration;
         this.closure = closure;
     }
@@ -55,6 +57,6 @@ public class HintonLambda implements HintonCallable {
      */
     @Override
     public String toString() {
-        return "<LambdaExpression>";
+        return "<Function " + declaration.name.lexeme + ">";
     }
 }

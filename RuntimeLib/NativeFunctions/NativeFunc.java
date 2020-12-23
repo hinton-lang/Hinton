@@ -1,6 +1,6 @@
 package org.hinton_lang.RuntimeLib.NativeFunctions;
 
-import org.hinton_lang.Interpreter.HintonCallable;
+import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 
 /**
  * Signature interface for implementing native Hinton functions.
