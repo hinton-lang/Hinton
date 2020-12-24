@@ -1,6 +1,9 @@
 package org.hinton_lang.Interpreter;
 
 import org.hinton_lang.Errors.RuntimeError;
+import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
+import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
+import org.hinton_lang.Interpreter.HintonReal.HintonReal;
 import org.hinton_lang.Tokens.Token;
 
 public class EvalUnaryExpr {
@@ -12,9 +15,17 @@ public class EvalUnaryExpr {
      * @param operand  The operand.
      */
     private static void checkNumberOperand(Token operator, Object operand) {
-        if (operand instanceof Double || operand instanceof Integer || operand instanceof Boolean)
+        if (operand instanceof HintonReal || operand instanceof HintonInteger || operand instanceof HintonBoolean)
             return;
-        throw new RuntimeError(operator, "Operand must be a number.");
+
+        String rightType;
+        if (operand instanceof NativeType) {
+            rightType = ((NativeType) operand).typeName();
+        } else {
+            rightType = operand.toString();
+        }
+
+        throw new RuntimeError(operator, "Cannot negate operand of type '" + rightType + "'.");
     }
 
     /**
@@ -23,8 +34,8 @@ public class EvalUnaryExpr {
      * @param right The operand.
      * @return (Boolean) The negation of the provided object.
      */
-    public static boolean evalLogicNegation(Object right) {
-        return !Interpreter.isTruthy(right);
+    public static HintonBoolean evalLogicNegation(Object right) {
+        return new HintonBoolean(!Interpreter.isTruthy(right));
     }
 
     /**
@@ -34,16 +45,16 @@ public class EvalUnaryExpr {
      * @param right The operand.
      * @return (Number) The negation of the provided object.
      */
-    public static Object evalNumericNegation(Token opr, Object right) {
+    public static NativeType evalNumericNegation(Token opr, Object right) {
         checkNumberOperand(opr, right);
 
-        if (right instanceof Boolean && (Boolean) right == true)
-            return -1;
-        if (right instanceof Boolean && (Boolean) right == false)
-            return 0;
-        if (right instanceof Double)
-            return -(double) right;
+        if (right instanceof HintonBoolean && ((HintonBoolean) right).getRaw())
+            return new HintonInteger(-1);
+        if (right instanceof Boolean && !((Boolean) right))
+            return new HintonInteger(0);
+        if (right instanceof HintonReal)
+            return new HintonReal(-((HintonReal) right).getRaw());
 
-        return -(int) right;
+        return new HintonInteger(-((HintonInteger) right).getRaw());
     }
 }

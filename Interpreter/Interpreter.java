@@ -6,7 +6,11 @@ import java.util.HashMap;
 
 import org.hinton_lang.Interpreter.ControlStmts.*;
 import org.hinton_lang.Interpreter.HintonFunctions.*;
+import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
+import org.hinton_lang.Interpreter.HintonNull.HintonNull;
+import org.hinton_lang.Interpreter.HintonReal.HintonReal;
 import org.hinton_lang.Interpreter.HintonArrays.*;
+import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Parser.AST.*;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
@@ -14,7 +18,7 @@ import org.hinton_lang.Envornment.*;
 import org.hinton_lang.RuntimeLib.RuntimeLib;
 import org.hinton_lang.Tokens.*;
 
-public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
+public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNull> {
     // Holds global functions and variables native to Hinton.
     public final Environment globals = new Environment();
     // Used to store variables
@@ -62,14 +66,15 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      * @return The boolean value of the provided object.
      */
     public static boolean isTruthy(Object object) {
-        if (object == null)
+        if (object instanceof HintonNull)
             return false;
-        if (object instanceof Integer && (int) object == 0)
+        if (object instanceof HintonInteger && ((HintonInteger) object).getRaw() == 0)
             return false;
-        if (object instanceof Double && (int) object == 0.0)
+        if (object instanceof HintonReal && ((HintonReal) object).getRaw() == 0.0)
             return false;
-        if (object instanceof Boolean)
-            return (boolean) object;
+        if (object instanceof HintonBoolean)
+            return ((HintonBoolean) object).getRaw();
+
         return true;
     }
 
@@ -113,7 +118,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      * @param expr The expression to be evaluated.
      * @return The literal value obtained from the expression.
      */
-    private Object evaluate(Expr expr) {
+    public Object evaluate(Expr expr) {
         return expr.accept(this);
     }
 
@@ -130,9 +135,9 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      * Visits a block statement.
      */
     @Override
-    public Void visitBlockStmt(Stmt.Block stmt) {
+    public HintonNull visitBlockStmt(Stmt.Block stmt) {
         executeBlock(stmt.statements, new Environment(environment));
-        return null;
+        return new HintonNull();
     }
 
     /**
@@ -161,26 +166,26 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      * @return VOID.
      */
     @Override
-    public Void visitExpressionStmt(Stmt.Expression stmt) {
+    public HintonNull visitExpressionStmt(Stmt.Expression stmt) {
         evaluate(stmt.expression);
-        return null;
+        return new HintonNull();
     }
 
     /**
      * Visits a function declaration statement.
      */
     @Override
-    public Void visitFunctionStmt(Stmt.Function stmt) {
+    public HintonNull visitFunctionStmt(Stmt.Function stmt) {
         HintonFunction function = new HintonFunction(stmt, environment);
         environment.define(stmt.name, function, DecType.FUNCTION);
-        return null;
+        return new HintonNull();
     }
 
     /**
      * Visits a break statement.
      */
     @Override
-    public Void visitBreakStmt(Stmt.Break stmt) throws Break {
+    public HintonNull visitBreakStmt(Stmt.Break stmt) throws Break {
         // We use a throw-statement to trace back all the
         // way to where the loop's body was executed.
         throw new Break();
@@ -190,7 +195,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      * Visits a continue statement.
      */
     @Override
-    public Void visitContinueStmt(Stmt.Continue stmt) throws Continue {
+    public HintonNull visitContinueStmt(Stmt.Continue stmt) throws Continue {
         // We use a throw-statement to trace back all the
         // way to where the loop's body was executed.
         throw new Continue();
@@ -200,7 +205,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      * Visits a function declaration.
      */
     @Override
-    public Void visitReturnStmt(Stmt.Return stmt) {
+    public HintonNull visitReturnStmt(Stmt.Return stmt) throws Return {
         Object value = null;
         if (stmt.value != null)
             value = evaluate(stmt.value);
@@ -214,34 +219,34 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      * Visits an if statement.
      */
     @Override
-    public Void visitIfStmt(Stmt.If stmt) {
+    public HintonNull visitIfStmt(Stmt.If stmt) {
         if (isTruthy(evaluate(stmt.condition))) {
             execute(stmt.thenBranch);
         } else if (stmt.elseBranch != null) {
             execute(stmt.elseBranch);
         }
-        return null;
+        return new HintonNull();
     }
 
     /**
      * Visits a variable statement.
      */
     @Override
-    public Void visitVarStmt(Stmt.Var stmt) {
+    public HintonNull visitVarStmt(Stmt.Var stmt) {
         Object value = null;
         if (stmt.initializer != null) {
             value = evaluate(stmt.initializer);
         }
 
         environment.define(stmt.name, value, DecType.VARIABLE);
-        return null;
+        return new HintonNull();
     }
 
     /**
      * Visits a while statement.
      */
     @Override
-    public Void visitWhileStmt(Stmt.While stmt) {
+    public HintonNull visitWhileStmt(Stmt.While stmt) {
         while (isTruthy(evaluate(stmt.condition))) {
             try {
                 execute(stmt.body);
@@ -251,18 +256,18 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
                 break;
             }
         }
-        return null;
+        return new HintonNull();
     }
 
     /**
      * Visits a constant statement.
      */
     @Override
-    public Void visitConstStmt(Stmt.Const stmt) {
+    public HintonNull visitConstStmt(Stmt.Const stmt) {
         Object value = evaluate(stmt.initializer);
 
         environment.define(stmt.name, value, DecType.CONSTANT);
-        return null;
+        return new HintonNull();
     }
 
     /**
@@ -305,7 +310,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         }
 
         // Unreachable.
-        return null;
+        return new HintonNull();
     }
 
     /**
@@ -362,18 +367,14 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      * Visits an array expression.
      */
     @Override
-    public HintonArray visitArrayExpr(Expr.Array expr) {
+    public Object visitArrayExpr(Expr.Array expr) {
         ArrayList<Object> arr = new ArrayList<>();
 
         for (int i = 0; i < expr.expressions.size(); i++) {
             Expr item = expr.expressions.get(i);
 
-            if (item instanceof Expr.Literal || item instanceof Expr.Array || item instanceof Expr.Call) {
-                arr.add(evaluate(item));
-            } else {
-                arr.add(item);
-            }
-
+            // Adds the expression to the array
+            arr.add(evaluate(item));
         }
 
         return new HintonArray(arr);
@@ -387,32 +388,22 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
         Object arr = evaluate(expr.arr);
         Object index = evaluate(expr.index);
 
-        if (arr instanceof ArrayList) {
-            ArrayList<Expr> arr1 = (ArrayList<Expr>) arr;
-
-            int idx;
-            if (index instanceof Integer) {
-                idx = (int) index;
+        if (arr instanceof HintonArray) {
+            if (index instanceof HintonInteger) {
+                index = ((HintonInteger) index).getRaw();
             } else {
-                throw new RuntimeError("Cannot only use Integers as array index.");
+                throw new RuntimeError("Can only use Integers as array index.");
             }
 
-            // Support for negative indexing
-            if (idx < 0)
-                idx = arr1.size() + idx;
-
-            // If even after adjusting for negative index the provided
-            // index is out of range, we throw an error.
-            if (idx < 0 || idx > (arr1.size() - 1)) {
-                throw new RuntimeError("Array index out of range.");
-            }
+            // Obtain the array item
+            Object val = ((HintonArray) arr).getItem((Integer) index);
 
             // If the item in the array is an instance of an expression, then
             // we evaluate the expression. Otherwise we return the value.
-            if (arr1.get(idx) instanceof Expr) {
-                return evaluate(arr1.get(idx));
+            if (val instanceof Expr) {
+                return evaluate((Expr) val);
             } else {
-                return arr1.get(idx);
+                return val;
             }
         } else {
             throw new RuntimeError("Can only index arrays.");
@@ -453,40 +444,40 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
             case LESS_THAN_EQ:
                 return EvalBinaryExpr.evalLessThanEqual(expr.operator, left, right);
             case LOGICAL_EQ:
-                return EvalBinaryExpr.evalEquals(expr.operator, left, right);
+                return EvalBinaryExpr.evalEquals(left, right);
             case LOGICAL_NOT_EQ:
-                return EvalBinaryExpr.evalNotEquals(expr.operator, left, right);
+                return EvalBinaryExpr.evalNotEquals(left, right);
             default:
                 break;
         }
 
         // Unreachable.
-        return null;
+        return new HintonNull();
     }
 
     /**
      * Visits an import statement
      */
     @Override
-    public Void visitImportStmt(Stmt.Import stmts) {
+    public HintonNull visitImportStmt(Stmt.Import stmts) {
         for (Stmt stmt : stmts.statements) {
             stmt.accept(this);
         }
-        return null;
+        return new HintonNull();
     }
 
     /**
      * Visits a member access expression.
      */
     @Override
-    public Object visitMemberAccessExpr(Expr.MemberAccess expr) {
-        Object object = evaluate(expr.object);
+    public Object visitMemberAccessExpr(Expr.MemberAccess prop) {
+        Object object = evaluate(prop.object);
 
-        if (object instanceof HintonArray) {
-            return ((HintonArray) object).getProperty(expr.name);
+        if (object instanceof NativeType) {
+            return ((NativeType) object).getProperty(prop.name);
         }
 
-        throw new RuntimeError(expr.name, "Only instances have properties.");
+        throw new RuntimeError(prop.name, "'" + object + "' does not contain accessible properties.");
     }
 
     /**
@@ -494,7 +485,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<Void> {
      */
     @Override
     public Object visitMemberSetterExpr(Expr.MemberSetter expr) {
-        Object object = evaluate(expr.object);
+        // Object object = evaluate(expr.object);
 
         // if (!(object instanceof HintonInstance)) {
         // throw new RuntimeError(expr.name, "Only instances have fields.");

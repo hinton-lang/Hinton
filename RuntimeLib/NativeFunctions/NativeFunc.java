@@ -5,14 +5,14 @@ import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 /**
  * Signature interface for implementing native Hinton functions.
  */
-public abstract interface NativeFunc {
+public interface NativeFunc {
     /**
      * Specifies the function's name.
      */
-    public String getFuncName();
+    String getFuncName();
 
     /**
      * Specifies the function's body.
      */
-    public HintonCallable getFunc();
+    HintonCallable getFunc();
 }

@@ -2,22 +2,42 @@ package org.hinton_lang.Interpreter;
 
 import org.hinton_lang.Tokens.Token;
 import org.hinton_lang.Errors.RuntimeError;
+import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
+import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
+import org.hinton_lang.Interpreter.HintonNull.HintonNull;
+import org.hinton_lang.Interpreter.HintonReal.HintonReal;
+import org.hinton_lang.Interpreter.HintonString.HintonString;
 
 public class EvalBinaryExpr {
 
     /**
      * Checks that the two operands hold numeric value.
      * 
-     * @param operator The operator to be applied on the operands.
-     * @param left     The left operand.
-     * @param right    The right operand.
+     * @param opr   The operator to be applied on the operands.
+     * @param left  The left operand.
+     * @param right The right operand.
      */
-    private static void checkNumberOperands(Token operator, Object left, Object right) {
-        if ((left instanceof Double || left instanceof Integer)
-                && (right instanceof Double || right instanceof Integer))
+    private static void checkNumberOperands(Token opr, Object left, Object right) {
+        if ((left instanceof HintonReal || left instanceof HintonInteger)
+                && (right instanceof HintonReal || right instanceof HintonInteger))
             return;
 
-        throw new RuntimeError(operator, "Operands must be numbers.");
+        String leftType;
+        if (left instanceof NativeType) {
+            leftType = ((NativeType) left).typeName();
+        } else {
+            leftType = left.toString();
+        }
+
+        String rightType;
+        if (right instanceof NativeType) {
+            rightType = ((NativeType) right).typeName();
+        } else {
+            rightType = right.toString();
+        }
+
+        throw new RuntimeError(opr, "Operation '" + opr.lexeme + "' not defined for operands of type '" + leftType
+                + "' and '" + rightType + "'.");
     }
 
     /**
@@ -27,12 +47,12 @@ public class EvalBinaryExpr {
      * @param right The right operand.
      */
     private static boolean isEqual(Object left, Object right) {
-        if (left == null && right == null)
+        if (left instanceof HintonNull && right instanceof HintonNull)
             return true;
-        if (left == null)
+        if (left instanceof HintonNull)
             return false;
 
-        return left.equals(right);
+        return ((NativeType) left).getRaw().equals(((NativeType) right).getRaw());
     }
 
     /**
@@ -42,43 +62,58 @@ public class EvalBinaryExpr {
      * @param left  The left operand.
      * @param right The right operand.
      */
-    public static Object evalAddition(Token opr, Object left, Object right) {
+    public static NativeType evalAddition(Token opr, Object left, Object right) {
         // Addition or reals
-        if (left instanceof Double && right instanceof Double) {
-            return (double) left + (double) right;
+        if (left instanceof HintonReal && right instanceof HintonReal) {
+            return new HintonReal(((HintonReal) left).getRaw() + ((HintonReal) right).getRaw());
         }
         // Additions of integers
-        if (left instanceof Integer && right instanceof Integer) {
-            return (int) left + (int) right;
+        if (left instanceof HintonInteger && right instanceof HintonInteger) {
+            return new HintonInteger(((HintonInteger) left).getRaw() + ((HintonInteger) right).getRaw());
         }
         // Addition of reals and integers
-        if (left instanceof Integer && right instanceof Double) {
-            return (int) left + (double) right;
+        if (left instanceof HintonInteger && right instanceof HintonReal) {
+            return new HintonReal(((HintonInteger) left).getRaw() + ((HintonReal) right).getRaw());
         }
-        if (left instanceof Double && right instanceof Integer) {
-            return (double) left + (int) right;
+        if (left instanceof HintonReal && right instanceof HintonInteger) {
+            return new HintonReal(((HintonReal) left).getRaw() + ((HintonInteger) right).getRaw());
         }
 
         // Addition of two strings
-        if (left instanceof String && right instanceof String) {
-            return (String) left + (String) right;
+        if (left instanceof HintonString && right instanceof HintonString) {
+            return new HintonString(((HintonString) left).getRaw() + ((HintonString) right).getRaw());
         }
 
         // Addition of Strings and numbers
-        if (left instanceof String && right instanceof Double) {
-            return (String) left + (double) right;
+        if (left instanceof HintonString && right instanceof HintonReal) {
+            return new HintonString(((HintonString) left).getRaw() + ((HintonReal) right).getRaw());
         }
-        if (left instanceof String && right instanceof Integer) {
-            return (String) left + (int) right;
+        if (left instanceof HintonString && right instanceof HintonInteger) {
+            return new HintonString(((HintonString) left).getRaw() + ((HintonInteger) right).getRaw());
         }
-        if (left instanceof Double && right instanceof String) {
-            return (double) left + (String) right;
+        if (left instanceof HintonReal && right instanceof HintonString) {
+            return new HintonString(((HintonReal) left).getRaw() + ((HintonString) right).getRaw());
         }
-        if (left instanceof Integer && right instanceof String) {
-            return (int) left + (String) right;
+        if (left instanceof HintonInteger && right instanceof HintonString) {
+            return new HintonString(((HintonInteger) left).getRaw() + ((HintonString) right).getRaw());
         }
 
-        throw new RuntimeError(opr, "Operands must be numbers or strings.");
+        String leftType;
+        if (left instanceof NativeType) {
+            leftType = ((NativeType) left).typeName();
+        } else {
+            leftType = left.toString();
+        }
+
+        String rightType;
+        if (right instanceof NativeType) {
+            rightType = ((NativeType) right).typeName();
+        } else {
+            rightType = right.toString();
+        }
+
+        throw new RuntimeError(opr,
+                "Operation '+' not defined for operands of type '" + leftType + "' and '" + rightType + "'.");
     }
 
     /**
@@ -88,20 +123,20 @@ public class EvalBinaryExpr {
      * @param left  The left operand.
      * @param right The right operand.
      */
-    public static Object evalSubtraction(Token opr, Object left, Object right) {
+    public static NativeType evalSubtraction(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof Double && right instanceof Double) {
-            return (double) left - (double) right;
+        if (left instanceof HintonReal && right instanceof HintonReal) {
+            return new HintonReal(((HintonReal) left).getRaw() - ((HintonReal) right).getRaw());
         }
-        if (left instanceof Double && right instanceof Integer) {
-            return (double) left - (int) right;
+        if (left instanceof HintonReal && right instanceof HintonInteger) {
+            return new HintonReal(((HintonReal) left).getRaw() - ((HintonInteger) right).getRaw());
         }
-        if (left instanceof Integer && right instanceof Double) {
-            return (int) left - (double) right;
+        if (left instanceof HintonInteger && right instanceof HintonReal) {
+            return new HintonReal(((HintonInteger) left).getRaw() - ((HintonReal) right).getRaw());
         }
 
-        return (int) left - (int) right;
+        return new HintonInteger(((HintonInteger) left).getRaw() - ((HintonInteger) right).getRaw());
     }
 
     /**
@@ -111,30 +146,30 @@ public class EvalBinaryExpr {
      * @param left  The left operand.
      * @param right The right operand.
      */
-    public static Object evalDivision(Token opr, Object left, Object right) {
+    public static NativeType evalDivision(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
 
         // Prevents division by zero
-        if (right instanceof Integer && (int) right == 0) {
+        if (right instanceof HintonInteger && ((HintonInteger) right).getRaw() == 0) {
             throw new RuntimeError(opr, "Cannot divide by zero.");
         }
-        if (right instanceof Double && (double) right == 0.0) {
+        if (right instanceof HintonReal && ((HintonReal) right).getRaw() == 0.0) {
             throw new RuntimeError(opr, "Cannot divide by zero.");
         }
 
         // If no division by zero, continue to execute the division
-        if (left instanceof Double && right instanceof Double) {
-            return (double) left / (double) right;
+        if (left instanceof HintonReal && right instanceof HintonReal) {
+            return new HintonReal(((HintonReal) left).getRaw() / ((HintonReal) right).getRaw());
         }
-        if (left instanceof Double && right instanceof Integer) {
-            return (double) left / (int) right;
+        if (left instanceof HintonReal && right instanceof HintonInteger) {
+            return new HintonReal(((HintonReal) left).getRaw() / ((HintonInteger) right).getRaw());
         }
-        if (left instanceof Integer && right instanceof Double) {
-            return (int) left / (double) right;
+        if (left instanceof HintonInteger && right instanceof HintonReal) {
+            return new HintonReal(((HintonInteger) left).getRaw() / ((HintonReal) right).getRaw());
         }
 
         // In Hinton, division always evaluates to a real number.
-        return (double) ((int) left) / (double) ((int) right);
+        return new HintonReal((double) (((HintonInteger) left).getRaw()) / (double) (((HintonInteger) right).getRaw()));
     }
 
     /**
@@ -144,25 +179,27 @@ public class EvalBinaryExpr {
      * @param left  The left operand.
      * @param right The right operand.
      */
-    public static Object evalMultiplication(Token opr, Object left, Object right) {
+    public static NativeType evalMultiplication(Token opr, Object left, Object right) {
+        // Support for string-integer multiplication
+        if (left instanceof HintonString && right instanceof HintonInteger) {
+            return new HintonString((((HintonString) left).getRaw()).repeat(((HintonInteger) right).getRaw()));
+        } else if (left instanceof HintonInteger && right instanceof HintonString) {
+            return new HintonString((((HintonString) right).getRaw()).repeat(((HintonInteger) left).getRaw()));
+        }
+
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof String)
-            return ((String) left).repeat((int) right);
-        if (right instanceof String)
-            return ((String) right).repeat((int) left);
-
-        if (left instanceof Double && right instanceof Double) {
-            return (double) left * (double) right;
+        if (left instanceof HintonReal && right instanceof HintonReal) {
+            return new HintonReal(((HintonReal) left).getRaw() * ((HintonReal) right).getRaw());
         }
-        if (left instanceof Double && right instanceof Integer) {
-            return (double) left * (int) right;
+        if (left instanceof HintonReal && right instanceof HintonInteger) {
+            return new HintonReal(((HintonReal) left).getRaw() * ((HintonInteger) right).getRaw());
         }
-        if (left instanceof Integer && right instanceof Double) {
-            return (int) left * (double) right;
+        if (left instanceof HintonInteger && right instanceof HintonReal) {
+            return new HintonReal(((HintonInteger) left).getRaw() * ((HintonReal) right).getRaw());
         }
 
-        return (int) left * (int) right;
+        return new HintonInteger(((HintonInteger) left).getRaw() * ((HintonInteger) right).getRaw());
     }
 
     /**
@@ -172,20 +209,20 @@ public class EvalBinaryExpr {
      * @param left  The left operand.
      * @param right The right operand.
      */
-    public static Object evalModulus(Token opr, Object left, Object right) {
+    public static HintonInteger evalModulus(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof Double && right instanceof Double) {
-            return (double) left % (double) right;
+        if (left instanceof HintonReal && right instanceof HintonReal) {
+            return new HintonInteger((int) (((HintonReal) left).getRaw() % ((HintonReal) right).getRaw()));
         }
-        if (left instanceof Double && right instanceof Integer) {
-            return (double) left % (int) right;
+        if (left instanceof HintonReal && right instanceof HintonInteger) {
+            return new HintonInteger((int) (((HintonReal) left).getRaw() % ((HintonInteger) right).getRaw()));
         }
-        if (left instanceof Integer && right instanceof Double) {
-            return (int) left % (double) right;
+        if (left instanceof HintonInteger && right instanceof HintonReal) {
+            return new HintonInteger((int) (((HintonInteger) left).getRaw() % ((HintonReal) right).getRaw()));
         }
 
-        return (int) left % (int) right;
+        return new HintonInteger(((HintonInteger) left).getRaw() % ((HintonInteger) right).getRaw());
     }
 
     /**
@@ -195,20 +232,20 @@ public class EvalBinaryExpr {
      * @param left  The left operand.
      * @param right The right operand.
      */
-    public static Object evalExponent(Token opr, Object left, Object right) {
+    public static NativeType evalExponent(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof Double && right instanceof Double) {
-            return Math.pow((double) left, (double) right);
+        if (left instanceof HintonReal && right instanceof HintonReal) {
+            return new HintonReal(Math.pow(((HintonReal) left).getRaw(), ((HintonReal) right).getRaw()));
         }
-        if (left instanceof Double && right instanceof Integer) {
-            return Math.pow((double) left, (int) right);
+        if (left instanceof HintonReal && right instanceof HintonInteger) {
+            return new HintonReal(Math.pow(((HintonReal) left).getRaw(), ((HintonInteger) right).getRaw()));
         }
-        if (left instanceof Integer && right instanceof Double) {
-            return Math.pow((int) left, (double) right);
+        if (left instanceof HintonInteger && right instanceof HintonReal) {
+            return new HintonReal(Math.pow(((HintonInteger) left).getRaw(), ((HintonReal) right).getRaw()));
         }
 
-        return Math.pow((int) left, (int) right);
+        return new HintonInteger((int) Math.pow(((HintonInteger) left).getRaw(), ((HintonInteger) right).getRaw()));
     }
 
     /**
@@ -218,27 +255,27 @@ public class EvalBinaryExpr {
      * @param left  The left operand.
      * @param right The right operand.
      */
-    public static Object evalGreaterThan(Token opr, Object left, Object right) {
+    public static HintonBoolean evalGreaterThan(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof Boolean) {
-            left = (Boolean) left ? 1 : 0;
+        if (left instanceof HintonBoolean) {
+            left = ((HintonBoolean) left).getRaw() ? 1 : 0;
         }
-        if (right instanceof Boolean) {
-            right = (Boolean) right ? 1 : 0;
-        }
-
-        if (left instanceof Double && right instanceof Double) {
-            return (double) left > (double) right;
-        }
-        if (left instanceof Double && right instanceof Integer) {
-            return (double) left > (int) right;
-        }
-        if (left instanceof Integer && right instanceof Double) {
-            return (int) left > (double) right;
+        if (right instanceof HintonBoolean) {
+            right = ((HintonBoolean) right).getRaw() ? 1 : 0;
         }
 
-        return (int) left > (int) right;
+        if (left instanceof HintonReal && right instanceof HintonReal) {
+            return new HintonBoolean(((HintonReal) left).getRaw() > ((HintonReal) right).getRaw());
+        }
+        if (left instanceof HintonReal && right instanceof HintonInteger) {
+            return new HintonBoolean(((HintonReal) left).getRaw() > ((HintonInteger) right).getRaw());
+        }
+        if (left instanceof HintonInteger && right instanceof HintonReal) {
+            return new HintonBoolean(((HintonInteger) left).getRaw() > ((HintonReal) right).getRaw());
+        }
+
+        return new HintonBoolean(((HintonInteger) left).getRaw() > ((HintonInteger) right).getRaw());
     }
 
     /**
@@ -248,27 +285,27 @@ public class EvalBinaryExpr {
      * @param left  The left operand.
      * @param right The right operand.
      */
-    public static Object evalGreaterThanEqual(Token opr, Object left, Object right) {
+    public static HintonBoolean evalGreaterThanEqual(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof Boolean) {
-            left = (Boolean) left ? 1 : 0;
+        if (left instanceof HintonBoolean) {
+            left = ((HintonBoolean) left).getRaw() ? 1 : 0;
         }
-        if (right instanceof Boolean) {
-            right = (Boolean) right ? 1 : 0;
-        }
-
-        if (left instanceof Double && right instanceof Double) {
-            return (double) left >= (double) right;
-        }
-        if (left instanceof Double && right instanceof Integer) {
-            return (double) left >= (int) right;
-        }
-        if (left instanceof Integer && right instanceof Double) {
-            return (int) left >= (double) right;
+        if (right instanceof HintonBoolean) {
+            right = ((HintonBoolean) right).getRaw() ? 1 : 0;
         }
 
-        return (int) left >= (int) right;
+        if (left instanceof HintonReal && right instanceof HintonReal) {
+            return new HintonBoolean(((HintonReal) left).getRaw() >= ((HintonReal) right).getRaw());
+        }
+        if (left instanceof HintonReal && right instanceof HintonInteger) {
+            return new HintonBoolean(((HintonReal) left).getRaw() >= ((HintonInteger) right).getRaw());
+        }
+        if (left instanceof HintonInteger && right instanceof HintonReal) {
+            return new HintonBoolean(((HintonInteger) left).getRaw() >= ((HintonReal) right).getRaw());
+        }
+
+        return new HintonBoolean(((HintonInteger) left).getRaw() >= ((HintonInteger) right).getRaw());
     }
 
     /**
@@ -278,27 +315,27 @@ public class EvalBinaryExpr {
      * @param left  The left operand.
      * @param right The right operand.
      */
-    public static Object evalLessThan(Token opr, Object left, Object right) {
+    public static HintonBoolean evalLessThan(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof Boolean) {
-            left = (Boolean) left ? 1 : 0;
+        if (left instanceof HintonBoolean) {
+            left = ((HintonBoolean) left).getRaw() ? 1 : 0;
         }
-        if (right instanceof Boolean) {
-            right = (Boolean) right ? 1 : 0;
-        }
-
-        if (left instanceof Double && right instanceof Double) {
-            return (double) left < (double) right;
-        }
-        if (left instanceof Double && right instanceof Integer) {
-            return (double) left < (int) right;
-        }
-        if (left instanceof Integer && right instanceof Double) {
-            return (int) left < (double) right;
+        if (right instanceof HintonBoolean) {
+            right = ((HintonBoolean) right).getRaw() ? 1 : 0;
         }
 
-        return (int) left < (int) right;
+        if (left instanceof HintonReal && right instanceof HintonReal) {
+            return new HintonBoolean(((HintonReal) left).getRaw() < ((HintonReal) right).getRaw());
+        }
+        if (left instanceof HintonReal && right instanceof HintonInteger) {
+            return new HintonBoolean(((HintonReal) left).getRaw() < ((HintonInteger) right).getRaw());
+        }
+        if (left instanceof HintonInteger && right instanceof HintonReal) {
+            return new HintonBoolean(((HintonInteger) left).getRaw() < ((HintonReal) right).getRaw());
+        }
+
+        return new HintonBoolean(((HintonInteger) left).getRaw() < ((HintonInteger) right).getRaw());
     }
 
     /**
@@ -308,60 +345,58 @@ public class EvalBinaryExpr {
      * @param left  The left operand.
      * @param right The right operand.
      */
-    public static Object evalLessThanEqual(Token opr, Object left, Object right) {
+    public static HintonBoolean evalLessThanEqual(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof Boolean) {
-            left = (Boolean) left ? 1 : 0;
+        if (left instanceof HintonBoolean) {
+            left = ((HintonBoolean) left).getRaw() ? 1 : 0;
         }
-        if (right instanceof Boolean) {
-            right = (Boolean) right ? 1 : 0;
-        }
-
-        if (left instanceof Double && right instanceof Double) {
-            return (double) left <= (double) right;
-        }
-        if (left instanceof Double && right instanceof Integer) {
-            return (double) left <= (int) right;
-        }
-        if (left instanceof Integer && right instanceof Double) {
-            return (int) left <= (double) right;
+        if (right instanceof HintonBoolean) {
+            right = ((HintonBoolean) right).getRaw() ? 1 : 0;
         }
 
-        return (int) left <= (int) right;
+        if (left instanceof HintonReal && right instanceof HintonReal) {
+            return new HintonBoolean(((HintonReal) left).getRaw() <= ((HintonReal) right).getRaw());
+        }
+        if (left instanceof HintonReal && right instanceof HintonInteger) {
+            return new HintonBoolean(((HintonReal) left).getRaw() <= ((HintonInteger) right).getRaw());
+        }
+        if (left instanceof HintonInteger && right instanceof HintonReal) {
+            return new HintonBoolean(((HintonInteger) left).getRaw() <= ((HintonReal) right).getRaw());
+        }
+
+        return new HintonBoolean(((HintonInteger) left).getRaw() <= ((HintonInteger) right).getRaw());
     }
 
     /**
      * Evaluates an equality expression.
-     * 
-     * @param opr   The equality operator token.
+     *
      * @param left  The left operand.
      * @param right The right operand.
      */
-    public static Object evalEquals(Token opr, Object left, Object right) {
-        if (left instanceof Boolean) {
-            left = (Boolean) left ? 1 : 0;
+    public static HintonBoolean evalEquals(Object left, Object right) {
+        if (left instanceof HintonBoolean) {
+            left = ((HintonBoolean) left).getRaw() ? 1 : 0;
         }
-        if (right instanceof Boolean) {
-            right = (Boolean) right ? 1 : 0;
+        if (right instanceof HintonBoolean) {
+            right = ((HintonBoolean) right).getRaw() ? 1 : 0;
         }
-        return isEqual(left, right);
+        return new HintonBoolean(isEqual(left, right));
     }
 
     /**
      * Evaluates an inequality expression.
-     * 
-     * @param opr   The inequality operator token.
+     *
      * @param left  The left operand.
      * @param right The right operand.
      */
-    public static Object evalNotEquals(Token opr, Object left, Object right) {
-        if (left instanceof Boolean) {
-            left = (Boolean) left ? 1 : 0;
+    public static HintonBoolean evalNotEquals(Object left, Object right) {
+        if (left instanceof HintonBoolean) {
+            left = ((HintonBoolean) left).getRaw() ? 1 : 0;
         }
-        if (right instanceof Boolean) {
-            right = (Boolean) right ? 1 : 0;
+        if (right instanceof HintonBoolean) {
+            right = ((HintonBoolean) right).getRaw() ? 1 : 0;
         }
-        return !isEqual(left, right);
+        return new HintonBoolean(!isEqual(left, right));
     }
 }

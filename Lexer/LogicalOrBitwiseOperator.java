@@ -27,7 +27,6 @@ public class LogicalOrBitwiseOperator {
         } else if (op == '~' || op == '^') {
             foundBitwiseNot_Xor(lexer, op);
         }
-        ;
     }
 
     /**

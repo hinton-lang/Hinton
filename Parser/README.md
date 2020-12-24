@@ -72,7 +72,7 @@ unary           -> ( "!" | "-" | "+" ) unary
 call            -> primary ( "(" arguments? ")" )* ;
 indexing        -> primary ( "[" expression "]" )* ;
 memberAccess    -> primary ("." IDENTIFIER)* ;
-lambda          -> "func" "(" parameters? ")" block ;
+lambda          -> "fn" "(" parameters? ")" "->" block ;
 
 primary         -> INTEGER | REAL | STRING
                 | "true" | "false" | "null"

@@ -62,7 +62,7 @@ while(true) {
 At the moment, the Interpreter can accurately identify and label different tokens inside a `.ht` file. Some of the tokens it can identify include, but are not limited to:
   - Keywords: `let`, `const`, `func`, `if`, `else`, + more.
   - Static Types: `String`, `Int`, `Real`, `void`, `None`, + more.
-  - Literals: `"String Sequences"`, `2342`, `3.1242`, `true`, `false`, `none`, + more.
+  - Literals: `"String Sequences"`, `2342`, `3.1242`, `true`, `false`, `null`, + more.
   - Arithmetic Operators: `+`, `-`, `*`, `/`, `**`, `%`, and `mod`.
   - Logical Operators: `<`, `>`, `==`, `equals`, `!`, `not`, + more.
   - Delimiters & Separators: `()`, `,`, `{}`, `:`, `[]`, `.`, and `;`

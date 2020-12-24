@@ -21,7 +21,7 @@ The toy programming language supports the following tokens:
 - Division: `/` (both integer and real)
 - Exponentiation: `**`
 - Remainder: `%`, `mod`
-- Range: `..`
+<!-- - Range: `..` -->
 
 ## Logical Operators
 - Less than: `<`, `<=`
@@ -30,8 +30,8 @@ The toy programming language supports the following tokens:
 - Not: `!`, `not`, `!=`
 - And: `&&`, `and`
 - Or: `||`, `or`
-- Type Checking: `is`
-- Type Casting: `as`
+<!-- - Type Checking: `is` -->
+<!-- - Type Casting: `as` -->
 
 ## Bitwise Operators
 - Right Shift: `>>`
@@ -45,9 +45,13 @@ The toy programming language supports the following tokens:
 `( )`, `;`, `{ }`, `,`, `[ ]`, `.`, `:`
 
 ## Keywords and Identifiers
-- Declarations: `let`, `const`, `func`, `class`, `enum`, `struct`, `interface`
-- Static Types: `Int`, `Real`, `String`, `Bool`, `Dict`, `Set`, `Function`, `Void`, `Any`, `None`
-- Logic Flow: `if`, `elif`, `else`, `for`, `while`, `loop`, `break`, `continue`
-- Modules and OOP: `import`, `export`, `new`, `init`, `final`, `public`, `private`, `static`, `abstract`, `self`, `instanceof`, `implements`,
-`extends`, `override`, `optional`
-- Other: `async`, `await`, `return`, `yield`
+- Declarations: `let`, `const`, `func`, `enum`, `struct`,
+<!-- - Declarations: `let`, `const`, `func`, `class`, `enum`, `struct`, `interface` -->
+- Static Types: `Int`, `Real`, `String`, `Char`, `Bool`, `Dict`, `Set`, `Function`, `Void`, `Any`, `Null`
+- Control Flow: `if`, `else`, `for`, `while`, `return`, `break`, `continue`
+<!-- - Logic Flow: `if`, `else`, `for`, `while`, `loop`, `break`, `continue` -->
+- Modules and OOP: `import`
+<!-- - Modules and OOP: `import`, `export`, `new`, `init`, `final`, `public`, `private`, `static`, `abstract`, `self`, `instanceof`, `implements`,
+`extends`, `override`, `optional` -->
+- Other: `fn`
+<!-- - Other: `fn`, `async`, `await`, `yield` -->

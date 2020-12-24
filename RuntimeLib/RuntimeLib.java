@@ -21,6 +21,7 @@ public class RuntimeLib {
             add(new Input()); // Native print function
             add(new Clock()); // Native clock function
             add(new ConvertToInt()); // Native clock function
+            add(new Type()); // Native type checking function
         }
     };
 }

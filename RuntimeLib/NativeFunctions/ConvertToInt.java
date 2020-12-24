@@ -4,6 +4,8 @@ import java.util.List;
 
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
+import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
+import org.hinton_lang.Interpreter.HintonString.HintonString;
 import org.hinton_lang.Interpreter.Interpreter;
 
 public class ConvertToInt implements NativeFunc {
@@ -27,14 +29,23 @@ public class ConvertToInt implements NativeFunc {
             }
 
             @Override
-            public Integer call(Interpreter interpreter, List<Object> arguments) {
-                Object toBeConverted = arguments.get(0);
+            public HintonInteger call(Interpreter interpreter, List<Object> arguments) {
 
-                if (toBeConverted instanceof String) {
-                    return Integer.parseInt((String) toBeConverted);
+                // Checks that the passed argument is a Hinton String
+                String strInt;
+                if (arguments.get(0) instanceof HintonString) {
+                    strInt = ((HintonString) arguments.get(0)).getRaw();
+                } else {
+                    throw new RuntimeError("Cannot cast \"" + arguments.get(0) + "\" to integer");
                 }
 
-                throw new RuntimeError("Cannot cast \"" + toBeConverted + "\" to integer");
+                // Tries to convert the string to an integer, if not possible, throw a
+                // RuntimeError.
+                try {
+                    return new HintonInteger(Integer.parseInt(strInt));
+                } catch (NumberFormatException e) {
+                    throw new RuntimeError("Cannot cast \"" + arguments.get(0) + "\" to integer");
+                }
             }
 
             @Override

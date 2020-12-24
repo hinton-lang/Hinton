@@ -12,7 +12,7 @@ import org.hinton_lang.Envornment.Environment;
  * Represents a lambda expression.
  */
 public class HintonLambda implements HintonCallable {
-    private final Expr.Lambda declaration;
+    public final Expr.Lambda declaration;
     // For functions declared within the another function's body,
     // we use the parent's function as the enclosing (closure) scope.
     private final Environment closure;
@@ -29,7 +29,7 @@ public class HintonLambda implements HintonCallable {
     public Object call(Interpreter interpreter, List<Object> arguments) {
         Environment environment = new Environment(closure);
 
-        for (int i = 0; i < declaration.params.size(); i++) {
+        for (int i = 0; i < this.arity(); i++) {
             // We define the passed arguments as variables available within
             // the scope of this particular function.
             environment.define(declaration.params.get(i), arguments.get(i), DecType.VARIABLE);
@@ -49,7 +49,7 @@ public class HintonLambda implements HintonCallable {
      */
     @Override
     public int arity() {
-        return declaration.params.size();
+        return this.declaration.params.size();
     }
 
     /**

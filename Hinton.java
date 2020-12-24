@@ -17,6 +17,7 @@ import org.hinton_lang.Parser.*;
 import org.hinton_lang.Parser.AST.*;
 import org.hinton_lang.Analyzers.Resolver;
 import org.hinton_lang.CLI.ProcessArgs;
+import org.hinton_lang.Errors.ParserError;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.Interpreter;
 
@@ -149,11 +150,32 @@ public class Hinton {
         }
     }
 
+    /**
+     * Reports a runtime error.
+     * 
+     * @param error The runtime error.
+     */
     public static void runtimeError(RuntimeError error) {
         if (error.token != null) {
-            System.err.println(error.getMessage() + "\n[line " + error.token.linePos + "]");
+            String line = error.token.linePos + "," + error.token.columnPos;
+            System.err.println("RuntimeError [" + line + "]: " + error.getMessage());
         } else {
-            System.err.println(error.getMessage());
+            System.err.println("RuntimeError: " + error.getMessage());
+        }
+        hadRuntimeError = true;
+    }
+
+    /**
+     * Reports a parser error.
+     * 
+     * @param error The parser error.
+     */
+    public static void parserError(ParserError error) {
+        if (error.token != null) {
+            String line = error.token.linePos + "," + error.token.columnPos;
+            System.err.println("ParserError [" + line + "]: " + error.getMessage());
+        } else {
+            System.err.println("ParserError: " + error.getMessage());
         }
         hadRuntimeError = true;
     }
