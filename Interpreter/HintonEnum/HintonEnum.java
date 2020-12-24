@@ -79,7 +79,7 @@ public class HintonEnum implements NativeType {
     }
 
     /**
-     * String representation of a Hinton Array.
+     * String representation of a Hinton Enum.
      */
     @Override
     public String toString() {
@@ -87,7 +87,7 @@ public class HintonEnum implements NativeType {
     }
 
     /**
-     * Formatted string representation of a Hinton Integer.
+     * Formatted string representation of a Hinton Enum.
      */
     @Override
     public String formattedStr() {

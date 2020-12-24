@@ -11,6 +11,8 @@ import org.hinton_lang.Envornment.FunctionType;
 import org.hinton_lang.Interpreter.Interpreter;
 import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Parser.AST.Expr.ArrayItemSetter;
+import org.hinton_lang.Parser.AST.Expr.Dictionary;
+import org.hinton_lang.Parser.AST.Expr.KeyValPair;
 import org.hinton_lang.Parser.AST.Stmt;
 import org.hinton_lang.Parser.AST.Stmt.Enum;
 import org.hinton_lang.Parser.AST.Stmt.EnumMember;
@@ -323,6 +325,20 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     @Override
     public Void visitEnumMemberStmt(EnumMember stmt) {
         resolve(stmt);
+        return null;
+    }
+
+    @Override
+    public Void visitDictionaryExpr(Dictionary expr) {
+        for (KeyValPair element : expr.members) {
+            resolve(element);
+        }
+        return null;
+    }
+
+    @Override
+    public Void visitKeyValPairExpr(KeyValPair expr) {
+        resolve(expr.val);
         return null;
     }
 }

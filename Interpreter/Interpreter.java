@@ -11,9 +11,12 @@ import org.hinton_lang.Interpreter.HintonNull.HintonNull;
 import org.hinton_lang.Interpreter.HintonReal.HintonReal;
 import org.hinton_lang.Interpreter.HintonArrays.*;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
+import org.hinton_lang.Interpreter.HintonDictionary.HintonDictionary;
 import org.hinton_lang.Interpreter.HintonEnum.HintonEnum;
 import org.hinton_lang.Parser.AST.*;
 import org.hinton_lang.Parser.AST.Expr.ArrayItemSetter;
+import org.hinton_lang.Parser.AST.Expr.Dictionary;
+import org.hinton_lang.Parser.AST.Expr.KeyValPair;
 import org.hinton_lang.Parser.AST.Stmt.Enum;
 import org.hinton_lang.Parser.AST.Stmt.EnumMember;
 import org.hinton_lang.Hinton;
@@ -532,6 +535,22 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
      */
     @Override
     public HintonNull visitEnumMemberStmt(EnumMember stmt) {
+        return new HintonNull();
+    }
+
+    /**
+     * Visit a dictionary expression.
+     */
+    @Override
+    public Object visitDictionaryExpr(Dictionary expr) {
+        return new HintonDictionary(this, expr.members);
+    }
+
+    /**
+     * Visit a key-value pair.
+     */
+    @Override
+    public Object visitKeyValPairExpr(KeyValPair expr) {
         return new HintonNull();
     }
 }

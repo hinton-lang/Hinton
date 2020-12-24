@@ -811,16 +811,22 @@ public class Parser {
             return new Expr.Literal(str);
         }
 
-        if (match(IDENTIFIER))
-            return new Expr.Variable(previous());
-
-        if (match(L_SQUARE_BRACKET))
+        if (match(L_SQUARE_BRACKET)) {
             return constructArray();
+        }
 
         if (match(L_PARENTHESIS)) {
             Expr expr = expression();
             consume(R_PARENTHESIS, "Expected ')' after expression.");
             return new Expr.Grouping(expr);
+        }
+
+        if (match(IDENTIFIER)) {
+            return new Expr.Variable(previous());
+        }
+
+        if (match(L_CURLY_BRACES)) {
+            return constructDictionary();
         }
 
         throw new ParserError(peek(), "Expect expression.");
@@ -860,5 +866,43 @@ public class Parser {
         }
 
         return new Expr.Array(expressions);
+    }
+
+    /**
+     * Constructs a dictionary expression as specified in the grammar.cfg file.
+     * 
+     * @return A dictionary expression.
+     */
+    private Expr.Dictionary constructDictionary() {
+        ArrayList<Expr.KeyValPair> pairs = new ArrayList<>();
+
+        if (!match(R_CURLY_BRACES)) {
+            do {
+                pairs.add(getKeyValPair());
+            } while (match(COMMA_SEPARATOR));
+        }
+
+        consume(R_CURLY_BRACES, "Expected '}' after dictionary declaration.");
+
+        return new Expr.Dictionary(pairs);
+    }
+
+    /**
+     * Matches a key-value pair as specified in the grammar.cfg file.
+     * 
+     * @return A key-value pair.
+     */
+    private Expr.KeyValPair getKeyValPair() {
+        Token key;
+        if (match(IDENTIFIER, STRING_LITERAL)) {
+            key = previous();
+        } else {
+            throw new ParserError("Expected a key name.");
+        }
+
+        consume(COLON_SEPARATOR, "Expected a ':' after key name.");
+        Expr val = expression();
+
+        return new Expr.KeyValPair(key, val);
     }
 }

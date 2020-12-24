@@ -30,6 +30,10 @@ public abstract class Expr {
 
         public R visitArrayItemSetterExpr(ArrayItemSetter expr);
 
+        public R visitDictionaryExpr(Dictionary expr);
+
+        public R visitKeyValPairExpr(KeyValPair expr);
+
         public R visitUnaryExpr(Unary expr);
 
         public R visitVariableExpr(Variable expr);
@@ -216,6 +220,34 @@ public abstract class Expr {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitArrayItemSetterExpr(this);
+        }
+    }
+
+    public static class Dictionary extends Expr {
+        public final List<Expr.KeyValPair> members;
+
+        public Dictionary(List<Expr.KeyValPair> members) {
+            this.members = members;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitDictionaryExpr(this);
+        }
+    }
+
+    public static class KeyValPair extends Expr {
+        public final Token key;
+        public final Expr val;
+
+        public KeyValPair(Token key, Expr val) {
+            this.key = key;
+            this.val = val;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitKeyValPairExpr(this);
         }
     }
 
