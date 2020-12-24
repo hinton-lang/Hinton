@@ -9,6 +9,7 @@ import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
+import org.hinton_lang.Interpreter.HintonString.HintonString;
 import org.hinton_lang.Interpreter.Interpreter;
 
 /**
@@ -36,7 +37,7 @@ public class Input implements NativeFunc {
             }
 
             @Override
-            public String call(Interpreter interpreter, List<Object> arguments) {
+            public HintonString call(Interpreter interpreter, List<Object> arguments) {
                 // Requires '--allow-input' flag
                 if (!Hinton.programPermissions.contains("--allow-input")) {
                     throw new RuntimeError("Cannot read user input without '--allow-input' permission flag.");
@@ -49,9 +50,9 @@ public class Input implements NativeFunc {
 
                 try {
                     String usrInput = reader.readLine();
-                    return usrInput;
+                    return new HintonString(usrInput);
                 } catch (IOException e) {
-                    return "";
+                    return new HintonString("");
                 }
             }
 

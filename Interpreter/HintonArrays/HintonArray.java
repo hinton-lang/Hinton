@@ -4,20 +4,21 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.hinton_lang.Errors.RuntimeError;
+import org.hinton_lang.Interpreter.NativeType;
 import org.hinton_lang.Tokens.Token;
 
 /**
- * Represents an array in the Hinton language.
+ * Represents a Hinton Array in the Hinton language.
  */
-public class HintonArray {
-    private ArrayList<Object> arr;
-    private HashMap<String, Object> methods = new HashMap<>();
+public class HintonArray implements NativeType {
+    private final ArrayList<Object> arr;
+    private final HashMap<String, Object> methods = new HashMap<>();
 
     /**
-     * Wraps an ArrayList of objects so that it can be interpreted as a Hinton
-     * array.
+     * Wraps a Java ArrayList of objects so that it can be interpreted as a Hinton
+     * Array.
      * 
-     * @param array The ArrayList to be wrapped.
+     * @param array The Java ArrayList to be wrapped.
      */
     public HintonArray(ArrayList<Object> array) {
         this.arr = array;
@@ -27,10 +28,11 @@ public class HintonArray {
         methods.put("push", new ArrayPush(this.arr));
         methods.put("pop", new ArrayPop(this.arr));
         methods.put("contains", new ArrayContains(this.arr));
+        methods.put("forEach", new ArrayForEach(this.arr));
     }
 
     /**
-     * Gets the given array property.
+     * Gets the given Hinton Array property.
      * 
      * @param prop The property to be accessed.
      * @return The property's value.
@@ -44,10 +46,72 @@ public class HintonArray {
     }
 
     /**
-     * String representation of a Hinton array.
+     * Returns the raw ArrayList in this wrapper.
+     * 
+     * @return The raw ArrayList.
+     */
+    public Object getRaw() {
+        return this.arr;
+    }
+
+    /**
+     * Return the Hinton type name for the object.
+     */
+    public String typeName() {
+        return "Array";
+    }
+
+    /**
+     * Gets the array item at the provided index.
+     * 
+     * @param index The index of the item.
+     * @return The array item at the provided index.
+     */
+    public Object getItem(int index) {
+        // Support for negative indexing
+        if (index < 0)
+            index = this.arr.size() + index;
+
+        // If even after adjusting for negative index the provided
+        // index is out of range, we throw an error.
+        if (index < 0 || index > (this.arr.size() - 1)) {
+            throw new RuntimeError("Array index out of range.");
+        }
+
+        return this.arr.get(index);
+    }
+
+    /**
+     * String representation of a Hinton Array.
      */
     @Override
     public String toString() {
-        return arr.toString();
+        StringBuilder str = new StringBuilder("[");
+
+        for (int i = 0; i < this.arr.size(); i++) {
+            Object item = this.arr.get(i);
+
+            if (item instanceof NativeType) {
+                str.append(((NativeType) item).formattedStr());
+            } else {
+                str.append(item);
+            }
+
+            // Adds a comma separator
+            if (i < this.arr.size() - 1)
+                str.append(", ");
+        }
+
+        str.append("]");
+
+        return str.toString();
+    }
+
+    /**
+     * Formatted string representation of a Hinton Integer.
+     */
+    @Override
+    public String formattedStr() {
+        return this.toString();
     }
 }

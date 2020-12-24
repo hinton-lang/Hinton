@@ -1,5 +1,35 @@
+/**
+ * This is a multiline comment
+ * The following is a recursive function
+ */
+func factorial(n) {
+    if (n <= 1) return 1;
+    return n * factorial(n - 1);
+}
 
+// This is a constant
+const welcome = "Welcome to the program\n";
 
-let x = [1, 2, 3, "hello"];
+// Printing to the console
+print(welcome)
 
-print(x.contains("hello"))
+// This is a variable.
+// The `input(message: String)` is a function to
+// obtain user input from the console.
+// The `int(x)` is a function to convert the given
+// argument to an integer.
+let x = int(input("Compute the factorial of: "));
+print(factorial(x))
+
+// While loops
+while(true) {
+    let again = input("Compute another? (y/n): ");
+    
+    if (again equals "y") {
+        let x = int(input("Compute the factorial of: "));
+        print(factorial(x))
+        continue;
+    }
+
+    if (again equals "n") break;
+}

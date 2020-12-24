@@ -13,8 +13,13 @@ import org.hinton_lang.Tokens.*;
 import static org.hinton_lang.Tokens.TokenType.*;
 import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Hinton;
-import org.hinton_lang.Errors.ParseError;
+import org.hinton_lang.Errors.ParserError;
 import org.hinton_lang.Errors.RuntimeError;
+import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
+import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
+import org.hinton_lang.Interpreter.HintonNull.HintonNull;
+import org.hinton_lang.Interpreter.HintonReal.HintonReal;
+import org.hinton_lang.Interpreter.HintonString.HintonString;
 import org.hinton_lang.Lexer.Lexer;
 import org.hinton_lang.Parser.AST.Stmt;
 
@@ -33,8 +38,13 @@ public class Parser {
      */
     public List<Stmt> parse() {
         List<Stmt> statements = new ArrayList<>();
-        while (!isAtEnd()) {
-            statements.addAll(declaration());
+
+        try {
+            while (!isAtEnd()) {
+                statements.addAll(declaration());
+            }
+        } catch (ParserError error) {
+            Hinton.parserError(error);
         }
 
         return statements;
@@ -72,7 +82,7 @@ public class Parser {
         if (check(type))
             return advance();
 
-        throw error(peek(), message);
+        throw new ParserError(peek(), message);
     }
 
     /**
@@ -124,18 +134,6 @@ public class Parser {
      */
     private Token previous() {
         return tokens.get(current - 1);
-    }
-
-    /**
-     * Reports a Parse error whe the token found was not expected.
-     * 
-     * @param token   The unexpected token.
-     * @param message The message to display to the user.
-     * @return The error.
-     */
-    private ParseError error(Token token, String message) {
-        Hinton.error(token, message);
-        return new ParseError();
     }
 
     /**
@@ -254,11 +252,17 @@ public class Parser {
      */
     private Stmt returnStatement() {
         Token keyword = previous();
-        Expr value = expression();
 
-        match(SEMICOLON_SEPARATOR); // Optional semicolon
+        // If there wasn't a semicolon, then we expect an expression
+        if (!match(SEMICOLON_SEPARATOR)) {
+            Expr value = expression();
+            match(SEMICOLON_SEPARATOR); // Optional semicolon
+            return new Stmt.Return(keyword, value);
+        }
 
-        return new Stmt.Return(keyword, value);
+        // If there wasn't an expression after the return statement,
+        // then the function's body returns null.
+        return new Stmt.Return(keyword, null);
     }
 
     /**
@@ -452,7 +456,7 @@ public class Parser {
                 return new Expr.MemberSetter(get.object, get.name, value);
             }
 
-            error(equals, "Invalid assignment target.");
+            throw new ParserError(equals, "Invalid assignment target.");
         }
 
         return expr;
@@ -468,46 +472,40 @@ public class Parser {
     }
 
     /**
-     * MAtches a declaration statement as specified in the grammar.cfg file.
+     * Matches a declaration statement as specified in the grammar.cfg file.
      * 
      * @return A declaration expression
      */
     private ArrayList<Stmt> declaration() {
-        try {
-            ArrayList<Stmt> statements = new ArrayList<Stmt>();
+        ArrayList<Stmt> statements = new ArrayList<>();
 
-            if (match(LET_KEYWORD)) {
-                statements = varDeclaration();
-            } else if (match(CONST_KEYWORD)) {
-                statements = constDeclaration();
-            } else if (match(FUNC_KEYWORD)) {
-                statements.add(function("function"));
-            } else {
-                statements.add(statement());
-            }
-
-            return statements;
-        } catch (ParseError error) {
-            return null;
+        if (match(LET_KEYWORD)) {
+            statements = varDeclaration();
+        } else if (match(CONST_KEYWORD)) {
+            statements = constDeclaration();
+        } else if (match(FUNC_KEYWORD)) {
+            statements.add(function());
+        } else {
+            statements.add(statement());
         }
+
+        return statements;
     }
 
     /**
      * Matches a function statement as specified in the grammar.cfg file.
      * 
-     * @param kind The type of function we wish to declare. Could be "function" for
-     *             regular functions, or "method" for class methods.
      * @return A function declaration statement.
      */
-    private Stmt.Function function(String kind) {
-        Token name = consume(IDENTIFIER, "Expect " + kind + " name.");
+    private Stmt.Function function() {
+        Token name = consume(IDENTIFIER, "Expect " + "function" + " name.");
 
-        consume(L_PARENTHESIS, "Expect '(' after " + kind + " name.");
+        consume(L_PARENTHESIS, "Expect '(' after " + "function" + " name.");
         List<Token> parameters = new ArrayList<>();
         if (!check(R_PARENTHESIS)) {
             do {
                 if (parameters.size() >= 255) {
-                    error(peek(), "Can't have more than 255 parameters.");
+                    throw new ParserError(peek(), "Can't have more than 255 parameters.");
                 }
 
                 parameters.add(consume(IDENTIFIER, "Expect parameter name."));
@@ -515,7 +513,7 @@ public class Parser {
         }
         consume(R_PARENTHESIS, "Expect ')' after parameters.");
 
-        consume(L_CURLY_BRACES, "Expect '{' before " + kind + " body.");
+        consume(L_CURLY_BRACES, "Expect '{' before " + "function" + " body.");
         List<Stmt> body = block();
         return new Stmt.Function(name, parameters, body);
     }
@@ -616,7 +614,7 @@ public class Parser {
         while (match(DIV, MULT, MOD)) {
             Token operator = previous();
             Expr right = expo();
-            expr = new Expr.Binary(expr, operator, right);
+            return new Expr.Binary(expr, operator, right);
         }
 
         return expr;
@@ -633,7 +631,7 @@ public class Parser {
         while (match(EXPO)) {
             Token operator = previous();
             Expr right = unary();
-            return new Expr.Binary(expr, operator, right);
+            expr = new Expr.Binary(expr, operator, right);
         }
 
         return expr;
@@ -649,7 +647,7 @@ public class Parser {
             Token operator = previous();
             Expr right = unary();
             return new Expr.Unary(operator, right);
-        } else if (match(FUNC_KEYWORD)) {
+        } else if (match(FN_LAMBDA_KEYWORD)) {
             return lambda();
         } else {
             Expr expr = primary();
@@ -704,7 +702,7 @@ public class Parser {
         if (!check(R_PARENTHESIS)) {
             do {
                 if (parameters.size() >= 255) {
-                    error(peek(), "Can't have more than 255 parameters.");
+                    throw new ParserError(peek(), "Can't have more than 255 parameters.");
                 }
 
                 parameters.add(consume(IDENTIFIER, "Expect parameter name."));
@@ -712,7 +710,10 @@ public class Parser {
         }
         consume(R_PARENTHESIS, "Expected ')' for after parameters.");
 
+        consume(MINUS, "Expected '->' before function body.");
+        consume(GREATER_THAN, "Expected '->' before function body.");
         consume(L_CURLY_BRACES, "Expect '{' before function body.");
+
         List<Stmt> body = block();
 
         return new Expr.Lambda(parameters, body);
@@ -731,7 +732,7 @@ public class Parser {
             do {
                 // Hinton only supports 255 arguments for a function call.
                 if (arguments.size() >= 255) {
-                    error(peek(), "Can't have more than 255 arguments.");
+                    throw new ParserError(peek(), "Can't have more than 255 arguments.");
                 }
                 arguments.add(expression());
             } while (match(COMMA_SEPARATOR));
@@ -749,15 +750,34 @@ public class Parser {
      * @return A primary (terminal) expression.
      */
     private Expr primary() {
-        if (match(BOOL_LITERAL_FALSE))
-            return new Expr.Literal(false);
-        if (match(BOOL_LITERAL_TRUE))
-            return new Expr.Literal(true);
-        if (match(NULL_LITERAL))
-            return new Expr.Literal(null);
+        if (match(BOOL_LITERAL_FALSE)) {
+            HintonBoolean bool = new HintonBoolean(false);
+            return new Expr.Literal(bool);
+        }
 
-        if (match(INTEGER_LITERAL, REAL_LITERAL, STRING_LITERAL)) {
-            return new Expr.Literal(previous().literal);
+        if (match(BOOL_LITERAL_TRUE)) {
+            HintonBoolean bool = new HintonBoolean(true);
+            return new Expr.Literal(bool);
+        }
+
+        if (match(NULL_LITERAL)) {
+            HintonNull nil = new HintonNull();
+            return new Expr.Literal(nil);
+        }
+
+        if (match(REAL_LITERAL)) {
+            HintonReal real = new HintonReal((double) previous().literal);
+            return new Expr.Literal(real);
+        }
+
+        if (match(INTEGER_LITERAL)) {
+            HintonInteger intr = new HintonInteger((int) previous().literal);
+            return new Expr.Literal(intr);
+        }
+
+        if (match(STRING_LITERAL)) {
+            HintonString str = new HintonString((String) previous().literal);
+            return new Expr.Literal(str);
         }
 
         if (match(IDENTIFIER))
@@ -772,7 +792,7 @@ public class Parser {
             return new Expr.Grouping(expr);
         }
 
-        throw error(peek(), "Expect expression.");
+        throw new ParserError(peek(), "Expect expression.");
     }
 
     /**
