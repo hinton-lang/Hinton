@@ -82,6 +82,27 @@ public class HintonArray implements NativeType {
     }
 
     /**
+     * Sets the array item at the provided index.
+     * 
+     * @param index The index of the item.
+     * @return The array item at the provided index.
+     */
+    public Object setItem(int index, Object val) {
+        // Support for negative indexing
+        if (index < 0)
+            index = this.arr.size() + index;
+
+        // If even after adjusting for negative index the provided
+        // index is out of range, we throw an error.
+        if (index < 0 || index > (this.arr.size() - 1)) {
+            throw new RuntimeError("Array index out of range.");
+        }
+
+        this.arr.add(index, val);
+        return this.arr.get(index);
+    }
+
+    /**
      * String representation of a Hinton Array.
      */
     @Override

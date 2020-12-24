@@ -12,6 +12,7 @@ import org.hinton_lang.Interpreter.HintonReal.HintonReal;
 import org.hinton_lang.Interpreter.HintonArrays.*;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Parser.AST.*;
+import org.hinton_lang.Parser.AST.Expr.ArrayItemSetter;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Envornment.*;
@@ -408,6 +409,24 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
         } else {
             throw new RuntimeError("Can only index arrays.");
         }
+    }
+
+    /**
+     * Visits an array item assignment.
+     */
+    @Override
+    public Object visitArrayItemSetterExpr(ArrayItemSetter expr) {
+        Object target = evaluate(expr.target.arr);
+        Object val = evaluate(expr.value);
+
+        if (target instanceof HintonArray) {
+            HintonArray t = (HintonArray) target;
+            t.setItem(((HintonInteger) evaluate(expr.target.index)).getRaw(), val);
+        } else {
+            throw new RuntimeError("Cannot set to indexed element for non-array types.");
+        }
+
+        return val;
     }
 
     /**

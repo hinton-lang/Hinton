@@ -10,6 +10,7 @@ import org.hinton_lang.Envornment.DecType;
 import org.hinton_lang.Envornment.FunctionType;
 import org.hinton_lang.Interpreter.Interpreter;
 import org.hinton_lang.Parser.AST.Expr;
+import org.hinton_lang.Parser.AST.Expr.ArrayItemSetter;
 import org.hinton_lang.Parser.AST.Stmt;
 import org.hinton_lang.Tokens.Token;
 
@@ -300,6 +301,13 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     public Void visitMemberSetterExpr(Expr.MemberSetter expr) {
         resolve(expr.value);
         resolve(expr.object);
+        return null;
+    }
+
+    @Override
+    public Void visitArrayItemSetterExpr(ArrayItemSetter expr) {
+        resolve(expr.target);
+        resolve(expr.value);
         return null;
     }
 }

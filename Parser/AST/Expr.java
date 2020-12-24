@@ -28,6 +28,8 @@ public abstract class Expr {
 
         public R visitIndexingExpr(Indexing expr);
 
+        public R visitArrayItemSetterExpr(ArrayItemSetter expr);
+
         public R visitUnaryExpr(Unary expr);
 
         public R visitVariableExpr(Variable expr);
@@ -199,6 +201,21 @@ public abstract class Expr {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitIndexingExpr(this);
+        }
+    }
+
+    public static class ArrayItemSetter extends Expr {
+        public final Expr.Indexing target;
+        public final Expr value;
+
+        public ArrayItemSetter(Expr.Indexing target, Expr value) {
+            this.target = target;
+            this.value = value;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitArrayItemSetterExpr(this);
         }
     }
 
