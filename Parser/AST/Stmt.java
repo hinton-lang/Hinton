@@ -1,6 +1,7 @@
 package org.hinton_lang.Parser.AST;
 
 import java.util.List;
+import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Tokens.Token;
 
 public abstract class Stmt {
@@ -27,6 +28,10 @@ public abstract class Stmt {
         public R visitVarStmt(Var stmt);
 
         public R visitConstStmt(Const stmt);
+
+        public R visitEnumStmt(Enum stmt);
+
+        public R visitEnumMemberStmt(EnumMember stmt);
     }
 
     public abstract <R> R accept(Visitor<R> visitor);
@@ -187,6 +192,36 @@ public abstract class Stmt {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitConstStmt(this);
+        }
+    }
+
+    public static class Enum extends Stmt {
+        public final Token name;
+        public final List<Stmt.EnumMember> members;
+
+        public Enum(Token name, List<Stmt.EnumMember> members) {
+            this.name = name;
+            this.members = members;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitEnumStmt(this);
+        }
+    }
+
+    public static class EnumMember extends Stmt {
+        public final Token name;
+        public final HintonInteger idx;
+
+        public EnumMember(Token name, HintonInteger idx) {
+            this.name = name;
+            this.idx = idx;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitEnumMemberStmt(this);
         }
     }
 }
