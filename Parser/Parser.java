@@ -454,6 +454,9 @@ public class Parser {
             } else if (expr instanceof Expr.MemberAccess) {
                 Expr.MemberAccess get = (Expr.MemberAccess) expr;
                 return new Expr.MemberSetter(get.object, get.name, value);
+            } else if (expr instanceof Expr.Indexing) {
+                Expr.Indexing setter = (Expr.Indexing) expr;
+                return new Expr.ArrayItemSetter(setter, value);
             }
 
             throw new ParserError(equals, "Invalid assignment target.");
