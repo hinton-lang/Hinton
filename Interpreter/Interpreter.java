@@ -11,8 +11,11 @@ import org.hinton_lang.Interpreter.HintonNull.HintonNull;
 import org.hinton_lang.Interpreter.HintonReal.HintonReal;
 import org.hinton_lang.Interpreter.HintonArrays.*;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
+import org.hinton_lang.Interpreter.HintonEnum.HintonEnum;
 import org.hinton_lang.Parser.AST.*;
 import org.hinton_lang.Parser.AST.Expr.ArrayItemSetter;
+import org.hinton_lang.Parser.AST.Stmt.Enum;
+import org.hinton_lang.Parser.AST.Stmt.EnumMember;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Envornment.*;
@@ -513,5 +516,22 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
         Object value = evaluate(expr.value);
         // ((HintonInstance) object).setMemberValue(expr.name, value);
         return value;
+    }
+
+    /**
+     * Visits an enum declaration statement.
+     */
+    @Override
+    public HintonNull visitEnumStmt(Enum stmt) {
+        environment.define(stmt.name, new HintonEnum(stmt.name, stmt.members), DecType.ENUMERABLE);
+        return new HintonNull();
+    }
+
+    /**
+     * Visits an enum member.
+     */
+    @Override
+    public HintonNull visitEnumMemberStmt(EnumMember stmt) {
+        return new HintonNull();
     }
 }

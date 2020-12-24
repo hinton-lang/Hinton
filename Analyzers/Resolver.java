@@ -12,6 +12,8 @@ import org.hinton_lang.Interpreter.Interpreter;
 import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Parser.AST.Expr.ArrayItemSetter;
 import org.hinton_lang.Parser.AST.Stmt;
+import org.hinton_lang.Parser.AST.Stmt.Enum;
+import org.hinton_lang.Parser.AST.Stmt.EnumMember;
 import org.hinton_lang.Tokens.Token;
 
 public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
@@ -308,6 +310,19 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     public Void visitArrayItemSetterExpr(ArrayItemSetter expr) {
         resolve(expr.target);
         resolve(expr.value);
+        return null;
+    }
+
+    @Override
+    public Void visitEnumStmt(Enum stmt) {
+        declare(stmt.name, DecType.ENUMERABLE);
+        define(stmt.name);
+        return null;
+    }
+
+    @Override
+    public Void visitEnumMemberStmt(EnumMember stmt) {
+        resolve(stmt);
         return null;
     }
 }

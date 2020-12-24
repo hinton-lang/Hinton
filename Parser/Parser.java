@@ -410,6 +410,32 @@ public class Parser {
     }
 
     /**
+     * Matches an enum declaration as specified in the grammar.cfg file.
+     * 
+     * @return An enum declaration.
+     */
+    private Stmt enumDeclaration() {
+
+        // Gets at least one variable name, or a list of
+        // names separated by a comma
+        Token name = consume(IDENTIFIER, "Expected enum name.");
+        consume(L_CURLY_BRACES, "Expected '{' after enum name");
+
+        ArrayList<Stmt.EnumMember> members = new ArrayList<>();
+
+        while (!match(R_CURLY_BRACES) && !isAtEnd()) {
+            int idx = 0;
+            do {
+                Token memberName = consume(IDENTIFIER, "Expected enum member.");
+                members.add(new Stmt.EnumMember(memberName, new HintonInteger(idx)));
+                idx += 1;
+            } while (match(COMMA_SEPARATOR));
+        }
+
+        return new Stmt.Enum(name, members);
+    }
+
+    /**
      * Matches an expression statement as specified in the grammar.cfg file.
      * 
      * @return An expression statement.
@@ -488,6 +514,8 @@ public class Parser {
             statements = constDeclaration();
         } else if (match(FUNC_KEYWORD)) {
             statements.add(function());
+        } else if (match(ENUM_KEYWORD)) {
+            statements.add(enumDeclaration());
         } else {
             statements.add(statement());
         }
