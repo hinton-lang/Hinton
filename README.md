@@ -57,6 +57,23 @@ while(true) {
 
     if (again equals "n") break;
 }
+
+// This is a dictionary
+let myDict = {
+    a: 3,
+    b: "hello dictionary!!",
+    c: {
+        arr: [1, 2, 3],
+        pow: fn(a, b) -> { // Lambda expression
+            return a ** b;
+        }
+    },
+    d: null
+}
+
+print(myDict)
+print(type(myDict))
+print(myDict.c.pow(2, 3))
 ```
  
 At the moment, the Interpreter can accurately identify and label different tokens inside a `.ht` file. Some of the tokens it can identify include, but are not limited to:
