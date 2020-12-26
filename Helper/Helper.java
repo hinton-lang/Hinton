@@ -1,5 +1,7 @@
 package org.hinton_lang.Helper;
 
+import org.hinton_lang.Interpreter.NativeType;
+
 public class Helper {
     /**
      * Converts the given object to a string for printing.
@@ -20,5 +22,22 @@ public class Helper {
         }
 
         return object.toString();
+    }
+
+    /**
+     * Returns the Hinton Type Name associated with the passed object.
+     * 
+     * @param obj The object whose type will be evaluated.
+     * @return The Hinton Type name of the passed object.
+     */
+    public static String getObjectType(Object obj) {
+        String type;
+        if (obj instanceof NativeType) {
+            type = ((NativeType) obj).typeName();
+        } else {
+            type = obj.toString();
+        }
+
+        return type;
     }
 }

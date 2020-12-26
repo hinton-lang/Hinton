@@ -45,7 +45,7 @@ public class HintonNull implements NativeType {
      */
     @Override
     public String toString() {
-        return "Null";
+        return "null";
     }
 
     /**

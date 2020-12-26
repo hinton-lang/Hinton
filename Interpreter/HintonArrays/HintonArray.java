@@ -5,6 +5,7 @@ import java.util.HashMap;
 
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.NativeType;
+import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Tokens.Token;
 
 /**
@@ -24,7 +25,7 @@ public class HintonArray implements NativeType {
         this.arr = array;
 
         // The methods for array objects in the Hinton language
-        methods.put("length", arr.size());
+        methods.put("length", new HintonInteger(arr.size()));
         methods.put("push", new ArrayPush(this.arr));
         methods.put("pop", new ArrayPop(this.arr));
         methods.put("contains", new ArrayContains(this.arr));
@@ -98,7 +99,7 @@ public class HintonArray implements NativeType {
             throw new RuntimeError("Array index out of range.");
         }
 
-        this.arr.add(index, val);
+        this.arr.set(index, val);
         return this.arr.get(index);
     }
 
