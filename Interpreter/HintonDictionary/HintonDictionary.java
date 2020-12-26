@@ -64,6 +64,21 @@ public class HintonDictionary implements NativeType {
     }
 
     /**
+     * Modifies the given dictionary member.
+     * 
+     * @param token The member to be modified.
+     * @param val   The new value for the member.
+     */
+    public void modifyProperty(Token token, Object val) {
+        // We first check that the property exists as a member of the dictionary
+        if (!members.containsKey(token.lexeme)) {
+            throw new RuntimeError(token, "Property '" + token.lexeme + "' does not exist in Dictionary.");
+        }
+
+        this.members.replace(token.lexeme, val);
+    }
+
+    /**
      * Returns the raw HashMap in this wrapper.
      * 
      * @return The raw HashMap.

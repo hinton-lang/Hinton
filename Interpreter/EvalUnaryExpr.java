@@ -1,6 +1,7 @@
 package org.hinton_lang.Interpreter;
 
 import org.hinton_lang.Errors.RuntimeError;
+import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Interpreter.HintonReal.HintonReal;
@@ -18,14 +19,7 @@ public class EvalUnaryExpr {
         if (operand instanceof HintonReal || operand instanceof HintonInteger || operand instanceof HintonBoolean)
             return;
 
-        String rightType;
-        if (operand instanceof NativeType) {
-            rightType = ((NativeType) operand).typeName();
-        } else {
-            rightType = operand.toString();
-        }
-
-        throw new RuntimeError(operator, "Cannot negate operand of type '" + rightType + "'.");
+        throw new RuntimeError(operator, "Cannot negate operand of type '" + Helper.getObjectType(operand) + "'.");
     }
 
     /**
@@ -50,7 +44,7 @@ public class EvalUnaryExpr {
 
         if (right instanceof HintonBoolean && ((HintonBoolean) right).getRaw())
             return new HintonInteger(-1);
-        if (right instanceof Boolean && !((Boolean) right))
+        if (right instanceof HintonBoolean && !((HintonBoolean) right).getRaw())
             return new HintonInteger(0);
         if (right instanceof HintonReal)
             return new HintonReal(-((HintonReal) right).getRaw());

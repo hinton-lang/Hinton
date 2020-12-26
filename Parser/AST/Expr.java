@@ -36,6 +36,8 @@ public abstract class Expr {
 
         public R visitUnaryExpr(Unary expr);
 
+        public R visitDeIn_crementExpr(DeIn_crement expr);
+
         public R visitVariableExpr(Variable expr);
     }
 
@@ -263,6 +265,23 @@ public abstract class Expr {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitUnaryExpr(this);
+        }
+    }
+
+    public static class DeIn_crement extends Expr {
+        public final Token operator;
+        public final Expr operand;
+        public final boolean isPre;
+
+        public DeIn_crement(Token operator, Expr operand, boolean isPre) {
+            this.operator = operator;
+            this.operand = operand;
+            this.isPre = isPre;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitDeIn_crementExpr(this);
         }
     }
 

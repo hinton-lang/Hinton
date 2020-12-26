@@ -2,6 +2,7 @@ package org.hinton_lang.Interpreter;
 
 import org.hinton_lang.Tokens.Token;
 import org.hinton_lang.Errors.RuntimeError;
+import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Interpreter.HintonNull.HintonNull;
@@ -22,22 +23,8 @@ public class EvalBinaryExpr {
                 && (right instanceof HintonReal || right instanceof HintonInteger))
             return;
 
-        String leftType;
-        if (left instanceof NativeType) {
-            leftType = ((NativeType) left).typeName();
-        } else {
-            leftType = left.toString();
-        }
-
-        String rightType;
-        if (right instanceof NativeType) {
-            rightType = ((NativeType) right).typeName();
-        } else {
-            rightType = right.toString();
-        }
-
-        throw new RuntimeError(opr, "Operation '" + opr.lexeme + "' not defined for operands of type '" + leftType
-                + "' and '" + rightType + "'.");
+        throw new RuntimeError(opr, "Operation '" + opr.lexeme + "' not defined for operands of type '"
+                + Helper.getObjectType(left) + "' and '" + Helper.getObjectType(right) + "'.");
     }
 
     /**
@@ -98,22 +85,8 @@ public class EvalBinaryExpr {
             return new HintonString(((HintonInteger) left).getRaw() + ((HintonString) right).getRaw());
         }
 
-        String leftType;
-        if (left instanceof NativeType) {
-            leftType = ((NativeType) left).typeName();
-        } else {
-            leftType = left.toString();
-        }
-
-        String rightType;
-        if (right instanceof NativeType) {
-            rightType = ((NativeType) right).typeName();
-        } else {
-            rightType = right.toString();
-        }
-
-        throw new RuntimeError(opr,
-                "Operation '+' not defined for operands of type '" + leftType + "' and '" + rightType + "'.");
+        throw new RuntimeError(opr, "Operation '+' not defined for operands of type '" + Helper.getObjectType(left)
+                + "' and '" + Helper.getObjectType(right) + "'.");
     }
 
     /**

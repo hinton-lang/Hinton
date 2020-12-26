@@ -29,6 +29,7 @@ public class Parser {
 
     public Parser(List<Token> tokens) {
         this.tokens = tokens;
+        // System.out.println(tokens);
     }
 
     /**
@@ -209,8 +210,9 @@ public class Parser {
         }
 
         // Creates a while loop with the condition and the body
-        if (condition == null)
-            condition = new Expr.Literal(true);
+        if (condition == null) {
+            condition = new Expr.Literal(new HintonBoolean(true));
+        }
         body = new Stmt.While(condition, body);
 
         // Creates a block with the initializer, followed by the while loop
@@ -262,7 +264,7 @@ public class Parser {
 
         // If there wasn't an expression after the return statement,
         // then the function's body returns null.
-        return new Stmt.Return(keyword, null);
+        return new Stmt.Return(keyword, new Expr.Literal(new HintonNull()));
     }
 
     /**
@@ -674,16 +676,18 @@ public class Parser {
      * @return A unary expression.
      */
     private Expr unary() {
-        if (match(LOGICAL_NOT, MINUS, PLUS)) {
+        if (match(LOGICAL_NOT, MINUS)) {
             Token operator = previous();
             Expr right = unary();
             return new Expr.Unary(operator, right);
         } else if (match(FN_LAMBDA_KEYWORD)) {
             return lambda();
+        } else if (match(INCREMENT, DECREMENT)) {
+            return new Expr.DeIn_crement(previous(), unary(), true);
         } else {
             Expr expr = primary();
 
-            while (match(L_SQUARE_BRACKET, L_PARENTHESIS, DOT_SEPARATOR)) {
+            while (match(L_SQUARE_BRACKET, L_PARENTHESIS, DOT_SEPARATOR, INCREMENT, DECREMENT)) {
                 // If there is an opening sqr bracket after the expression,
                 // then we must have an array indexing expression.
                 if (previous().type == L_SQUARE_BRACKET) {
@@ -701,6 +705,12 @@ public class Parser {
                 if (previous().type == DOT_SEPARATOR) {
                     Token name = consume(IDENTIFIER, "Expect property name after '.'.");
                     expr = new Expr.MemberAccess(expr, name);
+                }
+
+                // If there is an increment or decrement operator after the expression,
+                // then we must have an increment or decrement expression.
+                if (previous().type == INCREMENT || previous().type == DECREMENT) {
+                    expr = new Expr.DeIn_crement(previous(), expr, false);
                 }
             }
 

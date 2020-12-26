@@ -14,13 +14,15 @@ The toy programming language supports the following tokens:
 - Booleans: `true`, `false`
 - Others: `null`
 
-## Arithmetic Operators
+## Operators
 - Addition: `+`
 - Subtraction: `-`
 - Multiplication: `*`
 - Division: `/` (both integer and real)
 - Exponentiation: `**`
 - Remainder: `%`, `mod`
+- Increment: `++`
+- Decrement: `--`
 <!-- - Range: `..` -->
 
 ## Logical Operators

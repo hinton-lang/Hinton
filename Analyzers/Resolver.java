@@ -9,13 +9,7 @@ import org.hinton_lang.Hinton;
 import org.hinton_lang.Envornment.DecType;
 import org.hinton_lang.Envornment.FunctionType;
 import org.hinton_lang.Interpreter.Interpreter;
-import org.hinton_lang.Parser.AST.Expr;
-import org.hinton_lang.Parser.AST.Expr.ArrayItemSetter;
-import org.hinton_lang.Parser.AST.Expr.Dictionary;
-import org.hinton_lang.Parser.AST.Expr.KeyValPair;
-import org.hinton_lang.Parser.AST.Stmt;
-import org.hinton_lang.Parser.AST.Stmt.Enum;
-import org.hinton_lang.Parser.AST.Stmt.EnumMember;
+import org.hinton_lang.Parser.AST.*;
 import org.hinton_lang.Tokens.Token;
 
 public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
@@ -309,36 +303,49 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     @Override
-    public Void visitArrayItemSetterExpr(ArrayItemSetter expr) {
+    public Void visitArrayItemSetterExpr(Expr.ArrayItemSetter expr) {
         resolve(expr.target);
         resolve(expr.value);
         return null;
     }
 
     @Override
-    public Void visitEnumStmt(Enum stmt) {
+    public Void visitEnumStmt(Stmt.Enum stmt) {
         declare(stmt.name, DecType.ENUMERABLE);
         define(stmt.name);
         return null;
     }
 
     @Override
-    public Void visitEnumMemberStmt(EnumMember stmt) {
+    public Void visitEnumMemberStmt(Stmt.EnumMember stmt) {
         resolve(stmt);
         return null;
     }
 
     @Override
-    public Void visitDictionaryExpr(Dictionary expr) {
-        for (KeyValPair element : expr.members) {
+    public Void visitDictionaryExpr(Expr.Dictionary expr) {
+        for (Expr.KeyValPair element : expr.members) {
             resolve(element);
         }
         return null;
     }
 
     @Override
-    public Void visitKeyValPairExpr(KeyValPair expr) {
+    public Void visitKeyValPairExpr(Expr.KeyValPair expr) {
         resolve(expr.val);
+        return null;
+    }
+
+    @Override
+    public Void visitDeIn_crementExpr(Expr.DeIn_crement expr) {
+        if (expr.operand instanceof Expr.Variable) {
+            Expr.Variable var = (Expr.Variable) expr.operand;
+            resolve(var);
+            resolveLocal(var, var.name);
+        } else {
+            resolve(expr.operand);
+        }
+
         return null;
     }
 }

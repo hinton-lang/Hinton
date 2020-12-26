@@ -187,24 +187,39 @@ public class Lexer {
     private void AddArithmeticOperatorToken(char operator) {
         TokenType tokenType;
 
-        if (operator == '+') {
+        if (operator == '+' && this.nextChar() != '+') {
             tokenType = PLUS;
-        } else if (operator == '-') {
+        } else if (operator == '+' && this.nextChar() == '+') {
+            tokenType = INCREMENT;
+            currCharPos++;
+        } else if (operator == '-' && this.nextChar() != '-') {
             tokenType = MINUS;
+        } else if (operator == '-' && this.nextChar() == '-') {
+            tokenType = DECREMENT;
+            currCharPos++;
         } else if (operator == '*' && this.nextChar() != '*') {
             tokenType = MULT;
         } else if (operator == '*' && this.nextChar() == '*') {
             tokenType = EXPO;
+            this.currCharPos++;
         } else if (operator == '/') {
             tokenType = DIV;
         } else {
             tokenType = MOD;
         }
 
-        String tokenChar = (operator == '*' && this.nextChar() == '*') ? "**" : Character.toString(operator);
+        String tokenChar;
+        if (tokenType == INCREMENT) {
+            tokenChar = "++";
+        } else if (tokenType == DECREMENT) {
+            tokenChar = "--";
+        } else if (tokenType == EXPO) {
+            tokenChar = "**";
+        } else {
+            tokenChar = Character.toString(operator);
+        }
+
         Token currentToken = new Token(tokenType, currLineNum, this.currCharPos, tokenChar, null);
-        if (operator == '*' && this.nextChar() == '*')
-            this.currCharPos++;
         this.TokensList.add(currentToken);
     }
 

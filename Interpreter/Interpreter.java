@@ -14,13 +14,9 @@ import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Interpreter.HintonDictionary.HintonDictionary;
 import org.hinton_lang.Interpreter.HintonEnum.HintonEnum;
 import org.hinton_lang.Parser.AST.*;
-import org.hinton_lang.Parser.AST.Expr.ArrayItemSetter;
-import org.hinton_lang.Parser.AST.Expr.Dictionary;
-import org.hinton_lang.Parser.AST.Expr.KeyValPair;
-import org.hinton_lang.Parser.AST.Stmt.Enum;
-import org.hinton_lang.Parser.AST.Stmt.EnumMember;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
+import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Envornment.*;
 import org.hinton_lang.RuntimeLib.RuntimeLib;
 import org.hinton_lang.Tokens.*;
@@ -213,13 +209,9 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
      */
     @Override
     public HintonNull visitReturnStmt(Stmt.Return stmt) throws Return {
-        Object value = null;
-        if (stmt.value != null)
-            value = evaluate(stmt.value);
-
         // We use a throw-statement to trace back all the
         // way to where the function's body was executed.
-        throw new Return(value);
+        throw new Return(evaluate(stmt.value));
     }
 
     /**
@@ -421,7 +413,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
      * Visits an array item assignment.
      */
     @Override
-    public Object visitArrayItemSetterExpr(ArrayItemSetter expr) {
+    public Object visitArrayItemSetterExpr(Expr.ArrayItemSetter expr) {
         Object target = evaluate(expr.target.arr);
         Object val = evaluate(expr.value);
 
@@ -510,22 +502,28 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
      */
     @Override
     public Object visitMemberSetterExpr(Expr.MemberSetter expr) {
-        // Object object = evaluate(expr.object);
+        Object object = evaluate(expr.object);
+        Object value = evaluate(expr.value);
 
-        // if (!(object instanceof HintonInstance)) {
-        // throw new RuntimeError(expr.name, "Only instances have fields.");
+        if (object instanceof HintonDictionary) {
+            HintonDictionary dict = (HintonDictionary) object;
+            dict.modifyProperty(expr.name, value);
+            return value;
+        }
+
+        // if (object instanceof HintonInstance) {
+        // ((HintonInstance) object).setMemberValue(expr.name, value);
         // }
 
-        Object value = evaluate(expr.value);
-        // ((HintonInstance) object).setMemberValue(expr.name, value);
-        return value;
+        throw new RuntimeError(expr.name,
+                "Cannot set to property of member type '" + Helper.getObjectType(object) + "'");
     }
 
     /**
      * Visits an enum declaration statement.
      */
     @Override
-    public HintonNull visitEnumStmt(Enum stmt) {
+    public HintonNull visitEnumStmt(Stmt.Enum stmt) {
         environment.define(stmt.name, new HintonEnum(stmt.name, stmt.members), DecType.ENUMERABLE);
         return new HintonNull();
     }
@@ -534,7 +532,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
      * Visits an enum member.
      */
     @Override
-    public HintonNull visitEnumMemberStmt(EnumMember stmt) {
+    public HintonNull visitEnumMemberStmt(Stmt.EnumMember stmt) {
         return new HintonNull();
     }
 
@@ -542,7 +540,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
      * Visit a dictionary expression.
      */
     @Override
-    public Object visitDictionaryExpr(Dictionary expr) {
+    public Object visitDictionaryExpr(Expr.Dictionary expr) {
         return new HintonDictionary(this, expr.members);
     }
 
@@ -550,7 +548,55 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
      * Visit a key-value pair.
      */
     @Override
-    public Object visitKeyValPairExpr(KeyValPair expr) {
+    public Object visitKeyValPairExpr(Expr.KeyValPair expr) {
         return new HintonNull();
+    }
+
+    /**
+     * Visits an Increment/Decrement expression.
+     */
+    @Override
+    public Object visitDeIn_crementExpr(Expr.DeIn_crement expr) {
+        Object val = evaluate(expr.operand);
+        if (!(val instanceof HintonInteger)) {
+            throw new RuntimeError(expr.operator,
+                    "Cannot increment operand of type '" + Helper.getObjectType(val) + "'");
+        }
+
+        HintonInteger prevVal = (HintonInteger) val;
+        HintonInteger newVal;
+
+        if (expr.operator.type == TokenType.INCREMENT) {
+            newVal = new HintonInteger(prevVal.getRaw() + 1);
+        } else {
+            newVal = new HintonInteger(prevVal.getRaw() - 1);
+        }
+
+        if (expr.operand instanceof Expr.Variable) {
+            Expr.Variable operand = (Expr.Variable) expr.operand;
+
+            // This is a modification of the this.visitAssignmentExpr() method.
+            Integer distance = locals.get(operand);
+            if (distance != null) {
+                environment.assignAt(distance, operand.name, newVal);
+            } else {
+                globals.assign(operand.name, newVal);
+            }
+
+        } else if (expr.operand instanceof Expr.Indexing) {
+            Expr.Indexing operand = (Expr.Indexing) expr.operand;
+            visitArrayItemSetterExpr(new Expr.ArrayItemSetter(operand, new Expr.Literal(newVal)));
+        } else if (expr.operand instanceof Expr.MemberAccess) {
+            Expr.MemberAccess operand = (Expr.MemberAccess) expr.operand;
+            visitMemberSetterExpr(new Expr.MemberSetter(operand.object, operand.name, new Expr.Literal(newVal)));
+        } else {
+            if (expr.operator.type == TokenType.INCREMENT) {
+                throw new RuntimeError(expr.operator, "Invalid operand for increment operator.");
+            } else {
+                throw new RuntimeError(expr.operator, "Invalid operand for decrement operator.");
+            }
+        }
+
+        return (expr.isPre) ? newVal : prevVal;
     }
 }
