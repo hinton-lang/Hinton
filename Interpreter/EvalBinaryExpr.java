@@ -1,8 +1,12 @@
 package org.hinton_lang.Interpreter;
 
 import org.hinton_lang.Tokens.Token;
+
+import java.util.ArrayList;
+
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Helper.Helper;
+import org.hinton_lang.Interpreter.HintonArrays.HintonArray;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Interpreter.HintonNull.HintonNull;
@@ -229,14 +233,14 @@ public class EvalBinaryExpr {
      * @param right The right operand.
      */
     public static HintonBoolean evalGreaterThan(Token opr, Object left, Object right) {
-        checkNumberOperands(opr, left, right);
-
         if (left instanceof HintonBoolean) {
             left = ((HintonBoolean) left).getRaw() ? 1 : 0;
         }
         if (right instanceof HintonBoolean) {
             right = ((HintonBoolean) right).getRaw() ? 1 : 0;
         }
+
+        checkNumberOperands(opr, left, right);
 
         if (left instanceof HintonReal && right instanceof HintonReal) {
             return new HintonBoolean(((HintonReal) left).getRaw() > ((HintonReal) right).getRaw());
@@ -259,14 +263,14 @@ public class EvalBinaryExpr {
      * @param right The right operand.
      */
     public static HintonBoolean evalGreaterThanEqual(Token opr, Object left, Object right) {
-        checkNumberOperands(opr, left, right);
-
         if (left instanceof HintonBoolean) {
             left = ((HintonBoolean) left).getRaw() ? 1 : 0;
         }
         if (right instanceof HintonBoolean) {
             right = ((HintonBoolean) right).getRaw() ? 1 : 0;
         }
+
+        checkNumberOperands(opr, left, right);
 
         if (left instanceof HintonReal && right instanceof HintonReal) {
             return new HintonBoolean(((HintonReal) left).getRaw() >= ((HintonReal) right).getRaw());
@@ -289,14 +293,14 @@ public class EvalBinaryExpr {
      * @param right The right operand.
      */
     public static HintonBoolean evalLessThan(Token opr, Object left, Object right) {
-        checkNumberOperands(opr, left, right);
-
         if (left instanceof HintonBoolean) {
             left = ((HintonBoolean) left).getRaw() ? 1 : 0;
         }
         if (right instanceof HintonBoolean) {
             right = ((HintonBoolean) right).getRaw() ? 1 : 0;
         }
+
+        checkNumberOperands(opr, left, right);
 
         if (left instanceof HintonReal && right instanceof HintonReal) {
             return new HintonBoolean(((HintonReal) left).getRaw() < ((HintonReal) right).getRaw());
@@ -319,14 +323,14 @@ public class EvalBinaryExpr {
      * @param right The right operand.
      */
     public static HintonBoolean evalLessThanEqual(Token opr, Object left, Object right) {
-        checkNumberOperands(opr, left, right);
-
         if (left instanceof HintonBoolean) {
             left = ((HintonBoolean) left).getRaw() ? 1 : 0;
         }
         if (right instanceof HintonBoolean) {
             right = ((HintonBoolean) right).getRaw() ? 1 : 0;
         }
+
+        checkNumberOperands(opr, left, right);
 
         if (left instanceof HintonReal && right instanceof HintonReal) {
             return new HintonBoolean(((HintonReal) left).getRaw() <= ((HintonReal) right).getRaw());
@@ -371,5 +375,38 @@ public class EvalBinaryExpr {
             right = ((HintonBoolean) right).getRaw() ? 1 : 0;
         }
         return new HintonBoolean(!isEqual(left, right));
+    }
+
+    /**
+     * Evaluates a range expression.
+     *
+     * @param left  The left operand.
+     * @param right The right operand.
+     */
+    public static HintonArray evalRange(Token opr, Object left, Object right) {
+        if (!(left instanceof HintonInteger) || !(right instanceof HintonInteger)) {
+            throw new RuntimeError(opr, "Range operation '" + opr.lexeme + "' not defined for operands of type '"
+                    + Helper.getObjectType(left) + "' and '" + Helper.getObjectType(right) + "'.");
+        }
+
+        int l = ((HintonInteger) left).getRaw();
+        int r = ((HintonInteger) right).getRaw();
+        int direction = l - r;
+
+        ArrayList<Object> arr = new ArrayList<>();
+
+        if (direction < 0) {
+            for (int i = l; i < r; i++) {
+                arr.add(new HintonInteger(i));
+            }
+        } else if (direction > 0) {
+            for (int i = l; i > r; i--) {
+                arr.add(new HintonInteger(i));
+            }
+        } else {
+            arr.add(new HintonInteger(l));
+        }
+
+        return new HintonArray(arr);
     }
 }

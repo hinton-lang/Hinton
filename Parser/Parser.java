@@ -176,11 +176,13 @@ public class Parser {
         if (match(SEMICOLON_SEPARATOR)) {
             initializer = null;
         } else if (match(LET_KEYWORD)) {
-            // In for-statements, we only accept single-variable
-            // declarations. TODO: Fix this to throw an error when
-            // the programmer tries to place a multi-variable
-            // declaration in the for-loop's initializer.
-            initializer = varDeclaration().get(0);
+            ArrayList<Stmt> varDcl = varDeclaration();
+
+            if (varDcl.size() > 1) {
+                throw new ParserError(((Stmt.Var) varDcl.get(1)).name, "Expected a single-variable initializer.");
+            } else {
+                initializer = varDcl.get(0);
+            }
         } else {
             initializer = expressionStatement();
         }
@@ -291,8 +293,7 @@ public class Parser {
 
             return new Stmt.Import(statements);
         } catch (IOException e) {
-            // TODO: Change to ParserError
-            throw new RuntimeError("Cannot find module " + path);
+            throw new ParserError("Cannot find module " + path);
         }
     }
 
@@ -534,14 +535,14 @@ public class Parser {
         Token name = consume(IDENTIFIER, "Expect " + "function" + " name.");
 
         consume(L_PARENTHESIS, "Expect '(' after " + "function" + " name.");
-        List<Token> parameters = new ArrayList<>();
+        List<Stmt.Parameter> parameters = new ArrayList<>();
         if (!check(R_PARENTHESIS)) {
             do {
                 if (parameters.size() >= 255) {
                     throw new ParserError(peek(), "Can't have more than 255 parameters.");
                 }
 
-                parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+                parameters.add(parameter());
             } while (match(COMMA_SEPARATOR));
         }
         consume(R_PARENTHESIS, "Expect ')' after parameters.");
@@ -549,6 +550,26 @@ public class Parser {
         consume(L_CURLY_BRACES, "Expect '{' before " + "function" + " body.");
         List<Stmt> body = block();
         return new Stmt.Function(name, parameters, body);
+    }
+
+    /**
+     * Matches a parameter declaration as specified in the grammar.cfg file.
+     * 
+     * @return A parameter declaration.
+     */
+    public Stmt.Parameter parameter() {
+        Token id = consume(IDENTIFIER, "Expect parameter name.");
+
+        // TODO: Throw error when required arguments are declared after any optional or
+        // named parameter.
+        if (match(QUESTION_MARK)) {
+            return new Stmt.Parameter(id, true, new Expr.Literal(new HintonNull()));
+        } else if (match(EQUALS_SIGN)) {
+            Expr right = expression();
+            return new Stmt.Parameter(id, true, right);
+        } else {
+            return new Stmt.Parameter(id, false, new Expr.Literal(new HintonNull()));
+        }
     }
 
     /**
@@ -566,23 +587,6 @@ public class Parser {
         }
 
         return expr;
-    }
-
-    /**
-     * Matches a comparison expression as specified in the grammar.cfg file.
-     * 
-     * @return A comparison expression.
-     */
-    private Expr comparison() {
-        Expr term = term();
-
-        while (match(LESS_THAN, LESS_THAN_EQ, GREATER_THAN, GREATER_THAN_EQ)) {
-            Token operator = previous();
-            Expr right = term();
-            term = new Expr.Binary(term, operator, right);
-        }
-
-        return term;
     }
 
     /**
@@ -614,6 +618,40 @@ public class Parser {
             Token operator = previous();
             Expr right = equality();
             term = new Expr.Logical(term, operator, right);
+        }
+
+        return term;
+    }
+
+    /**
+     * Matches a comparison expression as specified in the grammar.cfg file.
+     * 
+     * @return A comparison expression.
+     */
+    private Expr comparison() {
+        Expr range = range();
+
+        while (match(LESS_THAN, LESS_THAN_EQ, GREATER_THAN, GREATER_THAN_EQ)) {
+            Token operator = previous();
+            Expr right = range();
+            range = new Expr.Binary(range, operator, right);
+        }
+
+        return range;
+    }
+
+    /**
+     * Matches a range expression as specified in the grammar.cfg file.
+     * 
+     * @return A range expression.
+     */
+    private Expr range() {
+        Expr term = term();
+
+        if (match(RANGE_OPERATOR)) {
+            Token operator = previous();
+            Expr right = term();
+            term = new Expr.Binary(term, operator, right);
         }
 
         return term;
@@ -739,14 +777,14 @@ public class Parser {
     private Expr lambda() {
         consume(L_PARENTHESIS, "Expected '(' before parameters.");
 
-        List<Token> parameters = new ArrayList<>();
+        List<Stmt.Parameter> parameters = new ArrayList<>();
         if (!check(R_PARENTHESIS)) {
             do {
                 if (parameters.size() >= 255) {
                     throw new ParserError(peek(), "Can't have more than 255 parameters.");
                 }
 
-                parameters.add(consume(IDENTIFIER, "Expect parameter name."));
+                parameters.add(parameter());
             } while (match(COMMA_SEPARATOR));
         }
         consume(R_PARENTHESIS, "Expected ')' for after parameters.");

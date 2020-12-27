@@ -23,7 +23,7 @@ The toy programming language supports the following tokens:
 - Remainder: `%`, `mod`
 - Increment: `++`
 - Decrement: `--`
-<!-- - Range: `..` -->
+- Range: `..`
 
 ## Logical Operators
 - Less than: `<`, `<=`

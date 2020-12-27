@@ -147,9 +147,10 @@ public class Lexer {
                 continue;
             }
 
-            // **** Separators & Paired-Delimiters, i.e., ( ) { } ; , [ ] : .
+            // **** Separators & Paired-Delimiters, i.e., ( ) { } ; , [ ] : . ?
             final String separator = "\\(|\\)|\\{|\\}|;|,|\\[|\\]|:";
-            if (Regex.Match(currentChar, separator) || (currentChar == '.' && !Character.isDigit(nextChar()))) {
+            if (Regex.Match(currentChar, separator) || (currentChar == '.' && !Character.isDigit(nextChar()))
+                    || currentChar == '?') {
                 this.AddSeparatorAndPunctuationToken(currentChar);
                 continue;
             }
@@ -231,7 +232,7 @@ public class Lexer {
     private void AddSeparatorAndPunctuationToken(char op) {
         TokenType tokenType;
 
-        // ( ) { } ; , [ ] : .
+        // ( ) { } ; , [ ] : . ?
         if (op == '(') {
             tokenType = L_PARENTHESIS;
         } else if (op == ')') {
@@ -252,6 +253,8 @@ public class Lexer {
             tokenType = COLON_SEPARATOR;
         } else if (op == '.' && hasNextChar() && nextChar() == '.') {
             tokenType = RANGE_OPERATOR;
+        } else if (op == '?') {
+            tokenType = QUESTION_MARK;
         } else {
             tokenType = DOT_SEPARATOR;
         }

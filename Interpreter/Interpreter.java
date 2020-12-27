@@ -14,6 +14,7 @@ import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Interpreter.HintonDictionary.HintonDictionary;
 import org.hinton_lang.Interpreter.HintonEnum.HintonEnum;
 import org.hinton_lang.Parser.AST.*;
+import org.hinton_lang.Parser.AST.Stmt.Parameter;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Helper.Helper;
@@ -179,7 +180,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
      */
     @Override
     public HintonNull visitFunctionStmt(Stmt.Function stmt) {
-        HintonFunction function = new HintonFunction(stmt, environment);
+        HintonFunction function = new HintonFunction(this, stmt, environment);
         environment.define(stmt.name, function, DecType.FUNCTION);
         return new HintonNull();
     }
@@ -289,7 +290,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
      */
     @Override
     public Object visitLambdaExpr(Expr.Lambda expr) {
-        return new HintonLambda(expr, environment);
+        return new HintonLambda(this, expr, environment);
     }
 
     /**
@@ -349,17 +350,26 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
         }
 
         if (!(callee instanceof HintonCallable)) {
-            throw new RuntimeError(expr.paren, "Can only call functions.");
+            throw new RuntimeError(expr.paren,
+                    "Object of type '" + Helper.getObjectType(callee) + "' is not callable.");
         }
 
         HintonCallable function = (HintonCallable) callee;
 
-        if (arguments.size() != function.arity()) {
-            throw new RuntimeError(expr.paren,
-                    "Expected " + function.arity() + " arguments but got " + arguments.size() + ".");
+        // Checks for acceptable parameters size
+        if (arguments.size() < function.minArity() || arguments.size() > function.maxArity()) {
+            String msg = "";
+
+            if (arguments.size() < function.minArity()) {
+                msg = "Expected at least " + function.minArity() + " arguments but got " + arguments.size() + ".";
+            } else {
+                msg = "Expected at most " + function.maxArity() + " arguments but got " + arguments.size() + ".";
+            }
+
+            throw new RuntimeError(expr.paren, msg);
         }
 
-        return function.call(this, arguments);
+        return function.call(arguments);
     }
 
     /**
@@ -464,6 +474,8 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
                 return EvalBinaryExpr.evalEquals(left, right);
             case LOGICAL_NOT_EQ:
                 return EvalBinaryExpr.evalNotEquals(left, right);
+            case RANGE_OPERATOR:
+                return EvalBinaryExpr.evalRange(expr.operator, left, right);
             default:
                 break;
         }
@@ -598,5 +610,11 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
         }
 
         return (expr.isPre) ? newVal : prevVal;
+    }
+
+    @Override
+    public HintonNull visitParameterStmt(Parameter stmt) {
+        // NOTE: Currently unreachable
+        return null;
     }
 }

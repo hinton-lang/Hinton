@@ -3,7 +3,6 @@ package org.hinton_lang.RuntimeLib.NativeFunctions;
 import java.util.List;
 
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
-import org.hinton_lang.Interpreter.Interpreter;
 
 /**
  * Native Hinton function for measuring the execution time between two
@@ -26,13 +25,18 @@ public class Clock implements NativeFunc {
     public HintonCallable getFunc() {
         return new HintonCallable() {
             @Override
-            public int arity() {
-                return 0;
+            public Object call(List<Object> arguments) {
+                return (double) System.currentTimeMillis() / 1000.0;
             }
 
             @Override
-            public Object call(Interpreter interpreter, List<Object> arguments) {
-                return (double) System.currentTimeMillis() / 1000.0;
+            public int minArity() {
+                return 1;
+            }
+
+            @Override
+            public int maxArity() {
+                return 1;
             }
 
             @Override
