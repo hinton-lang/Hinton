@@ -1,52 +1,72 @@
-/**
- * This is a multiline comment
- * The following is a recursive function
- */
-func factorial(n) {
-    if (n <= 1) return 1;
-    return n * factorial(n - 1);
-}
+// /**
+//  * This is a multiline comment
+//  * The following is a recursive function
+//  */
+// func factorial(n) {
+//     if (n <= 1) return 1;
+//     return n * factorial(n - 1);
+// }
 
-// This is a constant
-const welcome = "Welcome to the program\n";
+// // This is a constant
+// const welcome = "Welcome to the program\n";
 
-// Printing to the console
-print(welcome)
+// // Printing to the console
+// print(welcome)
 
-// This is a variable.
-// The `input(message: String)` is a function to
-// obtain user input from the console.
-// The `int(x)` is a function to convert the given
-// argument to an integer.
-let x = int(input("Compute the factorial of: "));
-print(factorial(x))
+// // This is a variable.
+// // The `input(message: String)` is a function to
+// // obtain user input from the console.
+// // The `int(x)` is a function to convert the given
+// // argument to an integer.
+// let x = int(input("Compute the factorial of: "));
+// print(factorial(x))
 
-// While loops
-while(true) {
-    let again = input("Compute another? (y/n): ");
+// // While loops
+// while(true) {
+//     let again = input("Compute another? (y/n): ");
     
-    if (again equals "y") {
-        let x = int(input("Compute the factorial of: "));
-        print(factorial(x))
-        continue;
-    }
+//     if (again equals "y") {
+//         let x = int(input("Compute the factorial of: "));
+//         print(factorial(x))
+//         continue;
+//     }
 
-    if (again equals "n") break;
+//     if (again equals "n") break;
+// }
+
+// // This is a dictionary
+// let myDict = {
+//     a: 3,
+//     b: "hello dictionary!!",
+//     c: {
+//         arr: [1, 2, 3],
+//         pow: fn(a, b) -> { // Lambda expression
+//             return a ** b;
+//         }
+//     },
+//     d: null
+// }
+
+// print(myDict)
+// print(type(myDict))
+// print(myDict.c.pow(2, 3))
+
+
+// let x = 100.1..1;
+
+// print(x)
+
+
+func hello(a, b = 33, c = "hello") {
+    print(a);
+    print(b);
+    print(c);
 }
 
-// This is a dictionary
-let myDict = {
-    a: 3,
-    b: "hello dictionary!!",
-    c: {
-        arr: [1, 2, 3],
-        pow: fn(a, b) -> { // Lambda expression
-            return a ** b;
-        }
-    },
-    d: null
+hello("fausto")
+
+let someOther = fn(x = 0, b = 0) -> {
+    print(x + b)
 }
 
-print(myDict)
-print(type(myDict))
-print(myDict.c.pow(2, 3))
+someOther(33, 66)

@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
-import org.hinton_lang.Interpreter.Interpreter;
 
 /**
  * Method for adding an element to the end of an array.
@@ -17,13 +16,18 @@ public class ArrayPush implements HintonCallable {
     }
 
     @Override
-    public Object call(Interpreter interpreter, List<Object> arguments) {
+    public Object call(List<Object> arguments) {
         this.arr.add(arguments.get(0));
         return this.arr.size();
     }
 
     @Override
-    public int arity() {
+    public int minArity() {
+        return 1;
+    }
+
+    @Override
+    public int maxArity() {
         return 1;
     }
 

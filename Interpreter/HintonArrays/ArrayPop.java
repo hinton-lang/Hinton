@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
-import org.hinton_lang.Interpreter.Interpreter;
 
 /**
  * Method for removing the last element of an array.
@@ -17,15 +16,20 @@ public class ArrayPop implements HintonCallable {
     }
 
     @Override
-    public Object call(Interpreter interpreter, List<Object> arguments) {
+    public Object call(List<Object> arguments) {
         Object popped = this.arr.get(this.arr.size() - 1);
         this.arr.remove(this.arr.size() - 1);
         return popped;
     }
 
     @Override
-    public int arity() {
-        return 0;
+    public int minArity() {
+        return 1;
+    }
+
+    @Override
+    public int maxArity() {
+        return 1;
     }
 
     @Override

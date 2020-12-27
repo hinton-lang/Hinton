@@ -15,6 +15,8 @@ public abstract class Stmt {
 
         public R visitFunctionStmt(Function stmt);
 
+        public R visitParameterStmt(Parameter stmt);
+
         public R visitIfStmt(If stmt);
 
         public R visitBreakStmt(Break stmt);
@@ -77,10 +79,10 @@ public abstract class Stmt {
 
     public static class Function extends Stmt {
         public final Token name;
-        public final List<Token> params;
+        public final List<Stmt.Parameter> params;
         public final List<Stmt> body;
 
-        public Function(Token name, List<Token> params, List<Stmt> body) {
+        public Function(Token name, List<Stmt.Parameter> params, List<Stmt> body) {
             this.name = name;
             this.params = params;
             this.body = body;
@@ -89,6 +91,23 @@ public abstract class Stmt {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitFunctionStmt(this);
+        }
+    }
+
+    public static class Parameter extends Stmt {
+        public final Token name;
+        public final boolean isOptnl;
+        public final Expr defVal;
+
+        public Parameter(Token name, boolean isOptnl, Expr defVal) {
+            this.name = name;
+            this.isOptnl = isOptnl;
+            this.defVal = defVal;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitParameterStmt(this);
         }
     }
 

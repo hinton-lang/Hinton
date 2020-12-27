@@ -76,10 +76,10 @@ public abstract class Expr {
     }
 
     public static class Lambda extends Expr {
-        public final List<Token> params;
+        public final List<Stmt.Parameter> params;
         public final List<Stmt> body;
 
-        public Lambda(List<Token> params, List<Stmt> body) {
+        public Lambda(List<Stmt.Parameter> params, List<Stmt> body) {
             this.params = params;
             this.body = body;
         }

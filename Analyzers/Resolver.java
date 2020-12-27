@@ -10,6 +10,7 @@ import org.hinton_lang.Envornment.DecType;
 import org.hinton_lang.Envornment.FunctionType;
 import org.hinton_lang.Interpreter.Interpreter;
 import org.hinton_lang.Parser.AST.*;
+import org.hinton_lang.Parser.AST.Stmt.Parameter;
 import org.hinton_lang.Tokens.Token;
 
 public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
@@ -143,9 +144,9 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         currentFunction = type;
 
         beginScope();
-        for (Token param : function.params) {
-            declare(param, DecType.VARIABLE);
-            define(param);
+        for (Stmt.Parameter param : function.params) {
+            declare(param.name, DecType.VARIABLE);
+            define(param.name);
         }
         resolve(function.body);
         endScope();
@@ -262,9 +263,9 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         currentFunction = FunctionType.LAMBDA;
 
         beginScope();
-        for (Token param : expr.params) {
-            declare(param, DecType.VARIABLE);
-            define(param);
+        for (Stmt.Parameter param : expr.params) {
+            declare(param.name, DecType.VARIABLE);
+            define(param.name);
         }
         resolve(expr.body);
         endScope();
@@ -346,6 +347,13 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
             resolve(expr.operand);
         }
 
+        return null;
+    }
+
+    @Override
+    public Void visitParameterStmt(Parameter stmt) {
+        // NOTE: Currently unreachable
+        resolve(stmt.defVal);
         return null;
     }
 }

@@ -6,7 +6,6 @@ import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Interpreter.HintonString.HintonString;
-import org.hinton_lang.Interpreter.Interpreter;
 
 public class ConvertToInt implements NativeFunc {
     /**
@@ -24,12 +23,7 @@ public class ConvertToInt implements NativeFunc {
     public HintonCallable getFunc() {
         return new HintonCallable() {
             @Override
-            public int arity() {
-                return 1;
-            }
-
-            @Override
-            public HintonInteger call(Interpreter interpreter, List<Object> arguments) {
+            public HintonInteger call(List<Object> arguments) {
 
                 // Checks that the passed argument is a Hinton String
                 String strInt;
@@ -46,6 +40,16 @@ public class ConvertToInt implements NativeFunc {
                 } catch (NumberFormatException e) {
                     throw new RuntimeError("Cannot cast \"" + arguments.get(0) + "\" to integer");
                 }
+            }
+
+            @Override
+            public int minArity() {
+                return 1;
+            }
+
+            @Override
+            public int maxArity() {
+                return 1;
             }
 
             @Override

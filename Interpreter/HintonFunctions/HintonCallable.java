@@ -1,7 +1,5 @@
 package org.hinton_lang.Interpreter.HintonFunctions;
 
-import org.hinton_lang.Interpreter.Interpreter;
-
 import java.util.List;
 
 /**
@@ -11,16 +9,22 @@ public interface HintonCallable {
     /**
      * Calls and executes the function.
      * 
-     * @param interpreter The function's enclosing environment.
-     * @param arguments   The arguments for this function call.
+     * @param arguments The arguments for this function call.
      * @return The object returned by the function.
      */
-    public Object call(Interpreter interpreter, List<Object> arguments);
+    public Object call(List<Object> arguments);
 
     /**
-     * The number of arguments that the particular function accepts.
+     * The minimum number of arguments that the particular function accepts.
      * 
-     * @return The number of arguments accepted by the function.
+     * @return The minimum number of arguments accepted by the function.
      */
-    public int arity();
+    public int minArity();
+
+    /**
+     * The maximum number of arguments that the particular function accepts.
+     * 
+     * @return The maximum number of arguments accepted by the function.
+     */
+    public int maxArity();
 }

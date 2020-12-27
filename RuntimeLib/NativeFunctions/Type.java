@@ -2,7 +2,6 @@ package org.hinton_lang.RuntimeLib.NativeFunctions;
 
 import java.util.List;
 
-import org.hinton_lang.Interpreter.Interpreter;
 import org.hinton_lang.Interpreter.NativeType;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 import org.hinton_lang.Interpreter.HintonString.HintonString;
@@ -24,12 +23,7 @@ public class Type implements NativeFunc {
     public HintonCallable getFunc() {
         return new HintonCallable() {
             @Override
-            public int arity() {
-                return 1;
-            }
-
-            @Override
-            public HintonString call(Interpreter interpreter, List<Object> arguments) {
+            public HintonString call(List<Object> arguments) {
                 Object arg = arguments.get(0);
 
                 if (arg instanceof NativeType) {
@@ -37,6 +31,16 @@ public class Type implements NativeFunc {
                 } else {
                     return new HintonString(arg.getClass().getName());
                 }
+            }
+
+            @Override
+            public int minArity() {
+                return 1;
+            }
+
+            @Override
+            public int maxArity() {
+                return 1;
             }
 
             @Override

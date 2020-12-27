@@ -10,7 +10,6 @@ import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 import org.hinton_lang.Interpreter.HintonString.HintonString;
-import org.hinton_lang.Interpreter.Interpreter;
 
 /**
  * Native Hinton function for reading user input from the command prompt.
@@ -32,12 +31,7 @@ public class Input implements NativeFunc {
     public HintonCallable getFunc() {
         return new HintonCallable() {
             @Override
-            public int arity() {
-                return 1;
-            }
-
-            @Override
-            public HintonString call(Interpreter interpreter, List<Object> arguments) {
+            public HintonString call(List<Object> arguments) {
                 // Requires '--allow-input' flag
                 if (!Hinton.programPermissions.contains("--allow-input")) {
                     throw new RuntimeError("Cannot read user input without '--allow-input' permission flag.");
@@ -54,6 +48,16 @@ public class Input implements NativeFunc {
                 } catch (IOException e) {
                     return new HintonString("");
                 }
+            }
+
+            @Override
+            public int minArity() {
+                return 1;
+            }
+
+            @Override
+            public int maxArity() {
+                return 1;
             }
 
             @Override
