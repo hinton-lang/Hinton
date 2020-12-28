@@ -14,7 +14,6 @@ import static org.hinton_lang.Tokens.TokenType.*;
 import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.ParserError;
-import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Interpreter.HintonNull.HintonNull;
@@ -542,7 +541,18 @@ public class Parser {
                     throw new ParserError(peek(), "Can't have more than 255 parameters.");
                 }
 
-                parameters.add(parameter());
+                // Gets the next parameter
+                Stmt.Parameter param = parameter();
+
+                // Checks that optional parameters are declared at the
+                // end of the function definition
+                if (parameters.size() > 0 && !param.isOptnl && parameters.get(parameters.size() - 1).isOptnl) {
+                    throw new ParserError(parameters.get(parameters.size() - 1).name,
+                            "Optional and named parameters must be declared after all required parameters.");
+                }
+
+                // If everything is good, we add it to the param list.
+                parameters.add(param);
             } while (match(COMMA_SEPARATOR));
         }
         consume(R_PARENTHESIS, "Expect ')' after parameters.");
@@ -560,8 +570,6 @@ public class Parser {
     public Stmt.Parameter parameter() {
         Token id = consume(IDENTIFIER, "Expect parameter name.");
 
-        // TODO: Throw error when required arguments are declared after any optional or
-        // named parameter.
         if (match(QUESTION_MARK)) {
             return new Stmt.Parameter(id, true, new Expr.Literal(new HintonNull()));
         } else if (match(EQUALS_SIGN)) {
