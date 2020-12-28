@@ -5,6 +5,7 @@ import java.util.List;
 
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonLambda;
+import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Parser.AST.Stmt;
 import org.hinton_lang.Errors.RuntimeError;
@@ -26,7 +27,7 @@ public class ArrayForEach implements HintonCallable {
 
         // The callback accepted by HintonArray.forEach can only have
         // a max of two parameters, namely, item and index respectively.
-        if (lambda.minArity() < 0 || lambda.maxArity() > 2) {
+        if (lambda.maxArity() > 2) {
             Stmt.Parameter extraParam = lambda.parameters.get(2);
             throw new RuntimeError(extraParam.name,
                     "[Array].forEach accepts up to 2 parameter, got " + lambda.minArity() + " instead.");
@@ -36,15 +37,19 @@ public class ArrayForEach implements HintonCallable {
             Object item = this.arr.get(i);
             ArrayList<Object> args = new ArrayList<>();
 
-            // Adds the array item to the callback's arguments
-            if (item instanceof Expr) {
-                args.add(lambda.interpreter.evaluate((Expr) item));
-            } else {
-                args.add(item);
-            }
+            if (lambda.parameters.size() >= 1) {
+                // Adds the array item to the callback's arguments
+                if (item instanceof Expr) {
+                    args.add(lambda.interpreter.evaluate((Expr) item));
+                } else {
+                    args.add(item);
+                }
 
-            // Adds the item's index to the callback's arguments
-            args.add(i);
+                // Adds the item's index to the callback's arguments
+                if (lambda.parameters.size() == 2) {
+                    args.add(new HintonInteger(i));
+                }
+            }
 
             // executes the callback
             Object c = lambda.call(args);
