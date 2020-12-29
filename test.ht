@@ -2,7 +2,7 @@
  * This is a multiline comment
  * The following is a recursive function
  */
-func factorial(n) {
+func factorial(n = 0) { // default parameters
     if (n <= 1) return 1;
     return n * factorial(n - 1);
 }
@@ -19,7 +19,7 @@ print(welcome)
 // The `int(x)` is a function to convert the given
 // argument to an integer.
 let x = int(input("Compute the factorial of: "));
-print(factorial(x))
+print(factorial(n = x)) // named arguments
 
 // While loops
 while(true) {
@@ -52,6 +52,5 @@ print(type(myDict))
 print(myDict.c.pow(2, 3))
 
 
-let x = 100.1..1;
-
-print(x)
+let r = 100..1;
+print(r)

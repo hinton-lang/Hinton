@@ -1,6 +1,6 @@
 package org.hinton_lang.RuntimeLib.NativeFunctions;
 
-import java.util.List;
+import java.util.HashMap;
 
 import org.hinton_lang.Interpreter.NativeType;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
@@ -23,7 +23,7 @@ public class Type implements NativeFunc {
     public HintonCallable getFunc() {
         return new HintonCallable() {
             @Override
-            public HintonString call(List<Object> arguments) {
+            public HintonString call(HashMap<Object, Object> arguments) {
                 Object arg = arguments.get(0);
 
                 if (arg instanceof NativeType) {

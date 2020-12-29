@@ -145,6 +145,25 @@ public class Environment {
     }
 
     /**
+     * Checks that an identifier exists in this scope or the enclosing scopes.
+     * 
+     * @param name The name of the identifier.
+     * @return True if the identifier is defined, False otherwise.
+     */
+    public boolean contains(Token name) {
+        if (values.containsKey(name.lexeme)) {
+            return true;
+        }
+
+        // Recursively look for the given variable
+        // name in enclosing environments.
+        if (enclosing != null)
+            return enclosing.contains(name);
+
+        return false;
+    }
+
+    /**
      * Converts the hashmap into a readable string.
      */
     public String toString() {

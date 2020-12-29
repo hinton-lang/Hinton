@@ -1,6 +1,6 @@
 package org.hinton_lang.RuntimeLib.NativeFunctions;
 
-import java.util.List;
+import java.util.HashMap;
 
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
@@ -23,7 +23,7 @@ public class ConvertToInt implements NativeFunc {
     public HintonCallable getFunc() {
         return new HintonCallable() {
             @Override
-            public HintonInteger call(List<Object> arguments) {
+            public HintonInteger call(HashMap<Object, Object> arguments) {
 
                 // Checks that the passed argument is a Hinton String
                 String strInt;

@@ -1,7 +1,7 @@
 package org.hinton_lang.Interpreter.HintonArrays;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 
@@ -16,7 +16,7 @@ public class ArrayPop implements HintonCallable {
     }
 
     @Override
-    public Object call(List<Object> arguments) {
+    public Object call(HashMap<Object, Object> arguments) {
         Object popped = this.arr.get(this.arr.size() - 1);
         this.arr.remove(this.arr.size() - 1);
         return popped;
