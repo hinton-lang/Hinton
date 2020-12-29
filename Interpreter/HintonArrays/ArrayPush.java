@@ -1,7 +1,7 @@
 package org.hinton_lang.Interpreter.HintonArrays;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 
@@ -16,7 +16,7 @@ public class ArrayPush implements HintonCallable {
     }
 
     @Override
-    public Object call(List<Object> arguments) {
+    public Object call(HashMap<Object, Object> arguments) {
         this.arr.add(arguments.get(0));
         return this.arr.size();
     }

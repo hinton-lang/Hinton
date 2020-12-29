@@ -1,6 +1,6 @@
 package org.hinton_lang.RuntimeLib.NativeFunctions;
 
-import java.util.List;
+import java.util.HashMap;
 
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 
@@ -25,7 +25,7 @@ public class Clock implements NativeFunc {
     public HintonCallable getFunc() {
         return new HintonCallable() {
             @Override
-            public Object call(List<Object> arguments) {
+            public Object call(HashMap<Object, Object> arguments) {
                 return (double) System.currentTimeMillis() / 1000.0;
             }
 

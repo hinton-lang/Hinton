@@ -14,6 +14,8 @@ public abstract class Expr {
 
         public R visitCallExpr(Call expr);
 
+        public R visitArgumentExpr(Argument expr);
+
         public R visitMemberAccessExpr(MemberAccess expr);
 
         public R visitMemberSetterExpr(MemberSetter expr);
@@ -93,9 +95,9 @@ public abstract class Expr {
     public static class Call extends Expr {
         public final Expr callee;
         public final Token paren;
-        public final List<Expr> arguments;
+        public final List<Expr.Argument> arguments;
 
-        public Call(Expr callee, Token paren, List<Expr> arguments) {
+        public Call(Expr callee, Token paren, List<Expr.Argument> arguments) {
             this.callee = callee;
             this.paren = paren;
             this.arguments = arguments;
@@ -104,6 +106,21 @@ public abstract class Expr {
         @Override
         public <R> R accept(Visitor<R> visitor) {
             return visitor.visitCallExpr(this);
+        }
+    }
+
+    public static class Argument extends Expr {
+        public final Token name;
+        public final Expr value;
+
+        public Argument(Token name, Expr value) {
+            this.name = name;
+            this.value = value;
+        }
+
+        @Override
+        public <R> R accept(Visitor<R> visitor) {
+            return visitor.visitArgumentExpr(this);
         }
     }
 

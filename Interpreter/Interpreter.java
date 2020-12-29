@@ -14,6 +14,7 @@ import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Interpreter.HintonDictionary.HintonDictionary;
 import org.hinton_lang.Interpreter.HintonEnum.HintonEnum;
 import org.hinton_lang.Parser.AST.*;
+import org.hinton_lang.Parser.AST.Expr.Argument;
 import org.hinton_lang.Parser.AST.Stmt.Parameter;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
@@ -344,11 +345,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
     public Object visitCallExpr(Expr.Call expr) {
         Object callee = evaluate(expr.callee);
 
-        List<Object> arguments = new ArrayList<>();
-        for (Expr argument : expr.arguments) {
-            arguments.add(evaluate(argument));
-        }
-
+        // Checks that the object is callable
         if (!(callee instanceof HintonCallable)) {
             throw new RuntimeError(expr.paren,
                     "Object of type '" + Helper.getObjectType(callee) + "' is not callable.");
@@ -357,16 +354,35 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
         HintonCallable function = (HintonCallable) callee;
 
         // Checks for acceptable parameters size
-        if (arguments.size() < function.minArity() || arguments.size() > function.maxArity()) {
+        int argsSize = expr.arguments.size();
+        if (argsSize < function.minArity() || argsSize > function.maxArity()) {
             String msg = "";
 
-            if (arguments.size() < function.minArity()) {
-                msg = "Expected at least " + function.minArity() + " arguments but got " + arguments.size() + ".";
+            String fnName;
+            if (function instanceof HintonFunction) {
+                fnName = ((HintonFunction) function).declaration.name.lexeme + "() expected";
+            } else if (function instanceof HintonLambda) {
+                fnName = "<LambdaFunction>() expected";
             } else {
-                msg = "Expected at most " + function.maxArity() + " arguments but got " + arguments.size() + ".";
+                fnName = "Expected";
+            }
+
+            if (argsSize < function.minArity()) {
+                msg = fnName + " at least " + function.minArity() + " arguments but got " + argsSize + ".";
+            } else {
+                msg = fnName + " at most " + function.maxArity() + " arguments but got " + argsSize + ".";
             }
 
             throw new RuntimeError(expr.paren, msg);
+        }
+
+        HashMap<Object, Object> arguments = new HashMap<>();
+
+        List<Argument> argumentList = expr.arguments;
+        for (int i = 0, argumentListSize = argumentList.size(); i < argumentListSize; i++) {
+            Argument argument = argumentList.get(i);
+
+            arguments.put((argument.name == null) ? i : argument.name, evaluate(argument.value));
         }
 
         return function.call(arguments);
@@ -615,6 +631,12 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
     @Override
     public HintonNull visitParameterStmt(Parameter stmt) {
         // NOTE: Currently unreachable
+        return null;
+    }
+
+    @Override
+    public Object visitArgumentExpr(Argument expr) {
+        // TODO Auto-generated method stub
         return null;
     }
 }

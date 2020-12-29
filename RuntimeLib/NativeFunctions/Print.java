@@ -1,6 +1,6 @@
 package org.hinton_lang.RuntimeLib.NativeFunctions;
 
-import java.util.List;
+import java.util.HashMap;
 
 import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
@@ -25,7 +25,7 @@ public class Print implements NativeFunc {
     public HintonCallable getFunc() {
         return new HintonCallable() {
             @Override
-            public Void call(List<Object> arguments) {
+            public Void call(HashMap<Object, Object> arguments) {
                 System.out.println(Helper.stringify(arguments.get(0)));
                 return null;
             }

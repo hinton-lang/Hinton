@@ -813,7 +813,7 @@ public class Parser {
      * @return A function call expression.
      */
     private Expr finishCall(Expr callee) {
-        List<Expr> arguments = new ArrayList<>();
+        List<Expr.Argument> arguments = new ArrayList<>();
 
         if (!check(R_PARENTHESIS)) {
             do {
@@ -821,13 +821,41 @@ public class Parser {
                 if (arguments.size() >= 255) {
                     throw new ParserError(peek(), "Can't have more than 255 arguments.");
                 }
-                arguments.add(expression());
+
+                // Gets the next argument
+                Expr.Argument arg = argument();
+
+                // Checks that named arguments are declared at the
+                // end of the function call
+                if (arguments.size() > 0 && arg.name == null && !(arguments.get(arguments.size() - 1).name == null)) {
+                    throw new ParserError(arguments.get(arguments.size() - 1).name,
+                            "Named arguments must be declared after all unnamed arguments.");
+                }
+
+                // If everything is good, we add it to the args list.
+                arguments.add(arg);
             } while (match(COMMA_SEPARATOR));
         }
 
         Token paren = consume(R_PARENTHESIS, "Expect ')' after arguments.");
 
         return new Expr.Call(callee, paren, arguments);
+    }
+
+    /**
+     * Matches an argument expression as specified in the grammar.cfg file.
+     * 
+     * @return An argument expression.
+     */
+    private Expr.Argument argument() {
+        Expr expr = expression();
+
+        if (expr instanceof Expr.Assign) {
+            Expr.Assign assign = (Expr.Assign) expr;
+            return new Expr.Argument(assign.name, assign.value);
+        }
+
+        return new Expr.Argument(null, expr);
     }
 
     /**

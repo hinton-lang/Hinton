@@ -17,7 +17,7 @@ public abstract class AbstractHintonFunction implements HintonCallable {
     // we use the parent's function as the enclosing (closure) scope.
     private final Environment closure;
     // The scope for this functions
-    private final Environment environment;
+    public final Environment environment;
 
     private int minArity, maxArity = 0;
 
@@ -46,18 +46,11 @@ public abstract class AbstractHintonFunction implements HintonCallable {
     }
 
     /**
-     * Creates a scope and executes the function on every function call.
+     * Executes the function body for the current function.
+     * 
+     * @return The return value of the function's body.
      */
-    @Override
-    public Object call(List<Object> arguments) {
-
-        // Assigns the given arguments to the parameters
-        for (int i = 0; i < arguments.size(); i++) {
-            // We define the passed arguments as variables available within
-            // the scope of this particular function.
-            environment.assign(this.parameters.get(i).name, arguments.get(i));
-        }
-
+    public Object executeFunc() {
         // Executes the function
         try {
             interpreter.executeBlock(this.body, this.environment);

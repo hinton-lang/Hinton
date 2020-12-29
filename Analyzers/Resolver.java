@@ -10,6 +10,7 @@ import org.hinton_lang.Envornment.DecType;
 import org.hinton_lang.Envornment.FunctionType;
 import org.hinton_lang.Interpreter.Interpreter;
 import org.hinton_lang.Parser.AST.*;
+import org.hinton_lang.Parser.AST.Expr.Argument;
 import org.hinton_lang.Parser.AST.Stmt.Parameter;
 import org.hinton_lang.Tokens.Token;
 
@@ -144,9 +145,8 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
         currentFunction = type;
 
         beginScope();
-        for (Stmt.Parameter param : function.params) {
-            declare(param.name, DecType.VARIABLE);
-            define(param.name);
+        for (Stmt param : function.params) {
+            resolve(param);
         }
         resolve(function.body);
         endScope();
@@ -351,9 +351,16 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     @Override
-    public Void visitParameterStmt(Parameter stmt) {
-        // NOTE: Currently unreachable
-        resolve(stmt.defVal);
+    public Void visitParameterStmt(Parameter param) {
+        declare(param.name, DecType.VARIABLE);
+        define(param.name);
+        resolve(param.defVal);
+        return null;
+    }
+
+    @Override
+    public Void visitArgumentExpr(Argument arg) {
+        resolve(arg.value);
         return null;
     }
 }

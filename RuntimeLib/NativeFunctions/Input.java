@@ -3,7 +3,7 @@ package org.hinton_lang.RuntimeLib.NativeFunctions;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
-import java.util.List;
+import java.util.HashMap;
 
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
@@ -31,7 +31,7 @@ public class Input implements NativeFunc {
     public HintonCallable getFunc() {
         return new HintonCallable() {
             @Override
-            public HintonString call(List<Object> arguments) {
+            public HintonString call(HashMap<Object, Object> arguments) {
                 // Requires '--allow-input' flag
                 if (!Hinton.programPermissions.contains("--allow-input")) {
                     throw new RuntimeError("Cannot read user input without '--allow-input' permission flag.");

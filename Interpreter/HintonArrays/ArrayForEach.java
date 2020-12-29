@@ -1,7 +1,7 @@
 package org.hinton_lang.Interpreter.HintonArrays;
 
 import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonLambda;
@@ -22,7 +22,7 @@ public class ArrayForEach implements HintonCallable {
     }
 
     @Override
-    public Object call(List<Object> arguments) {
+    public Object call(HashMap<Object, Object> arguments) {
         HintonLambda lambda = (HintonLambda) arguments.get(0);
 
         // The callback accepted by HintonArray.forEach can only have
@@ -35,19 +35,19 @@ public class ArrayForEach implements HintonCallable {
 
         for (int i = 0; i < this.arr.size(); i++) {
             Object item = this.arr.get(i);
-            ArrayList<Object> args = new ArrayList<>();
+            HashMap<Object, Object> args = new HashMap<>();
 
             if (lambda.parameters.size() >= 1) {
                 // Adds the array item to the callback's arguments
                 if (item instanceof Expr) {
-                    args.add(lambda.interpreter.evaluate((Expr) item));
+                    args.put(0, lambda.interpreter.evaluate((Expr) item));
                 } else {
-                    args.add(item);
+                    args.put(0, item);
                 }
 
                 // Adds the item's index to the callback's arguments
                 if (lambda.parameters.size() == 2) {
-                    args.add(new HintonInteger(i));
+                    args.put(1, new HintonInteger(i));
                 }
             }
 
