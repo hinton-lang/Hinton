@@ -10,6 +10,7 @@ import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Parser.AST.Stmt;
 import org.hinton_lang.Tokens.Token;
 import org.hinton_lang.Errors.RuntimeError;
+import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 
 /**
@@ -25,7 +26,14 @@ public class ArrayForEach extends HintonFunction {
 
     @Override
     public HintonNull call(Token token, HashMap<Object, Object> arguments) {
-        HintonLambda lambda = (HintonLambda) arguments.get(0);
+        Object arg = arguments.get(0);
+
+        if (!(arg instanceof HintonLambda)) {
+            throw new RuntimeError(token,
+                    "Expected a function or lambda expression. Got '" + Helper.getObjectType(arg) + "' instead.");
+        }
+
+        HintonLambda lambda = (HintonLambda) arg;
 
         // The callback accepted by HintonArray.forEach can only have
         // a max of two parameters, namely, item and index respectively.
