@@ -383,7 +383,7 @@ public class EvalBinaryExpr {
      * @param left  The left operand.
      * @param right The right operand.
      */
-    public static HintonArray evalRange(Token opr, Object left, Object right) {
+    public static HintonArray evalRange(Interpreter inter, Token opr, Object left, Object right) {
         if (!(left instanceof HintonInteger) || !(right instanceof HintonInteger)) {
             throw new RuntimeError(opr, "Range operation '" + opr.lexeme + "' not defined for operands of type '"
                     + Helper.getObjectType(left) + "' and '" + Helper.getObjectType(right) + "'.");
@@ -407,6 +407,6 @@ public class EvalBinaryExpr {
             arr.add(new HintonInteger(l));
         }
 
-        return new HintonArray(arr);
+        return new HintonArray(arr, inter);
     }
 }

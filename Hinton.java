@@ -17,7 +17,7 @@ import org.hinton_lang.Parser.*;
 import org.hinton_lang.Parser.AST.*;
 import org.hinton_lang.Analyzers.Resolver;
 import org.hinton_lang.CLI.ProcessArgs;
-import org.hinton_lang.Errors.ParserError;
+import org.hinton_lang.Errors.SyntaxError;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.Interpreter;
 
@@ -166,16 +166,16 @@ public class Hinton {
     }
 
     /**
-     * Reports a parser error.
+     * Reports a syntax (parser) error.
      * 
-     * @param error The parser error.
+     * @param error The syntax error.
      */
-    public static void parserError(ParserError error) {
+    public static void parserError(SyntaxError error) {
         if (error.token != null) {
             String line = error.token.linePos + "," + error.token.columnPos;
-            System.err.println("ParserError [" + line + "]: " + error.getMessage());
+            System.err.println("SyntaxError [" + line + "]: " + error.getMessage());
         } else {
-            System.err.println("ParserError: " + error.getMessage());
+            System.err.println("SyntaxError: " + error.getMessage());
         }
         hadRuntimeError = true;
     }

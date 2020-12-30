@@ -1,23 +1,25 @@
 package org.hinton_lang.Interpreter.HintonArrays;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
+import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
+import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
+import org.hinton_lang.Tokens.Token;
 
 /**
  * Method for checking if an element is inside an array.
  */
-public class ArrayContains implements HintonCallable {
-    ArrayList<Object> arr;
+public class ArrayContains extends HintonFunction {
+    HintonArray parent;
 
-    public ArrayContains(ArrayList<Object> arr) {
-        this.arr = arr;
+    public ArrayContains(HintonArray parent) {
+        super("[Array].contains", parent.interpreter, null);
+        this.parent = parent;
     }
 
     @Override
-    public Object call(HashMap<Object, Object> arguments) {
-        return this.arr.contains(arguments.get(0));
+    public HintonBoolean call(Token token, HashMap<Object, Object> arguments) {
+        return new HintonBoolean(this.parent.arr.contains(arguments.get(0)));
     }
 
     @Override

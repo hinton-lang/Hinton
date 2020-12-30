@@ -1,28 +1,30 @@
 package org.hinton_lang.Interpreter.HintonArrays;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
+import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonLambda;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
+import org.hinton_lang.Interpreter.HintonNull.HintonNull;
 import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Parser.AST.Stmt;
+import org.hinton_lang.Tokens.Token;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 
 /**
  * Method for looping through the items of an array.
  */
-public class ArrayForEach implements HintonCallable {
-    ArrayList<Object> arr;
+public class ArrayForEach extends HintonFunction {
+    HintonArray parent;
 
-    public ArrayForEach(ArrayList<Object> arr) {
-        this.arr = arr;
+    public ArrayForEach(HintonArray parent) {
+        super("[Array].forEach", parent.interpreter, null);
+        this.parent = parent;
     }
 
     @Override
-    public Object call(HashMap<Object, Object> arguments) {
+    public HintonNull call(Token token, HashMap<Object, Object> arguments) {
         HintonLambda lambda = (HintonLambda) arguments.get(0);
 
         // The callback accepted by HintonArray.forEach can only have
@@ -33,8 +35,8 @@ public class ArrayForEach implements HintonCallable {
                     "[Array].forEach accepts up to 2 parameter, got " + lambda.minArity() + " instead.");
         }
 
-        for (int i = 0; i < this.arr.size(); i++) {
-            Object item = this.arr.get(i);
+        for (int i = 0; i < this.parent.arr.size(); i++) {
+            Object item = this.parent.arr.get(i);
             HashMap<Object, Object> args = new HashMap<>();
 
             if (lambda.parameters.size() >= 1) {
@@ -52,7 +54,7 @@ public class ArrayForEach implements HintonCallable {
             }
 
             // executes the callback
-            Object c = lambda.call(args);
+            Object c = lambda.call(token, args);
 
             // We break the loop if the programmer returns `false`
             // within the .forEach callback.
@@ -61,7 +63,7 @@ public class ArrayForEach implements HintonCallable {
             }
         }
 
-        return null;
+        return new HintonNull();
     }
 
     @Override

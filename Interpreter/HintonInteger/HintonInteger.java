@@ -38,7 +38,7 @@ public class HintonInteger implements NativeType {
      * Return the Hinton type name for the object.
      */
     public String typeName() {
-        return "Integer";
+        return "Int";
     }
 
     /**

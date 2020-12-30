@@ -9,7 +9,9 @@ import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
+import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
 import org.hinton_lang.Interpreter.HintonString.HintonString;
+import org.hinton_lang.Tokens.Token;
 
 /**
  * Native Hinton function for reading user input from the command prompt.
@@ -29,12 +31,12 @@ public class Input implements NativeFunc {
      */
     @Override
     public HintonCallable getFunc() {
-        return new HintonCallable() {
+        return new HintonFunction(this.getFuncName(), null, null) {
             @Override
-            public HintonString call(HashMap<Object, Object> arguments) {
+            public HintonString call(Token token, HashMap<Object, Object> arguments) {
                 // Requires '--allow-input' flag
                 if (!Hinton.programPermissions.contains("--allow-input")) {
-                    throw new RuntimeError("Cannot read user input without '--allow-input' permission flag.");
+                    throw new RuntimeError(token, "Cannot read user input without '--allow-input' permission flag.");
                 }
 
                 InputStreamReader input = new InputStreamReader(System.in);

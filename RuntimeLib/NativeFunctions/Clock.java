@@ -3,6 +3,8 @@ package org.hinton_lang.RuntimeLib.NativeFunctions;
 import java.util.HashMap;
 
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
+import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
+import org.hinton_lang.Tokens.Token;
 
 /**
  * Native Hinton function for measuring the execution time between two
@@ -23,9 +25,9 @@ public class Clock implements NativeFunc {
      */
     @Override
     public HintonCallable getFunc() {
-        return new HintonCallable() {
+        return new HintonFunction(this.getFuncName(), null, null) {
             @Override
-            public Object call(HashMap<Object, Object> arguments) {
+            public Object call(Token token, HashMap<Object, Object> arguments) {
                 return (double) System.currentTimeMillis() / 1000.0;
             }
 

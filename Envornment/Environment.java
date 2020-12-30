@@ -8,7 +8,7 @@ import org.hinton_lang.Errors.RuntimeError;
 
 public class Environment {
     /** Stores the values for this scope */
-    private final Map<String, Value> values = new HashMap<>();
+    private final Map<String, StoredValue> values = new HashMap<>();
     /** Parent scope */
     private final Environment enclosing;
 
@@ -33,23 +33,7 @@ public class Environment {
         }
 
         // If the value hasn't been declared, we added to the environment.
-        values.put(name.lexeme, new Value(value, decType));
-    }
-
-    /**
-     * Defines an object in this scope.
-     * 
-     * @param name    The object's name.
-     * @param value   Tha object's value.
-     * @param decType The type of declaration.
-     */
-    public void define(String name, Object value, DecType decType) {
-        if (values.containsKey(name)) {
-            throw new RuntimeError("Cannot redeclare \"" + name + "\".");
-        }
-
-        // If the value hasn't been declared, we added to the environment.
-        values.put(name, new Value(value, decType));
+        values.put(name.lexeme, new StoredValue(value, decType));
     }
 
     public Object getAt(int distance, String name) {
@@ -85,7 +69,7 @@ public class Environment {
      * @param decType The type of declaration.
      */
     public void defineBuiltIn(String name, Object value, DecType decType) {
-        values.put(name, new Value(value, decType));
+        values.put(name, new StoredValue(value, decType));
     }
 
     /**
