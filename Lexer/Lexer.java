@@ -47,9 +47,9 @@ public class Lexer {
         return TokensList;
     }
 
-    private char prevChar() {
-        return currLineText.toCharArray()[this.currCharPos - 1];
-    }
+    // private char prevChar() {
+    // return currLineText.toCharArray()[this.currCharPos - 1];
+    // }
 
     protected char nextChar() {
         return currLineText.toCharArray()[this.currCharPos + 1];
@@ -331,25 +331,44 @@ public class Lexer {
      */
     private void AddStringLiteralToken(char[] charSequence) {
         final int start = this.currCharPos;
-        char currentChar;
+        char currentChar = charSequence[++this.currCharPos]; // Skips the opening quotes
         StringBuilder stringLiteral = new StringBuilder();
 
         while (currCharPos < currLineLength) {
             currentChar = charSequence[this.currCharPos];
-            stringLiteral.append(currentChar);
 
-            // Breaks the loop when it finds the closing quotes, and the found quotes are
-            // not escaped.
-            if ((currentChar == '"' && currCharPos != start) && this.prevChar() != '\\')
+            if (currentChar == '\\' && nextChar() == 'n') {
+                stringLiteral.append("\n"); // Scaped newline
+                currCharPos += 2;
+            } else if (currentChar == '\\' && nextChar() == 't') {
+                stringLiteral.append("\t"); // Scaped tab
+                currCharPos += 2;
+            } else if (currentChar == '\\' && nextChar() == 'r') {
+                stringLiteral.append("\r"); // Scaped carriage-return
+                currCharPos += 2;
+            } else if (currentChar == '\\' && nextChar() == 'b') {
+                stringLiteral.append("\b"); // Scaped backspace
+                currCharPos += 2;
+            } else if (currentChar == '\\' && nextChar() == '\\') {
+                stringLiteral.append("\\"); // Scaped backslash
+                currCharPos += 2;
+            } else if (currentChar == '\\' && nextChar() == '"') {
+                stringLiteral.append("\""); // Scaped quote
+                currCharPos += 2;
+            } else if (currentChar == '\\') {
+                currCharPos++; // Ignored scape character
+                continue;
+            } else if (currentChar == '"') {
+                // Breaks the loop when it finds the closing quotes
+                // This automatically skips the closing quotes from being in the raw string
                 break;
-
-            currCharPos++;
+            } else {
+                stringLiteral.append(currentChar);
+                currCharPos++;
+            }
         }
 
-        // Removes the opening and closing quotes from the string
-        // So that they can be stored by java as raw strings
-        String rawString = stringLiteral.substring(1, stringLiteral.length() - 1);
-
+        String rawString = stringLiteral.toString();
         Token currentToken = new Token(STRING_LITERAL, this.currLineNum, start, rawString, rawString);
         this.TokensList.add(currentToken);
     }

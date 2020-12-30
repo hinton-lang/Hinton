@@ -8,7 +8,7 @@ func factorial(n = 0) { // default parameters
 }
 
 // This is a constant
-const welcome = "Welcome to the program\n";
+const welcome = "\nWelcome to the program\n";
 
 // Printing to the console
 print(welcome)
