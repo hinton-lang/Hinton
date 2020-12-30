@@ -26,7 +26,7 @@ public class HintonEnum implements NativeType {
     public HintonEnum(Token enumName, List<EnumMember> members) {
         this.name = enumName.lexeme;
         // The methods for enum objects in the Hinton language
-        methods.put("length", members.size());
+        methods.put("length", new HintonInteger(members.size()));
 
         // Adds the enum members
         for (EnumMember member : members) {
@@ -37,6 +37,8 @@ public class HintonEnum implements NativeType {
                 throw new RuntimeError(member.name,
                         "Cannot redeclare enum member '" + member.name.lexeme + "' in enum '" + this.name + "'.");
             } else {
+                // Adds the members of this Hinton Enum, where each member maps to
+                // the integer position in the declaration sequence.
                 this.members.put(member.name.lexeme, new HintonInteger(this.members.size()));
             }
         }

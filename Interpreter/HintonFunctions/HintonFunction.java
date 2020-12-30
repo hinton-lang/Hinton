@@ -4,7 +4,6 @@ import java.util.ArrayList;
 import java.util.HashMap;
 
 import org.hinton_lang.Parser.AST.Stmt;
-import org.hinton_lang.Envornment.Environment;
 import org.hinton_lang.Tokens.Token;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.Interpreter;
@@ -12,11 +11,16 @@ import org.hinton_lang.Interpreter.Interpreter;
 /**
  * Represents a function declaration.
  */
-public class HintonFunction extends AbstractHintonFunction {
+public class HintonFunction extends HintonCallable {
     public Stmt.Function declaration;
 
-    public HintonFunction(Interpreter interpret, Stmt.Function declaration, Environment closure) {
-        super(interpret, declaration.params, declaration.body, closure);
+    public HintonFunction(Interpreter interpret, Stmt.Function declaration) {
+        super(declaration.name.lexeme, interpret, declaration);
+        this.declaration = declaration;
+    }
+
+    public HintonFunction(String name, Interpreter interpret, Stmt.Function declaration) {
+        super(name, interpret, declaration);
         this.declaration = declaration;
     }
 
@@ -24,7 +28,7 @@ public class HintonFunction extends AbstractHintonFunction {
      * Creates a scope and executes the function on every function call.
      */
     @Override
-    public Object call(HashMap<Object, Object> arguments) {
+    public Object call(Token token, HashMap<Object, Object> arguments) {
         Object[] argsList = arguments.keySet().toArray();
         ArrayList<String> alreadySet = new ArrayList<>();
 

@@ -1,7 +1,6 @@
 package org.hinton_lang.Interpreter.HintonFunctions;
 
 import org.hinton_lang.Parser.AST.Expr;
-import org.hinton_lang.Envornment.Environment;
 import org.hinton_lang.Interpreter.Interpreter;
 
 import java.util.ArrayList;
@@ -13,16 +12,17 @@ import org.hinton_lang.Errors.RuntimeError;
 /**
  * Represents a lambda expression.
  */
-public class HintonLambda extends AbstractHintonFunction {
-    public HintonLambda(Interpreter interpret, Expr.Lambda declaration, Environment closure) {
-        super(interpret, declaration.params, declaration.body, closure);
+public class HintonLambda extends HintonCallable {
+
+    public HintonLambda(Interpreter inter, Expr.Lambda declaration) {
+        super(inter, declaration);
     }
 
     /**
      * Creates a scope and executes the function on every function call.
      */
     @Override
-    public Object call(HashMap<Object, Object> arguments) {
+    public Object call(Token token, HashMap<Object, Object> arguments) {
         Object[] argsList = arguments.keySet().toArray();
         ArrayList<String> alreadySet = new ArrayList<>();
 

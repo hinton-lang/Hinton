@@ -213,10 +213,12 @@ public abstract class Expr {
     }
 
     public static class Indexing extends Expr {
+        public final Token token;
         public final Expr arr;
         public final Expr index;
 
-        public Indexing(Expr arr, Expr index) {
+        public Indexing(Token token, Expr arr, Expr index) {
+            this.token = token;
             this.arr = arr;
             this.index = index;
         }
@@ -228,10 +230,12 @@ public abstract class Expr {
     }
 
     public static class ArrayItemSetter extends Expr {
+        public final Token token;
         public final Expr.Indexing target;
         public final Expr value;
 
-        public ArrayItemSetter(Expr.Indexing target, Expr value) {
+        public ArrayItemSetter(Token token, Expr.Indexing target, Expr value) {
+            this.token = token;
             this.target = target;
             this.value = value;
         }

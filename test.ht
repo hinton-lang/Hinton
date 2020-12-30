@@ -36,8 +36,8 @@ while(true) {
 
 // This is a dictionary
 let myDict = {
-    a: 3,
-    b: "hello dictionary!!",
+    a: "hello dictionary!!",
+    "second key": 3,
     c: {
         arr: [1, 2, 3],
         pow: fn(a, b) -> { // Lambda expression

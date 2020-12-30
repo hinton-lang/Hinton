@@ -4,6 +4,9 @@ import java.util.HashMap;
 
 import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
+import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
+import org.hinton_lang.Interpreter.HintonNull.HintonNull;
+import org.hinton_lang.Tokens.Token;
 
 /**
  * Native Hinton function for printing output to the command prompt.
@@ -23,11 +26,11 @@ public class Print implements NativeFunc {
      */
     @Override
     public HintonCallable getFunc() {
-        return new HintonCallable() {
+        return new HintonFunction(this.getFuncName(), null, null) {
             @Override
-            public Void call(HashMap<Object, Object> arguments) {
+            public Object call(Token token, HashMap<Object, Object> arguments) {
                 System.out.println(Helper.stringify(arguments.get(0)));
-                return null;
+                return new HintonNull();
             }
 
             @Override

@@ -1,10 +1,20 @@
 package org.hinton_lang.Envornment;
 
-public class Value {
+/**
+ * The value of the object stored by an identifier in a specific environment.
+ */
+public class StoredValue {
     private Object value;
     public final DecType dclType;
 
-    public Value(Object value, DecType dclType) {
+    /**
+     * The value of the object stored by an identifier in a specific environment.
+     * 
+     * @param value   The value.
+     * @param dclType The type of declaration associated with the identifer that
+     *                maps to this value.
+     */
+    public StoredValue(Object value, DecType dclType) {
         this.value = value;
         this.dclType = dclType;
     }

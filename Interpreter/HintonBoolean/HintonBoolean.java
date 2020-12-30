@@ -6,6 +6,9 @@ import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.NativeType;
 import org.hinton_lang.Tokens.Token;
 
+/**
+ * Represents a boolean literal in the Hinton Language.
+ */
 public class HintonBoolean implements NativeType {
     private final boolean booleanValue;
     private final HashMap<String, Object> methods = new HashMap<>();

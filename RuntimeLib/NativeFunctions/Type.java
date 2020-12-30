@@ -4,7 +4,9 @@ import java.util.HashMap;
 
 import org.hinton_lang.Interpreter.NativeType;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
+import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
 import org.hinton_lang.Interpreter.HintonString.HintonString;
+import org.hinton_lang.Tokens.Token;
 
 public class Type implements NativeFunc {
 
@@ -21,9 +23,9 @@ public class Type implements NativeFunc {
      */
     @Override
     public HintonCallable getFunc() {
-        return new HintonCallable() {
+        return new HintonFunction(this.getFuncName(), null, null) {
             @Override
-            public HintonString call(HashMap<Object, Object> arguments) {
+            public HintonString call(Token token, HashMap<Object, Object> arguments) {
                 Object arg = arguments.get(0);
 
                 if (arg instanceof NativeType) {

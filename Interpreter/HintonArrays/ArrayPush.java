@@ -1,24 +1,26 @@
 package org.hinton_lang.Interpreter.HintonArrays;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
+import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
+import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
+import org.hinton_lang.Tokens.Token;
 
 /**
  * Method for adding an element to the end of an array.
  */
-public class ArrayPush implements HintonCallable {
-    ArrayList<Object> arr;
+public class ArrayPush extends HintonFunction {
+    HintonArray parent;
 
-    public ArrayPush(ArrayList<Object> arr) {
-        this.arr = arr;
+    public ArrayPush(HintonArray parent) {
+        super("[Array].push", parent.interpreter, null);
+        this.parent = parent;
     }
 
     @Override
-    public Object call(HashMap<Object, Object> arguments) {
-        this.arr.add(arguments.get(0));
-        return this.arr.size();
+    public HintonInteger call(Token token, HashMap<Object, Object> arguments) {
+        this.parent.arr.add(arguments.get(0));
+        return new HintonInteger(this.parent.arr.size());
     }
 
     @Override

@@ -7,7 +7,6 @@ import java.util.Stack;
 
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Envornment.DecType;
-import org.hinton_lang.Envornment.FunctionType;
 import org.hinton_lang.Interpreter.Interpreter;
 import org.hinton_lang.Parser.AST.*;
 import org.hinton_lang.Parser.AST.Expr.Argument;
@@ -22,6 +21,11 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     private FunctionType currentFunction = FunctionType.NONE;
     // True when resolving a loop
     private boolean isInsideLoop = false;
+
+    /** The types of functions that can exist in Hinton */
+    public enum FunctionType {
+        NONE, FUNCTION, LAMBDA
+    }
 
     public Resolver(Interpreter interpreter) {
         this.interpreter = interpreter;
@@ -50,7 +54,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     private void beginScope() {
-        scopes.push(new HashMap<String, Boolean>());
+        scopes.push(new HashMap<>());
     }
 
     private void endScope() {

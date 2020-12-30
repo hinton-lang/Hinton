@@ -5,6 +5,7 @@ import java.util.HashMap;
 
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.NativeType;
+import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Parser.AST.Expr.KeyValPair;
 import org.hinton_lang.Tokens.Token;
 import org.hinton_lang.Interpreter.Interpreter;
@@ -28,7 +29,7 @@ public class HintonDictionary implements NativeType {
         this.interpreter = interpreter;
 
         // The methods for dictionary objects in the Hinton language
-        methods.put("size", this.members.size());
+        methods.put("size", new HintonInteger(this.members.size()));
 
         // Adds the initial dictionary members
         for (KeyValPair member : members) {

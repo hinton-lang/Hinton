@@ -181,7 +181,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
      */
     @Override
     public HintonNull visitFunctionStmt(Stmt.Function stmt) {
-        HintonFunction function = new HintonFunction(this, stmt, environment);
+        HintonFunction function = new HintonFunction(this, stmt);
         environment.define(stmt.name, function, DecType.FUNCTION);
         return new HintonNull();
     }
@@ -251,10 +251,10 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
         while (isTruthy(evaluate(stmt.condition))) {
             try {
                 execute(stmt.body);
-            } catch (Continue c) {
-                continue;
             } catch (Break b) {
                 break;
+            } catch (Continue c) {
+                continue;
             }
         }
         return new HintonNull();
@@ -291,7 +291,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
      */
     @Override
     public Object visitLambdaExpr(Expr.Lambda expr) {
-        return new HintonLambda(this, expr, environment);
+        return new HintonLambda(this, expr);
     }
 
     /**
@@ -351,26 +351,20 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
                     "Object of type '" + Helper.getObjectType(callee) + "' is not callable.");
         }
 
+        int argsSize = expr.arguments.size();
         HintonCallable function = (HintonCallable) callee;
+        String fnName = function.name + "()";
 
         // Checks for acceptable parameters size
-        int argsSize = expr.arguments.size();
         if (argsSize < function.minArity() || argsSize > function.maxArity()) {
-            String msg = "";
+            String msg;
 
-            String fnName;
-            if (function instanceof HintonFunction) {
-                fnName = ((HintonFunction) function).declaration.name.lexeme + "() expected";
-            } else if (function instanceof HintonLambda) {
-                fnName = "<LambdaFunction>() expected";
+            if (function.maxArity() == function.maxArity() && argsSize != function.minArity()) {
+                msg = fnName + " expected " + function.minArity() + " arguments but got " + argsSize + ".";
+            } else if (argsSize < function.minArity()) {
+                msg = fnName + " expected at least " + function.minArity() + " arguments but got " + argsSize + ".";
             } else {
-                fnName = "Expected";
-            }
-
-            if (argsSize < function.minArity()) {
-                msg = fnName + " at least " + function.minArity() + " arguments but got " + argsSize + ".";
-            } else {
-                msg = fnName + " at most " + function.maxArity() + " arguments but got " + argsSize + ".";
+                msg = fnName + " expected at most " + function.maxArity() + " arguments but got " + argsSize + ".";
             }
 
             throw new RuntimeError(expr.paren, msg);
@@ -385,7 +379,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
             arguments.put((argument.name == null) ? i : argument.name, evaluate(argument.value));
         }
 
-        return function.call(arguments);
+        return function.call(expr.paren, arguments);
     }
 
     /**
@@ -402,7 +396,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
             arr.add(evaluate(item));
         }
 
-        return new HintonArray(arr);
+        return new HintonArray(arr, this);
     }
 
     /**
@@ -417,11 +411,11 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
             if (index instanceof HintonInteger) {
                 index = ((HintonInteger) index).getRaw();
             } else {
-                throw new RuntimeError("Can only use Integers as array index.");
+                throw new RuntimeError(expr.token, "Can only use Integers as array index.");
             }
 
             // Obtain the array item
-            Object val = ((HintonArray) arr).getItem((Integer) index);
+            Object val = ((HintonArray) arr).getItem(expr.token, (Integer) index);
 
             // If the item in the array is an instance of an expression, then
             // we evaluate the expression. Otherwise we return the value.
@@ -431,7 +425,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
                 return val;
             }
         } else {
-            throw new RuntimeError("Can only index arrays.");
+            throw new RuntimeError(expr.token, "Can only index arrays.");
         }
     }
 
@@ -445,9 +439,9 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
 
         if (target instanceof HintonArray) {
             HintonArray t = (HintonArray) target;
-            t.setItem(((HintonInteger) evaluate(expr.target.index)).getRaw(), val);
+            t.setItem(expr.token, ((HintonInteger) evaluate(expr.target.index)).getRaw(), val);
         } else {
-            throw new RuntimeError("Cannot set to indexed element for non-array types.");
+            throw new RuntimeError(expr.token, "Cannot set to indexed element for non-array types.");
         }
 
         return val;
@@ -491,7 +485,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
             case LOGICAL_NOT_EQ:
                 return EvalBinaryExpr.evalNotEquals(left, right);
             case RANGE_OPERATOR:
-                return EvalBinaryExpr.evalRange(expr.operator, left, right);
+                return EvalBinaryExpr.evalRange(this, expr.operator, left, right);
             default:
                 break;
         }
@@ -613,7 +607,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
 
         } else if (expr.operand instanceof Expr.Indexing) {
             Expr.Indexing operand = (Expr.Indexing) expr.operand;
-            visitArrayItemSetterExpr(new Expr.ArrayItemSetter(operand, new Expr.Literal(newVal)));
+            visitArrayItemSetterExpr(new Expr.ArrayItemSetter(expr.operator, operand, new Expr.Literal(newVal)));
         } else if (expr.operand instanceof Expr.MemberAccess) {
             Expr.MemberAccess operand = (Expr.MemberAccess) expr.operand;
             visitMemberSetterExpr(new Expr.MemberSetter(operand.object, operand.name, new Expr.Literal(newVal)));
@@ -636,7 +630,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
 
     @Override
     public Object visitArgumentExpr(Argument expr) {
-        // TODO Auto-generated method stub
+        // NOTE: Currently unreachable
         return null;
     }
 }

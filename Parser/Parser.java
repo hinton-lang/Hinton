@@ -13,7 +13,7 @@ import org.hinton_lang.Tokens.*;
 import static org.hinton_lang.Tokens.TokenType.*;
 import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Hinton;
-import org.hinton_lang.Errors.ParserError;
+import org.hinton_lang.Errors.SyntaxError;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Interpreter.HintonNull.HintonNull;
@@ -43,7 +43,7 @@ public class Parser {
             while (!isAtEnd()) {
                 statements.addAll(declaration());
             }
-        } catch (ParserError error) {
+        } catch (SyntaxError error) {
             Hinton.parserError(error);
         }
 
@@ -82,7 +82,7 @@ public class Parser {
         if (check(type))
             return advance();
 
-        throw new ParserError(peek(), message);
+        throw new SyntaxError(peek(), message);
     }
 
     /**
@@ -178,7 +178,7 @@ public class Parser {
             ArrayList<Stmt> varDcl = varDeclaration();
 
             if (varDcl.size() > 1) {
-                throw new ParserError(((Stmt.Var) varDcl.get(1)).name, "Expected a single-variable initializer.");
+                throw new SyntaxError(((Stmt.Var) varDcl.get(1)).name, "Expected a single-variable initializer.");
             } else {
                 initializer = varDcl.get(0);
             }
@@ -271,11 +271,10 @@ public class Parser {
     /**
      * Matches an import statement as specified in the grammar.cfg file.
      * 
-     * TODO: This is buggy. Finish the implementation to work as expected.
-     * 
      * @return An import statement.
      */
     private Stmt importStatement() {
+        // TODO: This is buggy. Finish the implementation to work as expected.
         consume(STRING_LITERAL, "Expected model path after import statement.");
         String path = (String) previous().literal;
         match(SEMICOLON_SEPARATOR); // Optional semicolon
@@ -292,7 +291,7 @@ public class Parser {
 
             return new Stmt.Import(statements);
         } catch (IOException e) {
-            throw new ParserError("Cannot find module " + path);
+            throw new SyntaxError(previous(), "Cannot find module " + path);
         }
     }
 
@@ -484,10 +483,10 @@ public class Parser {
                 return new Expr.MemberSetter(get.object, get.name, value);
             } else if (expr instanceof Expr.Indexing) {
                 Expr.Indexing setter = (Expr.Indexing) expr;
-                return new Expr.ArrayItemSetter(setter, value);
+                return new Expr.ArrayItemSetter(peek(), setter, value);
             }
 
-            throw new ParserError(equals, "Invalid assignment target.");
+            throw new SyntaxError(equals, "Invalid assignment target.");
         }
 
         return expr;
@@ -538,21 +537,29 @@ public class Parser {
         if (!check(R_PARENTHESIS)) {
             do {
                 if (parameters.size() >= 255) {
-                    throw new ParserError(peek(), "Can't have more than 255 parameters.");
+                    throw new SyntaxError(peek(), "Can't have more than 255 parameters.");
                 }
 
-                // Gets the next parameter
-                Stmt.Parameter param = parameter();
+                if (check(R_PARENTHESIS)) {
+                    // We assume there are no more parameters if there
+                    // was a comma after the last parameter, but there
+                    // wasn't a parameter after the comma.
+                    break;
+                } else {
+                    // Gets the next parameter
+                    Stmt.Parameter param = parameter();
 
-                // Checks that optional parameters are declared at the
-                // end of the function definition
-                if (parameters.size() > 0 && !param.isOptnl && parameters.get(parameters.size() - 1).isOptnl) {
-                    throw new ParserError(parameters.get(parameters.size() - 1).name,
-                            "Optional and named parameters must be declared after all required parameters.");
+                    // Checks that optional parameters are declared at the
+                    // end of the function definition
+                    if (parameters.size() > 0 && !param.isOptnl && parameters.get(parameters.size() - 1).isOptnl) {
+                        throw new SyntaxError(parameters.get(parameters.size() - 1).name,
+                                "Optional and named parameters must be declared after all required parameters.");
+                    }
+
+                    // If everything is good, we add it to the param list.
+                    parameters.add(param);
                 }
 
-                // If everything is good, we add it to the param list.
-                parameters.add(param);
             } while (match(COMMA_SEPARATOR));
         }
         consume(R_PARENTHESIS, "Expect ')' after parameters.");
@@ -568,7 +575,7 @@ public class Parser {
      * @return A parameter declaration.
      */
     public Stmt.Parameter parameter() {
-        Token id = consume(IDENTIFIER, "Expect parameter name.");
+        Token id = consume(IDENTIFIER, "Expected a parameter definition.");
 
         if (match(QUESTION_MARK)) {
             return new Stmt.Parameter(id, true, new Expr.Literal(new HintonNull()));
@@ -789,7 +796,7 @@ public class Parser {
         if (!check(R_PARENTHESIS)) {
             do {
                 if (parameters.size() >= 255) {
-                    throw new ParserError(peek(), "Can't have more than 255 parameters.");
+                    throw new SyntaxError(peek(), "Can't have more than 255 parameters.");
                 }
 
                 parameters.add(parameter());
@@ -819,21 +826,30 @@ public class Parser {
             do {
                 // Hinton only supports 255 arguments for a function call.
                 if (arguments.size() >= 255) {
-                    throw new ParserError(peek(), "Can't have more than 255 arguments.");
+                    throw new SyntaxError(peek(), "Can't have more than 255 arguments.");
                 }
 
-                // Gets the next argument
-                Expr.Argument arg = argument();
+                if (check(R_PARENTHESIS)) {
+                    // We assume there are no more arguments if there
+                    // was a comma after the last argument, but there
+                    // wasn't an argument after the comma.
+                    break;
+                } else {
+                    // Gets the next argument
+                    Expr.Argument arg = argument();
 
-                // Checks that named arguments are declared at the
-                // end of the function call
-                if (arguments.size() > 0 && arg.name == null && !(arguments.get(arguments.size() - 1).name == null)) {
-                    throw new ParserError(arguments.get(arguments.size() - 1).name,
-                            "Named arguments must be declared after all unnamed arguments.");
+                    // Checks that named arguments are declared at the
+                    // end of the function call
+                    if (arguments.size() > 0 && arg.name == null
+                            && !(arguments.get(arguments.size() - 1).name == null)) {
+                        throw new SyntaxError(arguments.get(arguments.size() - 1).name,
+                                "Named arguments must be declared after all unnamed arguments.");
+                    }
+
+                    // If everything is good, we add it to the args list.
+                    arguments.add(arg);
                 }
 
-                // If everything is good, we add it to the args list.
-                arguments.add(arg);
             } while (match(COMMA_SEPARATOR));
         }
 
@@ -913,7 +929,7 @@ public class Parser {
             return constructDictionary();
         }
 
-        throw new ParserError(peek(), "Expect expression.");
+        throw new SyntaxError(peek(), "Expected an expression.");
     }
 
     /**
@@ -924,7 +940,7 @@ public class Parser {
      */
     private Expr arrayIndexing(Expr expr) {
         do {
-            expr = new Expr.Indexing(expr, expression());
+            expr = new Expr.Indexing(peek(), expr, expression());
             consume(R_SQUARE_BRACKET, "Expected ']' after array index.");
         } while (match(L_SQUARE_BRACKET));
 
@@ -940,11 +956,16 @@ public class Parser {
         ArrayList<Expr> expressions = new ArrayList<>();
 
         if (!match(R_SQUARE_BRACKET)) {
-            expressions.add(expression());
+            do {
+                if (check(R_SQUARE_BRACKET)) {
+                    // We assume there are no more array items if there
+                    // was a comma after the last array item, but there
+                    // wasn't an array item after the comma.
+                    break;
+                }
 
-            while (match(COMMA_SEPARATOR)) {
                 expressions.add(expression());
-            }
+            } while (match(COMMA_SEPARATOR));
 
             consume(R_SQUARE_BRACKET, "Expected ']' after array declaration.");
         }
@@ -962,11 +983,18 @@ public class Parser {
 
         if (!match(R_CURLY_BRACES)) {
             do {
+                if (check(R_CURLY_BRACES)) {
+                    // We assume there are no more vay-value pairs if there
+                    // was a comma after the last key-value pair, but there
+                    // wasn't a key-value after the comma.
+                    break;
+                }
+
                 pairs.add(getKeyValPair());
             } while (match(COMMA_SEPARATOR));
-        }
 
-        consume(R_CURLY_BRACES, "Expected '}' after dictionary declaration.");
+            consume(R_CURLY_BRACES, "Expected '}' after dictionary declaration.");
+        }
 
         return new Expr.Dictionary(pairs);
     }
@@ -981,7 +1009,7 @@ public class Parser {
         if (match(IDENTIFIER, STRING_LITERAL)) {
             key = previous();
         } else {
-            throw new ParserError("Expected a key name.");
+            throw new SyntaxError(peek(), "Expected a key name.");
         }
 
         consume(COLON_SEPARATOR, "Expected a ':' after key name.");

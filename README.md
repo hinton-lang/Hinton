@@ -26,7 +26,7 @@ print("Hello World!!")
  * This is a multiline comment
  * The following is a recursive function
  */
-func factorial(n) {
+func factorial(n = 0) { // default parameters
     if (n <= 1) return 1;
     return n * factorial(n - 1);
 }
@@ -43,7 +43,7 @@ print(welcome)
 // The `int(x)` is a function to convert the given
 // argument to an integer.
 let x = int(input("Compute the factorial of: "));
-print(factorial(x))
+print(factorial(n = x)) // named arguments
 
 // While loops
 while(true) {
@@ -74,6 +74,10 @@ let myDict = {
 print(myDict)
 print(type(myDict))
 print(myDict.c.pow(2, 3))
+
+// The range operator
+let r = 100..1;
+print(r)
 ```
  
 At the moment, the Interpreter can accurately identify and label different tokens inside a `.ht` file. Some of the tokens it can identify include, but are not limited to:
