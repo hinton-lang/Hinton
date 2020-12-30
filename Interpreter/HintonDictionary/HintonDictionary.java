@@ -14,9 +14,9 @@ import org.hinton_lang.Interpreter.Interpreter;
  * Represents a Hinton Dictionary in the Hinton language.
  */
 public class HintonDictionary implements NativeType {
-    private final HashMap<String, Object> members = new HashMap<>();
+    public final HashMap<String, Object> members = new HashMap<>();
     private final HashMap<String, Object> methods = new HashMap<>();
-    private final Interpreter interpreter;
+    public final Interpreter interpreter;
 
     /**
      * Wraps a Java HashMap object so that it can be interpreted as a Hinton
@@ -30,6 +30,9 @@ public class HintonDictionary implements NativeType {
 
         // The methods for dictionary objects in the Hinton language
         methods.put("size", new HintonInteger(this.members.size()));
+        methods.put("put", new DictionaryPut(this));
+        methods.put("getKeys", new DictionaryGetKeys(this));
+        methods.put("get", new DictionaryGet(this));
 
         // Adds the initial dictionary members
         for (KeyValPair member : members) {

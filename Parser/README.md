@@ -14,14 +14,17 @@ program         -> declaration* EOF ;
 declaration     -> varDecl
                 | constDecl
                 | function
+                | enumDecl
                 | statement ;
 
 varDecl         -> "let" IDENTIFIER ( "," IDENTIFIER )* ( "=" expression )? ";" ;
 constDecl       -> "const" IDENTIFIER ( "," IDENTIFIER )* "=" expression ";" ;
+enumDecl        -> "enum" IDENTIFIER "{" ( IDENTIFIER ("," IDENTIFIER)* )? "}" ;
 
 function        -> "func" IDENTIFIER "(" parameters? ")" block ;
 
-parameters      -> IDENTIFIER ( "," IDENTIFIER )* ;
+parameters      -> param ( "," param )* ;
+param           -> IDENTIFIER ( "?" | "=" expression )?
 
 # Statements ================================================================
 
@@ -59,15 +62,19 @@ assignment      -> ( (call | indexing | memberAccess) "." )? IDENTIFIER "=" assi
 logic_or        -> logic_and ("||" logic_and)* ;
 logic_and       -> equality ("&&" equality)* ;
 equality        -> comparison ( ( "!=" | "==" ) comparison )* ;
-comparison      -> term ( ( ">" | ">=" | "<" | "<=" ) term )* ;
+comparison      -> range ( ( ">" | ">=" | "<" | "<=" ) range )* ;
+range           -> term ( ".." term )?
 term            -> factor ( ( "-" | "+" ) factor )* ;
 factor          -> expo ( ( "/" | "*" | "%" ) expo )* ;
 expo            -> unary ("**" unary)* ;
-unary           -> ( "!" | "-" | "+" ) unary
+unary           -> ( "!" | "-" ) unary
+                | deIn_crement
                 | indexing
                 | lambda
                 | memberAccess
                 | call ;
+
+deIn_crement    -> ("++" | "--") unary | unary ("++" | "--") ;
 
 call            -> primary ( "(" arguments? ")" )* ;
 indexing        -> primary ( "[" expression "]" )* ;
@@ -78,9 +85,14 @@ primary         -> INTEGER | REAL | STRING
                 | "true" | "false" | "null"
                 | "(" expression ")"
                 | array
+                | dictionary
                 | IDENTIFIER ;
 
 array           -> "[" (expression ("," expression)*)? "]" ;
 
-arguments       -> expression ( "," expression )* ;
+dictionary      -> "{" ( keyValPair ("," keyValPair)* )? "}" ;
+keyValPair      -> IDENTIFIER ":" expression ;
+
+arguments       -> arg ( "," arg )* ;
+arg             -> expression ("=" expression)? ;
 ```
