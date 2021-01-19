@@ -1,32 +1,18 @@
-# The Hinton Language 🔮
-This is a simple interpreter written in Java for a functional toy language called Hinton. The project is an extension of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
+# The Hinton Language
 
+![Hinton Logo](Assets/Logos/Logo-wide.png)
 
-## Installing
-The source code can be downloaded an placed inside an IntelliJ project. That is, inside
-`[IntelliJ Project] > src > org > hinton_lang`.
+This is a simple interpreter written in Java for a programming language called Hinton. The project is an extension of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
 
-## Hello World
-To run the interpreter, run the program with the following commands:
+## Hinton's Syntax
+This is an example of what Hinton's future syntax would look like. Hinton should be a programming language that can be accessible by anyone, with any level of programming experience. In Hinton, explicitness is the key.
 
-`run [permissions]? [program filepath] [program flags]?`
-
-For example, to run the `test.ht` file provided in this repository, run the project with the following command:
-
-`run --allow-input ./src/org/hinton_lang/test.ht`
-
-A program can be as simple as printing an expression:
-```swift
-print("Hello World!!")
-```
-
-## Basic Syntax
 ```swift
 /**
  * This is a multiline comment
  * The following is a recursive function
  */
-func factorial(n = 0) { // default parameters
+func factorial(n: Int = 0): Int { // default parameters
     if (n <= 1) return 1;
     return n * factorial(n - 1);
 }
@@ -42,15 +28,15 @@ print(welcome)
 // obtain user input from the console.
 // The `int(x)` is a function to convert the given
 // argument to an integer.
-let x = int(input("Compute the factorial of: "));
+var x = int(input("Compute the factorial of: "));
 print(factorial(n = x)) // named arguments
 
 // While loops
 while(true) {
-    let again = input("Compute another? (y/n): ");
+    var again = input("Compute another? (y/n): ");
     
     if (again equals "y") {
-        let x = int(input("Compute the factorial of: "));
+        var x = int(input("Compute the factorial of: "));
         print(factorial(x))
         continue;
     }
@@ -59,7 +45,7 @@ while(true) {
 }
 
 // This is a dictionary
-let myDict = {
+var myDict = {
     a: 3,
     b: "hello dictionary!!",
     c: {
@@ -76,32 +62,59 @@ print(type(myDict))
 print(myDict.c.pow(2, 3))
 
 // The range operator
-let r = 100..1;
-print(r)
+var theRange = 100..1;
+
+// indexed for-loops
+for (var x = 0; x < theRange.length(); x++) {
+    print(x)
+}
+
+// for-in loops
+for (var item in theRange) {
+    print(item)
+}
 ```
- 
-At the moment, the Interpreter can accurately identify and label different tokens inside a `.ht` file. Some of the tokens it can identify include, but are not limited to:
-  - Keywords: `let`, `const`, `func`, `if`, `else`, + more.
-  - Static Types: `String`, `Int`, `Real`, `void`, `None`, + more.
-  - Literals: `"String Sequences"`, `2342`, `3.1242`, `true`, `false`, `null`, + more.
-  - Arithmetic Operators: `+`, `-`, `*`, `/`, `**`, `%`, and `mod`.
-  - Logical Operators: `<`, `>`, `==`, `equals`, `!`, `not`, + more.
-  - Delimiters & Separators: `()`, `,`, `{}`, `:`, `[]`, `.`, and `;`
 
-** Visit the [Tokens Folder](https://github.com/faustotnc/Hinton-Lang/tree/master/Tokens) for a complete list of tokens.
-  
-It is able to parse complex grammatical rules as specified inside the `grammar.cfg` file in order to generate an Abstract Syntax Tree: Some of the rule include, but are not limited to:
-  - Expressions following a certain order of precedence.
-  - Terminals that evaluate to a specific value.
-  - Print statements.
-  - Variable and Constant declarations.
-  - Conditional statements.
-  - Looping statements.
-  - Function declarations.
-  - Lambda expressions.
+## The current state of Hinton
+The project is still in the "pre-development" stages. This means that anything about the language can change as more experience is acquired.
 
-** Visit the [Parser Folder](https://github.com/faustotnc/Hinton-Lang/tree/master/Parser) for a complete list of grammar rules.
+### Benchmarking
+Although speed in not a top priority at these stages of the project, it is important to note that Hinton is very slow. Many improvements can be made to the scanner, parser, and interpreter to make Hinton a more reliable language, but those improvements will only happen once the major parts of the project have been completed. A benchmarking program can be found in the [testing](https://github.com/hinton-lang/Hinton/tree/master/test) folder.
 
-Together with the `RuntimeLib`, which provides a collection of built-in functions, Hinton is able to interpret full programs.
+As of right now, looping through 1,000,000 array elements takes `~430ms`. In comparison, the same program in Python takes `~40ms`. 😢
 
-** Visit the [RuntimeLib Folder](https://github.com/faustotnc/Hinton-Lang/tree/master/RuntimeLib) for a list of available built-in functions.
+## To-do List
+- [ ] Parse & Execute Expressions.
+    - [x] Arithmetic expressions.
+    - [x] Logical expressions.
+    - [x] Array literals.
+    - [x] Function calls.
+    - [x] Lambda expressions.
+    - [x] Member access expressions.
+    - [x] Named arguments.
+    - [x] Range expressions.
+    - [x] String literals.
+    - [ ] Binary (0b), Hexadecimal (0x), and Octal (0o) numbers
+- [ ] Parse & Execute Statements.
+    - [x] Constant declarations.
+    - [x] Control flow statements.
+    - [x] Dictionary declarations.
+    - [x] Enum declarations.
+    - [x] Function declarations.
+    - [x] Looping statements.
+    - [x] Named parameters.
+    - [x] Variable declarations.
+    - [ ] Class declarations.
+    - [ ] For-in loops.
+- [x] Define Built-In Types as Objects
+    - [x] Array objects.
+    - [x] Boolean objects.
+    - [x] Dictionary objects.
+    - [x] Enum objects.
+    - [x] Function objects.
+    - [x] Integer objects.
+    - [x] Real objects.
+    - [x] String objects.
+- [ ] Create a Runtime Standard Library.
+- [ ] Add Static Typing.
+- [ ] Create 'Cosmo'. Hinton's official CLI.

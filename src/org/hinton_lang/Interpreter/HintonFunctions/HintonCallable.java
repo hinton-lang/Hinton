@@ -5,7 +5,9 @@ import java.util.List;
 
 import org.hinton_lang.Envornment.DecType;
 import org.hinton_lang.Envornment.Environment;
+import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.Interpreter;
+import org.hinton_lang.Interpreter.NativeType;
 import org.hinton_lang.Interpreter.ControlStmts.Return;
 import org.hinton_lang.Interpreter.HintonNull.HintonNull;
 import org.hinton_lang.Parser.AST.Expr;
@@ -15,13 +17,14 @@ import org.hinton_lang.Tokens.Token;
 /**
  * Represents any callable function in Hinton.
  */
-public abstract class HintonCallable {
+public abstract class HintonCallable implements NativeType {
     public String name;
     public final List<Stmt.Parameter> parameters;
     public final List<Stmt> body;
     public final Interpreter interpreter;
     // The scope for this function
     public final Environment environment;
+    private final HashMap<String, Object> methods = new HashMap<>();
 
     public int minArity, maxArity = 0;
 
@@ -120,5 +123,44 @@ public abstract class HintonCallable {
      */
     public int maxArity() {
         return this.maxArity;
+    }
+
+    /**
+     * Gets the given Hinton Enum property.
+     * 
+     * @param prop The property to be accessed.
+     * @return The property's value.
+     */
+    public Object getProperty(Token prop) {
+        // We first check if the requested property is a built-in member.
+        if (methods.containsKey(prop.lexeme)) {
+            return methods.get(prop.lexeme);
+        }
+
+        throw new RuntimeError(prop, "Property '" + prop.lexeme + "' does not exist in enum '" + this.name + "'.");
+    }
+
+    /**
+     * Returns the raw HashMap in this wrapper.
+     * 
+     * @return The raw HashMap.
+     */
+    public Object getRaw() {
+        return null;
+    }
+
+    /**
+     * Return the Hinton type name for the object.
+     */
+    public String typeName() {
+        return "Function";
+    }
+
+    /**
+     * Formatted string representation of a Hinton Enum.
+     */
+    @Override
+    public String formattedStr() {
+        return this.toString();
     }
 }

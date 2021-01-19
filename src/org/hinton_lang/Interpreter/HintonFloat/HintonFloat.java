@@ -1,4 +1,4 @@
-package org.hinton_lang.Interpreter.HintonReal;
+package org.hinton_lang.Interpreter.HintonFloat;
 
 import java.util.HashMap;
 
@@ -9,8 +9,8 @@ import org.hinton_lang.Tokens.Token;
 /**
  * Represents a real (double) in the Hinton language.
  */
-public class HintonReal implements NativeType {
-    private final double realValue;
+public class HintonFloat implements NativeType {
+    private final double floatValue;
     private final HashMap<String, Object> methods = new HashMap<>();
 
     /**
@@ -19,8 +19,8 @@ public class HintonReal implements NativeType {
      * 
      * @param real The Java Double to be wrapped.
      */
-    public HintonReal(double real) {
-        this.realValue = real;
+    public HintonFloat(double real) {
+        this.floatValue = real;
 
         // The methods for Hinton Real objects in the Hinton language
     }
@@ -31,14 +31,14 @@ public class HintonReal implements NativeType {
      * @return The raw double.
      */
     public Double getRaw() {
-        return this.realValue;
+        return this.floatValue;
     }
 
     /**
      * Return the Hinton type name for the object.
      */
     public String typeName() {
-        return "Real";
+        return "Float";
     }
 
     /**
@@ -60,7 +60,7 @@ public class HintonReal implements NativeType {
      */
     @Override
     public String toString() {
-        return String.valueOf(this.realValue);
+        return String.valueOf(this.floatValue);
     }
 
     /**
