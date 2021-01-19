@@ -15,9 +15,9 @@ import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.SyntaxError;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
+import org.hinton_lang.Interpreter.HintonFloat.HintonFloat;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Interpreter.HintonNull.HintonNull;
-import org.hinton_lang.Interpreter.HintonReal.HintonReal;
 import org.hinton_lang.Interpreter.HintonString.HintonString;
 import org.hinton_lang.Lexer.Lexer;
 import org.hinton_lang.Parser.AST.Stmt;
@@ -174,7 +174,7 @@ public class Parser {
         Stmt initializer;
         if (match(SEMICOLON_SEPARATOR)) {
             initializer = null;
-        } else if (match(LET_KEYWORD)) {
+        } else if (match(VAR_KEYWORD)) {
             ArrayList<Stmt> varDcl = varDeclaration();
 
             if (varDcl.size() > 1) {
@@ -404,7 +404,7 @@ public class Parser {
 
         // Assigns the value to the names.
         for (Token name : declarations) {
-            statements.add(new Stmt.Var(name, initializer));
+            statements.add(new Stmt.Const(name, initializer));
         }
 
         return statements;
@@ -509,7 +509,7 @@ public class Parser {
     private ArrayList<Stmt> declaration() {
         ArrayList<Stmt> statements = new ArrayList<>();
 
-        if (match(LET_KEYWORD)) {
+        if (match(VAR_KEYWORD)) {
             statements = varDeclaration();
         } else if (match(CONST_KEYWORD)) {
             statements = constDeclaration();
@@ -805,10 +805,18 @@ public class Parser {
         consume(R_PARENTHESIS, "Expected ')' for after parameters.");
 
         consume(MINUS, "Expected '->' before function body.");
-        consume(GREATER_THAN, "Expected '->' before function body.");
-        consume(L_CURLY_BRACES, "Expect '{' before function body.");
+        Token arrow = consume(GREATER_THAN, "Expected '->' before function body.");
 
-        List<Stmt> body = block();
+        // If there is an opening curly brace after the arrow, then we expect to execute
+        // a block. Otherwise, we expect an expression, and compose a return statement
+        // from that expression.
+        List<Stmt> body = new ArrayList<>();
+        if (match(L_CURLY_BRACES)) {
+            body = block();
+        } else {
+            Expr value = expression();
+            body.add(new Stmt.Return(arrow, value));
+        }
 
         return new Expr.Lambda(parameters, body);
     }
@@ -897,7 +905,7 @@ public class Parser {
         }
 
         if (match(REAL_LITERAL)) {
-            HintonReal real = new HintonReal((double) previous().literal);
+            HintonFloat real = new HintonFloat((double) previous().literal);
             return new Expr.Literal(real);
         }
 

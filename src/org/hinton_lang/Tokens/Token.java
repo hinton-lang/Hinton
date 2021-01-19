@@ -69,8 +69,8 @@ public class Token {
         // Keywords.put("extends", TokenType.EXTENDS_KEYWORD);
 
         // ***** Static Types
+        Keywords.put("Float", TokenType.FLOAT_TYPE);
         Keywords.put("Int", TokenType.INTEGER_TYPE);
-        Keywords.put("Real", TokenType.REAL_TYPE);
         Keywords.put("Char", TokenType.CHARACTER_TYPE);
         Keywords.put("String", TokenType.STRING_TYPE);
         Keywords.put("Bool", TokenType.BOOLEAN_TYPE);
@@ -87,7 +87,7 @@ public class Token {
         Keywords.put("null", TokenType.NULL_LITERAL);
 
         // ***** Declarations
-        Keywords.put("let", TokenType.LET_KEYWORD);
+        Keywords.put("var", TokenType.VAR_KEYWORD);
         // Keywords.put("flex", TokenType.FLEX_KEYWORD);
         Keywords.put("const", TokenType.CONST_KEYWORD);
         Keywords.put("func", TokenType.FUNC_KEYWORD);

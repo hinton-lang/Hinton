@@ -3,8 +3,8 @@ package org.hinton_lang.Interpreter;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
+import org.hinton_lang.Interpreter.HintonFloat.HintonFloat;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
-import org.hinton_lang.Interpreter.HintonReal.HintonReal;
 import org.hinton_lang.Tokens.Token;
 
 public class EvalUnaryExpr {
@@ -16,7 +16,7 @@ public class EvalUnaryExpr {
      * @param operand  The operand.
      */
     private static void checkNumberOperand(Token operator, Object operand) {
-        if (operand instanceof HintonReal || operand instanceof HintonInteger || operand instanceof HintonBoolean)
+        if (operand instanceof HintonFloat || operand instanceof HintonInteger || operand instanceof HintonBoolean)
             return;
 
         throw new RuntimeError(operator, "Cannot negate operand of type '" + Helper.getObjectType(operand) + "'.");
@@ -46,8 +46,8 @@ public class EvalUnaryExpr {
             return new HintonInteger(-1);
         if (right instanceof HintonBoolean && !((HintonBoolean) right).getRaw())
             return new HintonInteger(0);
-        if (right instanceof HintonReal)
-            return new HintonReal(-((HintonReal) right).getRaw());
+        if (right instanceof HintonFloat)
+            return new HintonFloat(-((HintonFloat) right).getRaw());
 
         return new HintonInteger(-((HintonInteger) right).getRaw());
     }

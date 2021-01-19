@@ -8,11 +8,11 @@ import org.hinton_lang.Interpreter.ControlStmts.*;
 import org.hinton_lang.Interpreter.HintonFunctions.*;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Interpreter.HintonNull.HintonNull;
-import org.hinton_lang.Interpreter.HintonReal.HintonReal;
 import org.hinton_lang.Interpreter.HintonArrays.*;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Interpreter.HintonDictionary.HintonDictionary;
 import org.hinton_lang.Interpreter.HintonEnum.HintonEnum;
+import org.hinton_lang.Interpreter.HintonFloat.HintonFloat;
 import org.hinton_lang.Parser.AST.*;
 import org.hinton_lang.Parser.AST.Expr.Argument;
 import org.hinton_lang.Parser.AST.Stmt.Parameter;
@@ -75,7 +75,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
             return false;
         if (object instanceof HintonInteger && ((HintonInteger) object).getRaw() == 0)
             return false;
-        if (object instanceof HintonReal && ((HintonReal) object).getRaw() == 0.0)
+        if (object instanceof HintonFloat && ((HintonFloat) object).getRaw() == 0.0)
             return false;
         if (object instanceof HintonBoolean)
             return ((HintonBoolean) object).getRaw();
@@ -234,7 +234,7 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
      */
     @Override
     public HintonNull visitVarStmt(Stmt.Var stmt) {
-        Object value = null;
+        Object value = new HintonNull();
         if (stmt.initializer != null) {
             value = evaluate(stmt.initializer);
         }

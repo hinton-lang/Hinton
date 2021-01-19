@@ -2,20 +2,23 @@ package org.hinton_lang.RuntimeLib.NativeFunctions;
 
 import java.util.HashMap;
 
-import org.hinton_lang.Interpreter.NativeType;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
-import org.hinton_lang.Interpreter.HintonString.HintonString;
+import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Tokens.Token;
 
-public class Type implements NativeFunc {
+/**
+ * Native Hinton function for measuring the execution time between two
+ * statements.
+ */
+public class Clock implements NativeFunc {
 
     /**
      * Specifies the name of the function.
      */
     @Override
     public String getFuncName() {
-        return "type";
+        return "clock";
     }
 
     /**
@@ -25,30 +28,25 @@ public class Type implements NativeFunc {
     public HintonCallable getFunc() {
         return new HintonFunction(this.getFuncName(), null, null) {
             @Override
-            public HintonString call(Token token, HashMap<Object, Object> arguments) {
-                Object arg = arguments.get(0);
-
-                if (arg instanceof NativeType) {
-                    return new HintonString(((NativeType) arg).typeName());
-                } else {
-                    return new HintonString(arg.getClass().getName());
-                }
+            public Object call(Token token, HashMap<Object, Object> arguments) {
+                return new HintonInteger((int) System.currentTimeMillis());
             }
 
             @Override
             public int minArity() {
-                return 1;
+                return 0;
             }
 
             @Override
             public int maxArity() {
-                return 1;
+                return 0;
             }
 
             @Override
             public String toString() {
-                return "<HintonFunction: type>";
+                return "<HintonFunction: clock>";
             }
         };
     }
+
 }

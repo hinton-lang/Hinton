@@ -8,9 +8,9 @@ import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonArrays.HintonArray;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
+import org.hinton_lang.Interpreter.HintonFloat.HintonFloat;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Interpreter.HintonNull.HintonNull;
-import org.hinton_lang.Interpreter.HintonReal.HintonReal;
 import org.hinton_lang.Interpreter.HintonString.HintonString;
 
 public class EvalBinaryExpr {
@@ -23,8 +23,8 @@ public class EvalBinaryExpr {
      * @param right The right operand.
      */
     private static void checkNumberOperands(Token opr, Object left, Object right) {
-        if ((left instanceof HintonReal || left instanceof HintonInteger)
-                && (right instanceof HintonReal || right instanceof HintonInteger))
+        if ((left instanceof HintonFloat || left instanceof HintonInteger)
+                && (right instanceof HintonFloat || right instanceof HintonInteger))
             return;
 
         throw new RuntimeError(opr, "Operation '" + opr.lexeme + "' not defined for operands of type '"
@@ -55,19 +55,19 @@ public class EvalBinaryExpr {
      */
     public static NativeType evalAddition(Token opr, Object left, Object right) {
         // Addition or reals
-        if (left instanceof HintonReal && right instanceof HintonReal) {
-            return new HintonReal(((HintonReal) left).getRaw() + ((HintonReal) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonFloat) {
+            return new HintonFloat(((HintonFloat) left).getRaw() + ((HintonFloat) right).getRaw());
         }
         // Additions of integers
         if (left instanceof HintonInteger && right instanceof HintonInteger) {
             return new HintonInteger(((HintonInteger) left).getRaw() + ((HintonInteger) right).getRaw());
         }
         // Addition of reals and integers
-        if (left instanceof HintonInteger && right instanceof HintonReal) {
-            return new HintonReal(((HintonInteger) left).getRaw() + ((HintonReal) right).getRaw());
+        if (left instanceof HintonInteger && right instanceof HintonFloat) {
+            return new HintonFloat(((HintonInteger) left).getRaw() + ((HintonFloat) right).getRaw());
         }
-        if (left instanceof HintonReal && right instanceof HintonInteger) {
-            return new HintonReal(((HintonReal) left).getRaw() + ((HintonInteger) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonInteger) {
+            return new HintonFloat(((HintonFloat) left).getRaw() + ((HintonInteger) right).getRaw());
         }
 
         // Addition of two strings
@@ -76,14 +76,14 @@ public class EvalBinaryExpr {
         }
 
         // Addition of Strings and numbers
-        if (left instanceof HintonString && right instanceof HintonReal) {
-            return new HintonString(((HintonString) left).getRaw() + ((HintonReal) right).getRaw());
+        if (left instanceof HintonString && right instanceof HintonFloat) {
+            return new HintonString(((HintonString) left).getRaw() + ((HintonFloat) right).getRaw());
         }
         if (left instanceof HintonString && right instanceof HintonInteger) {
             return new HintonString(((HintonString) left).getRaw() + ((HintonInteger) right).getRaw());
         }
-        if (left instanceof HintonReal && right instanceof HintonString) {
-            return new HintonString(((HintonReal) left).getRaw() + ((HintonString) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonString) {
+            return new HintonString(((HintonFloat) left).getRaw() + ((HintonString) right).getRaw());
         }
         if (left instanceof HintonInteger && right instanceof HintonString) {
             return new HintonString(((HintonInteger) left).getRaw() + ((HintonString) right).getRaw());
@@ -103,14 +103,14 @@ public class EvalBinaryExpr {
     public static NativeType evalSubtraction(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof HintonReal && right instanceof HintonReal) {
-            return new HintonReal(((HintonReal) left).getRaw() - ((HintonReal) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonFloat) {
+            return new HintonFloat(((HintonFloat) left).getRaw() - ((HintonFloat) right).getRaw());
         }
-        if (left instanceof HintonReal && right instanceof HintonInteger) {
-            return new HintonReal(((HintonReal) left).getRaw() - ((HintonInteger) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonInteger) {
+            return new HintonFloat(((HintonFloat) left).getRaw() - ((HintonInteger) right).getRaw());
         }
-        if (left instanceof HintonInteger && right instanceof HintonReal) {
-            return new HintonReal(((HintonInteger) left).getRaw() - ((HintonReal) right).getRaw());
+        if (left instanceof HintonInteger && right instanceof HintonFloat) {
+            return new HintonFloat(((HintonInteger) left).getRaw() - ((HintonFloat) right).getRaw());
         }
 
         return new HintonInteger(((HintonInteger) left).getRaw() - ((HintonInteger) right).getRaw());
@@ -130,23 +130,23 @@ public class EvalBinaryExpr {
         if (right instanceof HintonInteger && ((HintonInteger) right).getRaw() == 0) {
             throw new RuntimeError(opr, "Cannot divide by zero.");
         }
-        if (right instanceof HintonReal && ((HintonReal) right).getRaw() == 0.0) {
+        if (right instanceof HintonFloat && ((HintonFloat) right).getRaw() == 0.0) {
             throw new RuntimeError(opr, "Cannot divide by zero.");
         }
 
         // If no division by zero, continue to execute the division
-        if (left instanceof HintonReal && right instanceof HintonReal) {
-            return new HintonReal(((HintonReal) left).getRaw() / ((HintonReal) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonFloat) {
+            return new HintonFloat(((HintonFloat) left).getRaw() / ((HintonFloat) right).getRaw());
         }
-        if (left instanceof HintonReal && right instanceof HintonInteger) {
-            return new HintonReal(((HintonReal) left).getRaw() / ((HintonInteger) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonInteger) {
+            return new HintonFloat(((HintonFloat) left).getRaw() / ((HintonInteger) right).getRaw());
         }
-        if (left instanceof HintonInteger && right instanceof HintonReal) {
-            return new HintonReal(((HintonInteger) left).getRaw() / ((HintonReal) right).getRaw());
+        if (left instanceof HintonInteger && right instanceof HintonFloat) {
+            return new HintonFloat(((HintonInteger) left).getRaw() / ((HintonFloat) right).getRaw());
         }
 
         // In Hinton, division always evaluates to a real number.
-        return new HintonReal((double) (((HintonInteger) left).getRaw()) / (double) (((HintonInteger) right).getRaw()));
+        return new HintonFloat((double) (((HintonInteger) left).getRaw()) / (double) (((HintonInteger) right).getRaw()));
     }
 
     /**
@@ -166,14 +166,14 @@ public class EvalBinaryExpr {
 
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof HintonReal && right instanceof HintonReal) {
-            return new HintonReal(((HintonReal) left).getRaw() * ((HintonReal) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonFloat) {
+            return new HintonFloat(((HintonFloat) left).getRaw() * ((HintonFloat) right).getRaw());
         }
-        if (left instanceof HintonReal && right instanceof HintonInteger) {
-            return new HintonReal(((HintonReal) left).getRaw() * ((HintonInteger) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonInteger) {
+            return new HintonFloat(((HintonFloat) left).getRaw() * ((HintonInteger) right).getRaw());
         }
-        if (left instanceof HintonInteger && right instanceof HintonReal) {
-            return new HintonReal(((HintonInteger) left).getRaw() * ((HintonReal) right).getRaw());
+        if (left instanceof HintonInteger && right instanceof HintonFloat) {
+            return new HintonFloat(((HintonInteger) left).getRaw() * ((HintonFloat) right).getRaw());
         }
 
         return new HintonInteger(((HintonInteger) left).getRaw() * ((HintonInteger) right).getRaw());
@@ -189,14 +189,14 @@ public class EvalBinaryExpr {
     public static HintonInteger evalModulus(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof HintonReal && right instanceof HintonReal) {
-            return new HintonInteger((int) (((HintonReal) left).getRaw() % ((HintonReal) right).getRaw()));
+        if (left instanceof HintonFloat && right instanceof HintonFloat) {
+            return new HintonInteger((int) (((HintonFloat) left).getRaw() % ((HintonFloat) right).getRaw()));
         }
-        if (left instanceof HintonReal && right instanceof HintonInteger) {
-            return new HintonInteger((int) (((HintonReal) left).getRaw() % ((HintonInteger) right).getRaw()));
+        if (left instanceof HintonFloat && right instanceof HintonInteger) {
+            return new HintonInteger((int) (((HintonFloat) left).getRaw() % ((HintonInteger) right).getRaw()));
         }
-        if (left instanceof HintonInteger && right instanceof HintonReal) {
-            return new HintonInteger((int) (((HintonInteger) left).getRaw() % ((HintonReal) right).getRaw()));
+        if (left instanceof HintonInteger && right instanceof HintonFloat) {
+            return new HintonInteger((int) (((HintonInteger) left).getRaw() % ((HintonFloat) right).getRaw()));
         }
 
         return new HintonInteger(((HintonInteger) left).getRaw() % ((HintonInteger) right).getRaw());
@@ -212,14 +212,14 @@ public class EvalBinaryExpr {
     public static NativeType evalExponent(Token opr, Object left, Object right) {
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof HintonReal && right instanceof HintonReal) {
-            return new HintonReal(Math.pow(((HintonReal) left).getRaw(), ((HintonReal) right).getRaw()));
+        if (left instanceof HintonFloat && right instanceof HintonFloat) {
+            return new HintonFloat(Math.pow(((HintonFloat) left).getRaw(), ((HintonFloat) right).getRaw()));
         }
-        if (left instanceof HintonReal && right instanceof HintonInteger) {
-            return new HintonReal(Math.pow(((HintonReal) left).getRaw(), ((HintonInteger) right).getRaw()));
+        if (left instanceof HintonFloat && right instanceof HintonInteger) {
+            return new HintonFloat(Math.pow(((HintonFloat) left).getRaw(), ((HintonInteger) right).getRaw()));
         }
-        if (left instanceof HintonInteger && right instanceof HintonReal) {
-            return new HintonReal(Math.pow(((HintonInteger) left).getRaw(), ((HintonReal) right).getRaw()));
+        if (left instanceof HintonInteger && right instanceof HintonFloat) {
+            return new HintonFloat(Math.pow(((HintonInteger) left).getRaw(), ((HintonFloat) right).getRaw()));
         }
 
         return new HintonInteger((int) Math.pow(((HintonInteger) left).getRaw(), ((HintonInteger) right).getRaw()));
@@ -242,14 +242,14 @@ public class EvalBinaryExpr {
 
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof HintonReal && right instanceof HintonReal) {
-            return new HintonBoolean(((HintonReal) left).getRaw() > ((HintonReal) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonFloat) {
+            return new HintonBoolean(((HintonFloat) left).getRaw() > ((HintonFloat) right).getRaw());
         }
-        if (left instanceof HintonReal && right instanceof HintonInteger) {
-            return new HintonBoolean(((HintonReal) left).getRaw() > ((HintonInteger) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonInteger) {
+            return new HintonBoolean(((HintonFloat) left).getRaw() > ((HintonInteger) right).getRaw());
         }
-        if (left instanceof HintonInteger && right instanceof HintonReal) {
-            return new HintonBoolean(((HintonInteger) left).getRaw() > ((HintonReal) right).getRaw());
+        if (left instanceof HintonInteger && right instanceof HintonFloat) {
+            return new HintonBoolean(((HintonInteger) left).getRaw() > ((HintonFloat) right).getRaw());
         }
 
         return new HintonBoolean(((HintonInteger) left).getRaw() > ((HintonInteger) right).getRaw());
@@ -272,14 +272,14 @@ public class EvalBinaryExpr {
 
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof HintonReal && right instanceof HintonReal) {
-            return new HintonBoolean(((HintonReal) left).getRaw() >= ((HintonReal) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonFloat) {
+            return new HintonBoolean(((HintonFloat) left).getRaw() >= ((HintonFloat) right).getRaw());
         }
-        if (left instanceof HintonReal && right instanceof HintonInteger) {
-            return new HintonBoolean(((HintonReal) left).getRaw() >= ((HintonInteger) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonInteger) {
+            return new HintonBoolean(((HintonFloat) left).getRaw() >= ((HintonInteger) right).getRaw());
         }
-        if (left instanceof HintonInteger && right instanceof HintonReal) {
-            return new HintonBoolean(((HintonInteger) left).getRaw() >= ((HintonReal) right).getRaw());
+        if (left instanceof HintonInteger && right instanceof HintonFloat) {
+            return new HintonBoolean(((HintonInteger) left).getRaw() >= ((HintonFloat) right).getRaw());
         }
 
         return new HintonBoolean(((HintonInteger) left).getRaw() >= ((HintonInteger) right).getRaw());
@@ -302,14 +302,14 @@ public class EvalBinaryExpr {
 
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof HintonReal && right instanceof HintonReal) {
-            return new HintonBoolean(((HintonReal) left).getRaw() < ((HintonReal) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonFloat) {
+            return new HintonBoolean(((HintonFloat) left).getRaw() < ((HintonFloat) right).getRaw());
         }
-        if (left instanceof HintonReal && right instanceof HintonInteger) {
-            return new HintonBoolean(((HintonReal) left).getRaw() < ((HintonInteger) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonInteger) {
+            return new HintonBoolean(((HintonFloat) left).getRaw() < ((HintonInteger) right).getRaw());
         }
-        if (left instanceof HintonInteger && right instanceof HintonReal) {
-            return new HintonBoolean(((HintonInteger) left).getRaw() < ((HintonReal) right).getRaw());
+        if (left instanceof HintonInteger && right instanceof HintonFloat) {
+            return new HintonBoolean(((HintonInteger) left).getRaw() < ((HintonFloat) right).getRaw());
         }
 
         return new HintonBoolean(((HintonInteger) left).getRaw() < ((HintonInteger) right).getRaw());
@@ -332,14 +332,14 @@ public class EvalBinaryExpr {
 
         checkNumberOperands(opr, left, right);
 
-        if (left instanceof HintonReal && right instanceof HintonReal) {
-            return new HintonBoolean(((HintonReal) left).getRaw() <= ((HintonReal) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonFloat) {
+            return new HintonBoolean(((HintonFloat) left).getRaw() <= ((HintonFloat) right).getRaw());
         }
-        if (left instanceof HintonReal && right instanceof HintonInteger) {
-            return new HintonBoolean(((HintonReal) left).getRaw() <= ((HintonInteger) right).getRaw());
+        if (left instanceof HintonFloat && right instanceof HintonInteger) {
+            return new HintonBoolean(((HintonFloat) left).getRaw() <= ((HintonInteger) right).getRaw());
         }
-        if (left instanceof HintonInteger && right instanceof HintonReal) {
-            return new HintonBoolean(((HintonInteger) left).getRaw() <= ((HintonReal) right).getRaw());
+        if (left instanceof HintonInteger && right instanceof HintonFloat) {
+            return new HintonBoolean(((HintonInteger) left).getRaw() <= ((HintonFloat) right).getRaw());
         }
 
         return new HintonBoolean(((HintonInteger) left).getRaw() <= ((HintonInteger) right).getRaw());
