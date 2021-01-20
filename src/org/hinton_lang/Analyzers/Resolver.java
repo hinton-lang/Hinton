@@ -8,10 +8,8 @@ import java.util.Stack;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Envornment.DecType;
 import org.hinton_lang.Interpreter.Interpreter;
-import org.hinton_lang.Parser.AST.*;
-import org.hinton_lang.Parser.AST.Expr.Argument;
-import org.hinton_lang.Parser.AST.Stmt.Parameter;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Parser.*;
+import org.hinton_lang.Scanner.Token;
 
 public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     private final Interpreter interpreter;
@@ -355,7 +353,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     @Override
-    public Void visitParameterStmt(Parameter param) {
+    public Void visitParameterStmt(Stmt.Parameter param) {
         declare(param.name, DecType.VARIABLE);
         define(param.name);
         resolve(param.defVal);
@@ -363,7 +361,7 @@ public class Resolver implements Expr.Visitor<Void>, Stmt.Visitor<Void> {
     }
 
     @Override
-    public Void visitArgumentExpr(Argument arg) {
+    public Void visitArgumentExpr(Expr.Argument arg) {
         resolve(arg.value);
         return null;
     }

@@ -3,8 +3,8 @@ package org.hinton_lang.Interpreter.HintonFunctions;
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.hinton_lang.Parser.AST.Stmt;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Parser.Stmt;
+import org.hinton_lang.Scanner.Token;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.Interpreter;
 

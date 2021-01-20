@@ -22,3 +22,6 @@ print(typeOf(add))      // Function
 
 var t = fn(x) -> x;
 print(typeOf(t))        // Function
+
+print(typeOf(0..10))    // Array
+print(typeOf([1, 2]))   // Array

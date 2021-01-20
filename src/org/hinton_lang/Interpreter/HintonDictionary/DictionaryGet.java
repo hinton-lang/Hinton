@@ -7,7 +7,7 @@ import java.util.HashMap;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonString.HintonString;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Scanner.Token;
 
 /**
  * Method to get a dictionary member by its key name.

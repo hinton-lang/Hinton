@@ -6,7 +6,7 @@ import org.hinton_lang.Interpreter.NativeType;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
 import org.hinton_lang.Interpreter.HintonString.HintonString;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Scanner.Token;
 
 public class TypeOf implements NativeFunc {
 

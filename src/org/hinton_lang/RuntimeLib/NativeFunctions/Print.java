@@ -6,7 +6,7 @@ import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
 import org.hinton_lang.Interpreter.HintonNull.HintonNull;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Scanner.Token;
 
 /**
  * Native Hinton function for printing output to the command prompt.

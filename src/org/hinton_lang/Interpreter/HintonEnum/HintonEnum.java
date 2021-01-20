@@ -6,8 +6,8 @@ import java.util.HashMap;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.NativeType;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
-import org.hinton_lang.Parser.AST.Stmt.EnumMember;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Parser.Stmt.EnumMember;
+import org.hinton_lang.Scanner.Token;
 
 /**
  * Represents a Hinton Enum in the Hinton language.

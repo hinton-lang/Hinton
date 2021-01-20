@@ -10,9 +10,8 @@ import org.hinton_lang.Interpreter.Interpreter;
 import org.hinton_lang.Interpreter.NativeType;
 import org.hinton_lang.Interpreter.ControlStmts.Return;
 import org.hinton_lang.Interpreter.HintonNull.HintonNull;
-import org.hinton_lang.Parser.AST.Expr;
-import org.hinton_lang.Parser.AST.Stmt;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Parser.*;
+import org.hinton_lang.Scanner.Token;
 
 /**
  * Represents any callable function in Hinton.

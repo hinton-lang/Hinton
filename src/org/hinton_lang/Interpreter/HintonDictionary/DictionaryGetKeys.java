@@ -6,7 +6,7 @@ import java.util.HashMap;
 import org.hinton_lang.Interpreter.HintonArrays.HintonArray;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
 import org.hinton_lang.Interpreter.HintonString.HintonString;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Scanner.Token;
 
 /**
  * Method for getting the list of top-level keys in a dictionary.

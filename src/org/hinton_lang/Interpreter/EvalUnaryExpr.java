@@ -5,7 +5,7 @@ import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Interpreter.HintonFloat.HintonFloat;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Scanner.Token;
 
 public class EvalUnaryExpr {
 

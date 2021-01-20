@@ -1,7 +1,5 @@
 package org.hinton_lang.Interpreter;
 
-import org.hinton_lang.Tokens.Token;
-
 import java.util.ArrayList;
 
 import org.hinton_lang.Errors.RuntimeError;
@@ -12,6 +10,7 @@ import org.hinton_lang.Interpreter.HintonFloat.HintonFloat;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Interpreter.HintonNull.HintonNull;
 import org.hinton_lang.Interpreter.HintonString.HintonString;
+import org.hinton_lang.Scanner.Token;
 
 public class EvalBinaryExpr {
 
@@ -146,7 +145,8 @@ public class EvalBinaryExpr {
         }
 
         // In Hinton, division always evaluates to a real number.
-        return new HintonFloat((double) (((HintonInteger) left).getRaw()) / (double) (((HintonInteger) right).getRaw()));
+        return new HintonFloat(
+                (double) (((HintonInteger) left).getRaw()) / (double) (((HintonInteger) right).getRaw()));
     }
 
     /**
@@ -234,10 +234,10 @@ public class EvalBinaryExpr {
      */
     public static HintonBoolean evalGreaterThan(Token opr, Object left, Object right) {
         if (left instanceof HintonBoolean) {
-            left = ((HintonBoolean) left).getRaw() ? 1 : 0;
+            left = ((HintonBoolean) left).getRaw() ? new HintonInteger(1) : new HintonInteger(0);
         }
         if (right instanceof HintonBoolean) {
-            right = ((HintonBoolean) right).getRaw() ? 1 : 0;
+            right = ((HintonBoolean) right).getRaw() ? new HintonInteger(1) : new HintonInteger(0);
         }
 
         checkNumberOperands(opr, left, right);
@@ -264,10 +264,10 @@ public class EvalBinaryExpr {
      */
     public static HintonBoolean evalGreaterThanEqual(Token opr, Object left, Object right) {
         if (left instanceof HintonBoolean) {
-            left = ((HintonBoolean) left).getRaw() ? 1 : 0;
+            left = ((HintonBoolean) left).getRaw() ? new HintonInteger(1) : new HintonInteger(0);
         }
         if (right instanceof HintonBoolean) {
-            right = ((HintonBoolean) right).getRaw() ? 1 : 0;
+            right = ((HintonBoolean) right).getRaw() ? new HintonInteger(1) : new HintonInteger(0);
         }
 
         checkNumberOperands(opr, left, right);
@@ -294,10 +294,10 @@ public class EvalBinaryExpr {
      */
     public static HintonBoolean evalLessThan(Token opr, Object left, Object right) {
         if (left instanceof HintonBoolean) {
-            left = ((HintonBoolean) left).getRaw() ? 1 : 0;
+            left = ((HintonBoolean) left).getRaw() ? new HintonInteger(1) : new HintonInteger(0);
         }
         if (right instanceof HintonBoolean) {
-            right = ((HintonBoolean) right).getRaw() ? 1 : 0;
+            right = ((HintonBoolean) right).getRaw() ? new HintonInteger(1) : new HintonInteger(0);
         }
 
         checkNumberOperands(opr, left, right);
@@ -324,10 +324,10 @@ public class EvalBinaryExpr {
      */
     public static HintonBoolean evalLessThanEqual(Token opr, Object left, Object right) {
         if (left instanceof HintonBoolean) {
-            left = ((HintonBoolean) left).getRaw() ? 1 : 0;
+            left = ((HintonBoolean) left).getRaw() ? new HintonInteger(1) : new HintonInteger(0);
         }
         if (right instanceof HintonBoolean) {
-            right = ((HintonBoolean) right).getRaw() ? 1 : 0;
+            right = ((HintonBoolean) right).getRaw() ? new HintonInteger(1) : new HintonInteger(0);
         }
 
         checkNumberOperands(opr, left, right);
@@ -353,10 +353,10 @@ public class EvalBinaryExpr {
      */
     public static HintonBoolean evalEquals(Object left, Object right) {
         if (left instanceof HintonBoolean) {
-            left = ((HintonBoolean) left).getRaw() ? 1 : 0;
+            left = ((HintonBoolean) left).getRaw() ? new HintonInteger(1) : new HintonInteger(0);
         }
         if (right instanceof HintonBoolean) {
-            right = ((HintonBoolean) right).getRaw() ? 1 : 0;
+            right = ((HintonBoolean) right).getRaw() ? new HintonInteger(1) : new HintonInteger(0);
         }
         return new HintonBoolean(isEqual(left, right));
     }
@@ -369,10 +369,10 @@ public class EvalBinaryExpr {
      */
     public static HintonBoolean evalNotEquals(Object left, Object right) {
         if (left instanceof HintonBoolean) {
-            left = ((HintonBoolean) left).getRaw() ? 1 : 0;
+            left = ((HintonBoolean) left).getRaw() ? new HintonInteger(1) : new HintonInteger(0);
         }
         if (right instanceof HintonBoolean) {
-            right = ((HintonBoolean) right).getRaw() ? 1 : 0;
+            right = ((HintonBoolean) right).getRaw() ? new HintonInteger(1) : new HintonInteger(0);
         }
         return new HintonBoolean(!isEqual(left, right));
     }
