@@ -1,6 +1,6 @@
 package org.hinton_lang.Errors;
 
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Scanner.Token;
 
 public class SyntaxError extends RuntimeException {
     public final Token token;

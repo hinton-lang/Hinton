@@ -1,6 +1,6 @@
 package org.hinton_lang.Interpreter;
 
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Scanner.Token;
 
 /**
  * Represents a native Hinton type.

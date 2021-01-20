@@ -1,12 +1,11 @@
 package org.hinton_lang.Interpreter.HintonFunctions;
 
-import org.hinton_lang.Parser.AST.Expr;
-import org.hinton_lang.Interpreter.Interpreter;
-
 import java.util.ArrayList;
 import java.util.HashMap;
 
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Parser.Expr;
+import org.hinton_lang.Scanner.Token;
+import org.hinton_lang.Interpreter.Interpreter;
 import org.hinton_lang.Errors.RuntimeError;
 
 /**

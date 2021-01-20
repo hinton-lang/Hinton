@@ -5,7 +5,7 @@ import java.util.HashMap;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonCallable;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Scanner.Token;
 
 /**
  * Native Hinton function for measuring the execution time between two

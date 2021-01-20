@@ -2,7 +2,7 @@ package org.hinton_lang.Interpreter.HintonNull;
 
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Interpreter.NativeType;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Scanner.Token;
 
 /**
  * Represents a null literal in the Hinton language.

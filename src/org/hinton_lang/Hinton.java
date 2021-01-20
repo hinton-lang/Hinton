@@ -10,11 +10,8 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
-// Project-specific
-import org.hinton_lang.Lexer.Lexer;
-import org.hinton_lang.Tokens.*;
 import org.hinton_lang.Parser.*;
-import org.hinton_lang.Parser.AST.*;
+import org.hinton_lang.Scanner.*;
 import org.hinton_lang.Analyzers.Resolver;
 import org.hinton_lang.CLI.ProcessArgs;
 import org.hinton_lang.Errors.SyntaxError;
@@ -95,6 +92,9 @@ public class Hinton {
     private static void run(String source) {
         Lexer lexer = new Lexer(source);
         List<Token> tokens = lexer.lexTokens();
+
+        // Delete the reference to the lexer so that it is garbage collected later.
+        lexer = null;
 
         Parser parser = new Parser(tokens);
         List<Stmt> statements = parser.parse();

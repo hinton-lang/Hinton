@@ -4,7 +4,7 @@ import java.util.HashMap;
 
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Scanner.Token;
 
 /**
  * Method for checking if an element is inside an array.

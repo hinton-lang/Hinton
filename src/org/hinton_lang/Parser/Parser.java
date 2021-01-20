@@ -1,17 +1,12 @@
 package org.hinton_lang.Parser;
 
 import java.util.Arrays;
-import java.io.IOException;
-import java.nio.charset.Charset;
-import java.nio.file.Files;
-import java.nio.file.Paths;
+
+import static org.hinton_lang.Scanner.TokenType.*;
+
 import java.util.ArrayList;
 import java.util.List;
 
-// Project-specific
-import org.hinton_lang.Tokens.*;
-import static org.hinton_lang.Tokens.TokenType.*;
-import org.hinton_lang.Parser.AST.Expr;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.SyntaxError;
 import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
@@ -19,8 +14,7 @@ import org.hinton_lang.Interpreter.HintonFloat.HintonFloat;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
 import org.hinton_lang.Interpreter.HintonNull.HintonNull;
 import org.hinton_lang.Interpreter.HintonString.HintonString;
-import org.hinton_lang.Lexer.Lexer;
-import org.hinton_lang.Parser.AST.Stmt;
+import org.hinton_lang.Scanner.*;
 
 public class Parser {
     private final List<Token> tokens;
@@ -156,8 +150,8 @@ public class Parser {
             return continueStatement();
         if (match(RETURN_KEYWORD))
             return returnStatement();
-        if (match(IMPORT_KEYWORD))
-            return importStatement();
+        // if (match(IMPORT_KEYWORD))
+        // return importStatement();
 
         return expressionStatement();
     }
@@ -268,32 +262,32 @@ public class Parser {
         return new Stmt.Return(keyword, new Expr.Literal(new HintonNull()));
     }
 
-    /**
-     * Matches an import statement as specified in the grammar.cfg file.
-     * 
-     * @return An import statement.
-     */
-    private Stmt importStatement() {
-        // TODO: This is buggy. Finish the implementation to work as expected.
-        consume(STRING_LITERAL, "Expected model path after import statement.");
-        String path = (String) previous().literal;
-        match(SEMICOLON_SEPARATOR); // Optional semicolon
+    // /**
+    // * Matches an import statement as specified in the grammar.cfg file.
+    // *
+    // * @return An import statement.
+    // */
+    // private Stmt importStatement() {
+    // // TODO: This is buggy. Finish the implementation to work as expected.
+    // consume(STRING_LITERAL, "Expected model path after import statement.");
+    // String path = (String) previous().literal;
+    // match(SEMICOLON_SEPARATOR); // Optional semicolon
 
-        try {
-            byte[] bytes = Files.readAllBytes(Paths.get(path));
-            String sourceCode = new String(bytes, Charset.defaultCharset());
+    // try {
+    // byte[] bytes = Files.readAllBytes(Paths.get(path));
+    // String sourceCode = new String(bytes, Charset.defaultCharset());
 
-            Lexer lexer = new Lexer(sourceCode);
-            List<Token> tokens = lexer.lexTokens();
+    // Lexer lexer = new Lexer(sourceCode);
+    // List<Token> tokens = lexer.lexTokens();
 
-            Parser parser = new Parser(tokens);
-            List<Stmt> statements = parser.parse();
+    // Parser parser = new Parser(tokens);
+    // List<Stmt> statements = parser.parse();
 
-            return new Stmt.Import(statements);
-        } catch (IOException e) {
-            throw new SyntaxError(previous(), "Cannot find module " + path);
-        }
-    }
+    // return new Stmt.Import(statements);
+    // } catch (IOException e) {
+    // throw new SyntaxError(previous(), "Cannot find module " + path);
+    // }
+    // }
 
     /**
      * Matches an if-statement as specified in the grammar.cfg file.
@@ -697,7 +691,7 @@ public class Parser {
     private Expr factor() {
         Expr expr = expo();
 
-        while (match(DIV, MULT, MOD)) {
+        while (match(SLASH, STAR, MODULUS)) {
             Token operator = previous();
             Expr right = expo();
             return new Expr.Binary(expr, operator, right);
@@ -804,8 +798,7 @@ public class Parser {
         }
         consume(R_PARENTHESIS, "Expected ')' for after parameters.");
 
-        consume(MINUS, "Expected '->' before function body.");
-        Token arrow = consume(GREATER_THAN, "Expected '->' before function body.");
+        Token arrow = consume(THIN_ARROW, "Expected '->' before function body.");
 
         // If there is an opening curly brace after the arrow, then we expect to execute
         // a block. Otherwise, we expect an expression, and compose a return statement
@@ -889,12 +882,12 @@ public class Parser {
      * @return A primary (terminal) expression.
      */
     private Expr primary() {
-        if (match(BOOL_LITERAL_FALSE)) {
+        if (match(FALSE_LITERAL)) {
             HintonBoolean bool = new HintonBoolean(false);
             return new Expr.Literal(bool);
         }
 
-        if (match(BOOL_LITERAL_TRUE)) {
+        if (match(TRUE_LITERAL)) {
             HintonBoolean bool = new HintonBoolean(true);
             return new Expr.Literal(bool);
         }
@@ -904,7 +897,7 @@ public class Parser {
             return new Expr.Literal(nil);
         }
 
-        if (match(REAL_LITERAL)) {
+        if (match(FLOAT_LITERAL)) {
             HintonFloat real = new HintonFloat((double) previous().literal);
             return new Expr.Literal(real);
         }

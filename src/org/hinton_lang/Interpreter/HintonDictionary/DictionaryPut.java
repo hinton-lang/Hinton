@@ -7,7 +7,7 @@ import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
 import org.hinton_lang.Interpreter.HintonNull.HintonNull;
 import org.hinton_lang.Interpreter.HintonString.HintonString;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Scanner.Token;
 
 /**
  * Method for adding a new member to the dictionary. If the key already exists

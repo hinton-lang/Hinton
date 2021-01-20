@@ -13,15 +13,14 @@ import org.hinton_lang.Interpreter.HintonBoolean.HintonBoolean;
 import org.hinton_lang.Interpreter.HintonDictionary.HintonDictionary;
 import org.hinton_lang.Interpreter.HintonEnum.HintonEnum;
 import org.hinton_lang.Interpreter.HintonFloat.HintonFloat;
-import org.hinton_lang.Parser.AST.*;
-import org.hinton_lang.Parser.AST.Expr.Argument;
-import org.hinton_lang.Parser.AST.Stmt.Parameter;
+import org.hinton_lang.Parser.*;
 import org.hinton_lang.Hinton;
 import org.hinton_lang.Errors.RuntimeError;
 import org.hinton_lang.Helper.Helper;
 import org.hinton_lang.Envornment.*;
 import org.hinton_lang.RuntimeLib.RuntimeLib;
-import org.hinton_lang.Tokens.*;
+import org.hinton_lang.Scanner.Token;
+import org.hinton_lang.Scanner.TokenType;
 
 public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNull> {
     // Holds global functions and variables native to Hinton.
@@ -372,9 +371,9 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
 
         HashMap<Object, Object> arguments = new HashMap<>();
 
-        List<Argument> argumentList = expr.arguments;
+        List<Expr.Argument> argumentList = expr.arguments;
         for (int i = 0, argumentListSize = argumentList.size(); i < argumentListSize; i++) {
-            Argument argument = argumentList.get(i);
+            Expr.Argument argument = argumentList.get(i);
 
             arguments.put((argument.name == null) ? i : argument.name, evaluate(argument.value));
         }
@@ -458,13 +457,13 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
         switch (expr.operator.type) {
             case MINUS:
                 return EvalBinaryExpr.evalSubtraction(expr.operator, left, right);
-            case DIV:
+            case SLASH:
                 return EvalBinaryExpr.evalDivision(expr.operator, left, right);
-            case MULT:
+            case STAR:
                 return EvalBinaryExpr.evalMultiplication(expr.operator, left, right);
             case PLUS:
                 return EvalBinaryExpr.evalAddition(expr.operator, left, right);
-            case MOD:
+            case MODULUS:
                 return EvalBinaryExpr.evalModulus(expr.operator, left, right);
             case EXPO:
                 return EvalBinaryExpr.evalExponent(expr.operator, left, right);
@@ -623,13 +622,13 @@ public class Interpreter implements Expr.Visitor<Object>, Stmt.Visitor<HintonNul
     }
 
     @Override
-    public HintonNull visitParameterStmt(Parameter stmt) {
+    public HintonNull visitParameterStmt(Stmt.Parameter stmt) {
         // NOTE: Currently unreachable
         return null;
     }
 
     @Override
-    public Object visitArgumentExpr(Argument expr) {
+    public Object visitArgumentExpr(Expr.Argument expr) {
         // NOTE: Currently unreachable
         return null;
     }

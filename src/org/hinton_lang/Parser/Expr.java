@@ -1,7 +1,8 @@
-package org.hinton_lang.Parser.AST;
+package org.hinton_lang.Parser;
 
 import java.util.List;
-import org.hinton_lang.Tokens.Token;
+
+import org.hinton_lang.Scanner.Token;
 
 public abstract class Expr {
 

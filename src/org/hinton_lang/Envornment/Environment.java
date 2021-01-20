@@ -3,8 +3,8 @@ package org.hinton_lang.Envornment;
 import java.util.HashMap;
 import java.util.Map;
 
-import org.hinton_lang.Tokens.Token;
 import org.hinton_lang.Errors.RuntimeError;
+import org.hinton_lang.Scanner.Token;
 
 public class Environment {
     /** Stores the values for this scope */

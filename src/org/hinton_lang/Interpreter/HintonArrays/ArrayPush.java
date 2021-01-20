@@ -4,7 +4,7 @@ import java.util.HashMap;
 
 import org.hinton_lang.Interpreter.HintonFunctions.HintonFunction;
 import org.hinton_lang.Interpreter.HintonInteger.HintonInteger;
-import org.hinton_lang.Tokens.Token;
+import org.hinton_lang.Scanner.Token;
 
 /**
  * Method for adding an element to the end of an array.
