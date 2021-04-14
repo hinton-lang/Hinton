@@ -224,6 +224,7 @@ impl<'a> Compiler<'a> {
             TokenType::GREATER_THAN_EQ => self.emit_op_code(OpCode::OP_GREATER_THAN_EQ),
             TokenType::LESS_THAN => self.emit_op_code(OpCode::OP_LESS_THAN),
             TokenType::LESS_THAN_EQ => self.emit_op_code(OpCode::OP_LESS_THAN_EQ),
+            TokenType::RANGE_OPERATOR => self.emit_op_code(OpCode::OP_GENERATE_RANGE),
             _ => return, // Unreachable.
         }
     }

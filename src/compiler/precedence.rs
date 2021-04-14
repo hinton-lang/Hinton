@@ -17,6 +17,7 @@ pub enum Precedence {
     PREC_BITWISE_AND,   // &
     PREC_EQUALITY,      // == !=
     PREC_COMPARISON,    // < > <= >=
+    PREC_RANGE,         // ..
     PREC_BITWISE_SHIFT, // << >>
     PREC_TERM,          // + -
     PREC_FACTOR,        // * / %
@@ -46,13 +47,14 @@ impl Precedence {
             6 => Precedence::PREC_BITWISE_AND,
             7 => Precedence::PREC_EQUALITY,
             8 => Precedence::PREC_COMPARISON,
-            9 => Precedence::PREC_BITWISE_SHIFT,
-            10 => Precedence::PREC_TERM,
-            11 => Precedence::PREC_FACTOR,
-            12 => Precedence::PREC_EXPO,
-            13 => Precedence::PREC_UNARY,
-            14 => Precedence::PREC_CALL,
-            15 => Precedence::PREC_PRIMARY,
+            9 => Precedence::PREC_RANGE,
+            10 => Precedence::PREC_BITWISE_SHIFT,
+            11 => Precedence::PREC_TERM,
+            12 => Precedence::PREC_FACTOR,
+            13 => Precedence::PREC_EXPO,
+            14 => Precedence::PREC_UNARY,
+            15 => Precedence::PREC_CALL,
+            16 => Precedence::PREC_PRIMARY,
             _ => Precedence::PREC_NONE, // Should never be reached
         }
     }
@@ -239,13 +241,19 @@ pub fn get_rule(tok_type: TokenType) -> ParserRule {
         TokenType::OCTAL_LITERAL => ParserRule {
             prefix: ParseFn::CompileOctalNum,
             infix: ParseFn::NONE,
-            precedence: Precedence::PREC_NONE,  // TODO: Shouldn't this be PREC_PRIMARY?
+            precedence: Precedence::PREC_NONE, // TODO: Shouldn't this be PREC_PRIMARY?
         },
 
         TokenType::PLUS => ParserRule {
             prefix: ParseFn::NONE,
             infix: ParseFn::CompileBinaryExpr,
             precedence: Precedence::PREC_TERM,
+        },
+
+        TokenType::RANGE_OPERATOR => ParserRule {
+            prefix: ParseFn::NONE,
+            infix: ParseFn::CompileBinaryExpr,
+            precedence: Precedence::PREC_RANGE,
         },
 
         TokenType::SLASH => ParserRule {
@@ -269,7 +277,7 @@ pub fn get_rule(tok_type: TokenType) -> ParserRule {
         TokenType::TRUE_LITERAL => ParserRule {
             prefix: ParseFn::CompileLiteral,
             infix: ParseFn::NONE,
-            precedence: Precedence::PREC_NONE,  // TODO: Shouldn't this be PREC_PRIMARY?
+            precedence: Precedence::PREC_NONE, // TODO: Shouldn't this be PREC_PRIMARY?
         },
 
         // The rest of the tokens do not have a parse rule
