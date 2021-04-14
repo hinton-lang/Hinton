@@ -68,6 +68,7 @@ impl<'a> Compiler<'a> {
             ParseFn::CompileOctalNum => self.compile_int_from_base(8),
             ParseFn::CompileString => self.compile_string(),
             ParseFn::CompileUnary => self.compile_unary(),
+            ParseFn::CompileTernary => self.compile_ternary_expression(),
             ParseFn::CompileVariable => self.consume_variable_identifier(),
             ParseFn::NONE => return (),
         }
@@ -225,7 +226,28 @@ impl<'a> Compiler<'a> {
             TokenType::LESS_THAN => self.emit_op_code(OpCode::OP_LESS_THAN),
             TokenType::LESS_THAN_EQ => self.emit_op_code(OpCode::OP_LESS_THAN_EQ),
             TokenType::RANGE_OPERATOR => self.emit_op_code(OpCode::OP_GENERATE_RANGE),
-            _ => return, // Unreachable.
+            _ => return (), // Unreachable.
+        }
+    }
+
+    /// Compiles a ternary expression.
+    pub(super) fn compile_ternary_expression(&mut self) {
+        match self.get_previous_tok_type() {
+            TokenType::QUESTION_MARK => {
+                // Ternary expressions are right-associative, so we parse the operands
+                // with the same level of precedence as another ternary expression.
+                self.parse_with_precedence(Precedence::PREC_TERNARY);
+                self.consume(TokenType::COLON_SEPARATOR, "Expected ':' for ternary expression.");
+                self.parse_with_precedence(Precedence::PREC_TERNARY);
+
+                // Add the ternary OpCode
+                self.emit_op_code(OpCode::OP_TERNARY);
+            }
+            // TODO: Allowing ternary conditional expressions of the form
+            // `a if x else b` is a design choice. Should ternary expressions
+            // of this form also be allowed? Should we chose one or the other?
+            // What are the benefits? and What Hinton programmers prefer?
+            _ => return (), // Unreachable.
         }
     }
 

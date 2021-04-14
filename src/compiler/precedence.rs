@@ -10,6 +10,7 @@ use crate::scanner::tokens::TokenType;
 pub enum Precedence {
     PREC_NONE,
     PREC_ASSIGNMENT,    // =
+    PREC_TERNARY,       // ?:
     PREC_LOGIC_OR,      // or ||
     PREC_LOGIC_AND,     // and &&
     PREC_BITWISE_OR,    // |
@@ -40,21 +41,22 @@ impl Precedence {
         match val {
             0 => Precedence::PREC_NONE,
             1 => Precedence::PREC_ASSIGNMENT,
-            2 => Precedence::PREC_LOGIC_OR,
-            3 => Precedence::PREC_LOGIC_AND,
-            4 => Precedence::PREC_BITWISE_OR,
-            5 => Precedence::PREC_BITWISE_XOR,
-            6 => Precedence::PREC_BITWISE_AND,
-            7 => Precedence::PREC_EQUALITY,
-            8 => Precedence::PREC_COMPARISON,
-            9 => Precedence::PREC_RANGE,
-            10 => Precedence::PREC_BITWISE_SHIFT,
-            11 => Precedence::PREC_TERM,
-            12 => Precedence::PREC_FACTOR,
-            13 => Precedence::PREC_EXPO,
-            14 => Precedence::PREC_UNARY,
-            15 => Precedence::PREC_CALL,
-            16 => Precedence::PREC_PRIMARY,
+            2 => Precedence::PREC_TERNARY,
+            3 => Precedence::PREC_LOGIC_OR,
+            4 => Precedence::PREC_LOGIC_AND,
+            5 => Precedence::PREC_BITWISE_OR,
+            6 => Precedence::PREC_BITWISE_XOR,
+            7 => Precedence::PREC_BITWISE_AND,
+            8 => Precedence::PREC_EQUALITY,
+            9 => Precedence::PREC_COMPARISON,
+            10 => Precedence::PREC_RANGE,
+            11 => Precedence::PREC_BITWISE_SHIFT,
+            12 => Precedence::PREC_TERM,
+            13 => Precedence::PREC_FACTOR,
+            14 => Precedence::PREC_EXPO,
+            15 => Precedence::PREC_UNARY,
+            16 => Precedence::PREC_CALL,
+            17 => Precedence::PREC_PRIMARY,
             _ => Precedence::PREC_NONE, // Should never be reached
         }
     }
@@ -73,6 +75,7 @@ pub enum ParseFn {
     CompileLogicOr,
     CompileGrouping,
     CompileString,
+    CompileTernary,
     CompileOctalNum,
     CompileNumeric,
     NONE, // Do not call a parsing function
@@ -248,6 +251,12 @@ pub fn get_rule(tok_type: TokenType) -> ParserRule {
             prefix: ParseFn::NONE,
             infix: ParseFn::CompileBinaryExpr,
             precedence: Precedence::PREC_TERM,
+        },
+
+        TokenType::QUESTION_MARK => ParserRule {
+            prefix: ParseFn::NONE,
+            infix: ParseFn::CompileTernary,
+            precedence: Precedence::PREC_TERNARY,
         },
 
         TokenType::RANGE_OPERATOR => ParserRule {

@@ -26,6 +26,10 @@ impl<'a> VirtualMachine<'a> {
                     self.stack.pop();
                 }
 
+                Some(OpCode::OP_NULL) => self.stack.push(Rc::new(Object::Null())),
+                Some(OpCode::OP_TRUE) => self.stack.push(Rc::new(Object::Bool(true))),
+                Some(OpCode::OP_FALSE) => self.stack.push(Rc::new(Object::Bool(false))),
+
                 Some(OpCode::OP_CONSTANT) => {
                     frame_ip += 1;
                     let pos = current_chunk.codes.get_short(frame_ip);
@@ -93,18 +97,6 @@ impl<'a> VirtualMachine<'a> {
                     }
                 }
 
-                Some(OpCode::OP_NULL) => {
-                    self.stack.push(Rc::new(Object::Null()));
-                }
-
-                Some(OpCode::OP_TRUE) => {
-                    self.stack.push(Rc::new(Object::Bool(true)));
-                }
-
-                Some(OpCode::OP_FALSE) => {
-                    self.stack.push(Rc::new(Object::Bool(false)));
-                }
-
                 Some(OpCode::OP_NEGATE) => {
                     let val = Rc::clone(&self.stack.pop().unwrap());
 
@@ -122,6 +114,7 @@ impl<'a> VirtualMachine<'a> {
                     let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "-");
 
                     // TODO: Allow addition of number + strings
+                    // TODO: Allow addition of strings + strings
 
                     if numeric {
                         let v1 = val1.as_number().unwrap();
@@ -401,6 +394,18 @@ impl<'a> VirtualMachine<'a> {
                         self.stack.push(Rc::new(Object::Range(Rc::new(RangeObject { min: a, max: b, step: 1 }))));
                     } else {
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                    }
+                }
+
+                Some(OpCode::OP_TERNARY) => {
+                    let branch_else = Rc::clone(&self.stack.pop().unwrap());
+                    let branch_true = Rc::clone(&self.stack.pop().unwrap());
+                    let condition = Rc::clone(&self.stack.pop().unwrap());
+
+                    if !condition.is_falsey() {
+                        self.stack.push(branch_true);
+                    } else {
+                        self.stack.push(branch_else);
                     }
                 }
 

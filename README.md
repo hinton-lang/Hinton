@@ -91,6 +91,7 @@ This to-do list only applies to the Rust implementation of the Hinton interprete
     - [ ] Named arguments.
     - [x] Range expressions.
     - [x] String literals.
+    - [x] Ternary Conditional expressions.
 - [ ] Parse & Execute Statements.
     - [ ] Class declarations.
     - [ ] Constant declarations.
