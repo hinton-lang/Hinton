@@ -89,7 +89,7 @@ This to-do list only applies to the Rust implementation of the Hinton interprete
     - [x] Logical expressions.
     - [ ] Member access expressions.
     - [ ] Named arguments.
-    - [ ] Range expressions.
+    - [x] Range expressions.
     - [x] String literals.
 - [ ] Parse & Execute Statements.
     - [ ] Class declarations.

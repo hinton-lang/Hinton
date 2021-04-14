@@ -1,3 +1,5 @@
 var x = 7 * 6 - 9 ** 6 - 3 / 6;
-
 print(x);
+
+var range = 32..43;
+print(range);

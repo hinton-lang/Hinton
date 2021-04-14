@@ -64,7 +64,7 @@ impl<'a> Compiler<'a> {
         s.emit_op_code(OpCode::OP_RETURN);
 
         // TODO: print on debug mode only
-        s.chunk.disassemble("<script>");
+        // s.chunk.disassemble("<script>");
 
         return if !s.had_error {
             Ok(FunctionObject {

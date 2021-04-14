@@ -9,7 +9,7 @@ pub enum Object<'a> {
     String(String),
     Bool(bool),
     Function(Rc<FunctionObject<'a>>),
-    Array(Rc<Vec<Object<'a>>>),
+    Array(Vec<Object<'a>>),
     Null(),
 }
 
@@ -212,7 +212,9 @@ impl<'a> fmt::Display for Object<'a> {
                 for obj in inner.iter() {
                     arr_str += &(format!("{}, ", obj))[..];
                 }
-                write!(f, "]")
+                arr_str += "]";
+
+                write!(f, "{}", arr_str)
             }
             Object::Function(ref inner) => write!(f, "<Func '{}'>", inner.name),
             Object::Null() => f.write_str("null"),

@@ -41,6 +41,7 @@ pub enum OpCode {
     OP_SET_LOCAL_VAR,
     OP_SUBTRACT,
     OP_TRUE,
+    OP_GENERATE_RANGE,
     // Temporaries - These should always stay at
     // the bottom of the enum.
     OP_PRINT,
@@ -91,7 +92,8 @@ impl OpCode {
             31 => Some(OpCode::OP_SET_LOCAL_VAR),
             32 => Some(OpCode::OP_SUBTRACT),
             33 => Some(OpCode::OP_TRUE),
-            34 => Some(OpCode::OP_PRINT),
+            34 => Some(OpCode::OP_GENERATE_RANGE),
+            35 => Some(OpCode::OP_PRINT),
             _ => None,
         };
     }
