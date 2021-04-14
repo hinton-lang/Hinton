@@ -2,10 +2,10 @@
 
 ![Hinton Logo](Assets/Logos/Logo-wide.png)
 
-This is a simple interpreter written in Java for a programming language called Hinton. The project is an extension of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
+This is a simple interpreter written in Rust for a programming language called Hinton. The project is an extension of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
 
 ## Hinton's Syntax
-This is an example of what Hinton's future syntax would look like. Hinton should be a programming language that can be accessible by anyone, with any level of programming experience. In Hinton, explicitness is the key.
+This is an example of what Hinton's future syntax would look like. Hinton should be a programming language that can be accessible by anyone, with any level of programming experience. Source code written in Hinton should be easy to read. In Hinton, explicitness is the key.
 
 ```swift
 /**
@@ -78,43 +78,38 @@ for (var item in theRange) {
 ## The current state of Hinton
 The project is still in the "pre-development" stages. This means that anything about the language can change as more experience is acquired.
 
-### Benchmarking
-Although speed in not a top priority at these stages of the project, it is important to note that Hinton is very slow. Many improvements can be made to the scanner, parser, and interpreter to make Hinton a more reliable language, but those improvements will only happen once the major parts of the project have been completed. A benchmarking program can be found in the [testing](https://github.com/hinton-lang/Hinton/tree/master/test) folder.
-
-As of right now, looping through 1,000,000 array elements takes `~430ms`. In comparison, the same program in Python takes `~40ms`. 😢
-
 ## To-do List
+This to-do list only applies to the C implementation of the Hinton interpreter. For the Java implementation, visit the [Hinton - Java Implementation](https://github.com/hinton-lang/Hinton/) branch.
 - [ ] Parse & Execute Expressions.
     - [x] Arithmetic expressions.
+    - [ ] Array literals.
+    - [x] Binary (0b), Hexadecimal (0x), and Octal (0o) numbers
+    - [ ] Function calls.
+    - [ ] Lambda expressions.
     - [x] Logical expressions.
-    - [x] Array literals.
-    - [x] Function calls.
-    - [x] Lambda expressions.
-    - [x] Member access expressions.
-    - [x] Named arguments.
-    - [x] Range expressions.
+    - [ ] Member access expressions.
+    - [ ] Named arguments.
+    - [ ] Range expressions.
     - [x] String literals.
-    - [ ] Binary (0b), Hexadecimal (0x), and Octal (0o) numbers
 - [ ] Parse & Execute Statements.
-    - [x] Constant declarations.
-    - [x] Control flow statements.
-    - [x] Dictionary declarations.
-    - [x] Enum declarations.
-    - [x] Function declarations.
-    - [x] Looping statements.
-    - [x] Named parameters.
-    - [x] Variable declarations.
     - [ ] Class declarations.
-    - [ ] For-in loops.
-- [x] Define Built-In Types as Objects
-    - [x] Array objects.
-    - [x] Boolean objects.
-    - [x] Dictionary objects.
-    - [x] Enum objects.
-    - [x] Function objects.
-    - [x] Integer objects.
-    - [x] Real objects.
-    - [x] String objects.
+    - [ ] Constant declarations.
+    - [ ] Control flow statements.
+    - [ ] Dictionary declarations.
+    - [ ] Enum declarations.
+    - [ ] Function declarations.
+    - [ ] Looping statements.
+    - [ ] Named parameters.
+    - [x] Variable declarations.
+- [ ] Define Built-In Types as Objects
+    - [ ] Array objects.
+    - [ ] Boolean objects.
+    - [ ] Dictionary objects.
+    - [ ] Enum objects.
+    - [ ] Function objects.
+    - [ ] Integer objects.
+    - [ ] Real objects.
+    - [ ] String objects.
 - [ ] Create a Runtime Standard Library.
 - [ ] Add Static Typing.
 - [ ] Create 'Cosmo'. Hinton's official CLI.
