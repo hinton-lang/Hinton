@@ -42,6 +42,7 @@ pub enum OpCode {
     OP_SUBTRACT,
     OP_TRUE,
     OP_GENERATE_RANGE,
+    OP_TERNARY,
     // Temporaries - These should always stay at
     // the bottom of the enum.
     OP_PRINT,
@@ -93,7 +94,8 @@ impl OpCode {
             32 => Some(OpCode::OP_SUBTRACT),
             33 => Some(OpCode::OP_TRUE),
             34 => Some(OpCode::OP_GENERATE_RANGE),
-            35 => Some(OpCode::OP_PRINT),
+            35 => Some(OpCode::OP_TERNARY),
+            36 => Some(OpCode::OP_PRINT),
             _ => None,
         };
     }

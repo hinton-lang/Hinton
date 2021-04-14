@@ -135,6 +135,13 @@ impl<'a> Object<'a> {
         match self {
             Object::Null() => true,
             Object::Bool(val) => !val,
+            Object::Number(x) => {
+                if *x == 0.0 {
+                    true
+                } else {
+                    false
+                }
+            }
             _ => false,
         }
     }
@@ -258,5 +265,5 @@ pub struct CallFrame<'a> {
 pub struct RangeObject {
     pub min: isize,
     pub max: isize,
-    pub step: isize
+    pub step: isize,
 }

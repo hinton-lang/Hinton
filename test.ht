@@ -1,5 +1,11 @@
-// var x = 7 * 6 - 9 ** 6 - 3 / 6;
-// print(x);
+var x = 7 * 6 - 9 ** 6 - 3 / 6;
+print(x);
 
 var range = 0..1000000000;
 print(range);
+
+var ternary1 = false ? "Hello world" : true ? "Welcome to the dark side." : "Paradise ahead!";
+print(ternary1);
+
+var ternary2 = 22 + (true ? 8 : -22);
+print(ternary2);

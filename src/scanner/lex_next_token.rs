@@ -40,6 +40,7 @@ impl<'a> Lexer<'a> {
             Some(',') => self.make_token(COMMA_SEPARATOR),
             Some('^') => self.make_token(BITWISE_XOR),
             Some('~') => self.make_token(BITWISE_NOT),
+            Some('?') => self.make_token(QUESTION_MARK),
             Some('/') => {
                 let tok = if self.matches(Some('=')) { SLASH_EQUALS } else { SLASH };
                 return self.make_token(tok);
