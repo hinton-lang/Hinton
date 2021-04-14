@@ -16,7 +16,7 @@ use virtual_machine::VirtualMachine;
 
 /// The main function
 fn main() {
-    let filename = "./src/test.ht";
+    let filename = "./test.ht";
     run_file(filename);
 }
 

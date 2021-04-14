@@ -2,7 +2,7 @@
 
 ![Hinton Logo](Assets/Logos/Logo-wide.png)
 
-This is a simple interpreter written in Rust for a programming language called Hinton. The project is an extension of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
+This is a simple stack-based, byte-code interpreter written in Rust for a programming language called Hinton. The project is an extension of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
 
 ## Hinton's Syntax
 This is an example of what Hinton's future syntax would look like. Hinton should be a programming language that can be accessible by anyone, with any level of programming experience. Source code written in Hinton should be easy to read. In Hinton, explicitness is the key.
@@ -79,7 +79,7 @@ for (var item in theRange) {
 The project is still in the "pre-development" stages. This means that anything about the language can change as more experience is acquired.
 
 ## To-do List
-This to-do list only applies to the C implementation of the Hinton interpreter. For the Java implementation, visit the [Hinton - Java Implementation](https://github.com/hinton-lang/Hinton/) branch.
+This to-do list only applies to the Rust implementation of the Hinton interpreter. For the Java implementation, which has more implemented features, visit the [Hinton - Java Implementation](https://github.com/hinton-lang/Hinton/) branch.
 - [ ] Parse & Execute Expressions.
     - [x] Arithmetic expressions.
     - [ ] Array literals.
