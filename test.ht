@@ -1,5 +1,5 @@
-var x = 7 * 6 - 9 ** 6 - 3 / 6;
-print(x);
+// var x = 7 * 6 - 9 ** 6 - 3 / 6;
+// print(x);
 
-var range = 32..43;
+var range = 0..1000000000;
 print(range);

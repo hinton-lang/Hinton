@@ -10,6 +10,7 @@ pub enum Object<'a> {
     Bool(bool),
     Function(Rc<FunctionObject<'a>>),
     Array(Vec<Object<'a>>),
+    Range(Rc<RangeObject>),
     Null(),
 }
 
@@ -31,6 +32,7 @@ impl<'a> Object<'a> {
             }
             &Object::String(_) => "String",
             &Object::Array(_) => "Array",
+            &Object::Range(_) => "Range",
             &Object::Function(_) => "Function",
         };
     }
@@ -170,6 +172,17 @@ impl<'a> Object<'a> {
         }
     }
 
+    /// Obtains the wrapped Hinton range from this object.
+    ///
+    /// ## Returns
+    /// `Option<Rc<RangeObject>>` – The underlying RangeObject.
+    pub fn as_range(&self) -> Option<Rc<RangeObject>> {
+        match self {
+            Object::Range(v) => Some(Rc::clone(v)),
+            _ => None,
+        }
+    }
+
     /// Checks that this object equals some other object based on Hinton's rules
     /// for object equality.
     ///
@@ -216,6 +229,7 @@ impl<'a> fmt::Display for Object<'a> {
 
                 write!(f, "{}", arr_str)
             }
+            Object::Range(ref inner) => write!(f, "[{}..{}]", inner.min, inner.max),
             Object::Function(ref inner) => write!(f, "<Func '{}'>", inner.name),
             Object::Null() => f.write_str("null"),
         }
@@ -238,4 +252,11 @@ pub struct CallFrame<'a> {
     pub ip: usize,
     // TODO: What does this do?
     // pub slots: Vec<Object<'a>>
+}
+
+/// Represents a Hinton range object.
+pub struct RangeObject {
+    pub min: isize,
+    pub max: isize,
+    pub step: isize
 }
