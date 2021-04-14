@@ -2,7 +2,7 @@
 
 ![Hinton Logo](Assets/Logos/Logo-wide.png)
 
-This is a simple stack-based, byte-code interpreter written in Rust for a programming language called Hinton. The project is an extension of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
+This is a simple, stack-based, byte-code interpreter written in Rust for a programming language called Hinton. The project is an extension of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
 
 ## Hinton's Syntax
 This is an example of what Hinton's future syntax would look like. Hinton should be a programming language that can be accessible by anyone, with any level of programming experience. Source code written in Hinton should be easy to read. In Hinton, explicitness is the key.
