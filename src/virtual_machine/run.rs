@@ -2,8 +2,8 @@ use std::rc::Rc;
 
 use super::InterpretResult;
 use super::VirtualMachine;
-use crate::chunk::op_codes::OpCode;
 use crate::objects::Object;
+use crate::{chunk::op_codes::OpCode, objects::RangeObject};
 
 impl<'a> VirtualMachine<'a> {
     /// Executes the instruction in a chunk. This is where the interpreter
@@ -396,16 +396,9 @@ impl<'a> VirtualMachine<'a> {
                     let left = Rc::clone(&self.stack.pop().unwrap());
 
                     if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), "..") {
-                        let mut arr: Vec<Object<'a>> = Vec::new();
-                        let mut a = left.as_number().unwrap() as isize;
+                        let a = left.as_number().unwrap() as isize;
                         let b = right.as_number().unwrap() as isize;
-
-                        while a < b {
-                            arr.push(Object::Number(a as f64));
-                            a += 1;
-                        }
-
-                        self.stack.push(Rc::new(Object::Array(arr)));
+                        self.stack.push(Rc::new(Object::Range(Rc::new(RangeObject { min: a, max: b, step: 1 }))));
                     } else {
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     }
