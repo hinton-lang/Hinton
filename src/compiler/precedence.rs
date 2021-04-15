@@ -11,6 +11,7 @@ pub enum Precedence {
     PREC_NONE,
     PREC_ASSIGNMENT,    // =
     PREC_TERNARY,       // ?:
+    PREC_NULLISH,       // ??
     PREC_LOGIC_OR,      // or ||
     PREC_LOGIC_AND,     // and &&
     PREC_BITWISE_OR,    // |
@@ -42,21 +43,22 @@ impl Precedence {
             0 => Precedence::PREC_NONE,
             1 => Precedence::PREC_ASSIGNMENT,
             2 => Precedence::PREC_TERNARY,
-            3 => Precedence::PREC_LOGIC_OR,
-            4 => Precedence::PREC_LOGIC_AND,
-            5 => Precedence::PREC_BITWISE_OR,
-            6 => Precedence::PREC_BITWISE_XOR,
-            7 => Precedence::PREC_BITWISE_AND,
-            8 => Precedence::PREC_EQUALITY,
-            9 => Precedence::PREC_COMPARISON,
-            10 => Precedence::PREC_RANGE,
-            11 => Precedence::PREC_BITWISE_SHIFT,
-            12 => Precedence::PREC_TERM,
-            13 => Precedence::PREC_FACTOR,
-            14 => Precedence::PREC_EXPO,
-            15 => Precedence::PREC_UNARY,
-            16 => Precedence::PREC_CALL,
-            17 => Precedence::PREC_PRIMARY,
+            3 => Precedence::PREC_NULLISH,
+            4 => Precedence::PREC_LOGIC_OR,
+            5 => Precedence::PREC_LOGIC_AND,
+            6 => Precedence::PREC_BITWISE_OR,
+            7 => Precedence::PREC_BITWISE_XOR,
+            8 => Precedence::PREC_BITWISE_AND,
+            9 => Precedence::PREC_EQUALITY,
+            10 => Precedence::PREC_COMPARISON,
+            11 => Precedence::PREC_RANGE,
+            12 => Precedence::PREC_BITWISE_SHIFT,
+            13 => Precedence::PREC_TERM,
+            14 => Precedence::PREC_FACTOR,
+            15 => Precedence::PREC_EXPO,
+            16 => Precedence::PREC_UNARY,
+            17 => Precedence::PREC_CALL,
+            18 => Precedence::PREC_PRIMARY,
             _ => Precedence::PREC_NONE, // Should never be reached
         }
     }
@@ -227,6 +229,12 @@ pub fn get_rule(tok_type: TokenType) -> ParserRule {
             prefix: ParseFn::NONE,
             infix: ParseFn::CompileBinaryExpr,
             precedence: Precedence::PREC_FACTOR,
+        },
+
+        TokenType::NULLISH_COALESCING => ParserRule {
+            prefix: ParseFn::NONE,
+            infix: ParseFn::CompileBinaryExpr,
+            precedence: Precedence::PREC_NULLISH,
         },
 
         TokenType::NULL_LITERAL => ParserRule {

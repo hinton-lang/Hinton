@@ -40,7 +40,6 @@ impl<'a> Lexer<'a> {
             Some(',') => self.make_token(COMMA_SEPARATOR),
             Some('^') => self.make_token(BITWISE_XOR),
             Some('~') => self.make_token(BITWISE_NOT),
-            Some('?') => self.make_token(QUESTION_MARK),
             Some('/') => {
                 let tok = if self.matches(Some('=')) { SLASH_EQUALS } else { SLASH };
                 return self.make_token(tok);
@@ -63,6 +62,10 @@ impl<'a> Lexer<'a> {
             }
             Some('|') => {
                 let tok = if self.matches(Some('|')) { LOGICAL_OR } else { BITWISE_OR };
+                return self.make_token(tok);
+            }
+            Some('?') => {
+                let tok = if self.matches(Some('?')) { NULLISH_COALESCING } else { QUESTION_MARK };
                 return self.make_token(tok);
             }
             Some('.') => {

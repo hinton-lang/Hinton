@@ -409,6 +409,17 @@ impl<'a> VirtualMachine<'a> {
                     }
                 }
 
+                Some(OpCode::OP_NULLISH_COALESCING) => {
+                    let value = Rc::clone(&self.stack.pop().unwrap());
+                    let nullish = Rc::clone(&self.stack.pop().unwrap());
+
+                    if nullish.is_null() {
+                        self.stack.push(value);
+                    } else {
+                        self.stack.push(nullish);
+                    }
+                }
+
                 Some(OpCode::OP_PRINT) => {
                     let val = self.stack.pop();
                     println!("{}", val.unwrap());
