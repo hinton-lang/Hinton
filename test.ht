@@ -9,3 +9,5 @@ print(ternary1);
 
 var ternary2 = 22 + (true ? 8 : -22);
 print(ternary2);
+
+print(null ?? "It's nullish, alright.");

@@ -226,6 +226,7 @@ impl<'a> Compiler<'a> {
             TokenType::LESS_THAN => self.emit_op_code(OpCode::OP_LESS_THAN),
             TokenType::LESS_THAN_EQ => self.emit_op_code(OpCode::OP_LESS_THAN_EQ),
             TokenType::RANGE_OPERATOR => self.emit_op_code(OpCode::OP_GENERATE_RANGE),
+            TokenType::NULLISH_COALESCING => self.emit_op_code(OpCode::OP_NULLISH_COALESCING),
             _ => return (), // Unreachable.
         }
     }
