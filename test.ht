@@ -11,3 +11,9 @@ var ternary2 = 22 + (true ? 8 : -22);
 print(ternary2);
 
 print(null ?? "It's nullish, alright.");
+
+print("The sky is blue (T/F): " + (true ? "True" : "False"));
+print(true);
+print(null);
+print(false);
+print("I am " + 20 + " years old.");

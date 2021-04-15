@@ -43,7 +43,7 @@ impl<'a> Object<'a> {
     /// `bool` – True if the object is a Hinton numeric, false otherwise.
     pub fn is_numeric(&self) -> bool {
         match self {
-            Object::Number(_) => true,
+            Object::Number(_) | Object::Bool(_) => true,
             _ => false,
         }
     }
@@ -56,6 +56,7 @@ impl<'a> Object<'a> {
     pub fn is_int(&self) -> bool {
         match self {
             Object::Number(x) => x.fract() == 0.0,
+            Object::Bool(_) => true,
             _ => false,
         }
     }
@@ -90,6 +91,17 @@ impl<'a> Object<'a> {
     pub fn is_string(&self) -> bool {
         match self {
             Object::String(_) => true,
+            _ => false,
+        }
+    }
+
+    /// Checks that this object can be converted to a Hinton string.
+    ///
+    /// ## Returns
+    /// `bool` – True if the object can be converted to a Hinton string, false otherwise.
+    pub fn is_stringifyable(&self) -> bool {
+        match self {
+            Object::String(_) | Object::Number(_) => true,
             _ => false,
         }
     }
@@ -153,6 +165,13 @@ impl<'a> Object<'a> {
     pub fn as_number(&self) -> Option<f64> {
         match self {
             Object::Number(v) => Some(*v),
+            Object::Bool(b) => {
+                if *b {
+                    Some(1f64)
+                } else {
+                    Some(0f64)
+                }
+            }
             _ => None,
         }
     }
@@ -163,7 +182,8 @@ impl<'a> Object<'a> {
     /// `Option<String>` – The underlying Rust string.
     pub fn as_string(&self) -> Option<String> {
         match self {
-            Object::String(v) => Some(String::from(v.clone())),
+            Object::String(s) => Some(String::from(s)),
+            Object::Number(n) => Some(n.to_string()),
             _ => None,
         }
     }
@@ -224,9 +244,23 @@ impl<'a> Object<'a> {
 impl<'a> fmt::Display for Object<'a> {
     fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
         match *self {
-            Object::Number(ref inner) => fmt::Display::fmt(inner, f),
-            Object::String(ref inner) => fmt::Display::fmt(inner, f),
-            Object::Bool(ref inner) => write!(f, "{}", inner),
+            Object::Number(ref inner) => {
+                let str = String::from("\x1b[38;5;81m") + inner.to_string().as_str() + String::from("\x1b[0m").as_str();
+                fmt::Display::fmt(&str, f)
+            }
+            Object::String(ref inner) => {
+                let str = String::from("\x1b[38;5;76m") + inner + String::from("\x1b[0m").as_str();
+                fmt::Display::fmt(&str, f)
+            }
+            Object::Bool(ref inner) => {
+                let str = if *inner {
+                    String::from("\x1b[38;5;3mtrue\x1b[0m")
+                } else {
+                    String::from("\x1b[38;5;3mfalse\x1b[0m")
+                };
+
+                fmt::Display::fmt(&str, f)
+            }
             Object::Array(ref inner) => {
                 let mut arr_str = String::from("[");
                 for obj in inner.iter() {
@@ -236,9 +270,9 @@ impl<'a> fmt::Display for Object<'a> {
 
                 write!(f, "{}", arr_str)
             }
-            Object::Range(ref inner) => write!(f, "[{}..{}]", inner.min, inner.max),
+            Object::Range(ref inner) => write!(f, "[\x1b[38;5;81m{}\x1b[0m..\x1b[38;5;81m{}\x1b[0m]", inner.min, inner.max),
             Object::Function(ref inner) => write!(f, "<Func '{}'>", inner.name),
-            Object::Null() => f.write_str("null"),
+            Object::Null() => f.write_str("\x1b[37;1mnull\x1b[0m"),
         }
     }
 }
