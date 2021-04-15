@@ -111,17 +111,20 @@ impl<'a> VirtualMachine<'a> {
                 Some(OpCode::OP_ADD) => {
                     let val2 = Rc::clone(&self.stack.pop().unwrap());
                     let val1 = Rc::clone(&self.stack.pop().unwrap());
-                    let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "-");
 
-                    // TODO: Allow addition of number + strings
-                    // TODO: Allow addition of strings + strings
-
-                    if numeric {
-                        let v1 = val1.as_number().unwrap();
-                        let v2 = val2.as_number().unwrap();
-                        self.stack.push(Rc::new(Object::Number(v1 + v2)));
+                    if (val1.is_string() && val2.is_stringifyable()) || (val1.is_stringifyable() && val2.is_string()) {
+                        let v1 = val1.as_string().unwrap();
+                        let v2 = val2.as_string().unwrap();
+                        self.stack.push(Rc::new(Object::String(v1 + v2.as_str())));
                     } else {
-                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                        let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "+");
+                        if numeric {
+                            let v1 = val1.as_number().unwrap();
+                            let v2 = val2.as_number().unwrap();
+                            self.stack.push(Rc::new(Object::Number(v1 + v2)));
+                        } else {
+                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                        }
                     }
                 }
 

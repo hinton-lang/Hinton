@@ -84,12 +84,13 @@ This to-do list only applies to the Rust implementation of the Hinton interprete
     - [x] Arithmetic expressions.
     - [ ] Array literals.
     - [x] Binary (0b), Hexadecimal (0x), and Octal (0o) numbers
+    - [ ] Elvis expressions.
     - [ ] Function calls.
     - [ ] Lambda expressions.
     - [x] Logical expressions.
     - [ ] Member access expressions.
     - [ ] Named arguments.
-    - [ ] Nullish coalescing expressions.
+    - [x] Nullish coalescing expressions.
     - [x] Range expressions.
     - [x] String literals.
     - [x] Ternary Conditional expressions.
