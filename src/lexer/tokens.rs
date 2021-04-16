@@ -42,6 +42,7 @@ pub enum TokenType {
     BITWISE_XOR,
     BREAK_KEYWORD,
     CLASS_KEYWORD,
+    COLON_EQUALS,
     COLON_SEPARATOR,
     COMMA_SEPARATOR,
     CONST_KEYWORD,
@@ -49,6 +50,7 @@ pub enum TokenType {
     DECREMENT,
     DOT_SEPARATOR,
     ELSE_KEYWORD,
+    ELVIS_OPERATOR,
     ENUM_KEYWORD,
     EOF,
     EQUALS_SIGN,
@@ -71,6 +73,7 @@ pub enum TokenType {
     LEFT_SQUARE_BRACKET,
     LESS_THAN,
     LESS_THAN_EQ,
+    LET_KEYWORD,
     LOGICAL_AND,
     LOGICAL_EQ,
     LOGICAL_NOT,
@@ -105,7 +108,6 @@ pub enum TokenType {
     SUPER_KEYWORD,
     THIN_ARROW,
     TRUE_LITERAL,
-    VAR_KEYWORD,
     WHILE_KEYWORD,
 
     // TEMPORARY
@@ -164,6 +166,7 @@ pub static KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
     "func"      => TokenType::FUNC_KEYWORD,
     "if"        => TokenType::IF_KEYWORD,
     "in"        => TokenType::IN_OPERATOR,
+    "let"       => TokenType::LET_KEYWORD,
     "mod"       => TokenType::MODULUS,
     "new"       => TokenType::NEW_KEYWORD,
     "not"       => TokenType::LOGICAL_NOT,
@@ -176,7 +179,6 @@ pub static KEYWORDS: phf::Map<&'static str, TokenType> = phf_map! {
     "self"      => TokenType::SELF_KEYWORD,
     "super"     => TokenType::SUPER_KEYWORD,
     "true"      => TokenType::TRUE_LITERAL,
-    "var"       => TokenType::VAR_KEYWORD,
     "while"     => TokenType::WHILE_KEYWORD,
 
 

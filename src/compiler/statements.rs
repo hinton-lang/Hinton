@@ -3,14 +3,14 @@ use std::rc::Rc;
 use crate::{
     chunk::{op_codes::OpCode, ConstantPos},
     objects::Object,
-    scanner::tokens::{Token, TokenType},
+    lexer::tokens::{Token, TokenType},
 };
 
 use super::Compiler;
 
 impl<'a> Compiler<'a> {
     pub(super) fn declaration(&mut self) {
-        if self.matches(TokenType::VAR_KEYWORD) {
+        if self.matches(TokenType::LET_KEYWORD) {
             self.variable_declaration();
         } else {
             self.statement();
@@ -86,7 +86,13 @@ impl<'a> Compiler<'a> {
         
         match arg {
             ConstantPos::Pos(x) => {
-                self.emit_op_code(OpCode::OP_GET_GLOBAL_VAR);
+                if self.matches(TokenType::EQUALS_SIGN) {
+                    self.expression();
+                    self.emit_op_code(OpCode::OP_SET_GLOBAL_VAR);
+                } else {
+                    self.emit_op_code(OpCode::OP_GET_GLOBAL_VAR);
+                }
+
                 self.emit_short(x);
             },
             ConstantPos::Error => {

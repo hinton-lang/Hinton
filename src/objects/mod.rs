@@ -1,4 +1,4 @@
-use super::chunk;
+use crate::chunk;
 use std::rc::Rc;
 use std::result;
 use std::{fmt, usize};

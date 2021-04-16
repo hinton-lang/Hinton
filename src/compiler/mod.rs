@@ -7,9 +7,9 @@ use std::rc::Rc;
 use crate::{
     chunk::{op_codes::OpCode, Chunk},
     objects::FunctionObject,
-    scanner::tokens::Token,
-    scanner::tokens::TokenType,
-    scanner::Lexer,
+    lexer::tokens::Token,
+    lexer::tokens::TokenType,
+    lexer::Lexer,
     virtual_machine::InterpretResult,
 };
 
@@ -233,7 +233,7 @@ impl<'a> Compiler<'a> {
             match self.get_current_tok_type() {
                 TokenType::CLASS_KEYWORD
                 | TokenType::FUNC_KEYWORD
-                | TokenType::VAR_KEYWORD
+                | TokenType::LET_KEYWORD
                 | TokenType::FOR_KEYWORD
                 | TokenType::IF_KEYWORD
                 | TokenType::WHILE_KEYWORD

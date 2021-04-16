@@ -117,7 +117,9 @@ impl<'a> Chunk<'a> {
                     match instr {
                         // Prints the value associated with an OP_CONSTANT instruction
                         OpCode::OP_CONSTANT => println!("\t\t---> {}", const_val()),
-                        OpCode::OP_DEFINE_GLOBAL_VAR | OpCode::OP_GET_GLOBAL_VAR => println!("\t---> {}", const_val()),
+                        OpCode::OP_DEFINE_GLOBAL_VAR | OpCode::OP_GET_GLOBAL_VAR | OpCode::OP_SET_GLOBAL_VAR => {
+                            println!("\t---> {}", const_val())
+                        }
                         // If the instruction does not use the next to bytes, then print nothing
                         _ => println!(),
                     }

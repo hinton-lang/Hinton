@@ -84,6 +84,36 @@ impl<'a> VirtualMachine<'a> {
                                     Some(obj) => self.stack.push(Rc::clone(obj)),
                                     None => {
                                         self.report_runtime_error(&format!("Undefined variable '{}'.", str));
+                                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                                    }
+                                }
+                            } else {
+                                self.report_runtime_error("InternalRuntimeError: Pool item is not an identifier");
+                            }
+                        }
+                        None => {
+                            self.report_runtime_error(&format!("InternalRuntimeError: Constant pool index '{}' out of range", pos));
+                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                        }
+                    }
+                }
+
+                Some(OpCode::OP_SET_GLOBAL_VAR) => {
+                    frame_ip += 1;
+                    let pos = current_chunk.codes.get_short(frame_ip);
+                    frame_ip += 1;
+
+                    match current_chunk.get_constant(pos) {
+                        Some(val) => {
+                            if val.is_string() {
+                                let str = val.as_string().unwrap();
+                                let var_value = self.stack.pop().unwrap();
+
+                                match self.globals.insert(str.clone(), Rc::clone(&var_value)) {
+                                    Some(_) => self.stack.push(var_value),
+                                    None => {
+                                        self.report_runtime_error(&format!("Undefined variable '{}'.", str));
+                                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
                                     }
                                 }
                             } else {
