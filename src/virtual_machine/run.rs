@@ -50,15 +50,11 @@ impl<'a> VirtualMachine<'a> {
                     frame_ip += 1;
 
                     match current_chunk.get_constant(pos) {
-                        Some(val) => {
-                            if val.is_string() {
-                                let str = val.as_string().unwrap();
-                                self.globals
-                                    .insert(String::from(str.as_str()), Rc::clone(self.stack.get(self.stack.len() - 1).unwrap()));
-
-                                // We pop the top off the stack here in case the garbage collector
-                                // was in the middle of an operation when we defined the variable
-                                self.stack.pop();
+                        Some(var_name) => {
+                            if var_name.is_string() {
+                                let name = var_name.as_string().unwrap();
+                                let value = self.stack.get(self.stack.len() - 1).unwrap();
+                                self.globals.insert(String::from(name.as_str()), Rc::clone(value));
                             } else {
                                 self.report_runtime_error("InternalRuntimeError: Pool item is not an identifier");
                             }
@@ -76,14 +72,14 @@ impl<'a> VirtualMachine<'a> {
                     frame_ip += 1;
 
                     match current_chunk.get_constant(pos) {
-                        Some(val) => {
-                            if val.is_string() {
-                                let str = val.as_string().unwrap();
+                        Some(var_name) => {
+                            if var_name.is_string() {
+                                let name = var_name.as_string().unwrap();
 
-                                match self.globals.get(&str) {
+                                match self.globals.get(&name) {
                                     Some(obj) => self.stack.push(Rc::clone(obj)),
                                     None => {
-                                        self.report_runtime_error(&format!("Undefined variable '{}'.", str));
+                                        self.report_runtime_error(&format!("Undefined variable '{}'.", name));
                                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                                     }
                                 }
