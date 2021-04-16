@@ -2,8 +2,8 @@ use std::rc::Rc;
 
 use crate::{
     chunk::{op_codes::OpCode, ConstantPos},
-    objects::Object,
     lexer::tokens::{Token, TokenType},
+    objects::Object,
 };
 
 use super::Compiler;
@@ -44,13 +44,23 @@ impl<'a> Compiler<'a> {
     }
 
     pub(super) fn variable_declaration(&mut self) {
-        let global = match self.parse_variable_name("Expected variable name.") {
-            ConstantPos::Pos(x) => x,
-            ConstantPos::Error => {
-                self.error_at_current("Could not complete variable declaration.");
-                return();
+        let mut identifiers: Vec<u16> = Vec::new();
+
+        // Allow the declaration of multiple variables to the same
+        // value in the same statement.
+        loop {
+            match self.parse_variable_name("Expected variable name.") {
+                ConstantPos::Pos(x) => identifiers.push(x),
+                ConstantPos::Error => {
+                    self.error_at_current("Could not complete variable declaration.");
+                    return ();
+                }
             }
-        };
+
+            if !self.matches(TokenType::COMMA_SEPARATOR) {
+                break;
+            }
+        }
 
         if self.matches(TokenType::EQUALS_SIGN) {
             self.expression();
@@ -60,7 +70,14 @@ impl<'a> Compiler<'a> {
 
         self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after variable declaration.");
 
-        self.define_variable(global);
+        // Assign the same value to all the declared variables
+        for name in identifiers.iter() {
+            self.define_variable(*name);
+        }
+
+        // Pop variable's value off the stack once we
+        // are done declaring the variables
+        self.emit_op_code(OpCode::OP_POP_STACK);
     }
 
     pub(super) fn parse_variable_name(&mut self, error_message: &str) -> ConstantPos {
@@ -83,7 +100,7 @@ impl<'a> Compiler<'a> {
 
     pub(super) fn named_variable(&mut self, token: Rc<Token<'a>>) {
         let arg = self.add_identifier_to_pool(token);
-        
+
         match arg {
             ConstantPos::Pos(x) => {
                 if self.matches(TokenType::EQUALS_SIGN) {
@@ -94,7 +111,7 @@ impl<'a> Compiler<'a> {
                 }
 
                 self.emit_short(x);
-            },
+            }
             ConstantPos::Error => {
                 self.error_at_current("Could not add variable name to constant pool.");
             }
