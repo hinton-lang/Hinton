@@ -222,7 +222,11 @@ impl<'a> Lexer<'a> {
     pub(super) fn make_token(&self, tok_type: TokenType) -> Rc<Token<'a>> {
         return Rc::new(Token {
             line_num: self.line,
-            column_num: self.token_start - self.line_start,
+            column_num: if tok_type != EOF {
+                self.token_start - self.line_start
+            } else {
+                self.current
+            },
             token_type: tok_type.clone(),
             // If the token is the EOF token, then the lexeme becomes the null terminator.
             // It is okay to use the null terminator for the EOF value because the EOF Token's

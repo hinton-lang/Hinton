@@ -7,7 +7,7 @@ use std::fs;
 mod chunk;
 mod compiler;
 mod objects;
-mod scanner;
+mod lexer;
 mod virtual_machine;
 
 // Using create-level sub-modules

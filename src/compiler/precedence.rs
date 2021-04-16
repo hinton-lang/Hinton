@@ -1,4 +1,4 @@
-use crate::scanner::tokens::TokenType;
+use crate::lexer::tokens::TokenType;
 
 /// Represents the precedence of different expressions in ascending order.
 /// For example, `PREC_EQUALITY` has lower precedence than `PREC_UNARY` because

@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::{
     chunk::{op_codes::OpCode, ConstantPos},
     objects::Object,
-    scanner::tokens::TokenType,
+    lexer::tokens::TokenType,
 };
 
 use super::{

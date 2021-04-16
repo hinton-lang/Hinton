@@ -1,13 +1,13 @@
-var x = 7 * 6 - 9 ** 6 - 3 / 6;
+let x = 7 * 6 - 9 ** 6 - 3 / 6;
 print(x);
 
-var range = 0..1000000000;
+let range = 0..1000000000;
 print(range);
 
-var ternary1 = false ? "Hello world" : true ? "Welcome to the dark side." : "Paradise ahead!";
+let ternary1 = false ? "Hello world" : true ? "Welcome to the dark side." : "Paradise ahead!";
 print(ternary1);
 
-var ternary2 = 22 + (true ? 8 : -22);
+let ternary2 = 22 + (true ? 8 : -22);
 print(ternary2);
 
 print(null ?? "It's nullish, alright.");
