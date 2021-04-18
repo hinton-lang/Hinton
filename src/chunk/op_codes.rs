@@ -44,6 +44,10 @@ pub enum OpCode {
     OP_GENERATE_RANGE,
     OP_TERNARY,
     OP_NULLISH_COALESCING,
+    OP_PRE_INCREMENT,
+    OP_POST_INCREMENT,
+    OP_PRE_DECREMENT,
+    OP_POST_DECREMENT,
     // Temporaries - These should always stay at
     // the bottom of the enum.
     OP_PRINT,
@@ -97,7 +101,11 @@ impl OpCode {
             34 => Some(OpCode::OP_GENERATE_RANGE),
             35 => Some(OpCode::OP_TERNARY),
             36 => Some(OpCode::OP_NULLISH_COALESCING),
-            37 => Some(OpCode::OP_PRINT),
+            37 => Some(OpCode::OP_PRE_INCREMENT),
+            38 => Some(OpCode::OP_POST_INCREMENT),
+            39 => Some(OpCode::OP_PRE_DECREMENT),
+            40 => Some(OpCode::OP_POST_DECREMENT),
+            41 => Some(OpCode::OP_PRINT),
             _ => None,
         };
     }
