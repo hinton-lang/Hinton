@@ -72,7 +72,7 @@ impl<'a> Chunk<'a> {
     ///
     /// ## Arguments
     /// * `name` – the name to print for the current chunk
-    pub fn disassemble(&self, name: &str) {
+    pub fn disassemble(&mut self, name: &str) {
         let mut i = 0;
         let mut current_line = 0;
 
@@ -117,8 +117,12 @@ impl<'a> Chunk<'a> {
                     match instr {
                         // Prints the value associated with an OP_CONSTANT instruction
                         OpCode::OP_CONSTANT => println!("\t\t---> {}", const_val()),
-                        OpCode::OP_DEFINE_GLOBAL_VAR | OpCode::OP_GET_GLOBAL_VAR | OpCode::OP_SET_GLOBAL_VAR => {
-                            println!("\t---> {}", const_val())
+                        OpCode::OP_DEFINE_GLOBAL_VAR
+                        | OpCode::OP_GET_GLOBAL_VAR
+                        | OpCode::OP_SET_GLOBAL_VAR
+                        | OpCode::OP_POST_INCREMENT
+                        | OpCode::OP_POST_DECREMENT => {
+                            println!("\t---> {}", const_val());
                         }
                         // If the instruction does not use the next to bytes, then print nothing
                         _ => println!(),

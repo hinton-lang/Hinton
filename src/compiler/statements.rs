@@ -106,6 +106,10 @@ impl<'a> Compiler<'a> {
                 if self.matches(TokenType::EQUALS_SIGN) {
                     self.expression();
                     self.emit_op_code(OpCode::OP_SET_GLOBAL_VAR);
+                } else if self.matches(TokenType::INCREMENT) {
+                    self.emit_op_code(OpCode::OP_POST_INCREMENT);
+                } else if self.matches(TokenType::DECREMENT) {
+                    self.emit_op_code(OpCode::OP_POST_DECREMENT);
                 } else {
                     self.emit_op_code(OpCode::OP_GET_GLOBAL_VAR);
                 }

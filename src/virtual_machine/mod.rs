@@ -44,13 +44,9 @@ impl<'a> VirtualMachine<'a> {
         return match Compiler::compile(source) {
             Ok(c) => {
                 let c = Rc::new(c);
-
                 self.stack.push(Rc::new(Object::Function(Rc::clone(&c))));
-
                 self.frames.push(CallFrame { function: c, ip: 0 });
-
                 return self.run();
-                // return InterpretResult::INTERPRET_OK;
             }
             Err(e) => e,
         };
