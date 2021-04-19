@@ -37,7 +37,7 @@ impl<'a> Compiler<'a> {
         let can_assign = (prec.clone() as u8) <= (Precedence::PREC_ASSIGNMENT as u8);
         self.execute_rule(prev_prefix_rule, can_assign);
 
-        // Because the rules for post-fix operators like `--` and `++` are handled by the ParseFn::CompileVariable rule,
+        // Because the rules for the `--` and `++` post-fix operators are handled by the ParseFn::CompileVariable rule,
         // we check here after a pre-fix rule has been executed that only identifiers are being post-incremented/decremented.
         if self.get_current_tok_type() == TokenType::INCREMENT && self.get_previous_tok_type() != TokenType::IDENTIFIER {
             return self.error_at_previous("Invalid increment target.");
@@ -82,24 +82,11 @@ impl<'a> Compiler<'a> {
             ParseFn::CompileVariable => self.consume_variable_identifier(),
             ParseFn::CompilePreIncrement => {}
             ParseFn::CompilePreDecrement => {}
-
             // If these pos-increment and post-decrement parsing rules are ever reached, then that
             // means the programmer is trying to increment a literal value. Valid post-increment and
             // post-decrement expressions are handled by the `CompileVariable` pattern match above.
-            ParseFn::CompilePostIncrement => {
-                if let TokenType::INCREMENT = self.get_previous_tok_type() {
-                    return ();
-                }
-
-                self.error_at_previous("Invalid increment target.");
-            }
-            ParseFn::CompilePostDecrement => {
-                if let TokenType::INCREMENT = self.get_previous_tok_type() {
-                    return ();
-                }
-
-                self.error_at_previous("Invalid decrement target.");
-            }
+            ParseFn::CompilePostIncrement => self.error_at_previous("Invalid increment target."),
+            ParseFn::CompilePostDecrement => self.error_at_previous("Invalid decrement target."),
             ParseFn::NONE => (),
         }
     }

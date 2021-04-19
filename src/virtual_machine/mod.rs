@@ -1,10 +1,7 @@
 pub mod run;
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{
-    compiler::Compiler,
-    objects::{self, CallFrame, Object},
-};
+use crate::{compiler::Compiler, objects::{self, FunctionObject, Object}};
 
 /// The types of results the interpreter can return
 #[allow(non_camel_case_types)]
@@ -15,10 +12,20 @@ pub enum InterpretResult {
     INTERPRET_RUNTIME_ERROR,
 }
 
+/// Represents a function call frame
+pub struct CallFrame<'a> {
+    /// The function chunk associated with this call frame
+    pub function: Rc<FunctionObject<'a>>,
+    // The instruction pointer for this call frame
+    pub ip: usize,
+    // TODO: What does this do?
+    // pub slots: Vec<Object<'a>>
+}
+
 /// Represents a virtual machine
 pub struct VirtualMachine<'a> {
     // is_in_global_frame: bool,
-    frames: Vec<objects::CallFrame<'a>>,
+    frames: Vec<CallFrame<'a>>,
     stack: Vec<Rc<objects::Object<'a>>>,
     globals: HashMap<String, Rc<objects::Object<'a>>>
 }

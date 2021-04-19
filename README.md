@@ -108,14 +108,13 @@ This to-do list only applies to the Rust implementation of the Hinton interprete
     - [ ] Named parameters.
     - [x] Variable declarations.
 - [ ] Define Built-In Types as Objects
-    - [ ] Array objects.
-    - [ ] Boolean objects.
+    - [x] Array objects.
+    - [x] Boolean objects.
     - [ ] Dictionary objects.
     - [ ] Enum objects.
-    - [ ] Function objects.
-    - [ ] Integer objects.
-    - [ ] Real objects.
-    - [ ] String objects.
+    - [x] Function objects.
+    - [x] Numeric Objects.
+    - [x] String objects.
 - [ ] Create a Runtime Standard Library.
 - [ ] Add Static Typing.
 - [ ] Create 'Cosmo'. Hinton's official CLI.
