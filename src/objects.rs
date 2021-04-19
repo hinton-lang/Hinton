@@ -1,7 +1,7 @@
 use crate::chunk;
 use std::rc::Rc;
 use std::result;
-use std::{fmt, usize};
+use std::fmt;
 
 /// All types of objects in Hinton
 pub enum Object<'a> {
@@ -283,16 +283,6 @@ pub struct FunctionObject<'a> {
     pub max_arity: i32,
     pub chunk: chunk::Chunk<'a>,
     pub name: &'a str,
-}
-
-/// Represents a function call frame
-pub struct CallFrame<'a> {
-    /// The function chunk associated with this call frame
-    pub function: Rc<FunctionObject<'a>>,
-    // The instruction pointer for this call frame
-    pub ip: usize,
-    // TODO: What does this do?
-    // pub slots: Vec<Object<'a>>
 }
 
 /// Represents a Hinton range object.
