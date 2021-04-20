@@ -11,7 +11,7 @@ use crate::{
 };
 
 use self::{
-    ast::{ASTNode, BinaryExprNode, BinaryExprType, LiteralExprNode},
+    ast::{ASTNode, BinaryExprNode, BinaryExprType, LiteralExprNode, UnaryExprNode},
     parser::parse,
 };
 
@@ -49,7 +49,8 @@ impl<'a> Compiler<'a> {
     pub fn compile_node(&mut self, node: &'a ASTNode) {
         return match node {
             ASTNode::Literal(x) => self.compile_literal(x),
-            ASTNode::BinaryExpr(x) => self.compile_binary_expr(x),
+            ASTNode::Binary(x) => self.compile_binary_expr(x),
+            ASTNode::Unary(x) => self.compile_unary_expr(x),
         };
     }
 
@@ -81,6 +82,19 @@ impl<'a> Compiler<'a> {
             BinaryExprType::Nullish => OpCode::OP_NULLISH_COALESCING,
             BinaryExprType::Addition => OpCode::OP_ADD,
             BinaryExprType::Range => OpCode::OP_GENERATE_RANGE,
+        };
+
+        self.emit_op_code(expression_op_code, opr_pos);
+    }
+
+    pub fn compile_unary_expr(&mut self, expr: &'a UnaryExprNode) {
+        self.compile_node(&expr.operand);
+        let opr_pos = (expr.token.line_num, expr.token.column_num);
+
+        let expression_op_code = match expr.opr_type {
+            ast::UnaryExprType::ArithmeticNeg => OpCode::OP_NEGATE,
+            ast::UnaryExprType::LogicNeg => OpCode::OP_LOGIC_NOT,
+            ast::UnaryExprType::BitwiseNeg => OpCode::OP_BITWISE_NOT,
         };
 
         self.emit_op_code(expression_op_code, opr_pos);
