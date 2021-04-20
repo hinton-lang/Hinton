@@ -39,6 +39,21 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    pub fn tokens_list(&mut self) -> Vec<Rc<Token>> {
+        let mut list: Vec<Rc<Token>> = Vec::new();
+
+        loop {
+            let tok = self.next_token();
+            list.push(tok.clone());
+
+            if tok.token_type == TokenType::EOF {
+                break;
+            }
+        }
+
+        return list;
+    }
+
     /// Gets the previously consumed character.
     ///
     /// ## Returns

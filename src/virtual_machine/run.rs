@@ -449,81 +449,81 @@ impl<'a> VirtualMachine<'a> {
                     }
                 }
 
-                Some(OpCode::OP_POST_INCREMENT) => {
-                    frame_ip += 1;
-                    let pos = current_chunk.codes.get_short(frame_ip);
-                    frame_ip += 1;
+                // Some(OpCode::OP_POST_INCREMENT) => {
+                //     frame_ip += 1;
+                //     let pos = current_chunk.codes.get_short(frame_ip);
+                //     frame_ip += 1;
 
-                    match current_chunk.get_constant(pos) {
-                        Some(var_name) => {
-                            if var_name.is_string() {
-                                let name = var_name.as_string().unwrap();
+                //     match current_chunk.get_constant(pos) {
+                //         Some(var_name) => {
+                //             if var_name.is_string() {
+                //                 let name = var_name.as_string().unwrap();
 
-                                match self.globals.get(&name) {
-                                    Some(obj) => {
-                                        // First return the value in post-increment
-                                        self.stack.push(Rc::clone(obj));
-                                        // Then update the variable
-                                        if obj.is_numeric() {
-                                            self.globals.insert(name, Rc::new(Object::Number(obj.as_number().unwrap() + 1f64)));
-                                        } else {
-                                            self.report_runtime_error(&format!("Cannot increment operand of type '{}'.", obj.type_name()));
-                                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                                        }
-                                    }
-                                    None => {
-                                        self.report_runtime_error(&format!("Undefined variable '{}'.", name));
-                                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                                    }
-                                }
-                            } else {
-                                self.report_runtime_error("InternalRuntimeError: Pool item is not an identifier");
-                            }
-                        }
-                        None => {
-                            self.report_runtime_error(&format!("InternalRuntimeError: Constant pool index '{}' out of range", pos));
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
-                    }
-                }
+                //                 match self.globals.get(&name) {
+                //                     Some(obj) => {
+                //                         // First return the value in post-increment
+                //                         self.stack.push(Rc::clone(obj));
+                //                         // Then update the variable
+                //                         if obj.is_numeric() {
+                //                             self.globals.insert(name, Rc::new(Object::Number(obj.as_number().unwrap() + 1f64)));
+                //                         } else {
+                //                             self.report_runtime_error(&format!("Cannot increment operand of type '{}'.", obj.type_name()));
+                //                             return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                //                         }
+                //                     }
+                //                     None => {
+                //                         self.report_runtime_error(&format!("Undefined variable '{}'.", name));
+                //                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                //                     }
+                //                 }
+                //             } else {
+                //                 self.report_runtime_error("InternalRuntimeError: Pool item is not an identifier");
+                //             }
+                //         }
+                //         None => {
+                //             self.report_runtime_error(&format!("InternalRuntimeError: Constant pool index '{}' out of range", pos));
+                //             return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                //         }
+                //     }
+                // }
 
-                Some(OpCode::OP_POST_DECREMENT) => {
-                    frame_ip += 1;
-                    let pos = current_chunk.codes.get_short(frame_ip);
-                    frame_ip += 1;
+                // Some(OpCode::OP_POST_DECREMENT) => {
+                //     frame_ip += 1;
+                //     let pos = current_chunk.codes.get_short(frame_ip);
+                //     frame_ip += 1;
 
-                    match current_chunk.get_constant(pos) {
-                        Some(var_name) => {
-                            if var_name.is_string() {
-                                let name = var_name.as_string().unwrap();
+                //     match current_chunk.get_constant(pos) {
+                //         Some(var_name) => {
+                //             if var_name.is_string() {
+                //                 let name = var_name.as_string().unwrap();
 
-                                match self.globals.get(&name) {
-                                    Some(obj) => {
-                                        // First return the value in post-increment
-                                        self.stack.push(Rc::clone(obj));
-                                        // Then update the variable
-                                        if obj.is_numeric() {
-                                            self.globals.insert(name, Rc::new(Object::Number(obj.as_number().unwrap() - 1f64)));
-                                        } else {
-                                            self.report_runtime_error(&format!("Cannot increment operand of type '{}'.", obj.type_name()));
-                                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                                        }
-                                    }
-                                    None => {
-                                        self.report_runtime_error(&format!("Undefined variable '{}'.", name));
-                                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                                    }
-                                }
-                            } else {
-                                self.report_runtime_error("InternalRuntimeError: Pool item is not an identifier");
-                            }
-                        }
-                        None => {
-                            self.report_runtime_error(&format!("InternalRuntimeError: Constant pool index '{}' out of range", pos));
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
-                    }
-                }
+                //                 match self.globals.get(&name) {
+                //                     Some(obj) => {
+                //                         // First return the value in post-increment
+                //                         self.stack.push(Rc::clone(obj));
+                //                         // Then update the variable
+                //                         if obj.is_numeric() {
+                //                             self.globals.insert(name, Rc::new(Object::Number(obj.as_number().unwrap() - 1f64)));
+                //                         } else {
+                //                             self.report_runtime_error(&format!("Cannot increment operand of type '{}'.", obj.type_name()));
+                //                             return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                //                         }
+                //                     }
+                //                     None => {
+                //                         self.report_runtime_error(&format!("Undefined variable '{}'.", name));
+                //                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                //                     }
+                //                 }
+                //             } else {
+                //                 self.report_runtime_error("InternalRuntimeError: Pool item is not an identifier");
+                //             }
+                //         }
+                //         None => {
+                //             self.report_runtime_error(&format!("InternalRuntimeError: Constant pool index '{}' out of range", pos));
+                //             return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                //         }
+                //     }
+                // }
 
                 Some(OpCode::OP_PRINT) => {
                     let val = self.stack.pop();

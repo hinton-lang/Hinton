@@ -48,15 +48,19 @@ impl<'a> VirtualMachine<'a> {
     /// ## Returns
     /// * `InterpretResult` – The result of the source interpretation.
     pub(crate) fn interpret(&'a mut self, source: &'a str) -> InterpretResult {
-        return match Compiler::compile(source) {
-            Ok(c) => {
-                let c = Rc::new(c);
-                self.stack.push(Rc::new(Object::Function(Rc::clone(&c))));
-                self.frames.push(CallFrame { function: c, ip: 0 });
-                return self.run();
-            }
-            Err(e) => e,
-        };
+        // return match Compiler::compile(source) {
+        //     Ok(c) => {
+        //         let c = Rc::new(c);
+        //         self.stack.push(Rc::new(Object::Function(Rc::clone(&c))));
+        //         self.frames.push(CallFrame { function: c, ip: 0 });
+        //         return self.run();
+        //     }
+        //     Err(e) => e,
+        // };
+
+        Compiler::compile(source);
+
+        return InterpretResult::INTERPRET_OK;
     }
 
     /// Throws a runtime error to the console
