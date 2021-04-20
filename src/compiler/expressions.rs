@@ -1,129 +1,308 @@
 use std::rc::Rc;
 
-use crate::{
-    chunk::{op_codes::OpCode, ConstantPos},
-    lexer::tokens::TokenType,
-    objects::Object,
-};
+use crate::{lexer::tokens::TokenType, objects::Object};
 
 use super::{
-    precedence::{self, ParseFn, Precedence},
-    Compiler,
+    ast::{ASTNode, ASTNode::*, BinaryExprNode, BinaryExprType, LiteralExprNode},
+    parser::Parser,
 };
 
-impl<'a> Compiler<'a> {
-    /// Compiles an expression.
-    pub(super) fn expression(&mut self) {
-        self.parse_with_precedence(Precedence::PREC_ASSIGNMENT);
-    }
-
-    /// Compiles an expression with a certain parse precedence.
-    /// It parses all sub-expressions in the current expression with
-    /// the same precedence or higher.
-    ///
-    /// ## Arguments
-    /// * `prec` – The minimum parsing precedence
-    pub(super) fn parse_with_precedence(&mut self, prec: Precedence) {
-        self.advance();
-
-        let prev_prefix_rule = precedence::get_rule(self.get_previous_tok_type()).prefix;
-
-        if let ParseFn::NONE = prev_prefix_rule {
-            self.error_at_previous("Expected an expression");
-            return ();
-        }
-
-        // Execute any prefix rules (for expressions that contain prefix operators like - or !)
-        let can_assign = (prec.clone() as u8) <= (Precedence::PREC_ASSIGNMENT as u8);
-        self.execute_rule(prev_prefix_rule, can_assign);
-
-        // Because the rules for the `--` and `++` post-fix operators are handled by the ParseFn::CompileVariable rule,
-        // we check here after a pre-fix rule has been executed that only identifiers are being post-incremented/decremented.
-        if self.get_current_tok_type() == TokenType::INCREMENT && self.get_previous_tok_type() != TokenType::IDENTIFIER {
-            return self.error_at_previous("Invalid increment target.");
-        } else if self.get_current_tok_type() == TokenType::DECREMENT && self.get_previous_tok_type() != TokenType::IDENTIFIER {
-            return self.error_at_previous("Invalid decrement target.");
-        }
-
-        // Execute any infix rules (for expressions that contain binary operators like +, **, or &&)
-        while (prec.clone() as u8) <= (precedence::get_rule(self.get_current_tok_type()).precedence as u8) {
-            self.advance();
-            let prev_infix_rule = precedence::get_rule(self.get_previous_tok_type()).infix;
-            self.execute_rule(prev_infix_rule, can_assign);
-        }
-
-        if can_assign && self.matches(TokenType::EQUALS_SIGN) {
-            self.error_at_previous("Invalid assignment target.");
-        }
-    }
-
-    /// Executes a parsing function from a given parser rule.
-    ///
-    /// ## Arguments
-    /// * `rule` – The parser rule to execute
-    /// * `can_assign` – Wether or not this is an assignment expression.
-    pub(super) fn execute_rule(&mut self, rule: ParseFn, _can_assign: bool) {
-        match rule {
-            ParseFn::CompileBinaryExpr => self.compile_binary_expr(),
-            ParseFn::CompileBinaryNum => self.compile_int_from_base(2),
-            ParseFn::CompileGrouping => {
-                self.expression();
-                self.consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after expression.")
-            }
-            ParseFn::CompileHexNum => self.compile_int_from_base(16),
-            ParseFn::CompileLiteral => self.compile_literal(),
-            ParseFn::CompileLogicAnd => self.logic_and(),
-            ParseFn::CompileLogicOr => self.logic_or(),
-            ParseFn::CompileNumeric => self.compile_number(),
-            ParseFn::CompileOctalNum => self.compile_int_from_base(8),
-            ParseFn::CompileString => self.compile_string(),
-            ParseFn::CompileUnary => self.compile_unary(),
-            ParseFn::CompileTernary => self.compile_ternary_expression(),
-            ParseFn::CompileVariable => self.consume_variable_identifier(),
-            ParseFn::CompilePreIncrement => {}
-            ParseFn::CompilePreDecrement => {}
-            // If these pos-increment and post-decrement parsing rules are ever reached, then that
-            // means the programmer is trying to increment a literal value. Valid post-increment and
-            // post-decrement expressions are handled by the `CompileVariable` pattern match above.
-            ParseFn::CompilePostIncrement => self.error_at_previous("Invalid increment target."),
-            ParseFn::CompilePostDecrement => self.error_at_previous("Invalid decrement target."),
-            ParseFn::NONE => (),
-        }
-    }
-
-    /// Tries to add an object to the constant pool: if the object was successfully
-    /// added to the pool, also adds an `OpCode::CONSTANT(u16)` instruction to the chunk.
-    /// Otherwise, if it could add the constant to the pool, reports an error.
-    ///
-    /// ## Arguments
-    /// * `obj` – The object to be added to the pool
-    /// * `add_const` – Wether or not the compiler should also emit an `OpCode::OP_CONSTANT`
-    /// instruction before the other two bytes.
+impl<'a> Parser<'a> {
+    /// Parses an expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// * `Option<u16>` – The position of the constant in the pool if it was added successfully.
-    pub(super) fn emit_constant_instruction(&mut self, obj: Rc<Object<'a>>, add_const: bool) -> Option<u16> {
-        let pos = self.chunk.add_constant(obj);
-
-        match pos {
-            ConstantPos::Pos(x) => {
-                if add_const {
-                    self.emit_op_code(OpCode::OP_CONSTANT);
-                }
-
-                // Emit the index of the constant in the pool
-                self.emit_short(x);
-                Some(x)
-            }
-            ConstantPos::Error => {
-                self.error_at_previous("Too many constants in one chunk.");
-                None
-            }
-        }
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn expression(&mut self) -> Option<ASTNode<'a>> {
+        self.assignment()
     }
 
-    /// Compiles a string.
-    pub(super) fn compile_string(&mut self) {
+    /// Parses an assignment expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The assignment expression's AST node.
+    pub(super) fn assignment(&mut self) -> Option<ASTNode<'a>> {
+        let expr = self.logic_or();
+
+        return expr;
+    }
+
+    /// Parses an 'OR' expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn logic_or(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.logic_and();
+
+        while self.matches(TokenType::LOGICAL_OR) {
+            let opr = self.previous.clone();
+
+            expr = Some(BinaryExpr(BinaryExprNode {
+                left: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create lhs of expression
+                },
+                right: Box::new(self.logic_and().unwrap()),
+                token: opr,
+                opr_type: BinaryExprType::LogicOR,
+            }));
+        }
+
+        return expr;
+    }
+
+    /// Parses an 'AND' expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn logic_and(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.equality();
+
+        while self.matches(TokenType::LOGICAL_AND) {
+            let opr = self.previous.clone();
+
+            expr = Some(BinaryExpr(BinaryExprNode {
+                left: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create lhs of expression
+                },
+                right: Box::new(self.equality().unwrap()),
+                token: opr,
+                opr_type: BinaryExprType::LogicAND,
+            }));
+        }
+
+        return expr;
+    }
+
+    /// Parses an equality expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn equality(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.comparison();
+
+        while self.matches(TokenType::LOGICAL_EQ) || self.matches(TokenType::LOGICAL_NOT_EQ) {
+            let opr = self.previous.clone();
+
+            let opr_type = if opr.token_type == TokenType::LOGICAL_EQ {
+                BinaryExprType::LogicEQ
+            } else {
+                BinaryExprType::LogicNotEQ
+            };
+
+            expr = Some(BinaryExpr(BinaryExprNode {
+                left: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create lhs of expression
+                },
+                right: Box::new(self.comparison().unwrap()),
+                token: opr,
+                opr_type,
+            }));
+        }
+
+        return expr;
+    }
+
+    /// Parses a comparison expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn comparison(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.range();
+
+        while self.matches(TokenType::LESS_THAN)
+            || self.matches(TokenType::LESS_THAN_EQ)
+            || self.matches(TokenType::GREATER_THAN)
+            || self.matches(TokenType::GREATER_THAN_EQ)
+        {
+            let opr = self.previous.clone();
+
+            let opr_type = if opr.token_type == TokenType::LESS_THAN {
+                BinaryExprType::LogicLessThan
+            } else if opr.token_type == TokenType::LESS_THAN_EQ {
+                BinaryExprType::LogicLessThanEQ
+            } else if opr.token_type == TokenType::GREATER_THAN {
+                BinaryExprType::LogicGreaterThan
+            } else {
+                BinaryExprType::LogicGreaterThanEQ
+            };
+
+            expr = Some(BinaryExpr(BinaryExprNode {
+                left: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create lhs of expression
+                },
+                right: Box::new(self.range().unwrap()),
+                token: opr,
+                opr_type,
+            }));
+        }
+
+        return expr;
+    }
+
+    /// Parses a range expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn range(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.term();
+
+        if self.matches(TokenType::RANGE_OPERATOR) {
+            let opr = self.previous.clone();
+
+            expr = Some(BinaryExpr(BinaryExprNode {
+                left: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create lhs of expression
+                },
+                right: Box::new(self.term().unwrap()),
+                token: opr,
+                opr_type: BinaryExprType::Range,
+            }));
+        }
+
+        return expr;
+    }
+
+    /// Parses a term expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn term(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.factor();
+
+        while self.matches(TokenType::PLUS) || self.matches(TokenType::MINUS) {
+            let opr = self.previous.clone();
+
+            let opr_type = if opr.token_type == TokenType::PLUS {
+                BinaryExprType::Addition
+            } else {
+                BinaryExprType::Minus
+            };
+
+            expr = Some(BinaryExpr(BinaryExprNode {
+                left: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create lhs of expression
+                },
+                right: Box::new(self.factor().unwrap()),
+                token: opr,
+                opr_type,
+            }));
+        }
+
+        return expr;
+    }
+
+    /// Parses a factor expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn factor(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.expo();
+
+        while self.matches(TokenType::SLASH) || self.matches(TokenType::STAR) || self.matches(TokenType::MODULUS) {
+            let opr = self.previous.clone();
+
+            let opr_type = if opr.token_type == TokenType::SLASH {
+                BinaryExprType::Division
+            } else if opr.token_type == TokenType::STAR {
+                BinaryExprType::Multiplication
+            } else {
+                BinaryExprType::Modulus
+            };
+
+            expr = Some(BinaryExpr(BinaryExprNode {
+                left: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create lhs of expression
+                },
+                right: Box::new(self.expo().unwrap()),
+                token: opr,
+                opr_type,
+            }));
+        }
+
+        return expr;
+    }
+
+    /// Parses an exponentiation expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn expo(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.unary();
+
+        while self.matches(TokenType::EXPO) {
+            let opr = self.previous.clone();
+
+            expr = Some(BinaryExpr(BinaryExprNode {
+                left: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create lhs of expression
+                },
+                right: Box::new(self.unary().unwrap()),
+                token: opr,
+                opr_type: BinaryExprType::Expo,
+            }));
+        }
+
+        return expr;
+    }
+
+    /// Parses a unary expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn unary(&mut self) -> Option<ASTNode<'a>> {
+        let expr = self.primary();
+
+        return expr;
+    }
+
+    /// Parses a primary (literal) expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn primary(&mut self) -> Option<ASTNode<'a>> {
+        self.advance();
+
+        let literal_value = match self.get_previous_tok_type() {
+            TokenType::STRING_LITERAL => self.compile_string(),
+            TokenType::TRUE_LITERAL => Rc::new(Object::Bool(true)),
+            TokenType::FALSE_LITERAL => Rc::new(Object::Bool(false)),
+            TokenType::NULL_LITERAL => Rc::new(Object::Null()),
+            TokenType::NUMERIC_LITERAL => match self.compile_number() {
+                Ok(x) => x,
+                Err(_) => return None,
+            },
+            TokenType::BINARY_LITERAL => match self.compile_int_from_base(2) {
+                Ok(x) => x,
+                Err(_) => return None,
+            },
+            TokenType::OCTAL_LITERAL => match self.compile_int_from_base(8) {
+                Ok(x) => x,
+                Err(_) => return None,
+            },
+            TokenType::HEXADECIMAL_LITERAL => match self.compile_int_from_base(16) {
+                Ok(x) => x,
+                Err(_) => return None,
+            },
+            _ => return None,
+        };
+
+        let node = LiteralExprNode {
+            value: literal_value,
+            token: self.current.clone(),
+        };
+
+        return Some(Literal(node));
+    }
+
+    /// Compiles a string token to a Hinton String.
+    pub(super) fn compile_string(&mut self) -> Rc<Object<'a>> {
         let lexeme = self.previous.lexeme.clone();
 
         // Remove outer quotes from the source string
@@ -138,11 +317,11 @@ impl<'a> Compiler<'a> {
             .replace("\\\"", "\"");
 
         // Emits the constant instruction
-        self.emit_constant_instruction(Rc::new(Object::String(lexeme)), true);
+        return Rc::new(Object::String(lexeme));
     }
 
-    /// Compiles a number.
-    pub(super) fn compile_number(&mut self) {
+    /// Compiles a number token to a Hinton Number.
+    pub(super) fn compile_number(&mut self) -> Result<Rc<Object<'a>>, ()> {
         let lexeme = self.previous.lexeme.clone();
         // Removes the underscores from the lexeme
         let lexeme = lexeme.replace('_', "");
@@ -152,130 +331,32 @@ impl<'a> Compiler<'a> {
         // If the lexeme could successfully be converted to `isize` integer
         // then we proceed to save it in the constant pool and emit the
         // instruction. Otherwise, we indicate that there was a compilation error.
-        match num {
-            Ok(x) => {
-                self.emit_constant_instruction(Rc::new(Object::Number(x)), true);
+        return match num {
+            Ok(x) => Ok(Rc::new(Object::Number(x))),
+            Err(_) => {
+                self.error_at_previous("Unexpected token.");
+                Err(())
             }
-            Err(_) => todo!("Throw a meaningful error message if the lexeme could not be converted to a Rust float."),
-        }
+        };
     }
 
-    /// Compiles a binary, octal, or hexadecimal number.
-    pub(super) fn compile_int_from_base(&mut self, radix: u32) {
+    /// Compiles a binary, octal, or hexadecimal number token to a Hinton Number.
+    pub(super) fn compile_int_from_base(&mut self, radix: u32) -> Result<Rc<Object<'a>>, ()> {
         let lexeme = self.previous.lexeme.clone();
         // Removes the underscores from the lexeme
         let lexeme = lexeme.replace('_', "");
         // Parses the lexeme into an integer
-        let num = isize::from_str_radix(&lexeme, radix);
+        let num = isize::from_str_radix(&lexeme[2..], radix);
 
         // If the lexeme could successfully be converted to `isize` integer
         // then we proceed to save it in the constant pool and emit the
         // instruction. Otherwise, we indicate that there was a compilation error.
-        match num {
-            Ok(x) => {
-                self.emit_constant_instruction(Rc::new(Object::Number(x as f64)), true);
+        return match num {
+            Ok(x) => Ok(Rc::new(Object::Number(x as f64))),
+            Err(_) => {
+                self.error_at_previous("Unexpected token.");
+                Err(())
             }
-            Err(_) => todo!("Throw a meaningful error message if the lexeme could not be converted to a Rust float."),
-        }
-    }
-
-    /// Compiles a literal value (true, false, and null).
-    pub(super) fn compile_literal(&mut self) {
-        match self.get_previous_tok_type() {
-            TokenType::TRUE_LITERAL => self.emit_op_code(OpCode::OP_TRUE),
-            TokenType::FALSE_LITERAL => self.emit_op_code(OpCode::OP_FALSE),
-            TokenType::NULL_LITERAL => self.emit_op_code(OpCode::OP_NULL),
-            _ => return (), // Unreachable.
-        }
-    }
-
-    /// Compiles a unary expression.
-    pub(super) fn compile_unary(&mut self) {
-        let operator_type = self.get_previous_tok_type();
-
-        // Compile the operand.
-        self.parse_with_precedence(Precedence::PREC_UNARY);
-
-        // Emit the operator instruction.
-        match operator_type {
-            TokenType::LOGICAL_NOT => self.emit_op_code(OpCode::OP_LOGIC_NOT),
-            TokenType::BITWISE_NOT => self.emit_op_code(OpCode::OP_BITWISE_NOT),
-            TokenType::MINUS => self.emit_op_code(OpCode::OP_NEGATE),
-            _ => return (), // Unreachable.
-        }
-    }
-
-    // Compiles a binary expression.
-    pub(super) fn compile_binary_expr(&mut self) {
-        // Remember the operator.
-        let operator_type = self.get_previous_tok_type();
-
-        // Compile the right operand.
-        let rule = precedence::get_rule(self.get_previous_tok_type());
-        // We use one higher level of precedence for the right operand because
-        // the binary operators are left-associative. Given a series of the same
-        // operator, like: `1 + 2 + 3 + 4` We want to parse it like: `((1 + 2) + 3)
-        // + 4` Thus, when parsing the right-hand operand to the first +, we want to
-        // consume the 2, but not the rest, so we use one level above +’s
-        // precedence. But if our operator was right-associative, this would be
-        // wrong. Given: `a = b = c = d` Since assignment is right-associative, we
-        // want to parse it as: `a = (b = (c = d))` To enable that, we would call
-        // parsePrecedence() with the same precedence as the current operator.
-        self.parse_with_precedence(Precedence::get_by_val((rule.precedence as u8) + 1));
-
-        // Emit the operator instruction.
-        match operator_type {
-            TokenType::PLUS => self.emit_op_code(OpCode::OP_ADD),
-            TokenType::MINUS => self.emit_op_code(OpCode::OP_SUBTRACT),
-            TokenType::STAR => self.emit_op_code(OpCode::OP_MULTIPLY),
-            TokenType::SLASH => self.emit_op_code(OpCode::OP_DIVIDE),
-            TokenType::MODULUS => self.emit_op_code(OpCode::OP_MODULUS),
-            TokenType::EXPO => self.emit_op_code(OpCode::OP_EXPO),
-            TokenType::BITWISE_OR => self.emit_op_code(OpCode::OP_BITWISE_OR),
-            TokenType::BITWISE_XOR => self.emit_op_code(OpCode::OP_BITWISE_XOR),
-            TokenType::BITWISE_AND => self.emit_op_code(OpCode::OP_BITWISE_AND),
-            TokenType::BITWISE_LEFT_SHIFT => self.emit_op_code(OpCode::OP_BITWISE_L_SHIFT),
-            TokenType::BITWISE_RIGHT_SHIFT => self.emit_op_code(OpCode::OP_BITWISE_R_SHIFT),
-            TokenType::LOGICAL_EQ => self.emit_op_code(OpCode::OP_EQUALS),
-            TokenType::LOGICAL_NOT_EQ => self.emit_op_code(OpCode::OP_NOT_EQUALS),
-            TokenType::GREATER_THAN => self.emit_op_code(OpCode::OP_GREATER_THAN),
-            TokenType::GREATER_THAN_EQ => self.emit_op_code(OpCode::OP_GREATER_THAN_EQ),
-            TokenType::LESS_THAN => self.emit_op_code(OpCode::OP_LESS_THAN),
-            TokenType::LESS_THAN_EQ => self.emit_op_code(OpCode::OP_LESS_THAN_EQ),
-            TokenType::RANGE_OPERATOR => self.emit_op_code(OpCode::OP_GENERATE_RANGE),
-            TokenType::NULLISH_COALESCING => self.emit_op_code(OpCode::OP_NULLISH_COALESCING),
-            _ => return (), // Unreachable.
-        }
-    }
-
-    /// Compiles a ternary expression.
-    pub(super) fn compile_ternary_expression(&mut self) {
-        match self.get_previous_tok_type() {
-            TokenType::QUESTION_MARK => {
-                // Ternary expressions are right-associative, so we parse the operands
-                // with the same level of precedence as another ternary expression.
-                self.parse_with_precedence(Precedence::PREC_TERNARY);
-                self.consume(TokenType::COLON_SEPARATOR, "Expected ':' for ternary expression.");
-                self.parse_with_precedence(Precedence::PREC_TERNARY);
-
-                // Add the ternary OpCode
-                self.emit_op_code(OpCode::OP_TERNARY);
-            }
-            // TODO: Allowing ternary conditional expressions of the form
-            // `a if x else b` is a design choice. Should ternary expressions
-            // of this form also be allowed? Should we chose one or the other?
-            // What are the benefits? and What Hinton programmers prefer?
-            _ => return (), // Unreachable.
-        }
-    }
-
-    /// Compiles a logic-and expression
-    pub(super) fn logic_and(&mut self) {
-        todo!("To be implemented");
-    }
-
-    /// Compiles a logic-or expression
-    pub(super) fn logic_or(&mut self) {
-        todo!("To be implemented");
+        };
     }
 }

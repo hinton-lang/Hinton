@@ -1,196 +1,128 @@
-mod expressions;
-mod precedence;
-mod statements;
+pub mod ast;
+pub mod expressions;
+pub mod parser;
 
 use std::rc::Rc;
 
 use crate::{
-    chunk::{op_codes::OpCode, Chunk},
-    objects::FunctionObject,
-    lexer::tokens::Token,
-    lexer::tokens::TokenType,
-    lexer::Lexer,
-    virtual_machine::InterpretResult,
+    chunk::{op_codes::OpCode, Chunk, ConstantPos},
+    lexer::tokens::{Token, TokenType},
+    objects::Object,
+};
+
+use self::{
+    ast::{ASTNode, BinaryExprNode, BinaryExprType, LiteralExprNode},
+    parser::parse,
 };
 
 /// Represents a compiler and its internal state.
 pub struct Compiler<'a> {
-    lexer: Lexer<'a>,
-    previous: Rc<Token<'a>>,
-    current: Rc<Token<'a>>,
     had_error: bool,
     is_in_panic: bool,
-    chunk: Chunk<'a>,
+    pub chunk: Chunk<'a>,
 }
 
 impl<'a> Compiler<'a> {
-    /// Compiles a given source string into a chunk of ByteCode instructions.
-    ///
-    /// ## Arguments
-    /// * `src` – The string to be compiled
-    ///
-    /// ## Returns
-    /// `Result<FunctionObject, InterpretResult>` – An object function containing
-    /// the global scope for the program if no compile errors were generated. An
-    ///  `InterpretResult::INTERPRET_COMPILE_ERROR` otherwise.
-    pub fn compile(src: &'a str) -> Result<FunctionObject, InterpretResult> {
-        // Initialize the compiler
-        let mut s = Self {
-            lexer: Lexer::lex(src),
-            previous: Rc::new(Token {
-                line_num: 0,
-                column_num: 0,
-                token_type: TokenType::INTERNAL_INIT_HINTON_COMPILER,
-                lexeme: "",
-            }),
-            current: Rc::new(Token {
-                line_num: 0,
-                column_num: 0,
-                token_type: TokenType::INTERNAL_INIT_HINTON_COMPILER,
-                lexeme: "",
-            }),
+    pub fn compile(src: &'a str) {
+        let tree: Vec<ASTNode<'a>> = parse(src);
+
+        let mut c = Compiler {
             had_error: false,
             is_in_panic: false,
             chunk: Chunk::new(),
         };
 
-        // Start compiling the chunk
-        s.advance();
-        while !s.matches(TokenType::EOF) {
-            s.declaration();
+        // iterate over the tree
+        for item in tree.iter() {
+            item.print(0);
+            c.compile_node(item);
+
+            if c.had_error {
+                break;
+            }
         }
 
-        // TEMPORARY: Adds a return instruction to end the compiler.
-        s.emit_op_code(OpCode::OP_RETURN);
+        c.chunk.disassemble("<Script>");
+    }
 
-        // TODO: print on debug mode only
-        // s.chunk.disassemble("<script>");
-
-        return if !s.had_error {
-            Ok(FunctionObject {
-                chunk: s.chunk,
-                max_arity: 0,
-                min_arity: 0,
-                name: "<script>",
-            })
-        } else {
-            Err(InterpretResult::INTERPRET_COMPILE_ERROR)
+    /// Compiles an AST node.
+    pub fn compile_node(&mut self, node: &'a ASTNode) {
+        return match node {
+            ASTNode::Literal(x) => self.compile_literal(x),
+            ASTNode::BinaryExpr(x) => self.compile_binary_expr(x),
         };
     }
 
-    /// Checks that the current token matches the tokenType provided.
-    ///
-    /// ## Arguments
-    /// * `type` The tokenType we expect to match with the current token.
-    pub(super) fn check(&mut self, tok_type: TokenType) -> bool {
-        if tok_type == self.get_current_tok_type() {
-            true
-        } else {
-            false
-        }
+    /// Compiles a binary expression
+    pub fn compile_binary_expr(&mut self, expr: &'a BinaryExprNode) {
+        self.compile_node(&expr.left);
+        self.compile_node(&expr.right);
+        let opr_pos = (expr.token.line_num, expr.token.column_num);
+
+        let expression_op_code = match expr.opr_type {
+            BinaryExprType::BitwiseAND => OpCode::OP_BITWISE_AND,
+            BinaryExprType::BitwiseOR => OpCode::OP_BITWISE_OR,
+            BinaryExprType::BitwiseShiftLeft => OpCode::OP_BITWISE_L_SHIFT,
+            BinaryExprType::BitwiseShiftRight => OpCode::OP_BITWISE_R_SHIFT,
+            BinaryExprType::BitwiseXOR => OpCode::OP_BITWISE_XOR,
+            BinaryExprType::Division => OpCode::OP_DIVIDE,
+            BinaryExprType::Expo => OpCode::OP_EXPO,
+            BinaryExprType::LogicAND => return (),
+            BinaryExprType::LogicEQ => OpCode::OP_EQUALS,
+            BinaryExprType::LogicGreaterThan => OpCode::OP_GREATER_THAN,
+            BinaryExprType::LogicGreaterThanEQ => OpCode::OP_GREATER_THAN_EQ,
+            BinaryExprType::LogicLessThan => OpCode::OP_LESS_THAN,
+            BinaryExprType::LogicLessThanEQ => OpCode::OP_LESS_THAN_EQ,
+            BinaryExprType::LogicNotEQ => OpCode::OP_NOT_EQUALS,
+            BinaryExprType::LogicOR => return (),
+            BinaryExprType::Minus => OpCode::OP_SUBTRACT,
+            BinaryExprType::Modulus => OpCode::OP_MODULUS,
+            BinaryExprType::Multiplication => OpCode::OP_MULTIPLY,
+            BinaryExprType::Nullish => OpCode::OP_NULLISH_COALESCING,
+            BinaryExprType::Addition => OpCode::OP_ADD,
+            BinaryExprType::Range => OpCode::OP_GENERATE_RANGE,
+        };
+
+        self.emit_op_code(expression_op_code, opr_pos);
     }
 
-    /// Checks that the current token matches the tokenType provided.
-    /// If the the tokens match, the current token gets consumed and the
-    /// function returns true. Otherwise, if the tokens do not match,
-    /// the token is not consumed, and the function returns false.
-    ///
-    /// ## Arguments
-    /// * `tok_type` The tokenType we expect to match with the current token.
-    ///
-    /// ## Returns
-    /// `bool` – True if the tokens match, false otherwise.
-    pub(super) fn matches(&mut self, tok_type: TokenType) -> bool {
-        if self.check(tok_type) {
-            self.advance();
-            return true;
-        } else {
-            return false;
-        }
+    /// Compiles a literal expression
+    pub fn compile_literal(&mut self, expr: &'a LiteralExprNode) {
+        let obj = expr.value.clone();
+        self.emit_constant_instruction(obj, expr.token.clone());
     }
 
-    /// Advances the compiler to the next token.
-    pub(super) fn advance(&mut self) {
-        self.previous = self.current.clone();
+    /// Emits a constant instruction and adds the related object to the constant pool
+    pub fn emit_constant_instruction(&mut self, obj: Rc<Object<'a>>, token: Rc<Token<'a>>) {
+        let constant_pos = self.chunk.add_constant(obj);
 
-        // We need a loop so that if the current
-        // token results in an error token, we can
-        loop {
-            self.current = self.lexer.next_token();
-
-            match Rc::clone(&self.current).token_type {
-                TokenType::ERROR => self.error_at_current("Found error token"),
-                _ => break,
+        match constant_pos {
+            ConstantPos::Pos(pos) => {
+                self.emit_op_code(OpCode::OP_CONSTANT, (token.line_num, token.column_num));
+                self.emit_short(pos, (token.line_num, token.column_num));
+            }
+            ConstantPos::Error => {
+                self.error_at_token(token.clone(), "Too many constants in one chunk.");
             }
         }
-    }
-
-    /// Consumes the current token only if it is of a given type.
-    /// If the token does not match the type, emits a compiler error.
-    ///
-    /// ## Arguments
-    /// * `tok_type` – the expected type of the token to consume.
-    /// * `message` – the error message to be displayed if the current token does
-    /// not match the provided type.
-    pub(super) fn consume(&mut self, tok_type: TokenType, message: &str) {
-        if self.check(tok_type) {
-            self.advance();
-            return ();
-        }
-
-        self.error_at_current(message);
     }
 
     /// Emits a byte instruction from an OpCode into the chunk's instruction list.
     ///
     /// ## Arguments
     /// * `instr` – The OpCode instruction to added to the chunk.
-    pub(super) fn emit_op_code(&mut self, instr: OpCode) {
+    pub fn emit_op_code(&mut self, instr: OpCode, pos: (usize, usize)) {
         self.chunk.codes.push_byte(instr as u8);
-        let prev = Rc::clone(&self.previous);
-        self.chunk.locations.push((prev.line_num, prev.column_num));
+        self.chunk.locations.push(pos);
     }
 
     /// Emits a short instruction from a 16-bit integer into the chunk's instruction list.
     ///
     /// ## Arguments
     /// * `instr` – The 16-bit short instruction to added to the chunk.
-    pub(super) fn emit_short(&mut self, instr: u16) {
+    pub fn emit_short(&mut self, instr: u16, pos: (usize, usize)) {
         self.chunk.codes.push_short(instr);
-        let prev = Rc::clone(&self.previous);
-        self.chunk.locations.push((prev.line_num, prev.column_num));
-    }
-
-    /// Gets the type of the current token.
-    ///
-    /// ## Returns
-    /// `TokenType` – The type of the current token.
-    pub(super) fn get_current_tok_type(&self) -> TokenType {
-        Rc::clone(&self.current).token_type.clone()
-    }
-
-    /// Gets the type of the previous token.
-    ///
-    /// ## Returns
-    /// `TokenType` – The type of the previous token.
-    pub(super) fn get_previous_tok_type(&self) -> TokenType {
-        self.previous.token_type.clone()
-    }
-
-    /// Emits a compiler error from the current token.
-    ///
-    /// ## Arguments
-    /// * `message` – The error message to display.
-    pub(super) fn error_at_current(&mut self, message: &str) {
-        self.error_at_token(Rc::clone(&self.previous), message);
-    }
-
-    /// Emits a compiler error from the previous token.
-    ///
-    /// ## Arguments
-    /// * `message` – The error message to display.
-    pub(super) fn error_at_previous(&mut self, message: &str) {
-        self.error_at_token(Rc::clone(&self.previous), message);
+        self.chunk.locations.push(pos);
     }
 
     /// Emits a compiler error from the given token.
@@ -216,36 +148,5 @@ impl<'a> Compiler<'a> {
 
         println!("{}", message);
         self.had_error = true;
-    }
-
-    /// Synchronizes the compiler when it has found an error.
-    /// This method helps minimize the number of cascading errors the compiler emits
-    /// when it finds a parsing error. Once it reaches a synchronization point – like
-    /// a keyword for a statement – it stops emitting errors.
-    pub(super) fn synchronize(&mut self) {
-        self.is_in_panic = false;
-
-        while self.get_current_tok_type() != TokenType::EOF {
-            if self.get_previous_tok_type() == TokenType::SEMICOLON_SEPARATOR {
-                return ();
-            }
-
-            match self.get_current_tok_type() {
-                TokenType::CLASS_KEYWORD
-                | TokenType::FUNC_KEYWORD
-                | TokenType::LET_KEYWORD
-                | TokenType::FOR_KEYWORD
-                | TokenType::IF_KEYWORD
-                | TokenType::WHILE_KEYWORD
-                | TokenType::PRINT
-                | TokenType::RETURN_KEYWORD => {
-                    return ();
-                }
-
-                _ => {}
-            }
-
-            self.advance();
-        }
     }
 }
