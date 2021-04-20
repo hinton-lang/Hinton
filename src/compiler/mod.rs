@@ -11,7 +11,7 @@ use crate::{
 };
 
 use self::{
-    ast::{ASTNode, BinaryExprNode, BinaryExprType, LiteralExprNode, UnaryExprNode},
+    ast::{ASTNode, BinaryExprNode, BinaryExprType, LiteralExprNode, TernaryConditionalNode, UnaryExprNode},
     parser::parse,
 };
 
@@ -51,6 +51,7 @@ impl<'a> Compiler<'a> {
             ASTNode::Literal(x) => self.compile_literal(x),
             ASTNode::Binary(x) => self.compile_binary_expr(x),
             ASTNode::Unary(x) => self.compile_unary_expr(x),
+            ASTNode::TernaryConditional(x) => self.compile_ternary_conditional(x),
         };
     }
 
@@ -87,6 +88,7 @@ impl<'a> Compiler<'a> {
         self.emit_op_code(expression_op_code, opr_pos);
     }
 
+    /// Compiles a unary expression
     pub fn compile_unary_expr(&mut self, expr: &'a UnaryExprNode) {
         self.compile_node(&expr.operand);
         let opr_pos = (expr.token.line_num, expr.token.column_num);
@@ -100,10 +102,27 @@ impl<'a> Compiler<'a> {
         self.emit_op_code(expression_op_code, opr_pos);
     }
 
+    /// Compiles a ternary conditional expression
+    pub fn compile_ternary_conditional(&mut self, expr: &'a TernaryConditionalNode) {
+        self.compile_node(&expr.condition);
+        self.compile_node(&expr.branch_true);
+        self.compile_node(&expr.branch_false);
+
+        let opr_pos = (expr.token.line_num, expr.token.column_num);
+        self.emit_op_code(OpCode::OP_TERNARY, opr_pos);
+    }
+
     /// Compiles a literal expression
     pub fn compile_literal(&mut self, expr: &'a LiteralExprNode) {
         let obj = expr.value.clone();
-        self.emit_constant_instruction(obj, expr.token.clone());
+        let opr_pos = (expr.token.line_num, expr.token.column_num);
+
+        match *obj {
+            Object::Bool(x) if x => self.emit_op_code(OpCode::OP_TRUE, opr_pos),
+            Object::Bool(x) if !x => self.emit_op_code(OpCode::OP_FALSE, opr_pos),
+            Object::Null() => self.emit_op_code(OpCode::OP_NULL, opr_pos),
+            _ => self.emit_constant_instruction(obj, expr.token.clone()),
+        }
     }
 
     /// Emits a constant instruction and adds the related object to the constant pool

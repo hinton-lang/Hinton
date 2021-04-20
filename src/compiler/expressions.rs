@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::{lexer::tokens::TokenType, objects::Object};
 
 use super::{
-    ast::{ASTNode, ASTNode::*, BinaryExprNode, BinaryExprType, LiteralExprNode, UnaryExprNode, UnaryExprType},
+    ast::{ASTNode, ASTNode::*, BinaryExprNode, BinaryExprType, LiteralExprNode, TernaryConditionalNode, UnaryExprNode, UnaryExprType},
     parser::Parser,
 };
 
@@ -21,7 +21,43 @@ impl<'a> Parser<'a> {
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The assignment expression's AST node.
     pub(super) fn assignment(&mut self) -> Option<ASTNode<'a>> {
-        let expr = self.logic_or();
+        let expr = self.ternary_conditional();
+
+        return expr;
+    }
+
+    /// Parses a ternary conditional expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The assignment expression's AST node.
+    pub(super) fn ternary_conditional(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.logic_or();
+
+        if self.matches(TokenType::QUESTION_MARK) {
+            let opr = self.previous.clone();
+
+            let branch_true = match self.expression() {
+                Some(t) => t,
+                None => return None, // Could not create expression for branch_true
+            };
+
+            self.consume(TokenType::COLON_SEPARATOR, "Expected ':' in ternary operator.");
+
+            let branch_false = match self.expression() {
+                Some(t) => t,
+                None => return None, // Could not create expression for branch_false
+            };
+
+            expr = Some(TernaryConditional(TernaryConditionalNode {
+                condition: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create conditional expression
+                },
+                branch_true: Box::new(branch_true),
+                branch_false: Box::new(branch_false),
+                token: opr,
+            }));
+        }
 
         return expr;
     }
@@ -41,7 +77,10 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: Box::new(self.logic_and().unwrap()),
+                right: match self.logic_and() {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
                 token: opr,
                 opr_type: BinaryExprType::LogicOR,
             }));
@@ -55,7 +94,7 @@ impl<'a> Parser<'a> {
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
     pub(super) fn logic_and(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.equality();
+        let mut expr = self.bitwise_or();
 
         while self.matches(TokenType::LOGICAL_AND) {
             let opr = self.previous.clone();
@@ -65,9 +104,93 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: Box::new(self.equality().unwrap()),
+                right: match self.bitwise_or() {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
                 token: opr,
                 opr_type: BinaryExprType::LogicAND,
+            }));
+        }
+
+        return expr;
+    }
+
+    /// Parses a 'BITWISE OR' expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn bitwise_or(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.bitwise_xor();
+
+        while self.matches(TokenType::BITWISE_OR) {
+            let opr = self.previous.clone();
+
+            expr = Some(Binary(BinaryExprNode {
+                left: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create lhs of expression
+                },
+                right: match self.bitwise_xor() {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
+                token: opr,
+                opr_type: BinaryExprType::BitwiseOR,
+            }));
+        }
+
+        return expr;
+    }
+
+    /// Parses a 'BITWISE XOR' expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn bitwise_xor(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.bitwise_and();
+
+        while self.matches(TokenType::BITWISE_XOR) {
+            let opr = self.previous.clone();
+
+            expr = Some(Binary(BinaryExprNode {
+                left: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create lhs of expression
+                },
+                right: match self.bitwise_and() {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
+                token: opr,
+                opr_type: BinaryExprType::BitwiseXOR,
+            }));
+        }
+
+        return expr;
+    }
+
+    /// Parses a 'BITWISE AND' expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn bitwise_and(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.equality();
+
+        while self.matches(TokenType::BITWISE_AND) {
+            let opr = self.previous.clone();
+
+            expr = Some(Binary(BinaryExprNode {
+                left: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create lhs of expression
+                },
+                right: match self.equality() {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
+                token: opr,
+                opr_type: BinaryExprType::BitwiseAND,
             }));
         }
 
@@ -95,7 +218,10 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: Box::new(self.comparison().unwrap()),
+                right: match self.comparison() {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
                 token: opr,
                 opr_type,
             }));
@@ -133,7 +259,10 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: Box::new(self.range().unwrap()),
+                right: match self.range() {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
                 token: opr,
                 opr_type,
             }));
@@ -147,7 +276,7 @@ impl<'a> Parser<'a> {
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
     pub(super) fn range(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.term();
+        let mut expr = self.bitwise_shift();
 
         if self.matches(TokenType::RANGE_OPERATOR) {
             let opr = self.previous.clone();
@@ -157,9 +286,45 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: Box::new(self.term().unwrap()),
+                right: match self.bitwise_shift() {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
                 token: opr,
                 opr_type: BinaryExprType::Range,
+            }));
+        }
+
+        return expr;
+    }
+
+    /// Parses a 'BITWISE SHIFT' expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn bitwise_shift(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.term();
+
+        while self.matches(TokenType::BITWISE_LEFT_SHIFT) || self.matches(TokenType::BITWISE_RIGHT_SHIFT) {
+            let opr = self.previous.clone();
+
+            let opr_type = if opr.token_type == TokenType::BITWISE_LEFT_SHIFT {
+                BinaryExprType::BitwiseShiftLeft
+            } else {
+                BinaryExprType::BitwiseShiftRight
+            };
+
+            expr = Some(Binary(BinaryExprNode {
+                left: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create lhs of expression
+                },
+                right: match self.term() {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
+                token: opr,
+                opr_type: opr_type,
             }));
         }
 
@@ -187,7 +352,10 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: Box::new(self.factor().unwrap()),
+                right: match self.factor() {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
                 token: opr,
                 opr_type,
             }));
@@ -219,7 +387,10 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: Box::new(self.expo().unwrap()),
+                right: match self.expo() {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
                 token: opr,
                 opr_type,
             }));
@@ -243,7 +414,10 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: Box::new(self.unary().unwrap()),
+                right: match self.unary() {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
                 token: opr,
                 opr_type: BinaryExprType::Expo,
             }));
@@ -312,7 +486,10 @@ impl<'a> Parser<'a> {
                 Ok(x) => x,
                 Err(_) => return None,
             },
-            _ => return None,
+            _ => {
+                self.error_at_previous("Expected an expression.");
+                return None;
+            }
         };
 
         let node = LiteralExprNode {

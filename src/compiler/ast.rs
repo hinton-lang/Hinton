@@ -6,6 +6,7 @@ pub enum ASTNode<'a> {
     Literal(LiteralExprNode<'a>),
     Binary(BinaryExprNode<'a>),
     Unary(UnaryExprNode<'a>),
+    TernaryConditional(TernaryConditionalNode<'a>)
 }
 
 impl<'a> ASTNode<'a> {
@@ -23,6 +24,15 @@ impl<'a> ASTNode<'a> {
                 println!("{:?}", expr.token.token_type);
                 print!("{}Operand: ", "\t".repeat(depth + 1));
                 expr.operand.print(depth + 1);
+            }
+            ASTNode::TernaryConditional(expr) => {
+                println!("Ternary Conditional");
+                print!("{}Condition: ", "\t".repeat(depth + 1));
+                expr.condition.print(depth + 1);
+                print!("{}Branch True: ", "\t".repeat(depth + 1));
+                expr.branch_true.print(depth + 1);
+                print!("{}Branch False: ", "\t".repeat(depth + 1));
+                expr.branch_false.print(depth + 1);
             }
         }
     }
@@ -77,4 +87,12 @@ pub struct BinaryExprNode<'a> {
     pub right: Box<ASTNode<'a>>,
     pub token: Rc<Token<'a>>,
     pub opr_type: BinaryExprType,
+}
+
+
+pub struct TernaryConditionalNode<'a> {
+    pub condition: Box<ASTNode<'a>>,
+    pub branch_true: Box<ASTNode<'a>>,
+    pub branch_false: Box<ASTNode<'a>>,
+    pub token: Rc<Token<'a>>,
 }
