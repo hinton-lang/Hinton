@@ -3,7 +3,7 @@ use std::rc::Rc;
 use crate::{lexer::tokens::TokenType, objects::Object};
 
 use super::{
-    ast::{ASTNode, ASTNode::*, BinaryExprNode, BinaryExprType, LiteralExprNode},
+    ast::{ASTNode, ASTNode::*, BinaryExprNode, BinaryExprType, LiteralExprNode, UnaryExprNode, UnaryExprType},
     parser::Parser,
 };
 
@@ -36,7 +36,7 @@ impl<'a> Parser<'a> {
         while self.matches(TokenType::LOGICAL_OR) {
             let opr = self.previous.clone();
 
-            expr = Some(BinaryExpr(BinaryExprNode {
+            expr = Some(Binary(BinaryExprNode {
                 left: match expr {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
@@ -60,7 +60,7 @@ impl<'a> Parser<'a> {
         while self.matches(TokenType::LOGICAL_AND) {
             let opr = self.previous.clone();
 
-            expr = Some(BinaryExpr(BinaryExprNode {
+            expr = Some(Binary(BinaryExprNode {
                 left: match expr {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
@@ -90,7 +90,7 @@ impl<'a> Parser<'a> {
                 BinaryExprType::LogicNotEQ
             };
 
-            expr = Some(BinaryExpr(BinaryExprNode {
+            expr = Some(Binary(BinaryExprNode {
                 left: match expr {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
@@ -128,7 +128,7 @@ impl<'a> Parser<'a> {
                 BinaryExprType::LogicGreaterThanEQ
             };
 
-            expr = Some(BinaryExpr(BinaryExprNode {
+            expr = Some(Binary(BinaryExprNode {
                 left: match expr {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
@@ -152,7 +152,7 @@ impl<'a> Parser<'a> {
         if self.matches(TokenType::RANGE_OPERATOR) {
             let opr = self.previous.clone();
 
-            expr = Some(BinaryExpr(BinaryExprNode {
+            expr = Some(Binary(BinaryExprNode {
                 left: match expr {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
@@ -182,7 +182,7 @@ impl<'a> Parser<'a> {
                 BinaryExprType::Minus
             };
 
-            expr = Some(BinaryExpr(BinaryExprNode {
+            expr = Some(Binary(BinaryExprNode {
                 left: match expr {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
@@ -214,7 +214,7 @@ impl<'a> Parser<'a> {
                 BinaryExprType::Modulus
             };
 
-            expr = Some(BinaryExpr(BinaryExprNode {
+            expr = Some(Binary(BinaryExprNode {
                 left: match expr {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
@@ -238,7 +238,7 @@ impl<'a> Parser<'a> {
         while self.matches(TokenType::EXPO) {
             let opr = self.previous.clone();
 
-            expr = Some(BinaryExpr(BinaryExprNode {
+            expr = Some(Binary(BinaryExprNode {
                 left: match expr {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
@@ -257,9 +257,31 @@ impl<'a> Parser<'a> {
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
     pub(super) fn unary(&mut self) -> Option<ASTNode<'a>> {
-        let expr = self.primary();
+        if self.matches(TokenType::LOGICAL_NOT) || self.matches(TokenType::MINUS) || self.matches(TokenType::BITWISE_NOT) {
+            let opr = self.previous.clone();
+            let expr = self.primary();
 
-        return expr;
+            let opr_type = if opr.token_type == TokenType::LOGICAL_NOT {
+                UnaryExprType::LogicNeg
+            } else if opr.token_type == TokenType::BITWISE_NOT {
+                UnaryExprType::BitwiseNeg
+            } else {
+                UnaryExprType::ArithmeticNeg
+            };
+
+            return Some(Unary(UnaryExprNode {
+                operand: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
+                token: opr,
+                opr_type,
+            }));
+        } else {
+            let expr = self.primary();
+
+            return expr;
+        }
     }
 
     /// Parses a primary (literal) expression as specified in the grammar.cfg file.
