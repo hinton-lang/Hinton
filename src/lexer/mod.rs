@@ -38,13 +38,19 @@ impl<'a> Lexer<'a> {
             token_start: 0,
         }
     }
-    
+
     /// Gets the previously consumed character.
     ///
     /// ## Returns
     /// * `Option<char>` – The next character.
     pub(super) fn previous(&self) -> Option<char> {
-        return self.source.chars().nth(self.current - 1);
+        // TODO: Find a more reliable way of doing this.
+        // Node: Do not use `self.source.chars().nth(pos)`. Doing this will
+        // convert the entire source code to a vector of characters EVERY SINGLE
+        // TIME we call the `previous()`, `get_current()`, and `next()` methods.
+        // As you can imagine, converting the entire source code to a vector of
+        // characters so many times leads to a VERY SLOW lexer.
+        self.source[(self.current - 1)..(self.current)].chars().next()
     }
 
     /// Gets the current character without consuming it.
@@ -52,7 +58,12 @@ impl<'a> Lexer<'a> {
     /// ## Returns
     /// * `Option<char>` – The current character.
     pub(super) fn get_current(&self) -> Option<char> {
-        return self.source.chars().nth(self.current);
+        // TODO: How can you get rid of this EOF check?
+        if self.is_at_end() {
+            return Some('\0');
+        }
+        
+        self.source[(self.current)..(self.current + 1)].chars().next()
     }
 
     /// Returns the next character without consuming it.
@@ -63,7 +74,8 @@ impl<'a> Lexer<'a> {
         if self.is_at_end() {
             return Some('\0');
         }
-        return self.source.chars().nth(self.current + 1);
+
+        self.source[(self.current + 1)..(self.current + 2)].chars().next()
     }
 
     /// Checks if the scanner is at the end of the source.
@@ -199,7 +211,7 @@ impl<'a> Lexer<'a> {
         }
 
         let id = &self.source[(self.token_start)..(self.current)];
-        let tok_type =  tokens::make_identifier_type(id);
+        let tok_type = tokens::make_identifier_type(id);
         return self.make_token(tok_type);
     }
 
