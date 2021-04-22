@@ -1,32 +1,7 @@
-let x = 7 * 6 - 9 ** 6 - 3 / 6;
-print(x);
-
-let range = 0..1000000000;
-print(range);
-
-let ternary1 = false ? "Hello world" : true ? "Welcome to the dark side." : "Paradise ahead!";
-print(ternary1);
-
-let ternary2 = 22 + (true ? 8 : -22);
-print(ternary2);
-
-print(null ?? "It's nullish, alright.");
-
-print("The sky is blue (T/F): " + (true ? "True" : "False"));
-print(true);
-print(null);
-print(false);
-print("I am " + 20 + " years old.");
-
-// Multi-variable declaration
-let x1, x2, x3 = 22;
-print(x1);
-print(x2);
-print(x3);
-
-let a = 33;
-let b = a--;
-
-print(a--);
-print(a);
-print(b);
+print(6 + 44 - 5 * 6 / 9 mod 2 + 2 ** 4 % 8.9 / 7);
+print("Hello!! " * 5);
+print("The sky is definitely " + "blue");
+print("1 + 1 = " + 2);
+print(true ? "value #1" : "value #2");
+print(0b11 << 1);
+print(null ?? null ?? "Final Value");

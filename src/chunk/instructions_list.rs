@@ -59,7 +59,7 @@ impl InstructionsList {
         let byte = self.instructions.get(idx);
 
         match byte {
-            Some(x) => Some(OpCode::get(*x).unwrap() as u8),
+            Some(x) => Some(*x),
             None => None,
         }
     }
