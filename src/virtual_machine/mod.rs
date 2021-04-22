@@ -1,10 +1,7 @@
 pub mod run;
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{
-    intermediate::{compiler::Compiler, parser::Parser},
-    objects::{self, FunctionObject, Object},
-};
+use crate::{analyzer, intermediate::{compiler::Compiler, parser::Parser}, objects::{self, FunctionObject, Object}};
 
 /// The types of results the interpreter can return
 #[allow(non_camel_case_types)]
@@ -53,13 +50,13 @@ impl<'a> VirtualMachine<'a> {
     pub(crate) fn interpret(&'a mut self, source: &'a str) -> InterpretResult {
         // Parses the program
         let ast = match Parser::parse(source) {
-            Ok(x) => x,
+            Ok(x) => Rc::new(x),
             Err(e) => return e,
         };
 
         // This is where different static analysis of the
         // AST would take place
-        // ...
+        analyzer::analyze_module(Rc::clone(&ast));
 
         // Executes the program after it has been compiled to ByteCode
         return match Compiler::compile(ast) {
@@ -76,6 +73,8 @@ impl<'a> VirtualMachine<'a> {
     /// Throws a runtime error to the console
     pub(super) fn report_runtime_error(&self, message: &'a str) {
         let frame = self.frames.get(self.frames.len() - 1).unwrap();
+        // TODO: The frame's IP is not getting updated in the `run.rs`'s loop.
+        // This will show the wrong line and column when an error occurs.
         let line = frame.function.chunk.locations.get(frame.ip + 1).unwrap();
 
         eprintln!("RuntimeError at [{}:{}] – {}", line.0, line.1, message);

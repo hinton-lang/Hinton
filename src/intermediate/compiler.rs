@@ -29,7 +29,7 @@ impl<'a> Compiler<'a> {
     /// ## Returns
     /// `Result<Chunk<'a>, InterpretResult>` – If the program had no compile-time errors, returns
     /// a compiled chunk. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
-    pub fn compile(program: ModuleNode<'a>) -> Result<FunctionObject<'a>, InterpretResult> {
+    pub fn compile(program: Rc<ModuleNode<'a>>) -> Result<FunctionObject<'a>, InterpretResult> {
         let mut c = Compiler {
             had_error: false,
             is_in_panic: false,
