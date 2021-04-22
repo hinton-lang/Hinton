@@ -158,12 +158,14 @@ pub struct IdentifierExprNode<'a> {
     pub token: Rc<Token<'a>>,
 }
 
+/// Represents a print statement node in Hinton's Abstract Syntax Tree.
 #[derive(Clone)]
 pub struct PrintStmtNode<'a> {
     pub child: Box<ASTNode<'a>>,
     pub pos: (usize, usize),
 }
 
+/// Represents an expression statement node in Hinton's Abstract Syntax Tree.
 #[derive(Clone)]
 pub struct ExpressionStmtNode<'a> {
     pub child: Box<ASTNode<'a>>,

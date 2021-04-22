@@ -143,7 +143,7 @@ pub enum TokenType {
     // YIELD_KEYWORD
 
     // This one is only used to initialize the compiler
-    INTERNAL_INIT_HINTON_COMPILER,
+    __INIT_PARSER__,
 }
 
 /// Maps a keyword string to a token type.

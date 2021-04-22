@@ -2,7 +2,7 @@ pub mod run;
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    compiler::{parser::Parser, Compiler},
+    intermediate::{compiler::Compiler, parser::Parser},
     objects::{self, FunctionObject, Object},
 };
 
@@ -11,6 +11,7 @@ use crate::{
 #[derive(PartialEq)]
 pub enum InterpretResult {
     INTERPRET_OK,
+    INTERPRET_PARSE_ERROR,
     INTERPRET_COMPILE_ERROR,
     INTERPRET_RUNTIME_ERROR,
 }
@@ -27,7 +28,6 @@ pub struct CallFrame<'a> {
 
 /// Represents a virtual machine
 pub struct VirtualMachine<'a> {
-    // is_in_global_frame: bool,
     frames: Vec<CallFrame<'a>>,
     stack: Vec<Rc<objects::Object<'a>>>,
     globals: HashMap<String, Rc<objects::Object<'a>>>,
@@ -52,12 +52,17 @@ impl<'a> VirtualMachine<'a> {
     /// * `InterpretResult` – The result of the source interpretation.
     pub(crate) fn interpret(&'a mut self, source: &'a str) -> InterpretResult {
         // Parses the program
-        let ast = Parser::parse(source);
-        // Compiles the AST to ByteCode
-        let program = Compiler::compile(ast);
+        let ast = match Parser::parse(source) {
+            Ok(x) => x,
+            Err(e) => return e,
+        };
+
+        // This is where different static analysis of the
+        // AST would take place
+        // ...
 
         // Executes the program after it has been compiled to ByteCode
-        return match program {
+        return match Compiler::compile(ast) {
             Ok(c) => {
                 let c = Rc::new(c);
                 self.stack.push(Rc::new(Object::Function(Rc::clone(&c))));
