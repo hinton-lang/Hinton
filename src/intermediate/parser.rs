@@ -6,11 +6,12 @@ use crate::{
         Lexer,
     },
     objects::Object,
+    virtual_machine::InterpretResult,
 };
 
 use super::ast::{
-    ASTNode, ASTNode::*, BinaryExprNode, BinaryExprType, IdentifierExprNode, LiteralExprNode, ModuleNode, PrintStmtNode, TernaryConditionalNode,
-    UnaryExprNode, UnaryExprType,
+    ASTNode, ASTNode::*, BinaryExprNode, BinaryExprType, ExpressionStmtNode, IdentifierExprNode, LiteralExprNode, ModuleNode, PrintStmtNode,
+    TernaryConditionalNode, UnaryExprNode, UnaryExprType,
 };
 
 /// Represents Hinton's parser, which converts source text into
@@ -31,20 +32,20 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Vec<ASTNode<'a>>` – A list of nodes in the AST
-    pub fn parse(src: &'a str) -> ModuleNode<'a> {
+    pub fn parse(src: &'a str) -> Result<ModuleNode<'a>, InterpretResult> {
         // Initialize the compiler
-        let mut s = Parser {
+        let mut parser = Parser {
             lexer: Lexer::lex(src),
             previous: Rc::new(Token {
                 line_num: 0,
                 column_num: 0,
-                token_type: TokenType::INTERNAL_INIT_HINTON_COMPILER,
+                token_type: TokenType::__INIT_PARSER__,
                 lexeme: "",
             }),
             current: Rc::new(Token {
                 line_num: 0,
                 column_num: 0,
-                token_type: TokenType::INTERNAL_INIT_HINTON_COMPILER,
+                token_type: TokenType::__INIT_PARSER__,
                 lexeme: "",
             }),
             had_error: false,
@@ -54,11 +55,9 @@ impl<'a> Parser<'a> {
         let mut program = ModuleNode { body: vec![] };
 
         // Start compiling the chunk
-        s.advance();
-        while !s.matches(TokenType::EOF) && !s.had_error {
-            let x = s.declaration();
-
-            for decl in x.iter() {
+        parser.advance();
+        while !parser.matches(TokenType::EOF) && !parser.had_error {
+            for decl in parser.parse_declaration().iter() {
                 match decl {
                     // TODO: What can we do so that cloning each node is no longer necessary?
                     // Cloning each node is a very expensive operation because some of the nodes
@@ -66,12 +65,17 @@ impl<'a> Parser<'a> {
                     // of literal text could drastically slow down the performance of the compiler
                     // when those strings have to be cloned.
                     Some(val) => program.body.push(val.clone()),
-                    None => break,
+                    // Report parse error if node has None value
+                    None => return Err(InterpretResult::INTERPRET_PARSE_ERROR),
                 }
             }
         }
 
-        return program;
+        return if parser.had_error {
+            Err(InterpretResult::INTERPRET_PARSE_ERROR)
+        } else {
+            Ok(program)
+        };
     }
 
     /// Checks that the current token matches the tokenType provided.
@@ -225,7 +229,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(super) fn declaration(&mut self) -> Vec<Option<ASTNode<'a>>> {
+    pub(super) fn parse_declaration(&mut self) -> Vec<Option<ASTNode<'a>>> {
         let mut statements: Vec<Option<ASTNode<'a>>> = Vec::new();
 
         if self.matches(TokenType::LET_KEYWORD) {
@@ -241,16 +245,17 @@ impl<'a> Parser<'a> {
             // statements.add(enumDeclaration());
             todo!("Implement enum declarations")
         } else {
-            statements.push(self.statement());
+            statements.push(self.parse_statement());
         }
 
         return statements;
+
         // if self.is_in_panic {
         //     self.synchronize();
         // }
     }
 
-    pub(super) fn statement(&mut self) -> Option<ASTNode<'a>> {
+    pub(super) fn parse_statement(&mut self) -> Option<ASTNode<'a>> {
         if self.matches(TokenType::LEFT_CURLY_BRACES) {
             todo!("Implement blocks")
         } else if self.matches(TokenType::IF_KEYWORD) {
@@ -266,17 +271,17 @@ impl<'a> Parser<'a> {
         } else if self.matches(TokenType::RETURN_KEYWORD) {
             todo!("Implement return")
         } else if self.matches(TokenType::PRINT) {
-            self.print_statement()
+            self.parse_print_statement()
         } else {
-            self.expression_statement()
+            self.parse_expression_statement()
         }
     }
 
-    pub(super) fn print_statement(&mut self) -> Option<ASTNode<'a>> {
+    pub(super) fn parse_print_statement(&mut self) -> Option<ASTNode<'a>> {
         let opr = Rc::clone(&self.previous);
 
         self.consume(TokenType::LEFT_PARENTHESIS, "Expected '(' before expression.");
-        let expr = self.expression();
+        let expr = self.parse_expression();
         self.consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after expression.");
         self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after expression.");
 
@@ -289,13 +294,13 @@ impl<'a> Parser<'a> {
         }));
     }
 
-    pub(super) fn expression_statement(&mut self) -> Option<ASTNode<'a>> {
+    pub(super) fn parse_expression_statement(&mut self) -> Option<ASTNode<'a>> {
         let opr = Rc::clone(&self.previous);
-        let expr = self.expression();
+        let expr = self.parse_expression();
 
         self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after expression.");
 
-        return Some(PrintStmt(PrintStmtNode {
+        return Some(ExpressionStmt(ExpressionStmtNode {
             child: match expr {
                 Some(t) => Box::new(t),
                 None => return None, // Could not create expression to print
@@ -308,16 +313,16 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn expression(&mut self) -> Option<ASTNode<'a>> {
-        self.assignment()
+    pub(super) fn parse_expression(&mut self) -> Option<ASTNode<'a>> {
+        self.parse_assignment()
     }
 
     /// Parses an assignment expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The assignment expression's AST node.
-    pub(super) fn assignment(&mut self) -> Option<ASTNode<'a>> {
-        let expr = self.ternary_conditional();
+    pub(super) fn parse_assignment(&mut self) -> Option<ASTNode<'a>> {
+        let expr = self.parse_ternary_conditional();
 
         return expr;
     }
@@ -326,20 +331,20 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The assignment expression's AST node.
-    pub(super) fn ternary_conditional(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.logic_or();
+    pub(super) fn parse_ternary_conditional(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_nullish_coalescing();
 
         if self.matches(TokenType::QUESTION_MARK) {
             let opr = Rc::clone(&self.previous);
 
-            let branch_true = match self.expression() {
+            let branch_true = match self.parse_expression() {
                 Some(t) => t,
                 None => return None, // Could not create expression for branch_true
             };
 
             self.consume(TokenType::COLON_SEPARATOR, "Expected ':' in ternary operator.");
 
-            let branch_false = match self.expression() {
+            let branch_false = match self.parse_expression() {
                 Some(t) => t,
                 None => return None, // Could not create expression for branch_false
             };
@@ -358,12 +363,39 @@ impl<'a> Parser<'a> {
         return expr;
     }
 
+    /// Parses an '??' (nullish coalescing) expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode<'a>>` – The expression's AST node.
+    pub(super) fn parse_nullish_coalescing(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_logic_or();
+
+        while self.matches(TokenType::NULLISH_COALESCING) {
+            let opr = Rc::clone(&self.previous);
+
+            expr = Some(Binary(BinaryExprNode {
+                left: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create lhs of expression
+                },
+                right: match self.parse_logic_or() {
+                    Some(e) => Box::new(e),
+                    None => return None, // Could not create rhs of expression
+                },
+                pos: (opr.line_num, opr.column_num),
+                opr_type: BinaryExprType::Nullish,
+            }));
+        }
+
+        return expr;
+    }
+
     /// Parses an 'OR' expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn logic_or(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.logic_and();
+    pub(super) fn parse_logic_or(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_logic_and();
 
         while self.matches(TokenType::LOGICAL_OR) {
             let opr = Rc::clone(&self.previous);
@@ -373,7 +405,7 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: match self.logic_and() {
+                right: match self.parse_logic_and() {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
@@ -389,8 +421,8 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn logic_and(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.bitwise_or();
+    pub(super) fn parse_logic_and(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_bitwise_or();
 
         while self.matches(TokenType::LOGICAL_AND) {
             let opr = Rc::clone(&self.previous);
@@ -400,7 +432,7 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: match self.bitwise_or() {
+                right: match self.parse_bitwise_or() {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
@@ -416,8 +448,8 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn bitwise_or(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.bitwise_xor();
+    pub(super) fn parse_bitwise_or(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_bitwise_xor();
 
         while self.matches(TokenType::BITWISE_OR) {
             let opr = Rc::clone(&self.previous);
@@ -427,7 +459,7 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: match self.bitwise_xor() {
+                right: match self.parse_bitwise_xor() {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
@@ -443,8 +475,8 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn bitwise_xor(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.bitwise_and();
+    pub(super) fn parse_bitwise_xor(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_bitwise_and();
 
         while self.matches(TokenType::BITWISE_XOR) {
             let opr = Rc::clone(&self.previous);
@@ -454,7 +486,7 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: match self.bitwise_and() {
+                right: match self.parse_bitwise_and() {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
@@ -470,8 +502,8 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn bitwise_and(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.equality();
+    pub(super) fn parse_bitwise_and(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_equality();
 
         while self.matches(TokenType::BITWISE_AND) {
             let opr = Rc::clone(&self.previous);
@@ -481,7 +513,7 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: match self.equality() {
+                right: match self.parse_equality() {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
@@ -497,8 +529,8 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn equality(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.comparison();
+    pub(super) fn parse_equality(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_comparison();
 
         while self.matches(TokenType::LOGICAL_EQ) || self.matches(TokenType::LOGICAL_NOT_EQ) {
             let opr = Rc::clone(&self.previous);
@@ -514,7 +546,7 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: match self.comparison() {
+                right: match self.parse_comparison() {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
@@ -530,8 +562,8 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn comparison(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.range();
+    pub(super) fn parse_comparison(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_range();
 
         while self.matches(TokenType::LESS_THAN)
             || self.matches(TokenType::LESS_THAN_EQ)
@@ -555,7 +587,7 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: match self.range() {
+                right: match self.parse_range() {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
@@ -571,8 +603,8 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn range(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.bitwise_shift();
+    pub(super) fn parse_range(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_bitwise_shift();
 
         if self.matches(TokenType::RANGE_OPERATOR) {
             let opr = Rc::clone(&self.previous);
@@ -582,7 +614,7 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: match self.bitwise_shift() {
+                right: match self.parse_bitwise_shift() {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
@@ -598,8 +630,8 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn bitwise_shift(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.term();
+    pub(super) fn parse_bitwise_shift(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_term();
 
         while self.matches(TokenType::BITWISE_LEFT_SHIFT) || self.matches(TokenType::BITWISE_RIGHT_SHIFT) {
             let opr = Rc::clone(&self.previous);
@@ -615,7 +647,7 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: match self.term() {
+                right: match self.parse_term() {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
@@ -631,8 +663,8 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn term(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.factor();
+    pub(super) fn parse_term(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_factor();
 
         while self.matches(TokenType::PLUS) || self.matches(TokenType::MINUS) {
             let opr = Rc::clone(&self.previous);
@@ -648,7 +680,7 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: match self.factor() {
+                right: match self.parse_factor() {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
@@ -664,8 +696,8 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn factor(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.expo();
+    pub(super) fn parse_factor(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_expo();
 
         while self.matches(TokenType::SLASH) || self.matches(TokenType::STAR) || self.matches(TokenType::MODULUS) {
             let opr = Rc::clone(&self.previous);
@@ -683,7 +715,7 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: match self.expo() {
+                right: match self.parse_expo() {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
@@ -699,8 +731,8 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn expo(&mut self) -> Option<ASTNode<'a>> {
-        let mut expr = self.unary();
+    pub(super) fn parse_expo(&mut self) -> Option<ASTNode<'a>> {
+        let mut expr = self.parse_unary();
 
         while self.matches(TokenType::EXPO) {
             let opr = Rc::clone(&self.previous);
@@ -710,7 +742,7 @@ impl<'a> Parser<'a> {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create lhs of expression
                 },
-                right: match self.unary() {
+                right: match self.parse_unary() {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
@@ -726,10 +758,10 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn unary(&mut self) -> Option<ASTNode<'a>> {
+    pub(super) fn parse_unary(&mut self) -> Option<ASTNode<'a>> {
         if self.matches(TokenType::LOGICAL_NOT) || self.matches(TokenType::MINUS) || self.matches(TokenType::BITWISE_NOT) {
             let opr = Rc::clone(&self.previous);
-            let expr = self.primary();
+            let expr = self.parse_primary();
 
             let opr_type = if opr.token_type == TokenType::LOGICAL_NOT {
                 UnaryExprType::LogicNeg
@@ -748,7 +780,7 @@ impl<'a> Parser<'a> {
                 opr_type,
             }));
         } else {
-            let expr = self.primary();
+            let expr = self.parse_primary();
 
             return expr;
         }
@@ -758,7 +790,7 @@ impl<'a> Parser<'a> {
     ///
     /// ## Returns
     /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn primary(&mut self) -> Option<ASTNode<'a>> {
+    pub(super) fn parse_primary(&mut self) -> Option<ASTNode<'a>> {
         self.advance();
 
         let literal_value = match self.get_previous_tok_type() {
@@ -783,7 +815,7 @@ impl<'a> Parser<'a> {
                 Err(_) => return None,
             },
             TokenType::LEFT_PARENTHESIS => {
-                let expr = self.expression();
+                let expr = self.parse_expression();
                 self.consume(TokenType::RIGHT_PARENTHESIS, "Expected closing ')'.");
                 // For grouping expression, we don't wrap the inner expression inside a literal.
                 // Instead, we return the actual expression that was enclosed in the parenthesis.

@@ -1,6 +1,3 @@
-pub mod ast;
-pub mod parser;
-
 use std::rc::Rc;
 
 use crate::{
@@ -10,7 +7,8 @@ use crate::{
     virtual_machine::InterpretResult,
 };
 
-use self::ast::*;
+use super::ast;
+use super::ast::*;
 
 /// Represents a compiler and its internal state.
 pub struct Compiler<'a> {
@@ -56,6 +54,7 @@ impl<'a> Compiler<'a> {
 
         // Shows the chunk.
         // c.chunk.disassemble("<script>");
+        // c.chunk.print_raw("<script>");
         // **** TEMPORARY ****
         c.emit_op_code(OpCode::OP_RETURN, (0, 0));
 
@@ -75,9 +74,12 @@ impl<'a> Compiler<'a> {
             ASTNode::Binary(x) => self.compile_binary_expr(x),
             ASTNode::Unary(x) => self.compile_unary_expr(x),
             ASTNode::TernaryConditional(x) => self.compile_ternary_conditional(x),
-            ASTNode::Identifier(_) => {}
+            ASTNode::Identifier(_) => todo!("Add support for compiling identifiers."),
             ASTNode::PrintStmt(x) => self.compile_print_statement(x),
-            ASTNode::ExpressionStmt(_) => {}
+            ASTNode::ExpressionStmt(x) => {
+                self.compile_node(*x.child);
+                self.emit_op_code(OpCode::OP_POP_STACK, x.pos);
+            },
         };
     }
 
