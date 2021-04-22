@@ -58,7 +58,7 @@ impl<'a> Lexer<'a> {
             Some(':') => {
                 let tok = if self.matches(Some('=')) { COLON_EQUALS } else { COLON_SEPARATOR };
                 self.make_token(tok)
-            },
+            }
             Some('&') => {
                 let tok = if self.matches(Some('&')) { LOGICAL_AND } else { BITWISE_AND };
                 self.make_token(tok)

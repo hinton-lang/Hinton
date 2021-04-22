@@ -228,14 +228,13 @@ impl<'a> Object<'a> {
 
         // At this point, the operands have the same type, so we
         // proceed to check if they match in value.
-        match self {
-            Object::Bool(a) => *a == b.as_bool().unwrap(),
+        return match self {
+            Object::Bool(a) => (*a == b.as_bool().unwrap()),
             Object::Null() => true,
-            Object::Number(a) => *a == b.as_number().unwrap(),
-            Object::String(a) => *a == b.as_string().unwrap(),
-            // TODO: Implement array check
-            _ => return false, // Unreachable.
-        }
+            Object::Number(a) => (*a == b.as_number().unwrap()),
+            Object::String(a) => (*a == b.as_string().unwrap()),
+            _ => false,
+        };
     }
 }
 

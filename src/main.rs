@@ -5,7 +5,7 @@ use std::fs;
 
 // Declaring crate-level Modules
 mod chunk;
-mod compiler;
+mod intermediate;
 mod objects;
 mod lexer;
 mod virtual_machine;
@@ -30,6 +30,7 @@ fn run_file(filename: &str) {
 
     // Exit the interpreter with the appropriate code
     match result {
+        InterpretResult::INTERPRET_PARSE_ERROR => std::process::exit(65),
         InterpretResult::INTERPRET_COMPILE_ERROR => std::process::exit(65),
         InterpretResult::INTERPRET_RUNTIME_ERROR => std::process::exit(70),
         InterpretResult::INTERPRET_OK => std::process::exit(0),

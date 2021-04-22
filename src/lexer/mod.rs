@@ -1,6 +1,6 @@
 use std::rc::Rc;
 
-use self::tokens::{Token, TokenType, TokenType::*, KEYWORDS};
+use self::tokens::{Token, TokenType, TokenType::*};
 
 // Tokens-specific module implementations
 pub mod tokens;
@@ -38,7 +38,7 @@ impl<'a> Lexer<'a> {
             token_start: 0,
         }
     }
-
+    
     /// Gets the previously consumed character.
     ///
     /// ## Returns
@@ -199,11 +199,8 @@ impl<'a> Lexer<'a> {
         }
 
         let id = &self.source[(self.token_start)..(self.current)];
-        if KEYWORDS.contains_key(id) {
-            return self.make_token(KEYWORDS.get(id).unwrap().clone());
-        } else {
-            return self.make_token(IDENTIFIER);
-        }
+        let tok_type =  tokens::make_identifier_type(id);
+        return self.make_token(tok_type);
     }
 
     /// Generates a token with the current state of the scanner

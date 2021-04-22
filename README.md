@@ -106,7 +106,7 @@ This to-do list only applies to the Rust implementation of the Hinton interprete
     - [ ] Function declarations.
     - [ ] Looping statements.
     - [ ] Named parameters.
-    - [x] Variable declarations.
+    - [ ] Variable declarations.
 - [ ] Define Built-In Types as Objects
     - [x] Array objects.
     - [x] Boolean objects.
