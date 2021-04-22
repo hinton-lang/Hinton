@@ -354,7 +354,7 @@ impl<'a> VirtualMachine<'a> {
                     let right = Rc::clone(&self.stack.pop().unwrap());
                     let left = Rc::clone(&self.stack.pop().unwrap());
 
-                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), "|") {
+                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), "^") {
                         self.stack.push(Rc::new(Object::Number(
                             ((left.as_number().unwrap() as isize) ^ (right.as_number().unwrap() as isize)) as f64,
                         )));
@@ -367,7 +367,7 @@ impl<'a> VirtualMachine<'a> {
                     let right = Rc::clone(&self.stack.pop().unwrap());
                     let left = Rc::clone(&self.stack.pop().unwrap());
 
-                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), "|") {
+                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), "&") {
                         self.stack.push(Rc::new(Object::Number(
                             ((left.as_number().unwrap() as isize) & (right.as_number().unwrap() as isize)) as f64,
                         )));
@@ -391,7 +391,7 @@ impl<'a> VirtualMachine<'a> {
                     let right = Rc::clone(&self.stack.pop().unwrap());
                     let left = Rc::clone(&self.stack.pop().unwrap());
 
-                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), "|") {
+                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), "<<") {
                         self.stack.push(Rc::new(Object::Number(
                             ((left.as_number().unwrap() as isize) << (right.as_number().unwrap() as isize)) as f64,
                         )));
@@ -404,7 +404,7 @@ impl<'a> VirtualMachine<'a> {
                     let right = Rc::clone(&self.stack.pop().unwrap());
                     let left = Rc::clone(&self.stack.pop().unwrap());
 
-                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), "|") {
+                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), ">>") {
                         self.stack.push(Rc::new(Object::Number(
                             ((left.as_number().unwrap() as isize) >> (right.as_number().unwrap() as isize)) as f64,
                         )));
