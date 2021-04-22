@@ -1,5 +1,4 @@
 pub mod ast;
-pub mod expressions;
 pub mod parser;
 
 use std::rc::Rc;
@@ -7,13 +6,11 @@ use std::rc::Rc;
 use crate::{
     chunk::{op_codes::OpCode, Chunk, ConstantPos},
     lexer::tokens::{Token, TokenType},
-    objects::Object,
+    objects::{FunctionObject, Object},
+    virtual_machine::InterpretResult,
 };
 
-use self::{
-    ast::{ASTNode, BinaryExprNode, BinaryExprType, LiteralExprNode, TernaryConditionalNode, UnaryExprNode},
-    parser::parse,
-};
+use self::ast::*;
 
 /// Represents a compiler and its internal state.
 pub struct Compiler<'a> {
@@ -23,43 +20,71 @@ pub struct Compiler<'a> {
 }
 
 impl<'a> Compiler<'a> {
-    pub fn compile(src: &'a str) {
-        let tree: Vec<ASTNode<'a>> = parse(src);
-
+    /// Compiles an Abstract Syntax Tree into ByteCode.
+    /// While the AST is used to perform static analysis like type checking
+    /// and error detection, the ByteCode is used to execute the program faster.
+    ///
+    /// ## Arguments
+    /// * `program` – The root node of the AST for a particular program. This contains all the statements
+    /// and declarations in a program.
+    ///
+    /// ## Returns
+    /// `Result<Chunk<'a>, InterpretResult>` – If the program had no compile-time errors, returns
+    /// a compiled chunk. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
+    pub fn compile(program: ModuleNode<'a>) -> Result<FunctionObject<'a>, InterpretResult> {
         let mut c = Compiler {
             had_error: false,
             is_in_panic: false,
             chunk: Chunk::new(),
         };
 
-        // iterate over the tree
-        for item in tree.iter() {
-            item.print(0);
-            c.compile_node(item);
-
+        for node in program.body.iter() {
             if c.had_error {
-                break;
+                return Err(InterpretResult::INTERPRET_COMPILE_ERROR);
             }
+
+            // Prints this node's AST
+            // node.print(0);
+
+            // TODO: What can we do so that cloning each node is no longer necessary?
+            // Cloning each node is a very expensive operation because some of the nodes
+            // could have an arbitrarily big amount of data. Fox example, large bodies
+            // of literal text could drastically slow down the performance of the compiler
+            // when those strings have to be cloned.
+            c.compile_node(node.clone());
         }
 
-        c.chunk.disassemble("<Script>");
+        // Shows the chunk.
+        // c.chunk.disassemble("<script>");
+        // **** TEMPORARY ****
+        c.emit_op_code(OpCode::OP_RETURN, (0, 0));
+
+        // Return the compiled chunk.
+        Ok(FunctionObject {
+            chunk: c.chunk,
+            min_arity: 0,
+            max_arity: 0,
+            name: "<Script>",
+        })
     }
 
     /// Compiles an AST node.
-    pub fn compile_node(&mut self, node: &'a ASTNode) {
+    pub fn compile_node(&mut self, node: ASTNode<'a>) {
         return match node {
             ASTNode::Literal(x) => self.compile_literal(x),
             ASTNode::Binary(x) => self.compile_binary_expr(x),
             ASTNode::Unary(x) => self.compile_unary_expr(x),
             ASTNode::TernaryConditional(x) => self.compile_ternary_conditional(x),
+            ASTNode::Identifier(_) => {}
+            ASTNode::PrintStmt(x) => self.compile_print_statement(x),
+            ASTNode::ExpressionStmt(_) => {}
         };
     }
 
     /// Compiles a binary expression
-    pub fn compile_binary_expr(&mut self, expr: &'a BinaryExprNode) {
-        self.compile_node(&expr.left);
-        self.compile_node(&expr.right);
-        let opr_pos = (expr.token.line_num, expr.token.column_num);
+    pub fn compile_binary_expr(&mut self, expr: BinaryExprNode<'a>) {
+        self.compile_node(*expr.left);
+        self.compile_node(*expr.right);
 
         let expression_op_code = match expr.opr_type {
             BinaryExprType::BitwiseAND => OpCode::OP_BITWISE_AND,
@@ -85,13 +110,12 @@ impl<'a> Compiler<'a> {
             BinaryExprType::Range => OpCode::OP_GENERATE_RANGE,
         };
 
-        self.emit_op_code(expression_op_code, opr_pos);
+        self.emit_op_code(expression_op_code, expr.pos);
     }
 
     /// Compiles a unary expression
-    pub fn compile_unary_expr(&mut self, expr: &'a UnaryExprNode) {
-        self.compile_node(&expr.operand);
-        let opr_pos = (expr.token.line_num, expr.token.column_num);
+    pub fn compile_unary_expr(&mut self, expr: UnaryExprNode<'a>) {
+        self.compile_node(*expr.operand);
 
         let expression_op_code = match expr.opr_type {
             ast::UnaryExprType::ArithmeticNeg => OpCode::OP_NEGATE,
@@ -99,43 +123,49 @@ impl<'a> Compiler<'a> {
             ast::UnaryExprType::BitwiseNeg => OpCode::OP_BITWISE_NOT,
         };
 
-        self.emit_op_code(expression_op_code, opr_pos);
+        self.emit_op_code(expression_op_code, expr.pos);
     }
 
     /// Compiles a ternary conditional expression
-    pub fn compile_ternary_conditional(&mut self, expr: &'a TernaryConditionalNode) {
-        self.compile_node(&expr.condition);
-        self.compile_node(&expr.branch_true);
-        self.compile_node(&expr.branch_false);
+    pub fn compile_ternary_conditional(&mut self, expr: TernaryConditionalNode<'a>) {
+        self.compile_node(*expr.condition);
+        self.compile_node(*expr.branch_true);
+        self.compile_node(*expr.branch_false);
 
-        let opr_pos = (expr.token.line_num, expr.token.column_num);
-        self.emit_op_code(OpCode::OP_TERNARY, opr_pos);
+        self.emit_op_code(OpCode::OP_TERNARY, expr.pos);
     }
 
     /// Compiles a literal expression
-    pub fn compile_literal(&mut self, expr: &'a LiteralExprNode) {
-        let obj = expr.value.clone();
+    pub fn compile_literal(&mut self, expr: LiteralExprNode<'a>) {
+        let obj = Rc::clone(&expr.value);
         let opr_pos = (expr.token.line_num, expr.token.column_num);
 
         match *obj {
             Object::Bool(x) if x => self.emit_op_code(OpCode::OP_TRUE, opr_pos),
             Object::Bool(x) if !x => self.emit_op_code(OpCode::OP_FALSE, opr_pos),
             Object::Null() => self.emit_op_code(OpCode::OP_NULL, opr_pos),
-            _ => self.emit_constant_instruction(obj, expr.token.clone()),
+            // _ => {}
+            _ => self.emit_constant_instruction(obj, expr.token),
         }
+    }
+
+    pub fn compile_print_statement(&mut self, stmt: PrintStmtNode<'a>) {
+        self.compile_node(*stmt.child);
+        self.emit_op_code(OpCode::OP_PRINT, stmt.pos);
     }
 
     /// Emits a constant instruction and adds the related object to the constant pool
     pub fn emit_constant_instruction(&mut self, obj: Rc<Object<'a>>, token: Rc<Token<'a>>) {
         let constant_pos = self.chunk.add_constant(obj);
+        let opr_pos = (token.line_num, token.column_num);
 
         match constant_pos {
-            ConstantPos::Pos(pos) => {
-                self.emit_op_code(OpCode::OP_CONSTANT, (token.line_num, token.column_num));
-                self.emit_short(pos, (token.line_num, token.column_num));
+            ConstantPos::Pos(idx) => {
+                self.emit_op_code(OpCode::OP_CONSTANT, opr_pos);
+                self.emit_short(idx, opr_pos);
             }
             ConstantPos::Error => {
-                self.error_at_token(token.clone(), "Too many constants in one chunk.");
+                self.error_at_token(Rc::clone(&token), "Too many constants in one chunk.");
             }
         }
     }
@@ -146,7 +176,7 @@ impl<'a> Compiler<'a> {
     /// * `instr` – The OpCode instruction to added to the chunk.
     pub fn emit_op_code(&mut self, instr: OpCode, pos: (usize, usize)) {
         self.chunk.codes.push_byte(instr as u8);
-        self.chunk.locations.push(pos);
+        self.chunk.locations.push(pos.clone());
     }
 
     /// Emits a short instruction from a 16-bit integer into the chunk's instruction list.
@@ -155,7 +185,7 @@ impl<'a> Compiler<'a> {
     /// * `instr` – The 16-bit short instruction to added to the chunk.
     pub fn emit_short(&mut self, instr: u16, pos: (usize, usize)) {
         self.chunk.codes.push_short(instr);
-        self.chunk.locations.push(pos);
+        self.chunk.locations.push(pos.clone());
     }
 
     /// Emits a compiler error from the given token.

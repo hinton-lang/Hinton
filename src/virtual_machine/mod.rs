@@ -1,7 +1,10 @@
 pub mod run;
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{compiler::Compiler, objects::{self, FunctionObject, Object}};
+use crate::{
+    compiler::{parser::Parser, Compiler},
+    objects::{self, FunctionObject, Object},
+};
 
 /// The types of results the interpreter can return
 #[allow(non_camel_case_types)]
@@ -27,7 +30,7 @@ pub struct VirtualMachine<'a> {
     // is_in_global_frame: bool,
     frames: Vec<CallFrame<'a>>,
     stack: Vec<Rc<objects::Object<'a>>>,
-    globals: HashMap<String, Rc<objects::Object<'a>>>
+    globals: HashMap<String, Rc<objects::Object<'a>>>,
 }
 
 impl<'a> VirtualMachine<'a> {
@@ -48,19 +51,21 @@ impl<'a> VirtualMachine<'a> {
     /// ## Returns
     /// * `InterpretResult` – The result of the source interpretation.
     pub(crate) fn interpret(&'a mut self, source: &'a str) -> InterpretResult {
-        // return match Compiler::compile(source) {
-        //     Ok(c) => {
-        //         let c = Rc::new(c);
-        //         self.stack.push(Rc::new(Object::Function(Rc::clone(&c))));
-        //         self.frames.push(CallFrame { function: c, ip: 0 });
-        //         return self.run();
-        //     }
-        //     Err(e) => e,
-        // };
+        // Parses the program
+        let ast = Parser::parse(source);
+        // Compiles the AST to ByteCode
+        let program = Compiler::compile(ast);
 
-        Compiler::compile(source);
-
-        return InterpretResult::INTERPRET_OK;
+        // Executes the program after it has been compiled to ByteCode
+        return match program {
+            Ok(c) => {
+                let c = Rc::new(c);
+                self.stack.push(Rc::new(Object::Function(Rc::clone(&c))));
+                self.frames.push(CallFrame { function: c, ip: 0 });
+                return self.run();
+            }
+            Err(e) => e,
+        };
     }
 
     /// Throws a runtime error to the console
