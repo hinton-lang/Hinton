@@ -4,10 +4,11 @@
 use std::fs;
 
 // Declaring crate-level Modules
+mod analyzer;
 mod chunk;
 mod intermediate;
-mod objects;
 mod lexer;
+mod objects;
 mod virtual_machine;
 
 // Using create-level sub-modules
