@@ -57,17 +57,15 @@ impl<'a> Parser {
         // Start compiling the chunk
         parser.advance();
         while !parser.matches(TokenType::EOF) && !parser.had_error {
-            for decl in parser.parse_declaration().iter() {
-                match decl {
-                    // TODO: What can we do so that cloning each node is no longer necessary?
-                    // Cloning each node is a very expensive operation because some of the nodes
-                    // could have an arbitrarily big amount of data. Fox example, large bodies
-                    // of literal text could drastically slow down the performance of the compiler
-                    // when those strings have to be cloned.
-                    Some(val) => program.body.push(val.clone()),
-                    // Report parse error if node has None value
-                    None => return Err(InterpretResult::INTERPRET_PARSE_ERROR),
-                }
+            match parser.parse_declaration() {
+                // TODO: What can we do so that cloning each node is no longer necessary?
+                // Cloning each node is a very expensive operation because some of the nodes
+                // could have an arbitrarily big amount of data. Fox example, large bodies
+                // of literal text could drastically slow down the performance of the compiler
+                // when those strings have to be cloned.
+                Some(val) => program.body.push(val.clone()),
+                // Report parse error if node has None value
+                None => return Err(InterpretResult::INTERPRET_PARSE_ERROR),
             }
         }
 
@@ -229,12 +227,9 @@ impl<'a> Parser {
         }
     }
 
-    pub(super) fn parse_declaration(&mut self) -> Vec<Option<ASTNode>> {
-        let mut statements: Vec<Option<ASTNode>> = Vec::new();
-
+    pub(super) fn parse_declaration(&mut self) -> Option<ASTNode> {
         if self.matches(TokenType::LET_KEYWORD) {
-            // statements = varDeclaration();
-            todo!("Implement variable declarations.")
+            return self.parse_var_declaration();
         } else if self.matches(TokenType::CONST_KEYWORD) {
             // statements = constDeclaration();
             todo!("Implement constant declarations")
@@ -245,10 +240,8 @@ impl<'a> Parser {
             // statements.add(enumDeclaration());
             todo!("Implement enum declarations")
         } else {
-            statements.push(self.parse_statement());
+            return self.parse_statement();
         }
-
-        return statements;
 
         // if self.is_in_panic {
         //     self.synchronize();
@@ -797,7 +790,7 @@ impl<'a> Parser {
             TokenType::STRING_LITERAL => self.compile_string(),
             TokenType::TRUE_LITERAL => Rc::new(Object::Bool(true)),
             TokenType::FALSE_LITERAL => Rc::new(Object::Bool(false)),
-            TokenType::NULL_LITERAL => Rc::new(Object::Null()),
+            TokenType::NULL_LITERAL => Rc::new(Object::Null),
             TokenType::NUMERIC_LITERAL => match self.compile_number() {
                 Ok(x) => x,
                 Err(_) => return None,
@@ -829,7 +822,7 @@ impl<'a> Parser {
                 }));
             }
             _ => {
-                self.error_at_previous("Unexpected token '{}'.");
+                self.error_at_previous("Unexpected token.");
                 return None;
             }
         };

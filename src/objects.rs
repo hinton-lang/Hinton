@@ -11,10 +11,10 @@ pub enum Object {
     Function(Rc<FunctionObject>),
     Array(Vec<Object>),
     Range(Rc<RangeObject>),
-    Null(),
+    Null,
 }
 
-impl<'a> Object {
+impl Object {
     /// Gets the type name of an object.
     ///
     /// ## Returns
@@ -22,7 +22,7 @@ impl<'a> Object {
     pub fn type_name(&self) -> &str {
         return match self {
             &Object::Bool(_) => "Bool",
-            &Object::Null() => "Null",
+            &Object::Null => "Null",
             &Object::Number(x) => {
                 if x.fract() == 0.0 {
                     "Int"
@@ -134,7 +134,7 @@ impl<'a> Object {
     /// `bool` – True if the object is a Hinton null, false otherwise.
     pub fn is_null(&self) -> bool {
         match self {
-            Object::Null() => true,
+            Object::Null => true,
             _ => false,
         }
     }
@@ -145,7 +145,7 @@ impl<'a> Object {
     /// `bool` – True if the object is falsey, false otherwise.
     pub fn is_falsey(&self) -> bool {
         match self {
-            Object::Null() => true,
+            Object::Null => true,
             Object::Bool(val) => !val,
             Object::Number(x) => {
                 if *x == 0.0 {
@@ -230,7 +230,7 @@ impl<'a> Object {
         // proceed to check if they match in value.
         return match self {
             Object::Bool(a) => (*a == b.as_bool().unwrap()),
-            Object::Null() => true,
+            Object::Null => true,
             Object::Number(a) => (*a == b.as_number().unwrap()),
             Object::String(a) => (*a == b.as_string().unwrap()),
             _ => false,
@@ -268,7 +268,7 @@ impl<'a> fmt::Display for Object {
             }
             Object::Range(ref inner) => write!(f, "[\x1b[38;5;81m{}\x1b[0m..\x1b[38;5;81m{}\x1b[0m]", inner.min, inner.max),
             Object::Function(ref inner) => write!(f, "<Func '{}'>", inner.name),
-            Object::Null() => f.write_str("\x1b[37;1mnull\x1b[0m"),
+            Object::Null => f.write_str("\x1b[37;1mnull\x1b[0m"),
         }
     }
 }
