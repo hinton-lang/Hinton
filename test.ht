@@ -9,11 +9,19 @@ print(null ?? null ?? "Final Value");
 // New support for UTF-8 Characters
 print("नमस्ते");
 print("Cañón!");
+print("Emoji!: 💚");
 
-// This mistake is caught by the static analyzer before the program starts running.
+// This mistake is caught by the static analyzer before the program is even compiled.
 // print(1 / 0);
 
 let x, y, z = "Multi-Variable!!";
 print(x);
 print(y);
 print(z);
+
+// Variable reassignment
+let a = "Initial Value for A";
+print(a);
+let b = a = "New value for A & B";
+print(a);
+print(b);

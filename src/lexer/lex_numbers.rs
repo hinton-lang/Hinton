@@ -56,9 +56,7 @@ impl<'a> Lexer {
     /// # Arguments
     /// * `radix` – The base of the expected digit.
     pub(self) fn advance_numeric_digit(&mut self, radix: u32) {
-        while !self.is_at_end() && self.get_current().is_digit(radix)
-            || (self.get_current() == '_' && self.previous() != '_')
-        {
+        while !self.is_at_end() && self.get_current().is_digit(radix) || (self.get_current() == '_' && self.previous() != '_') {
             self.advance();
         }
     }
