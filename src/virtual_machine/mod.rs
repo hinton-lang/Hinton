@@ -1,7 +1,11 @@
 pub mod run;
 use std::{collections::HashMap, rc::Rc};
 
-use crate::{analyzer, intermediate::{compiler::Compiler, parser::Parser}, objects::{self, FunctionObject, Object}};
+use crate::{
+    analyzer,
+    intermediate::{compiler::Compiler, parser::Parser},
+    objects::{self, FunctionObject, Object},
+};
 
 /// The types of results the interpreter can return
 #[allow(non_camel_case_types)]

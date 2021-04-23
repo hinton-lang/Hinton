@@ -1,16 +1,17 @@
+use super::Parser;
 use std::rc::Rc;
 
 use crate::{
+    intermediate::{ast::ASTNode, ast::*},
     lexer::tokens::{Token, TokenType},
     objects::Object,
 };
 
-use super::{
-    ast::{ASTNode, LiteralExprNode, VariableDeclNode},
-    parser::Parser,
-};
-
 impl Parser {
+    /// Parses a variable declaration as specified in the grammar.cfg file.
+    ///
+    /// Returns
+    /// * `Option<ASTNode>` – A variable declaration AST node.
     pub(super) fn parse_var_declaration(&mut self) -> Option<ASTNode> {
         let mut declarations: Vec<Rc<Token>> = Vec::new();
 
@@ -39,8 +40,8 @@ impl Parser {
             })
         };
 
-        // Requires a semicolon at the end of the declaration
-        // if the declaration was not a block (e.g., lambda functions)
+        // Requires a semicolon at the end of the declaration if the declaration
+        // was not a block (e.g., when assigning a lambda function to a variable).
         if self.previous.token_type != TokenType::RIGHT_CURLY_BRACES {
             self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after variable declaration.");
         }

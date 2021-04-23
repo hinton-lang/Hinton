@@ -91,7 +91,7 @@ impl<'a> Chunk {
             match location {
                 Some(place) => {
                     if place.0 > current_line {
-                        print!("{:>03} ", current_line);
+                        print!("{:>03} ", current_line + 1);
                         current_line = place.0;
                     } else {
                         print!(" |  ")

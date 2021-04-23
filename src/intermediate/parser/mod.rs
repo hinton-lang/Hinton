@@ -1,5 +1,7 @@
 use std::rc::Rc;
 
+mod statements;
+
 use crate::{
     lexer::{
         tokens::{Token, TokenType},
@@ -9,10 +11,8 @@ use crate::{
     virtual_machine::InterpretResult,
 };
 
-use super::ast::{
-    ASTNode, ASTNode::*, BinaryExprNode, BinaryExprType, ExpressionStmtNode, IdentifierExprNode, LiteralExprNode, ModuleNode, PrintStmtNode,
-    TernaryConditionalNode, UnaryExprNode, UnaryExprType,
-};
+use super::ast::ASTNode::*;
+use super::ast::*;
 
 /// Represents Hinton's parser, which converts source text into
 /// an Abstract Syntax Tree representation of the program.
@@ -316,8 +316,40 @@ impl<'a> Parser {
     /// `Option<ASTNode>` – The assignment expression's AST node.
     pub(super) fn parse_assignment(&mut self) -> Option<ASTNode> {
         let expr = self.parse_ternary_conditional();
+        let expr_tok = Rc::clone(&self.previous);
 
-        return expr;
+        if self.matches(TokenType::EQUALS_SIGN) {
+            let opr = Rc::clone(&self.previous);
+
+            // Gets the value for assignment
+            let rhs = match self.parse_expression() {
+                Some(t) => t,
+                None => return None, // Could not create expression value for assignment
+            };
+
+            // Returns the assignment expression of the corresponding type
+            return match expr {
+                Some(node) => match node {
+                    // Variable re-assignment
+                    Identifier(id) => Some(VarReassignment(VarReassignmentExprNode {
+                        target: id.token,
+                        value: Box::new(rhs),
+                        pos: (opr.line_num, opr.column_num),
+                    })),
+
+                    // The assignment target is not valid
+                    _ => {
+                        self.error_at_token(expr_tok, "Invalid assignment target.");
+                        None
+                    }
+                },
+
+                // Could not parse lhs of expression
+                None => None,
+            };
+        } else {
+            return expr;
+        }
     }
 
     /// Parses a ternary conditional expression as specified in the grammar.cfg file.

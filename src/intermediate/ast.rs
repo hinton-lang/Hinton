@@ -22,6 +22,7 @@ pub enum ASTNode {
     Unary(UnaryExprNode),
     TernaryConditional(TernaryConditionalNode),
     Identifier(IdentifierExprNode),
+    VarReassignment(VarReassignmentExprNode),
 
     // Declarations
     VariableDecl(VariableDeclNode),
@@ -81,6 +82,7 @@ impl<'a> ASTNode {
                     decl.value.print(depth + 1);
                 }
             }
+            ASTNode::VarReassignment(_) => {}
         }
     }
 }
@@ -185,4 +187,12 @@ pub struct ExpressionStmtNode {
 pub struct VariableDeclNode {
     pub identifiers: Vec<Rc<Token>>,
     pub value: Box<ASTNode>,
+}
+
+/// Represents an assignment expression node in Hinton's Abstract Syntax Tree.
+#[derive(Clone)]
+pub struct VarReassignmentExprNode {
+    pub target: Rc<Token>,
+    pub value: Box<ASTNode>,
+    pub pos: (usize, usize),
 }

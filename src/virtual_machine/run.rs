@@ -524,7 +524,6 @@ impl<'a> VirtualMachine {
                 //         }
                 //     }
                 // }
-
                 Some(OpCode::OP_PRINT) => {
                     let val = self.stack.pop();
                     println!("{}", val.unwrap());
