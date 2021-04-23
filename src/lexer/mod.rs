@@ -32,7 +32,7 @@ impl<'a> Lexer {
         Self {
             source: src.chars().collect(),
             current: 0,
-            size: src.len(),
+            size: src.chars().count(), // TODO: This generates the Vec<char> twice. Can we do better?
             line: 1,
             line_start: 0,
             token_start: 0,
@@ -54,7 +54,7 @@ impl<'a> Lexer {
     pub(super) fn get_current(&self) -> char {
         // TODO: What can you do so that this check is no longer needed?
         // NOTE: At the moment, if this check is removed, Rust will panic
-        // because at some point in the program (I am not sure when), the
+        // because at some point in the program (I am not sure where), the
         // lexer tries to get the (N + 1)th element of the vector, causing
         // an index-out-of-bounds error.
         if self.is_at_end() {

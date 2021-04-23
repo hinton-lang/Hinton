@@ -6,5 +6,14 @@ print(true ? "value #1" : "value #2");
 print(0b11 << 1);
 print(null ?? null ?? "Final Value");
 
+// New support for UTF-8 Characters
+print("नमस्ते");
+print("Cañón!");
+
 // This mistake is caught by the static analyzer before the program starts running.
 // print(1 / 0);
+
+let x, y, z = "Multi-Variable!!";
+print(x);
+print(y);
+print(z);

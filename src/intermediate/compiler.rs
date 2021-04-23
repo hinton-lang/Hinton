@@ -17,7 +17,7 @@ pub struct Compiler {
     pub chunk: Chunk,
 }
 
-impl<'a> Compiler {
+impl Compiler {
     /// Compiles an Abstract Syntax Tree into ByteCode.
     /// While the AST is used to perform static analysis like type checking
     /// and error detection, the ByteCode is used to execute the program faster.
@@ -53,7 +53,7 @@ impl<'a> Compiler {
         }
 
         // Shows the chunk.
-        // c.chunk.disassemble("<script>");
+        c.chunk.disassemble("<script>");
         // c.chunk.print_raw("<script>");
         // **** TEMPORARY ****
         c.emit_op_code(OpCode::OP_RETURN, (0, 0));
@@ -74,12 +74,13 @@ impl<'a> Compiler {
             ASTNode::Binary(x) => self.compile_binary_expr(x),
             ASTNode::Unary(x) => self.compile_unary_expr(x),
             ASTNode::TernaryConditional(x) => self.compile_ternary_conditional(x),
-            ASTNode::Identifier(_) => todo!("Add support for compiling identifiers."),
-            ASTNode::PrintStmt(x) => self.compile_print_statement(x),
+            ASTNode::Identifier(x) => self.compile_identifier_expr(x),
+            ASTNode::PrintStmt(x) => self.compile_print_stmt(x),
             ASTNode::ExpressionStmt(x) => {
                 self.compile_node(*x.child);
                 self.emit_op_code(OpCode::OP_POP_STACK, x.pos);
-            },
+            }
+            ASTNode::VariableDecl(x) => self.compile_variable_decl(x),
         };
     }
 
@@ -137,6 +138,20 @@ impl<'a> Compiler {
         self.emit_op_code(OpCode::OP_TERNARY, expr.pos);
     }
 
+    pub fn compile_identifier_expr(&mut self, expr: IdentifierExprNode) {
+        let arg = self.add_identifier_to_pool(Rc::clone(&expr.token));
+
+        match arg {
+            ConstantPos::Pos(x) => {
+                self.emit_op_code(OpCode::OP_GET_GLOBAL_VAR, (expr.token.line_num, expr.token.column_num));
+                self.emit_short(x, (expr.token.line_num, expr.token.column_num));
+            }
+            ConstantPos::Error => {
+                self.error_at_token(expr.token, "Could not add variable name to constant pool.");
+            }
+        }
+    }
+
     /// Compiles a literal expression
     pub fn compile_literal(&mut self, expr: LiteralExprNode) {
         let obj = Rc::clone(&expr.value);
@@ -145,19 +160,51 @@ impl<'a> Compiler {
         match *obj {
             Object::Bool(x) if x => self.emit_op_code(OpCode::OP_TRUE, opr_pos),
             Object::Bool(x) if !x => self.emit_op_code(OpCode::OP_FALSE, opr_pos),
-            Object::Null() => self.emit_op_code(OpCode::OP_NULL, opr_pos),
+            Object::Null => self.emit_op_code(OpCode::OP_NULL, opr_pos),
             // _ => {}
-            _ => self.emit_constant_instruction(obj, expr.token),
+            _ => self.add_literal_to_pool(obj, expr.token),
         }
     }
 
-    pub fn compile_print_statement(&mut self, stmt: PrintStmtNode) {
+    pub fn compile_print_stmt(&mut self, stmt: PrintStmtNode) {
         self.compile_node(*stmt.child);
         self.emit_op_code(OpCode::OP_PRINT, stmt.pos);
     }
 
+    pub fn compile_variable_decl(&mut self, decl: VariableDeclNode) {
+        let mut ids: Vec<u16> = Vec::new();
+
+        // Declares the variable
+        for id in decl.identifiers.clone().iter() {
+            match self.add_identifier_to_pool(Rc::clone(&id)) {
+                ConstantPos::Pos(x) => ids.push(x),
+                // If there are too many constants, display an error.
+                ConstantPos::Error => return self.error_at_token(Rc::clone(&id), "Could not complete variable declaration."),
+            };
+        }
+
+        // Compiles the variable's value
+        self.compile_node(*decl.value);
+
+        // Defines the variable
+        let mut index = 0;
+        for idx in ids {
+            let tok = decl.identifiers.get(index).unwrap();
+
+            self.emit_op_code(OpCode::OP_DEFINE_GLOBAL_VAR, (tok.line_num, tok.column_num));
+            self.emit_short(idx, (tok.line_num, tok.column_num));
+
+            index += 1;
+        }
+
+        // Pop variable's value off the stack once we
+        // are done declaring the variables
+        let last = decl.identifiers.last().unwrap();
+        self.emit_op_code(OpCode::OP_POP_STACK, (last.line_num, last.column_num));
+    }
+
     /// Emits a constant instruction and adds the related object to the constant pool
-    pub fn emit_constant_instruction(&mut self, obj: Rc<Object>, token: Rc<Token>) {
+    pub fn add_literal_to_pool(&mut self, obj: Rc<Object>, token: Rc<Token>) {
         let constant_pos = self.chunk.add_constant(obj);
         let opr_pos = (token.line_num, token.column_num);
 
@@ -170,6 +217,10 @@ impl<'a> Compiler {
                 self.error_at_token(Rc::clone(&token), "Too many constants in one chunk.");
             }
         }
+    }
+
+    pub(super) fn add_identifier_to_pool(&mut self, token: Rc<Token>) -> ConstantPos {
+        self.chunk.add_constant(Rc::new(Object::String(token.lexeme.clone())))
     }
 
     /// Emits a byte instruction from an OpCode into the chunk's instruction list.

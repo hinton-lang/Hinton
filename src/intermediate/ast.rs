@@ -24,9 +24,9 @@ pub enum ASTNode {
     Identifier(IdentifierExprNode),
 
     // Declarations
-    // coming soon...
+    VariableDecl(VariableDeclNode),
 
-    // General statements
+    // Statements
     PrintStmt(PrintStmtNode),
     ExpressionStmt(ExpressionStmtNode),
 }
@@ -40,7 +40,7 @@ impl<'a> ASTNode {
     /// `depth` – The depth in the AST tree of the current node.
     pub fn print(&self, depth: usize) {
         match self {
-            ASTNode::Literal(expr) => println!("Literal: {}", expr.value),
+            ASTNode::Literal(expr) => println!("{}", expr.value),
             ASTNode::Binary(expr) => {
                 println!("{:?}", expr.opr_type);
                 print!("{}Left: ", "\t".repeat(depth + 1));
@@ -72,6 +72,14 @@ impl<'a> ASTNode {
             ASTNode::ExpressionStmt(stmt) => {
                 print!("Expression Stmt:");
                 stmt.child.print(depth + 1);
+            }
+            ASTNode::VariableDecl(decl) => {
+                for id in decl.identifiers.iter() {
+                    println!("Variable declaration: ");
+                    println!("{}Name: {}", "\t".repeat(depth + 1), id.lexeme);
+                    print!("{}value: ", "\t".repeat(depth + 1));
+                    decl.value.print(depth + 1);
+                }
             }
         }
     }
@@ -117,6 +125,7 @@ pub struct BinaryExprNode {
 /// Types of binary expressions in Hinton
 #[derive(Clone, Debug)]
 pub enum BinaryExprType {
+    Addition,
     BitwiseAND,
     BitwiseOR,
     BitwiseShiftLeft,
@@ -136,7 +145,6 @@ pub enum BinaryExprType {
     Modulus,
     Multiplication,
     Nullish,
-    Addition,
     Range,
 }
 
@@ -170,4 +178,11 @@ pub struct PrintStmtNode {
 pub struct ExpressionStmtNode {
     pub child: Box<ASTNode>,
     pub pos: (usize, usize),
+}
+
+/// Represents a variable declaration node in Hinton's Abstract Syntax Tree.
+#[derive(Clone)]
+pub struct VariableDeclNode {
+    pub identifiers: Vec<Rc<Token>>,
+    pub value: Box<ASTNode>,
 }

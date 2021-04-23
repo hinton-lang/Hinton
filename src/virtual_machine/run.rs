@@ -26,7 +26,7 @@ impl<'a> VirtualMachine {
                     self.stack.pop();
                 }
 
-                Some(OpCode::OP_NULL) => self.stack.push(Rc::new(Object::Null())),
+                Some(OpCode::OP_NULL) => self.stack.push(Rc::new(Object::Null)),
                 Some(OpCode::OP_TRUE) => self.stack.push(Rc::new(Object::Bool(true))),
                 Some(OpCode::OP_FALSE) => self.stack.push(Rc::new(Object::Bool(false))),
 
