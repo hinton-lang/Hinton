@@ -14,17 +14,17 @@ pub enum ConstantPos {
 
 /// Contains all the necessary information about
 /// the instructions to be executed.
-pub struct Chunk<'a> {
+pub struct Chunk {
     /// The list of op_code instructions
     pub codes: instructions_list::InstructionsList,
     /// Stores the line and column of each op_code in the source
     /// code. This is useful when throwing runtime errors
     pub locations: Vec<(usize, usize)>,
     /// The literal constant values found in this chuck of code.
-    constants: Vec<Rc<Object<'a>>>,
+    constants: Vec<Rc<Object>>,
 }
 
-impl<'a> Chunk<'a> {
+impl<'a> Chunk {
     /// Creates a new chunk.
     ///
     /// ## Returns
@@ -47,7 +47,7 @@ impl<'a> Chunk<'a> {
     /// returns the variant `ConstantPos::Pos(u16)` with the position of the
     /// object in the pool. If the item could not be added because the pool is
     /// full, returns the enum variant `ConstantPos::Error`.
-    pub fn add_constant(&mut self, obj: Rc<Object<'a>>) -> ConstantPos {
+    pub fn add_constant(&mut self, obj: Rc<Object>) -> ConstantPos {
         return if self.constants.len() < (u16::max as usize) {
             self.constants.push(obj);
             ConstantPos::Pos((self.constants.len() as u16) - 1)
@@ -63,7 +63,7 @@ impl<'a> Chunk<'a> {
     ///
     /// ## Returns
     /// `Option<&Rc<Object<'a>>>` – The object at the given index in the constant pool/
-    pub fn get_constant(&self, idx: u16) -> Option<&Rc<Object<'a>>> {
+    pub fn get_constant(&self, idx: u16) -> Option<&Rc<Object>> {
         self.constants.get(idx as usize)
     }
 
@@ -107,7 +107,7 @@ impl<'a> Chunk<'a> {
                     print!("\x1b[32m{:#04X}\x1b[0m – \x1b[36m{:?}\x1b[0m ", instr.clone() as u8, instr);
 
                     // Reads two bytes as the index of a constant
-                    let mut const_val = || -> &Rc<Object<'_>> {
+                    let mut const_val = || -> &Rc<Object> {
                         i += 1;
                         let pos = self.codes.get_short(i);
                         i += 1; // increment `i` again for the second byte in the short

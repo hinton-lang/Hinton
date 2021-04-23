@@ -1,5 +1,5 @@
 // A token that represents a single unit of Hinton code.
-pub struct Token<'a> {
+pub struct Token {
     /// The token's line number
     pub line_num: usize,
     /// The token's column number
@@ -7,11 +7,11 @@ pub struct Token<'a> {
     /// The token's type
     pub token_type: TokenType,
     /// The token's lexeme
-    pub lexeme: &'a str,
+    pub lexeme: String,
 }
 
 /// Implementation of Token methods
-impl<'a> Token<'a> {
+impl Token {
     /// Print's a console-friendly version of this token
     /// ## Arguments
     /// * `details` – Whether or not to print other information about the token.

@@ -2,9 +2,9 @@ use std::rc::Rc;
 
 use super::{tokens::Token, tokens::TokenType::*, Lexer};
 
-impl<'a> Lexer<'a> {
+impl<'a> Lexer {
     /// Scans the next token in the source file.
-    pub fn next_token(&mut self) -> Rc<Token<'a>> {
+    pub fn next_token(&mut self) -> Rc<Token> {
         self.skip_whitespace();
 
         // If we are at the end, return the EOF token.
@@ -17,120 +17,120 @@ impl<'a> Lexer<'a> {
         let c = self.advance();
 
         // Generates an identifier/keyword if the current character is alphanumeric
-        if c.unwrap().is_alphabetic() {
+        if c.is_alphabetic() {
             return self.make_identifier_token();
         }
 
         // Generates an numeric literal if the current character is alphanumeric
-        if c.unwrap().is_digit(10) {
+        if c.is_digit(10) {
             return self.make_numeric_token();
         }
 
         // Generate symbol-like token tokens
         return match c {
-            Some('"') | Some('\'') => self.make_string_token(),
-            Some('(') => self.make_token(LEFT_PARENTHESIS),
-            Some(')') => self.make_token(RIGHT_PARENTHESIS),
-            Some('{') => self.make_token(LEFT_CURLY_BRACES),
-            Some('}') => self.make_token(RIGHT_CURLY_BRACES),
-            Some('[') => self.make_token(LEFT_SQUARE_BRACKET),
-            Some(']') => self.make_token(RIGHT_SQUARE_BRACKET),
-            Some(';') => self.make_token(SEMICOLON_SEPARATOR),
-            Some(',') => self.make_token(COMMA_SEPARATOR),
-            Some('^') => self.make_token(BITWISE_XOR),
-            Some('~') => self.make_token(BITWISE_NOT),
-            Some('/') => {
-                let tok = if self.matches(Some('=')) { SLASH_EQUALS } else { SLASH };
+            '"' | '\'' => self.make_string_token(),
+            '(' => self.make_token(LEFT_PARENTHESIS),
+            ')' => self.make_token(RIGHT_PARENTHESIS),
+            '{' => self.make_token(LEFT_CURLY_BRACES),
+            '}' => self.make_token(RIGHT_CURLY_BRACES),
+            '[' => self.make_token(LEFT_SQUARE_BRACKET),
+            ']' => self.make_token(RIGHT_SQUARE_BRACKET),
+            ';' => self.make_token(SEMICOLON_SEPARATOR),
+            ',' => self.make_token(COMMA_SEPARATOR),
+            '^' => self.make_token(BITWISE_XOR),
+            '~' => self.make_token(BITWISE_NOT),
+            '/' => {
+                let tok = if self.matches('=') { SLASH_EQUALS } else { SLASH };
                 self.make_token(tok)
             }
-            Some('%') => {
-                let tok = if self.matches(Some('=')) { MOD_EQUALS } else { MODULUS };
+            '%' => {
+                let tok = if self.matches('=') { MOD_EQUALS } else { MODULUS };
                 self.make_token(tok)
             }
-            Some('!') => {
-                let tok = if self.matches(Some('=')) { LOGICAL_NOT_EQ } else { LOGICAL_NOT };
+            '!' => {
+                let tok = if self.matches('=') { LOGICAL_NOT_EQ } else { LOGICAL_NOT };
                 self.make_token(tok)
             }
-            Some('=') => {
-                let tok = if self.matches(Some('=')) { LOGICAL_EQ } else { EQUALS_SIGN };
+            '=' => {
+                let tok = if self.matches('=') { LOGICAL_EQ } else { EQUALS_SIGN };
                 self.make_token(tok)
             }
-            Some(':') => {
-                let tok = if self.matches(Some('=')) { COLON_EQUALS } else { COLON_SEPARATOR };
+            ':' => {
+                let tok = if self.matches('=') { COLON_EQUALS } else { COLON_SEPARATOR };
                 self.make_token(tok)
             }
-            Some('&') => {
-                let tok = if self.matches(Some('&')) { LOGICAL_AND } else { BITWISE_AND };
+            '&' => {
+                let tok = if self.matches('&') { LOGICAL_AND } else { BITWISE_AND };
                 self.make_token(tok)
             }
-            Some('|') => {
-                let tok = if self.matches(Some('|')) { LOGICAL_OR } else { BITWISE_OR };
+            '|' => {
+                let tok = if self.matches('|') { LOGICAL_OR } else { BITWISE_OR };
                 self.make_token(tok)
             }
-            Some('?') => {
-                if self.matches(Some('?')) {
+            '?' => {
+                if self.matches('?') {
                     self.make_token(NULLISH_COALESCING)
                 }
-                // else if self.matches(Some(':')) {
+                // else if self.matches(':') {
                 //     self.make_token(ELVIS_OPERATOR)
                 // }
                 else {
                     self.make_token(QUESTION_MARK)
                 }
             }
-            Some('.') => {
-                if self.get_current().unwrap().is_digit(10) {
+            '.' => {
+                if self.get_current().is_digit(10) {
                     self.make_numeric_token()
-                } else if self.matches(Some('.')) {
+                } else if self.matches('.') {
                     self.make_token(RANGE_OPERATOR)
                 } else {
                     self.make_token(DOT_SEPARATOR)
                 }
             }
-            Some('-') => {
-                if self.matches(Some('=')) {
+            '-' => {
+                if self.matches('=') {
                     self.make_token(MINUS_EQUALS)
-                } else if self.matches(Some('-')) {
+                } else if self.matches('-') {
                     self.make_token(DECREMENT)
-                } else if self.matches(Some('>')) {
+                } else if self.matches('>') {
                     self.make_token(THIN_ARROW)
                 } else {
                     self.make_token(MINUS)
                 }
             }
-            Some('+') => {
-                if self.matches(Some('=')) {
+            '+' => {
+                if self.matches('=') {
                     self.make_token(PLUS_EQUALS)
-                } else if self.matches(Some('+')) {
+                } else if self.matches('+') {
                     self.make_token(INCREMENT)
                 } else {
                     self.make_token(PLUS)
                 }
             }
-            Some('*') => {
-                if self.matches(Some('=')) {
+            '*' => {
+                if self.matches('=') {
                     self.make_token(STAR_EQUALS)
-                } else if self.matches(Some('*')) && !self.matches(Some('=')) {
+                } else if self.matches('*') && !self.matches('=') {
                     self.make_token(EXPO)
-                } else if self.matches(Some('*')) && self.matches(Some('=')) {
+                } else if self.matches('*') && self.matches('=') {
                     self.make_token(EXPO_EQUALS)
                 } else {
                     self.make_token(STAR)
                 }
             }
-            Some('<') => {
-                if self.matches(Some('=')) {
+            '<' => {
+                if self.matches('=') {
                     self.make_token(LESS_THAN_EQ)
-                } else if self.matches(Some('<')) {
+                } else if self.matches('<') {
                     self.make_token(BITWISE_LEFT_SHIFT)
                 } else {
                     self.make_token(LESS_THAN)
                 }
             }
-            Some('>') => {
-                if self.matches(Some('=')) {
+            '>' => {
+                if self.matches('=') {
                     self.make_token(GREATER_THAN_EQ)
-                } else if self.matches(Some('>')) {
+                } else if self.matches('>') {
                     self.make_token(BITWISE_RIGHT_SHIFT)
                 } else {
                     self.make_token(GREATER_THAN)

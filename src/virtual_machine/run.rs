@@ -5,7 +5,7 @@ use super::VirtualMachine;
 use crate::objects::Object;
 use crate::{chunk::op_codes::OpCode, objects::RangeObject};
 
-impl<'a> VirtualMachine<'a> {
+impl<'a> VirtualMachine {
     /// Executes the instruction in a chunk. This is where the interpreter
     /// will spend most its life, therefore, optimizing every function in this file
     /// is very important.

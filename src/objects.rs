@@ -1,20 +1,20 @@
 use crate::chunk;
+use std::fmt;
 use std::rc::Rc;
 use std::result;
-use std::fmt;
 
 /// All types of objects in Hinton
-pub enum Object<'a> {
+pub enum Object {
     Number(f64),
     String(String),
     Bool(bool),
-    Function(Rc<FunctionObject<'a>>),
-    Array(Vec<Object<'a>>),
+    Function(Rc<FunctionObject>),
+    Array(Vec<Object>),
     Range(Rc<RangeObject>),
     Null(),
 }
 
-impl<'a> Object<'a> {
+impl<'a> Object {
     /// Gets the type name of an object.
     ///
     /// ## Returns
@@ -219,7 +219,7 @@ impl<'a> Object<'a> {
     /// ## Returns
     /// `bool` – True if the objects match based on Hinton rules for equality,
     /// false otherwise.
-    pub fn equals(&self, b: Rc<Object<'a>>) -> bool {
+    pub fn equals(&self, b: Rc<Object>) -> bool {
         // If the operands differ in type, we can safely assume
         // they are not equal in value.
         if std::mem::discriminant(self) != std::mem::discriminant(&b) {
@@ -240,17 +240,14 @@ impl<'a> Object<'a> {
 
 /// Implements the `Display` trait so that objects can be printed
 /// in a user-friendly way.
-impl<'a> fmt::Display for Object<'a> {
+impl<'a> fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
         match *self {
             Object::Number(ref inner) => {
                 let str = String::from("\x1b[38;5;81m") + inner.to_string().as_str() + String::from("\x1b[0m").as_str();
                 fmt::Display::fmt(&str, f)
             }
-            Object::String(ref inner) => {
-                let str = String::from("\x1b[38;5;76m") + inner + String::from("\x1b[0m").as_str();
-                fmt::Display::fmt(&str, f)
-            }
+            Object::String(ref inner) => fmt::Display::fmt(inner, f),
             Object::Bool(ref inner) => {
                 let str = if *inner {
                     String::from("\x1b[38;5;3mtrue\x1b[0m")
@@ -277,11 +274,11 @@ impl<'a> fmt::Display for Object<'a> {
 }
 
 /// Represents a Hinton function object.
-pub struct FunctionObject<'a> {
+pub struct FunctionObject {
     pub min_arity: i32,
     pub max_arity: i32,
-    pub chunk: chunk::Chunk<'a>,
-    pub name: &'a str,
+    pub chunk: chunk::Chunk,
+    pub name: String,
 }
 
 /// Represents a Hinton range object.

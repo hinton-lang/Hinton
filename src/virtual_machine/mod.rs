@@ -14,23 +14,23 @@ pub enum InterpretResult {
 }
 
 /// Represents a function call frame
-pub struct CallFrame<'a> {
+pub struct CallFrame {
     /// The function chunk associated with this call frame
-    pub function: Rc<FunctionObject<'a>>,
+    pub function: Rc<FunctionObject>,
     // The instruction pointer for this call frame
     pub ip: usize,
     // TODO: What does this do?
-    // pub slots: Vec<Object<'a>>
+    // pub slots: Vec<Object>
 }
 
 /// Represents a virtual machine
-pub struct VirtualMachine<'a> {
-    frames: Vec<CallFrame<'a>>,
-    stack: Vec<Rc<objects::Object<'a>>>,
-    globals: HashMap<String, Rc<objects::Object<'a>>>,
+pub struct VirtualMachine {
+    frames: Vec<CallFrame>,
+    stack: Vec<Rc<objects::Object>>,
+    globals: HashMap<String, Rc<objects::Object>>,
 }
 
-impl<'a> VirtualMachine<'a> {
+impl<'a> VirtualMachine {
     /// Creates a new instance of the virtual machine.
     ///
     /// ## Returns
@@ -89,7 +89,7 @@ impl<'a> VirtualMachine<'a> {
     ///
     /// ## Returns
     /// `bool` – True if both operands are numeric, false otherwise.
-    pub(super) fn check_numeric_operands(&self, left: Rc<Object<'a>>, right: Rc<Object<'a>>, opr: &str) -> bool {
+    pub(super) fn check_numeric_operands(&self, left: Rc<Object>, right: Rc<Object>, opr: &str) -> bool {
         // If the operands are not numeric, throw a runtime error.
         if !left.is_numeric() || !right.is_numeric() {
             self.report_runtime_error(&format!(
@@ -113,7 +113,7 @@ impl<'a> VirtualMachine<'a> {
     ///
     /// ## Returns
     /// `bool` – True if both operands are numeric, false otherwise.
-    pub(super) fn check_integer_operands(&self, left: Rc<Object<'a>>, right: Rc<Object<'a>>, opr: &str) -> bool {
+    pub(super) fn check_integer_operands(&self, left: Rc<Object>, right: Rc<Object>, opr: &str) -> bool {
         // If the operands are not numeric, throw a runtime error.
         if !left.is_int() || !right.is_int() {
             self.report_runtime_error(&format!(

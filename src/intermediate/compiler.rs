@@ -11,13 +11,13 @@ use super::ast;
 use super::ast::*;
 
 /// Represents a compiler and its internal state.
-pub struct Compiler<'a> {
+pub struct Compiler {
     had_error: bool,
     is_in_panic: bool,
-    pub chunk: Chunk<'a>,
+    pub chunk: Chunk,
 }
 
-impl<'a> Compiler<'a> {
+impl<'a> Compiler {
     /// Compiles an Abstract Syntax Tree into ByteCode.
     /// While the AST is used to perform static analysis like type checking
     /// and error detection, the ByteCode is used to execute the program faster.
@@ -29,7 +29,7 @@ impl<'a> Compiler<'a> {
     /// ## Returns
     /// `Result<Chunk<'a>, InterpretResult>` – If the program had no compile-time errors, returns
     /// a compiled chunk. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
-    pub fn compile(program: Rc<ModuleNode<'a>>) -> Result<FunctionObject<'a>, InterpretResult> {
+    pub fn compile(program: Rc<ModuleNode>) -> Result<FunctionObject, InterpretResult> {
         let mut c = Compiler {
             had_error: false,
             is_in_panic: false,
@@ -63,12 +63,12 @@ impl<'a> Compiler<'a> {
             chunk: c.chunk,
             min_arity: 0,
             max_arity: 0,
-            name: "<Script>",
+            name: String::from("<Script>"),
         })
     }
 
     /// Compiles an AST node.
-    pub fn compile_node(&mut self, node: ASTNode<'a>) {
+    pub fn compile_node(&mut self, node: ASTNode) {
         return match node {
             ASTNode::Literal(x) => self.compile_literal(x),
             ASTNode::Binary(x) => self.compile_binary_expr(x),
@@ -84,7 +84,7 @@ impl<'a> Compiler<'a> {
     }
 
     /// Compiles a binary expression
-    pub fn compile_binary_expr(&mut self, expr: BinaryExprNode<'a>) {
+    pub fn compile_binary_expr(&mut self, expr: BinaryExprNode) {
         self.compile_node(*expr.left);
         self.compile_node(*expr.right);
 
@@ -116,7 +116,7 @@ impl<'a> Compiler<'a> {
     }
 
     /// Compiles a unary expression
-    pub fn compile_unary_expr(&mut self, expr: UnaryExprNode<'a>) {
+    pub fn compile_unary_expr(&mut self, expr: UnaryExprNode) {
         self.compile_node(*expr.operand);
 
         let expression_op_code = match expr.opr_type {
@@ -129,7 +129,7 @@ impl<'a> Compiler<'a> {
     }
 
     /// Compiles a ternary conditional expression
-    pub fn compile_ternary_conditional(&mut self, expr: TernaryConditionalNode<'a>) {
+    pub fn compile_ternary_conditional(&mut self, expr: TernaryConditionalNode) {
         self.compile_node(*expr.condition);
         self.compile_node(*expr.branch_true);
         self.compile_node(*expr.branch_false);
@@ -138,7 +138,7 @@ impl<'a> Compiler<'a> {
     }
 
     /// Compiles a literal expression
-    pub fn compile_literal(&mut self, expr: LiteralExprNode<'a>) {
+    pub fn compile_literal(&mut self, expr: LiteralExprNode) {
         let obj = Rc::clone(&expr.value);
         let opr_pos = (expr.token.line_num, expr.token.column_num);
 
@@ -151,13 +151,13 @@ impl<'a> Compiler<'a> {
         }
     }
 
-    pub fn compile_print_statement(&mut self, stmt: PrintStmtNode<'a>) {
+    pub fn compile_print_statement(&mut self, stmt: PrintStmtNode) {
         self.compile_node(*stmt.child);
         self.emit_op_code(OpCode::OP_PRINT, stmt.pos);
     }
 
     /// Emits a constant instruction and adds the related object to the constant pool
-    pub fn emit_constant_instruction(&mut self, obj: Rc<Object<'a>>, token: Rc<Token<'a>>) {
+    pub fn emit_constant_instruction(&mut self, obj: Rc<Object>, token: Rc<Token>) {
         let constant_pos = self.chunk.add_constant(obj);
         let opr_pos = (token.line_num, token.column_num);
 
@@ -195,7 +195,7 @@ impl<'a> Compiler<'a> {
     /// ## Arguments
     /// *  `tok` – The token that caused the error.
     /// * `message` – The error message to display.
-    pub(super) fn error_at_token(&mut self, tok: Rc<Token<'a>>, message: &str) {
+    pub(super) fn error_at_token(&mut self, tok: Rc<Token>, message: &str) {
         if self.is_in_panic {
             return ();
         }
