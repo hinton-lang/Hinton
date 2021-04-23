@@ -7,32 +7,32 @@ use crate::{lexer::tokens::Token, objects::Object};
 /// as the declarations and statements made within that file.
 /// This is the root of a Hinton AST.
 #[derive(Clone)]
-pub struct ModuleNode<'a> {
-    pub body: Vec<ASTNode<'a>>,
+pub struct ModuleNode {
+    pub body: Vec<ASTNode>,
 }
 
 /// Represents a single node in Hinton's Abstract Syntax Tree.
 /// This node holds information about expressions, statements,
 /// and declarations in the source code.
 #[derive(Clone)]
-pub enum ASTNode<'a> {
+pub enum ASTNode {
     // Expressions
-    Literal(LiteralExprNode<'a>),
-    Binary(BinaryExprNode<'a>),
-    Unary(UnaryExprNode<'a>),
-    TernaryConditional(TernaryConditionalNode<'a>),
-    Identifier(IdentifierExprNode<'a>),
+    Literal(LiteralExprNode),
+    Binary(BinaryExprNode),
+    Unary(UnaryExprNode),
+    TernaryConditional(TernaryConditionalNode),
+    Identifier(IdentifierExprNode),
 
     // Declarations
     // coming soon...
 
     // General statements
-    PrintStmt(PrintStmtNode<'a>),
-    ExpressionStmt(ExpressionStmtNode<'a>),
+    PrintStmt(PrintStmtNode),
+    ExpressionStmt(ExpressionStmtNode),
 }
 
 /// Implementation for the ASTNode struct
-impl<'a> ASTNode<'a> {
+impl<'a> ASTNode {
     /// Recursively prints the current node's information as well as
     /// its children's information
     ///
@@ -81,18 +81,18 @@ impl<'a> ASTNode<'a> {
 /// This node holds information about literal values in hinton
 /// like strings, arrays, numerals, booleans, etc...
 #[derive(Clone)]
-pub struct LiteralExprNode<'a> {
-    pub value: Rc<Object<'a>>,
+pub struct LiteralExprNode {
+    pub value: Rc<Object>,
     // This node needs a reference to the token because at compile time,
     // we need information about the token for printing errors when there
     // is a problem with storing the literal in the constant pool.
-    pub token: Rc<Token<'a>>,
+    pub token: Rc<Token>,
 }
 
 /// Represents a unary expression node in Hinton's Abstract Syntax Tree.
 #[derive(Clone)]
-pub struct UnaryExprNode<'a> {
-    pub operand: Box<ASTNode<'a>>,
+pub struct UnaryExprNode {
+    pub operand: Box<ASTNode>,
     pub opr_type: UnaryExprType,
     pub pos: (usize, usize),
 }
@@ -107,9 +107,9 @@ pub enum UnaryExprType {
 
 /// Represents a binary expression node in Hinton's Abstract Syntax Tree.
 #[derive(Clone)]
-pub struct BinaryExprNode<'a> {
-    pub left: Box<ASTNode<'a>>,
-    pub right: Box<ASTNode<'a>>,
+pub struct BinaryExprNode {
+    pub left: Box<ASTNode>,
+    pub right: Box<ASTNode>,
     pub pos: (usize, usize),
     pub opr_type: BinaryExprType,
 }
@@ -142,32 +142,32 @@ pub enum BinaryExprType {
 
 /// Represents a ternary conditional expression node in Hinton's Abstract Syntax Tree.
 #[derive(Clone)]
-pub struct TernaryConditionalNode<'a> {
-    pub condition: Box<ASTNode<'a>>,
-    pub branch_true: Box<ASTNode<'a>>,
-    pub branch_false: Box<ASTNode<'a>>,
+pub struct TernaryConditionalNode {
+    pub condition: Box<ASTNode>,
+    pub branch_true: Box<ASTNode>,
+    pub branch_false: Box<ASTNode>,
     pub pos: (usize, usize),
 }
 
 /// Represents an identifier expression node in Hinton's Abstract Syntax Tree.
 #[derive(Clone)]
-pub struct IdentifierExprNode<'a> {
+pub struct IdentifierExprNode {
     // This node needs a reference to the token because at compile time,
     // we need information about the token for printing errors when there
     // is a problem with storing the identifier in the constant pool.
-    pub token: Rc<Token<'a>>,
+    pub token: Rc<Token>,
 }
 
 /// Represents a print statement node in Hinton's Abstract Syntax Tree.
 #[derive(Clone)]
-pub struct PrintStmtNode<'a> {
-    pub child: Box<ASTNode<'a>>,
+pub struct PrintStmtNode {
+    pub child: Box<ASTNode>,
     pub pos: (usize, usize),
 }
 
 /// Represents an expression statement node in Hinton's Abstract Syntax Tree.
 #[derive(Clone)]
-pub struct ExpressionStmtNode<'a> {
-    pub child: Box<ASTNode<'a>>,
+pub struct ExpressionStmtNode {
+    pub child: Box<ASTNode>,
     pub pos: (usize, usize),
 }

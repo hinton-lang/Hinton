@@ -16,23 +16,23 @@ use super::ast::{
 
 /// Represents Hinton's parser, which converts source text into
 /// an Abstract Syntax Tree representation of the program.
-pub struct Parser<'a> {
-    lexer: Lexer<'a>,
-    pub previous: Rc<Token<'a>>,
-    pub current: Rc<Token<'a>>,
+pub struct Parser {
+    lexer: Lexer,
+    pub previous: Rc<Token>,
+    pub current: Rc<Token>,
     pub had_error: bool,
     pub is_in_panic: bool,
 }
 
-impl<'a> Parser<'a> {
+impl<'a> Parser {
     /// Parses a string of source test into a Hinton AST.
     ///
     /// ## Arguments
     /// * `src` – The source text
     ///
     /// ## Returns
-    /// `Vec<ASTNode<'a>>` – A list of nodes in the AST
-    pub fn parse(src: &'a str) -> Result<ModuleNode<'a>, InterpretResult> {
+    /// `Vec<ASTNode>` – A list of nodes in the AST
+    pub fn parse(src: &'a str) -> Result<ModuleNode, InterpretResult> {
         // Initialize the compiler
         let mut parser = Parser {
             lexer: Lexer::lex(src),
@@ -40,13 +40,13 @@ impl<'a> Parser<'a> {
                 line_num: 0,
                 column_num: 0,
                 token_type: TokenType::__INIT_PARSER__,
-                lexeme: "",
+                lexeme: String::from(""),
             }),
             current: Rc::new(Token {
                 line_num: 0,
                 column_num: 0,
                 token_type: TokenType::__INIT_PARSER__,
-                lexeme: "",
+                lexeme: String::from(""),
             }),
             had_error: false,
             is_in_panic: false,
@@ -178,7 +178,7 @@ impl<'a> Parser<'a> {
     /// ## Arguments
     /// *  `tok` – The token that caused the error.
     /// * `message` – The error message to display.
-    pub(super) fn error_at_token(&mut self, tok: Rc<Token<'a>>, message: &str) {
+    pub(super) fn error_at_token(&mut self, tok: Rc<Token>, message: &str) {
         if self.is_in_panic {
             return ();
         }
@@ -229,8 +229,8 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(super) fn parse_declaration(&mut self) -> Vec<Option<ASTNode<'a>>> {
-        let mut statements: Vec<Option<ASTNode<'a>>> = Vec::new();
+    pub(super) fn parse_declaration(&mut self) -> Vec<Option<ASTNode>> {
+        let mut statements: Vec<Option<ASTNode>> = Vec::new();
 
         if self.matches(TokenType::LET_KEYWORD) {
             // statements = varDeclaration();
@@ -255,7 +255,7 @@ impl<'a> Parser<'a> {
         // }
     }
 
-    pub(super) fn parse_statement(&mut self) -> Option<ASTNode<'a>> {
+    pub(super) fn parse_statement(&mut self) -> Option<ASTNode> {
         if self.matches(TokenType::LEFT_CURLY_BRACES) {
             todo!("Implement blocks")
         } else if self.matches(TokenType::IF_KEYWORD) {
@@ -277,7 +277,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub(super) fn parse_print_statement(&mut self) -> Option<ASTNode<'a>> {
+    pub(super) fn parse_print_statement(&mut self) -> Option<ASTNode> {
         let opr = Rc::clone(&self.previous);
 
         self.consume(TokenType::LEFT_PARENTHESIS, "Expected '(' before expression.");
@@ -294,7 +294,7 @@ impl<'a> Parser<'a> {
         }));
     }
 
-    pub(super) fn parse_expression_statement(&mut self) -> Option<ASTNode<'a>> {
+    pub(super) fn parse_expression_statement(&mut self) -> Option<ASTNode> {
         let opr = Rc::clone(&self.previous);
         let expr = self.parse_expression();
 
@@ -312,16 +312,16 @@ impl<'a> Parser<'a> {
     /// Parses an expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_expression(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_expression(&mut self) -> Option<ASTNode> {
         self.parse_assignment()
     }
 
     /// Parses an assignment expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The assignment expression's AST node.
-    pub(super) fn parse_assignment(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The assignment expression's AST node.
+    pub(super) fn parse_assignment(&mut self) -> Option<ASTNode> {
         let expr = self.parse_ternary_conditional();
 
         return expr;
@@ -330,8 +330,8 @@ impl<'a> Parser<'a> {
     /// Parses a ternary conditional expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The assignment expression's AST node.
-    pub(super) fn parse_ternary_conditional(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The assignment expression's AST node.
+    pub(super) fn parse_ternary_conditional(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_nullish_coalescing();
 
         if self.matches(TokenType::QUESTION_MARK) {
@@ -366,8 +366,8 @@ impl<'a> Parser<'a> {
     /// Parses an '??' (nullish coalescing) expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_nullish_coalescing(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_nullish_coalescing(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_logic_or();
 
         while self.matches(TokenType::NULLISH_COALESCING) {
@@ -393,8 +393,8 @@ impl<'a> Parser<'a> {
     /// Parses an 'OR' expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_logic_or(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_logic_or(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_logic_and();
 
         while self.matches(TokenType::LOGICAL_OR) {
@@ -420,8 +420,8 @@ impl<'a> Parser<'a> {
     /// Parses an 'AND' expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_logic_and(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_logic_and(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_bitwise_or();
 
         while self.matches(TokenType::LOGICAL_AND) {
@@ -447,8 +447,8 @@ impl<'a> Parser<'a> {
     /// Parses a 'BITWISE OR' expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_bitwise_or(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_bitwise_or(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_bitwise_xor();
 
         while self.matches(TokenType::BITWISE_OR) {
@@ -474,8 +474,8 @@ impl<'a> Parser<'a> {
     /// Parses a 'BITWISE XOR' expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_bitwise_xor(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_bitwise_xor(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_bitwise_and();
 
         while self.matches(TokenType::BITWISE_XOR) {
@@ -501,8 +501,8 @@ impl<'a> Parser<'a> {
     /// Parses a 'BITWISE AND' expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_bitwise_and(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_bitwise_and(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_equality();
 
         while self.matches(TokenType::BITWISE_AND) {
@@ -528,8 +528,8 @@ impl<'a> Parser<'a> {
     /// Parses an equality expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_equality(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_equality(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_comparison();
 
         while self.matches(TokenType::LOGICAL_EQ) || self.matches(TokenType::LOGICAL_NOT_EQ) {
@@ -561,8 +561,8 @@ impl<'a> Parser<'a> {
     /// Parses a comparison expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_comparison(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_comparison(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_range();
 
         while self.matches(TokenType::LESS_THAN)
@@ -602,8 +602,8 @@ impl<'a> Parser<'a> {
     /// Parses a range expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_range(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_range(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_bitwise_shift();
 
         if self.matches(TokenType::RANGE_OPERATOR) {
@@ -629,8 +629,8 @@ impl<'a> Parser<'a> {
     /// Parses a 'BITWISE SHIFT' expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_bitwise_shift(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_bitwise_shift(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_term();
 
         while self.matches(TokenType::BITWISE_LEFT_SHIFT) || self.matches(TokenType::BITWISE_RIGHT_SHIFT) {
@@ -662,8 +662,8 @@ impl<'a> Parser<'a> {
     /// Parses a term expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_term(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_term(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_factor();
 
         while self.matches(TokenType::PLUS) || self.matches(TokenType::MINUS) {
@@ -695,8 +695,8 @@ impl<'a> Parser<'a> {
     /// Parses a factor expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_factor(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_factor(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_expo();
 
         while self.matches(TokenType::SLASH) || self.matches(TokenType::STAR) || self.matches(TokenType::MODULUS) {
@@ -730,8 +730,8 @@ impl<'a> Parser<'a> {
     /// Parses an exponentiation expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_expo(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_expo(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_unary();
 
         while self.matches(TokenType::EXPO) {
@@ -757,8 +757,8 @@ impl<'a> Parser<'a> {
     /// Parses a unary expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_unary(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_unary(&mut self) -> Option<ASTNode> {
         if self.matches(TokenType::LOGICAL_NOT) || self.matches(TokenType::MINUS) || self.matches(TokenType::BITWISE_NOT) {
             let opr = Rc::clone(&self.previous);
             let expr = self.parse_primary();
@@ -789,8 +789,8 @@ impl<'a> Parser<'a> {
     /// Parses a primary (literal) expression as specified in the grammar.cfg file.
     ///
     /// ## Returns
-    /// `Option<ASTNode<'a>>` – The expression's AST node.
-    pub(super) fn parse_primary(&mut self) -> Option<ASTNode<'a>> {
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn parse_primary(&mut self) -> Option<ASTNode> {
         self.advance();
 
         let literal_value = match self.get_previous_tok_type() {
@@ -843,7 +843,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Compiles a string token to a Hinton String.
-    pub(super) fn compile_string(&mut self) -> Rc<Object<'a>> {
+    pub(super) fn compile_string(&mut self) -> Rc<Object> {
         let lexeme = self.previous.lexeme.clone();
 
         // Remove outer quotes from the source string
@@ -862,7 +862,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Compiles a number token to a Hinton Number.
-    pub(super) fn compile_number(&mut self) -> Result<Rc<Object<'a>>, ()> {
+    pub(super) fn compile_number(&mut self) -> Result<Rc<Object>, ()> {
         let lexeme = self.previous.lexeme.clone();
         // Removes the underscores from the lexeme
         let lexeme = lexeme.replace('_', "");
@@ -883,7 +883,7 @@ impl<'a> Parser<'a> {
     }
 
     /// Compiles a binary, octal, or hexadecimal number token to a Hinton Number.
-    pub(super) fn compile_int_from_base(&mut self, radix: u32) -> Result<Rc<Object<'a>>, ()> {
+    pub(super) fn compile_int_from_base(&mut self, radix: u32) -> Result<Rc<Object>, ()> {
         let lexeme = self.previous.lexeme.clone();
         // Removes the underscores from the lexeme
         let lexeme = lexeme.replace('_', "");

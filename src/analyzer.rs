@@ -9,7 +9,7 @@ use crate::{
     objects::Object,
 };
 
-pub fn analyze_module<'a>(program: Rc<ModuleNode<'a>>) {
+pub fn analyze_module(program: Rc<ModuleNode>) {
     for node in program.body.iter() {
         // TODO: What can we do so that cloning each node is no longer necessary?
         // Cloning each node is a very expensive operation because some of the nodes
@@ -20,7 +20,7 @@ pub fn analyze_module<'a>(program: Rc<ModuleNode<'a>>) {
     }
 }
 
-fn analyze_node<'a>(node: ASTNode<'a>) {
+fn analyze_node(node: ASTNode) {
     return match node {
         ASTNode::Binary(x) => check_valid_division(x),
         ASTNode::PrintStmt(x) => analyze_node(*x.child),
@@ -29,7 +29,7 @@ fn analyze_node<'a>(node: ASTNode<'a>) {
     };
 }
 
-fn check_valid_division<'a>(node: BinaryExprNode<'a>) {
+fn check_valid_division<'a>(node: BinaryExprNode) {
     if let BinaryExprType::Division = node.opr_type {
         let rhs = get_object_value(*node.right);
 
@@ -45,7 +45,7 @@ fn check_valid_division<'a>(node: BinaryExprNode<'a>) {
     }
 }
 
-fn get_object_value<'a>(node: ASTNode<'a>) -> Rc<Object<'a>> {
+fn get_object_value(node: ASTNode) -> Rc<Object> {
     return match node {
         ASTNode::Literal(x) => x.value,
         _ => get_object_value(node),
