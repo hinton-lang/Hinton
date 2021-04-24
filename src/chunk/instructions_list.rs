@@ -98,4 +98,8 @@ impl InstructionsList {
         self.instructions.push(short[0]);
         self.instructions.push(short[1]);
     }
+
+    pub fn modify_byte(&mut self, pos: usize, new_val: u8) {
+        self.instructions[pos] = new_val;
+    }
 }

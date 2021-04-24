@@ -32,6 +32,7 @@ pub enum ASTNode {
     PrintStmt(PrintStmtNode),
     ExpressionStmt(ExpressionStmtNode),
     BlockStmt(BlockNode),
+    IfStmt(IfStmtNode),
 }
 
 /// Represents a literal node in Hinton's Abstract Syntax Tree.
@@ -155,4 +156,14 @@ pub struct ConstantDeclNode {
 #[derive(Clone)]
 pub struct BlockNode {
     pub body: Vec<ASTNode>,
+}
+
+/// Represents a if statement node in Hinton's Abstract Syntax Tree.
+#[derive(Clone)]
+pub struct IfStmtNode {
+    pub condition: Box<ASTNode>,
+    pub then_token: Rc<Token>,
+    pub then_branch: Box<ASTNode>,
+    pub else_branch: Box<Option<ASTNode>>,
+    pub else_token: Option<Rc<Token>>,
 }

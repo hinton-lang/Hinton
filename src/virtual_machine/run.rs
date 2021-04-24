@@ -470,6 +470,28 @@ impl<'a> VirtualMachine {
                 //         }
                 //     }
                 // }
+                Some(OpCode::OP_JUMP_IF_FALSE) => {
+                    frame_ip += 1;
+                    // The position of the local variable's value in the stack
+                    let offset = current_chunk.codes.get_short(frame_ip) as usize;
+                    frame_ip += 1;
+
+                    let top = Rc::clone(&self.stack.get((self.stack.len() - 1) as usize).unwrap());
+
+                    if top.is_falsey() {
+                        frame_ip += offset;
+                    }
+                }
+
+                Some(OpCode::OP_JUMP) => {
+                    frame_ip += 1;
+                    // The position of the local variable's value in the stack
+                    let offset = current_chunk.codes.get_short(frame_ip) as usize;
+                    frame_ip += 1;
+
+                    frame_ip += offset;
+                }
+
                 Some(OpCode::OP_PRINT) => {
                     let val = self.stack.pop();
                     println!("{}", val.unwrap());

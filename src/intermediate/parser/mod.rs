@@ -226,27 +226,6 @@ impl<'a> Parser {
         }
     }
 
-    /// Parses a declaration as specified in the grammar.cfg file.
-    pub(super) fn parse_declaration(&mut self) -> Option<ASTNode> {
-        if self.matches(TokenType::LET_KEYWORD) {
-            return self.parse_var_declaration();
-        } else if self.matches(TokenType::CONST_KEYWORD) {
-            return self.parse_const_declaration();
-        } else if self.matches(TokenType::FUNC_KEYWORD) {
-            // statements.add(function());
-            todo!("Implement function declarations")
-        } else if self.matches(TokenType::ENUM_KEYWORD) {
-            // statements.add(enumDeclaration());
-            todo!("Implement enum declarations")
-        } else {
-            return self.parse_statement();
-        }
-
-        // if self.is_in_panic {
-        //     self.synchronize();
-        // }
-    }
-
     /// Parses an expression as specified in the grammar.cfg file.
     ///
     /// ## Returns

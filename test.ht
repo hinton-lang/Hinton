@@ -1,42 +1,13 @@
-print(6 + 44 - 5 * 6 / 9 mod 2 + 2 ** 4 % 8.9 / 7);
-print("Hello!! " * 5);
-print("The sky is definitely " + "blue");
-print("1 + 1 = " + 2);
-print(true ? "value #1" : "value #2");
-print(0b11 << 1);
-print(null ?? null ?? "Final Value");
+let initial = 3;
 
-// New support for UTF-8 Characters
-print("नमस्ते");
-print("Cañón!");
-print("Emoji!: 💚");
-
-let x, y, z = "Multi-Variable!!";
-print(x);
-print(y);
-print(z);
-
-// Variable reassignment
-let a = "Initial Value for A";
-print(a);
-let b = a = "New value for A & B";
-print(a);
-print(b);
-
-let vName = "global";
-let never = "sim"; // compiler warning: never used.
-print("First 1: " + vName); // global
-
-{
-    let vName = "outer";
-    print("Second 1: " + vName); // outer
-    
-    {
-        let vName = "inner";
-        print("Last: " + vName); // inner
-    }
-
-    print("Second 2: " + vName); // outer
+if (initial == 1) {
+    print("Initial equals one!");
+} else if (initial == 2) {
+    print("Initial equals two!!");
+} else if (initial == 3) {
+    print("Initial equals three!!");
+} else {
+    print("Initial equals this value: '" + initial + "'.");
 }
 
-print("First 2: " + vName); // global
+print("After branches.");
