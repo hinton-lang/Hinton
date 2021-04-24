@@ -1,3 +1,4 @@
+use std::convert::TryFrom;
 use std::rc::Rc;
 mod expressions;
 mod statements;
@@ -64,11 +65,11 @@ impl Compiler {
             c.compile_node(node.clone());
         }
 
+        // **** TEMPORARY ****
+        c.emit_op_code(OpCode::OP_RETURN, (0, 0));
         // Shows the chunk.
         // c.chunk.disassemble("<script>");
         // c.chunk.print_raw("<script>");
-        // **** TEMPORARY ****
-        c.emit_op_code(OpCode::OP_RETURN, (0, 0));
 
         if !c.had_error {
             // Return the compiled chunk.
@@ -103,6 +104,7 @@ impl Compiler {
             ASTNode::Unary(x) => self.compile_unary_expr(x),
             ASTNode::VarReassignment(x) => self.compile_var_reassignment_expr(x),
             ASTNode::VariableDecl(x) => self.compile_variable_decl(x),
+            ASTNode::IfStmt(x) => self.compile_if_statement(x),
         };
     }
 
@@ -110,18 +112,69 @@ impl Compiler {
     ///
     /// ## Arguments
     /// * `instr` – The OpCode instruction to added to the chunk.
-    pub fn emit_op_code(&mut self, instr: OpCode, pos: (usize, usize)) {
+    ///
+    /// ## Returns
+    /// * `usize` – The position of the currently emitted OpCode in the chunk.
+    pub fn emit_op_code(&mut self, instr: OpCode, pos: (usize, usize)) -> usize {
         self.chunk.codes.push_byte(instr as u8);
         self.chunk.locations.push(pos.clone());
+
+        return self.chunk.codes.len() - 1;
     }
 
     /// Emits a short instruction from a 16-bit integer into the chunk's instruction list.
     ///
     /// ## Arguments
     /// * `instr` – The 16-bit short instruction to added to the chunk.
-    pub fn emit_short(&mut self, instr: u16, pos: (usize, usize)) {
+    ///
+    /// ## Returns
+    /// * `usize` – The position of the first byte for the currently emitted 16-bit short
+    /// in the chunk.
+    pub fn emit_short(&mut self, instr: u16, pos: (usize, usize)) -> usize {
         self.chunk.codes.push_short(instr);
         self.chunk.locations.push(pos.clone());
+        self.chunk.locations.push(pos.clone());
+
+        return self.chunk.codes.len() - 1;
+    }
+
+    /// Emits a jump instructions with a dummy jump offset. This offset should be
+    // later replaced by calling the `patch_jump(...)` function.
+    ///
+    /// ## Arguments
+    /// * `instruction` – The jump instruction to emit to the chunk.
+    /// * `token` – The token associated with this jump.
+    ///
+    /// ## Returns
+    /// `usize` – The position of the currently emitted jump instruction. This value
+    /// should be used by the call to the `patch_jump(...)` function to patch the
+    /// correct jump instruction's offset.
+    fn emit_jump(&mut self, instruction: OpCode, token: Rc<Token>) -> usize {
+        // TODO: Emit the correct position
+        self.emit_op_code(instruction, (token.line_num, token.column_num));
+        // We emit a temporary short representing the jump that will be
+        // made by the vm during runtime
+        // TODO: Emit the correct position
+        self.emit_short(0xffff, (token.line_num, token.column_num))
+    }
+
+    /// Patches the offset of a jump instruction.
+    ///
+    /// ## Arguments
+    /// * `offset` – The position in the chunk of the jump instruction to be patched.
+    /// * `token` – The token associated with this jump patch.
+    fn patch_jump(&mut self, offset: usize, token: Rc<Token>) {
+        // -1 to adjust for the bytecode for the jump offset itself.
+        let jump = match u16::try_from((self.chunk.codes.len() - offset) - 1) {
+            Ok(x) => x,
+            Err(_) => {
+                return self.error_at_token(token, "Too much code to jump over.");
+            }
+        };
+
+        let j = jump.to_be_bytes();
+        self.chunk.codes.modify_byte(offset - 1, j[0]);
+        self.chunk.codes.modify_byte(offset, j[1]);
     }
 
     /// Emits a compiler error from the given token.

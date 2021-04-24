@@ -1,9 +1,10 @@
 use super::{Compiler, Variable};
+use std::borrow::Borrow;
 use std::rc::Rc;
 
 use crate::{
     chunk::op_codes::OpCode,
-    intermediate::ast::{BlockNode, ConstantDeclNode, PrintStmtNode, VariableDeclNode},
+    intermediate::ast::{BlockNode, ConstantDeclNode, IfStmtNode, PrintStmtNode, VariableDeclNode},
     lexer::tokens::Token,
 };
 
@@ -168,6 +169,42 @@ impl Compiler {
                     var.name.line_num, var.name.column_num, var.name.lexeme
                 );
             }
+        }
+    }
+
+    /// Compiles an if statement.
+    ///
+    /// * `block` – The if statement node being compiled.
+    pub(super) fn compile_if_statement(&mut self, stmt: IfStmtNode) {
+        // Compiles the condition so that its value is at the top of the
+        // stack during runtime. This value is then checked for truthiness
+        // to execute the correct branch of the if statement.
+        self.compile_node(*stmt.condition);
+
+        let then_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&stmt.then_token));
+        self.emit_op_code(OpCode::OP_POP_STACK, (stmt.then_token.line_num, stmt.then_token.column_num));
+        self.compile_node(*stmt.then_branch);
+
+        let else_jump = match stmt.else_token.borrow() {
+            Some(token) => self.emit_jump(OpCode::OP_JUMP, Rc::clone(&token)),
+            // We are okay to return a dummy value because the only way `else_jump` can
+            // be used is if there was an `else` branch in the first place. If there is
+            // no `else` token, then there is no `else` branch, which means that the bellow
+            // match statement will not execute, and so this value will not be used.
+            None => 0,
+        };
+
+        self.patch_jump(then_jump, Rc::clone(&stmt.then_token));
+        self.emit_op_code(OpCode::OP_POP_STACK, (stmt.then_token.line_num, stmt.then_token.column_num));
+
+        match *stmt.else_branch {
+            Some(else_branch) => {
+                self.compile_node(else_branch);
+                // Because at this point we *do* have an 'else' branch, we know that for sure
+                // these is an `else_token`, so it is safe to unwrap without check.
+                self.patch_jump(else_jump, stmt.else_token.unwrap());
+            }
+            None => {}
         }
     }
 }

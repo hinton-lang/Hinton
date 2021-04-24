@@ -18,11 +18,17 @@ impl Compiler {
         let opr_pos = (expr.token.line_num, expr.token.column_num);
 
         match *obj {
-            Object::Bool(x) if x => self.emit_op_code(OpCode::OP_TRUE, opr_pos),
-            Object::Bool(x) if !x => self.emit_op_code(OpCode::OP_FALSE, opr_pos),
-            Object::Null => self.emit_op_code(OpCode::OP_NULL, opr_pos),
+            Object::Bool(x) if x => {
+                self.emit_op_code(OpCode::OP_TRUE, opr_pos);
+            }
+            Object::Bool(x) if !x => {
+                self.emit_op_code(OpCode::OP_FALSE, opr_pos);
+            }
+            Object::Null => {
+                self.emit_op_code(OpCode::OP_NULL, opr_pos);
+            }
             _ => self.add_literal_to_pool(obj, expr.token),
-        }
+        };
     }
 
     /// Compiles a unary expression.

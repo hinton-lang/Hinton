@@ -117,7 +117,7 @@ impl<'a> Chunk {
                     match instr {
                         // Prints the value associated with an OP_CONSTANT instruction
                         OpCode::OP_VALUE => println!("\t\t---> {}", const_val()),
-                        OpCode::OP_GET_VAR | OpCode::OP_SET_VAR => {
+                        OpCode::OP_GET_VAR | OpCode::OP_SET_VAR | OpCode::OP_JUMP_IF_FALSE => {
                             i += 2;
                             println!();
                         }

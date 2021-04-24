@@ -8,6 +8,30 @@ use crate::{
 };
 
 impl Parser {
+    /// Parses a declaration as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode>` – The declaration's AST node.
+    pub(super) fn parse_declaration(&mut self) -> Option<ASTNode> {
+        if self.matches(TokenType::LET_KEYWORD) {
+            return self.parse_var_declaration();
+        } else if self.matches(TokenType::CONST_KEYWORD) {
+            return self.parse_const_declaration();
+        } else if self.matches(TokenType::FUNC_KEYWORD) {
+            // statements.add(function());
+            todo!("Implement function declarations")
+        } else if self.matches(TokenType::ENUM_KEYWORD) {
+            // statements.add(enumDeclaration());
+            todo!("Implement enum declarations")
+        } else {
+            return self.parse_statement();
+        }
+
+        // if self.is_in_panic {
+        //     self.synchronize();
+        // }
+    }
+
     /// Parses a statement as specified in the grammar.cfg file.
     ///
     /// ## Returns
@@ -16,7 +40,7 @@ impl Parser {
         if self.matches(TokenType::LEFT_CURLY_BRACES) {
             self.parse_block()
         } else if self.matches(TokenType::IF_KEYWORD) {
-            todo!("Implement `if` statements")
+            self.parse_if_statement()
         } else if self.matches(TokenType::WHILE_KEYWORD) {
             todo!("Implement while loops")
         } else if self.matches(TokenType::FOR_KEYWORD) {
@@ -38,7 +62,7 @@ impl Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The print statement's AST node.
-    pub(super) fn parse_print_statement(&mut self) -> Option<ASTNode> {
+    fn parse_print_statement(&mut self) -> Option<ASTNode> {
         let opr = Rc::clone(&self.previous);
 
         self.consume(TokenType::LEFT_PARENTHESIS, "Expected '(' before expression.");
@@ -59,7 +83,7 @@ impl Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression statement's AST node.
-    pub(super) fn parse_expression_statement(&mut self) -> Option<ASTNode> {
+    fn parse_expression_statement(&mut self) -> Option<ASTNode> {
         let opr = Rc::clone(&self.previous);
         let expr = self.parse_expression();
 
@@ -78,7 +102,7 @@ impl Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The block statement's AST node.
-    pub fn parse_block(&mut self) -> Option<ASTNode> {
+    fn parse_block(&mut self) -> Option<ASTNode> {
         let mut statements = BlockNode { body: vec![] };
 
         while !self.check(TokenType::RIGHT_CURLY_BRACES) && !self.check(TokenType::EOF) {
@@ -97,7 +121,7 @@ impl Parser {
     ///
     /// Returns
     /// * `Option<ASTNode>` – A variable declaration AST node.
-    pub(super) fn parse_var_declaration(&mut self) -> Option<ASTNode> {
+    fn parse_var_declaration(&mut self) -> Option<ASTNode> {
         let mut declarations: Vec<Rc<Token>> = Vec::new();
 
         // Gets at least one variable name, or a list of
@@ -144,7 +168,7 @@ impl Parser {
     ///
     /// Returns
     /// * `Option<ASTNode>` – A variable declaration AST node.
-    pub(super) fn parse_const_declaration(&mut self) -> Option<ASTNode> {
+    fn parse_const_declaration(&mut self) -> Option<ASTNode> {
         self.consume(TokenType::IDENTIFIER, "Expected variable name.");
         let name = Rc::clone(&self.previous);
 
@@ -169,6 +193,46 @@ impl Parser {
         return Some(ASTNode::ConstantDecl(ConstantDeclNode {
             name,
             value: Box::new(initializer.clone()),
+        }));
+    }
+
+    /// Parses an if statement as specified in the grammar.cfg file.
+    ///
+    /// Returns
+    /// * `Option<ASTNode>` – An if statement AST node.
+    pub fn parse_if_statement(&mut self) -> Option<ASTNode> {
+        let then_tok = Rc::clone(&self.previous);
+        self.consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'if'.");
+
+        let condition = match self.parse_expression() {
+            Some(val) => val,
+            None => return None, // Could not create condition for if-statement
+        };
+
+        self.consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after if condition.");
+
+        let then_branch = match self.parse_statement() {
+            Some(val) => val,
+            None => return None, // Could not create then branch
+        };
+
+        let mut else_branch = None;
+        let mut else_tok = None;
+        if self.matches(TokenType::ELSE_KEYWORD) {
+            else_tok = Some(Rc::clone(&self.previous));
+
+            else_branch = match self.parse_statement() {
+                Some(val) => Some(val),
+                None => return None, // Could not create else branch
+            };
+        }
+
+        return Some(IfStmt(IfStmtNode {
+            condition: Box::new(condition),
+            then_token: then_tok,
+            then_branch: Box::new(then_branch),
+            else_branch: Box::new(else_branch),
+            else_token: else_tok,
         }));
     }
 }
