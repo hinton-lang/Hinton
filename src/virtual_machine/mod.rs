@@ -1,5 +1,5 @@
 pub mod run;
-use std::{collections::HashMap, rc::Rc};
+use std::rc::Rc;
 
 use crate::{
     analyzer,
@@ -31,7 +31,6 @@ pub struct CallFrame {
 pub struct VirtualMachine {
     frames: Vec<CallFrame>,
     stack: Vec<Rc<objects::Object>>,
-    globals: HashMap<String, Rc<objects::Object>>,
 }
 
 impl<'a> VirtualMachine {
@@ -43,7 +42,6 @@ impl<'a> VirtualMachine {
         Self {
             frames: Vec::new(),
             stack: Vec::new(),
-            globals: HashMap::new(),
         }
     }
 
@@ -81,7 +79,7 @@ impl<'a> VirtualMachine {
         // This will show the wrong line and column when an error occurs.
         let line = frame.function.chunk.locations.get(frame.ip + 1).unwrap();
 
-        eprintln!("RuntimeError at [{}:{}] – {}", line.0, line.1, message);
+        eprintln!("\x1b[31;1mRuntimeError\x1b[0m at [{}:{}] – {}", line.0, line.1, message);
     }
 
     /// Checks that both operands of a binary operand are numeric.

@@ -99,14 +99,14 @@ This to-do list only applies to the Rust implementation of the Hinton interprete
     - [x] Ternary Conditional expressions.
 - [ ] Parse & Execute Statements.
     - [ ] Class declarations.
-    - [ ] Constant declarations.
+    - [x] Constant declarations.
     - [ ] Control flow statements.
     - [ ] Dictionary declarations.
     - [ ] Enum declarations.
     - [ ] Function declarations.
     - [ ] Looping statements.
     - [ ] Named parameters.
-    - [ ] Variable declarations.
+    - [x] Variable declarations.
 - [ ] Define Built-In Types as Objects
     - [x] Array objects.
     - [x] Boolean objects.

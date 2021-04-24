@@ -58,12 +58,7 @@ impl<'a> Parser {
         parser.advance();
         while !parser.matches(TokenType::EOF) && !parser.had_error {
             match parser.parse_declaration() {
-                // TODO: What can we do so that cloning each node is no longer necessary?
-                // Cloning each node is a very expensive operation because some of the nodes
-                // could have an arbitrarily big amount of data. Fox example, large bodies
-                // of literal text could drastically slow down the performance of the compiler
-                // when those strings have to be cloned.
-                Some(val) => program.body.push(val.clone()),
+                Some(val) => program.body.push(val),
                 // Report parse error if node has None value
                 None => return Err(InterpretResult::INTERPRET_PARSE_ERROR),
             }
@@ -80,6 +75,10 @@ impl<'a> Parser {
     ///
     /// ## Arguments
     /// * `type` The tokenType we expect to match with the current token.
+    ///
+    /// # Results
+    /// * `bool` – True if the current token matches the given token type
+    /// false otherwise.
     pub(super) fn check(&mut self, tok_type: TokenType) -> bool {
         if tok_type == self.get_current_tok_type() {
             true
@@ -182,7 +181,7 @@ impl<'a> Parser {
         }
         self.is_in_panic = true;
 
-        print!("SyntaxError [{}:{}]", tok.line_num, tok.column_num);
+        print!("\x1b[31;1mSyntaxError\x1b[0m [{}:{}]", tok.line_num, tok.column_num);
 
         if let TokenType::EOF = tok.token_type {
             println!(" – At the end of the program.");
@@ -227,12 +226,12 @@ impl<'a> Parser {
         }
     }
 
+    /// Parses a declaration as specified in the grammar.cfg file.
     pub(super) fn parse_declaration(&mut self) -> Option<ASTNode> {
         if self.matches(TokenType::LET_KEYWORD) {
             return self.parse_var_declaration();
         } else if self.matches(TokenType::CONST_KEYWORD) {
-            // statements = constDeclaration();
-            todo!("Implement constant declarations")
+            return self.parse_const_declaration();
         } else if self.matches(TokenType::FUNC_KEYWORD) {
             // statements.add(function());
             todo!("Implement function declarations")
@@ -246,60 +245,6 @@ impl<'a> Parser {
         // if self.is_in_panic {
         //     self.synchronize();
         // }
-    }
-
-    pub(super) fn parse_statement(&mut self) -> Option<ASTNode> {
-        if self.matches(TokenType::LEFT_CURLY_BRACES) {
-            todo!("Implement blocks")
-        } else if self.matches(TokenType::IF_KEYWORD) {
-            todo!("Implement `if` statements")
-        } else if self.matches(TokenType::WHILE_KEYWORD) {
-            todo!("Implement while loops")
-        } else if self.matches(TokenType::FOR_KEYWORD) {
-            todo!("Implement for loops")
-        } else if self.matches(TokenType::BREAK_KEYWORD) {
-            todo!("Implement breaks")
-        } else if self.matches(TokenType::CONTINUE_KEYWORD) {
-            todo!("Implement continue")
-        } else if self.matches(TokenType::RETURN_KEYWORD) {
-            todo!("Implement return")
-        } else if self.matches(TokenType::PRINT) {
-            self.parse_print_statement()
-        } else {
-            self.parse_expression_statement()
-        }
-    }
-
-    pub(super) fn parse_print_statement(&mut self) -> Option<ASTNode> {
-        let opr = Rc::clone(&self.previous);
-
-        self.consume(TokenType::LEFT_PARENTHESIS, "Expected '(' before expression.");
-        let expr = self.parse_expression();
-        self.consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after expression.");
-        self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after expression.");
-
-        return Some(PrintStmt(PrintStmtNode {
-            child: match expr {
-                Some(t) => Box::new(t),
-                None => return None, // Could not create expression to print
-            },
-            pos: (opr.line_num, opr.column_num),
-        }));
-    }
-
-    pub(super) fn parse_expression_statement(&mut self) -> Option<ASTNode> {
-        let opr = Rc::clone(&self.previous);
-        let expr = self.parse_expression();
-
-        self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after expression.");
-
-        return Some(ExpressionStmt(ExpressionStmtNode {
-            child: match expr {
-                Some(t) => Box::new(t),
-                None => return None, // Could not create expression to print
-            },
-            pos: (opr.line_num, opr.column_num),
-        }));
     }
 
     /// Parses an expression as specified in the grammar.cfg file.
@@ -868,6 +813,9 @@ impl<'a> Parser {
     }
 
     /// Compiles a string token to a Hinton String.
+    ///
+    /// ## Returns
+    /// `Rc<Object>` – The Hinton string object.
     pub(super) fn compile_string(&mut self) -> Rc<Object> {
         let lexeme = self.previous.lexeme.clone();
 
@@ -887,6 +835,9 @@ impl<'a> Parser {
     }
 
     /// Compiles a number token to a Hinton Number.
+    ///
+    /// ## Returns
+    /// `Rc<Object>` – The Hinton number object.
     pub(super) fn compile_number(&mut self) -> Result<Rc<Object>, ()> {
         let lexeme = self.previous.lexeme.clone();
         // Removes the underscores from the lexeme
@@ -908,6 +859,10 @@ impl<'a> Parser {
     }
 
     /// Compiles a binary, octal, or hexadecimal number token to a Hinton Number.
+    ///
+    /// ## Returns
+    /// `Result<Rc<Object>, ()>` – If there was no error converting the lexeme to an integer
+    /// of the specified base, returns the Hinton number object. Otherwise, returns an empty error.
     pub(super) fn compile_int_from_base(&mut self, radix: u32) -> Result<Rc<Object>, ()> {
         let lexeme = self.previous.lexeme.clone();
         // Removes the underscores from the lexeme

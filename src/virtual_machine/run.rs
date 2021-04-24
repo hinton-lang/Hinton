@@ -30,7 +30,7 @@ impl<'a> VirtualMachine {
                 Some(OpCode::OP_TRUE) => self.stack.push(Rc::new(Object::Bool(true))),
                 Some(OpCode::OP_FALSE) => self.stack.push(Rc::new(Object::Bool(false))),
 
-                Some(OpCode::OP_CONSTANT) => {
+                Some(OpCode::OP_VALUE) => {
                     frame_ip += 1;
                     let pos = current_chunk.codes.get_short(frame_ip);
                     frame_ip += 1;
@@ -44,83 +44,29 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_DEFINE_GLOBAL_VAR) => {
+                Some(OpCode::OP_GET_VAR) => {
                     frame_ip += 1;
+                    // The position of the local variable's value in the stack
                     let pos = current_chunk.codes.get_short(frame_ip);
                     frame_ip += 1;
 
-                    match current_chunk.get_constant(pos) {
-                        Some(var_name) => {
-                            if var_name.is_string() {
-                                let name = var_name.as_string().unwrap();
-                                let value = self.stack.get(self.stack.len() - 1).unwrap();
-                                self.globals.insert(String::from(name.as_str()), Rc::clone(value));
-                            } else {
-                                self.report_runtime_error("InternalRuntimeError: Pool item is not an identifier");
-                            }
-                        }
-                        None => {
-                            self.report_runtime_error(&format!("InternalRuntimeError: Constant pool index '{}' out of range", pos));
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
-                    }
+                    // TODO: We shouldn't need to add 1 to get the position of the value.
+                    // This problem should be resolved later when we add functions.
+                    let value = Rc::clone(&self.stack.get_mut((pos + 1) as usize).unwrap());
+                    self.stack.push(value);
                 }
 
-                Some(OpCode::OP_GET_GLOBAL_VAR) => {
+                Some(OpCode::OP_SET_VAR) => {
                     frame_ip += 1;
+                    // The position of the local variable's value in the stack
                     let pos = current_chunk.codes.get_short(frame_ip);
                     frame_ip += 1;
 
-                    match current_chunk.get_constant(pos) {
-                        Some(var_name) => {
-                            if var_name.is_string() {
-                                let name = var_name.as_string().unwrap();
+                    let value = Rc::clone(&self.stack.last_mut().unwrap());
 
-                                match self.globals.get(&name) {
-                                    Some(obj) => self.stack.push(Rc::clone(obj)),
-                                    None => {
-                                        self.report_runtime_error(&format!("Undefined variable '{}'.", name));
-                                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                                    }
-                                }
-                            } else {
-                                self.report_runtime_error("InternalRuntimeError: Pool item is not an identifier");
-                            }
-                        }
-                        None => {
-                            self.report_runtime_error(&format!("InternalRuntimeError: Constant pool index '{}' out of range", pos));
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
-                    }
-                }
-
-                Some(OpCode::OP_SET_GLOBAL_VAR) => {
-                    frame_ip += 1;
-                    let pos = current_chunk.codes.get_short(frame_ip);
-                    frame_ip += 1;
-
-                    match current_chunk.get_constant(pos) {
-                        Some(val) => {
-                            if val.is_string() {
-                                let str = val.as_string().unwrap();
-                                let var_value = self.stack.pop().unwrap();
-
-                                match self.globals.insert(str.clone(), Rc::clone(&var_value)) {
-                                    Some(_) => self.stack.push(var_value),
-                                    None => {
-                                        self.report_runtime_error(&format!("Undefined variable '{}'.", str));
-                                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                                    }
-                                }
-                            } else {
-                                self.report_runtime_error("InternalRuntimeError: Pool item is not an identifier");
-                            }
-                        }
-                        None => {
-                            self.report_runtime_error(&format!("InternalRuntimeError: Constant pool index '{}' out of range", pos));
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
-                    }
+                    // TODO: We shouldn't need to add 1 to get the position of the value.
+                    // This problem should be resolved later when we add functions.
+                    self.stack[(pos + 1) as usize] = value;
                 }
 
                 Some(OpCode::OP_NEGATE) => {

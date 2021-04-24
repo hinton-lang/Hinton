@@ -26,65 +26,12 @@ pub enum ASTNode {
 
     // Declarations
     VariableDecl(VariableDeclNode),
+    ConstantDecl(ConstantDeclNode),
 
     // Statements
     PrintStmt(PrintStmtNode),
     ExpressionStmt(ExpressionStmtNode),
-}
-
-/// Implementation for the ASTNode struct
-impl<'a> ASTNode {
-    /// Recursively prints the current node's information as well as
-    /// its children's information
-    ///
-    /// ## Arguments
-    /// `depth` – The depth in the AST tree of the current node.
-    pub fn print(&self, depth: usize) {
-        match self {
-            ASTNode::Literal(expr) => println!("{}", expr.value),
-            ASTNode::Binary(expr) => {
-                println!("{:?}", expr.opr_type);
-                print!("{}Left: ", "\t".repeat(depth + 1));
-                expr.left.print(depth + 1);
-                print!("{}Right: ", "\t".repeat(depth + 1));
-                expr.right.print(depth + 1);
-            }
-            ASTNode::Unary(expr) => {
-                println!("{:?}", expr.opr_type);
-                print!("{}Operand: ", "\t".repeat(depth + 1));
-                expr.operand.print(depth + 1);
-            }
-            ASTNode::TernaryConditional(expr) => {
-                println!("Ternary Conditional");
-                print!("{}Condition: ", "\t".repeat(depth + 1));
-                expr.condition.print(depth + 1);
-                print!("{}Branch True: ", "\t".repeat(depth + 1));
-                expr.branch_true.print(depth + 1);
-                print!("{}Branch False: ", "\t".repeat(depth + 1));
-                expr.branch_false.print(depth + 1);
-            }
-            ASTNode::Identifier(expr) => {
-                println!("Identifier: {}", expr.token.lexeme)
-            }
-            ASTNode::PrintStmt(stmt) => {
-                print!("Print Stmt:");
-                stmt.child.print(depth + 1);
-            }
-            ASTNode::ExpressionStmt(stmt) => {
-                print!("Expression Stmt:");
-                stmt.child.print(depth + 1);
-            }
-            ASTNode::VariableDecl(decl) => {
-                for id in decl.identifiers.iter() {
-                    println!("Variable declaration: ");
-                    println!("{}Name: {}", "\t".repeat(depth + 1), id.lexeme);
-                    print!("{}value: ", "\t".repeat(depth + 1));
-                    decl.value.print(depth + 1);
-                }
-            }
-            ASTNode::VarReassignment(_) => {}
-        }
-    }
+    BlockStmt(BlockNode),
 }
 
 /// Represents a literal node in Hinton's Abstract Syntax Tree.
@@ -195,4 +142,17 @@ pub struct VarReassignmentExprNode {
     pub target: Rc<Token>,
     pub value: Box<ASTNode>,
     pub pos: (usize, usize),
+}
+
+/// Represents a constant declaration node in Hinton's Abstract Syntax Tree.
+#[derive(Clone)]
+pub struct ConstantDeclNode {
+    pub name: Rc<Token>,
+    pub value: Box<ASTNode>,
+}
+
+/// Represents a block node in Hinton's Abstract Syntax Tree.
+#[derive(Clone)]
+pub struct BlockNode {
+    pub body: Vec<ASTNode>,
 }

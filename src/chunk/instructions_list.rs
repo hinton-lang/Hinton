@@ -6,7 +6,7 @@ pub struct InstructionsList {
 }
 
 impl InstructionsList {
-    /// Creates a new instructions list
+    /// Creates a new instructions list.
     ///
     /// ## Returns
     /// `InstructionsList` – a new instructions list.
