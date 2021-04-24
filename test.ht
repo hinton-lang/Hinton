@@ -11,9 +11,6 @@ print("नमस्ते");
 print("Cañón!");
 print("Emoji!: 💚");
 
-// This mistake is caught by the static analyzer before the program is even compiled.
-// print(1 / 0);
-
 let x, y, z = "Multi-Variable!!";
 print(x);
 print(y);
@@ -25,3 +22,21 @@ print(a);
 let b = a = "New value for A & B";
 print(a);
 print(b);
+
+let vName = "global";
+let never = "sim"; // compiler warning: never used.
+print("First 1: " + vName); // global
+
+{
+    let vName = "outer";
+    print("Second 1: " + vName); // outer
+    
+    {
+        let vName = "inner";
+        print("Last: " + vName); // inner
+    }
+
+    print("Second 2: " + vName); // outer
+}
+
+print("First 2: " + vName); // global

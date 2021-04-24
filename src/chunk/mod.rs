@@ -33,7 +33,7 @@ impl<'a> Chunk {
         Self {
             codes: instructions_list::InstructionsList::new(),
             locations: Vec::new(),
-            constants: Vec::new(),
+            constants: Vec::with_capacity(u16::MAX as usize),
         }
     }
 
@@ -116,12 +116,12 @@ impl<'a> Chunk {
 
                     match instr {
                         // Prints the value associated with an OP_CONSTANT instruction
-                        OpCode::OP_CONSTANT => println!("\t\t---> {}", const_val()),
-                        OpCode::OP_DEFINE_GLOBAL_VAR
-                        | OpCode::OP_GET_GLOBAL_VAR
-                        | OpCode::OP_SET_GLOBAL_VAR
-                        | OpCode::OP_POST_INCREMENT
-                        | OpCode::OP_POST_DECREMENT => println!("\t---> {}", const_val()),
+                        OpCode::OP_VALUE => println!("\t\t---> {}", const_val()),
+                        OpCode::OP_GET_VAR | OpCode::OP_SET_VAR => {
+                            i += 2;
+                            println!();
+                        }
+                        // OpCode::OP_POST_INCREMENT | OpCode::OP_POST_DECREMENT => println!("\t---> {}", const_val()),
                         // If the instruction does not use the next to bytes, then print nothing
                         _ => println!(),
                     }

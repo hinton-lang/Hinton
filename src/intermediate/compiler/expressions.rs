@@ -93,16 +93,12 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – An identifier expression node.
     pub(super) fn compile_identifier_expr(&mut self, expr: IdentifierExprNode) {
-        let arg = self.add_identifier_to_pool(Rc::clone(&expr.token));
-
-        match arg {
-            ConstantPos::Pos(x) => {
-                self.emit_op_code(OpCode::OP_GET_GLOBAL_VAR, (expr.token.line_num, expr.token.column_num));
-                self.emit_short(x, (expr.token.line_num, expr.token.column_num));
+        match self.resolve_variable(Rc::clone(&expr.token), false) {
+            Some(idx) => {
+                self.emit_op_code(OpCode::OP_GET_VAR, (expr.token.line_num, expr.token.column_num));
+                self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
             }
-            ConstantPos::Error => {
-                self.error_at_token(expr.token, "Could not add variable name to constant pool.");
-            }
+            None => {}
         }
     }
 
@@ -113,17 +109,53 @@ impl Compiler {
     pub(super) fn compile_var_reassignment_expr(&mut self, expr: VarReassignmentExprNode) {
         self.compile_node(*expr.value);
 
-        let arg = self.add_identifier_to_pool(Rc::clone(&expr.target));
-
-        match arg {
-            ConstantPos::Pos(x) => {
-                self.emit_op_code(OpCode::OP_SET_GLOBAL_VAR, (expr.target.line_num, expr.target.column_num));
-                self.emit_short(x, (expr.target.line_num, expr.target.column_num));
+        match self.resolve_variable(Rc::clone(&expr.target), true) {
+            Some(idx) => {
+                self.emit_op_code(OpCode::OP_SET_VAR, (expr.target.line_num, expr.target.column_num));
+                self.emit_short(idx, (expr.target.line_num, expr.target.column_num));
             }
-            ConstantPos::Error => {
-                self.error_at_token(expr.target, "Could not add variable name to constant pool.");
+            None => {}
+        }
+    }
+
+    /// Looks for a variable with the given token name in the list of variables.
+    /// This is used to
+    ///
+    /// ## Arguments
+    /// * `token` – A reference to the token (variable name) related to the variable.
+    /// * `for_reassign` – Wether of not we are resolving the variable for the purpose of reassignment.
+    ///
+    /// ## Returns
+    /// * `Option<u16>` – If there were no errors with resolving the variable, it returns the position
+    /// of the variable in the variables array.
+    fn resolve_variable(&mut self, token: Rc<Token>, for_reassign: bool) -> Option<u16> {
+        // Look for the variable in the locals array starting from the back.
+        // We loop backwards because we want to first check if the variable
+        // exists in the current scope, then in any of the parent scopes, etc..
+        for (index, var) in self.variables.iter_mut().enumerate().rev() {
+            if var.name.lexeme == token.lexeme {
+                if !var.is_initialized {
+                    if !var.is_const {
+                        self.error_at_token(token, "Cannot read variable in its own initializer.");
+                    } else {
+                        self.error_at_token(token, "Cannot read constant in its own initializer.");
+                    }
+                    return None;
+                }
+
+                if for_reassign && var.is_const {
+                    self.error_at_token(token, "Cannot reassign to constant.");
+                    return None;
+                }
+
+                var.is_used = true;
+                return Some(index as u16);
             }
         }
+
+        // The variable doesn't exist
+        self.error_at_token(token, "Use of undeclared identifer.");
+        None
     }
 
     /// Emits a constant instruction and adds the related object to the constant pool
@@ -137,7 +169,7 @@ impl Compiler {
 
         match constant_pos {
             ConstantPos::Pos(idx) => {
-                self.emit_op_code(OpCode::OP_CONSTANT, opr_pos);
+                self.emit_op_code(OpCode::OP_VALUE, opr_pos);
                 self.emit_short(idx, opr_pos);
             }
             ConstantPos::Error => {

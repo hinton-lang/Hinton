@@ -11,11 +11,23 @@ use crate::{
 
 use super::ast::*;
 
+/// Represents a variable declaration. Used for lexical scoping.
+pub struct Variable {
+    name: Rc<Token>,
+    depth: usize,
+    is_initialized: bool,
+    is_const: bool,
+    is_used: bool,
+}
+
 /// Represents a compiler and its internal state.
 pub struct Compiler {
     had_error: bool,
     is_in_panic: bool,
-    pub chunk: Chunk,
+    chunk: Chunk,
+    // Lexical scoping of declarations
+    variables: Vec<Variable>,
+    scope_depth: usize,
 }
 
 impl Compiler {
@@ -35,15 +47,14 @@ impl Compiler {
             had_error: false,
             is_in_panic: false,
             chunk: Chunk::new(),
+            variables: Vec::with_capacity(u16::MAX as usize),
+            scope_depth: 0,
         };
 
         for node in program.body.iter() {
             if c.had_error {
                 return Err(InterpretResult::INTERPRET_COMPILE_ERROR);
             }
-
-            // Prints this node's AST
-            // node.print(0);
 
             // TODO: What can we do so that cloning each node is no longer necessary?
             // Cloning each node is a very expensive operation because some of the nodes
@@ -54,18 +65,22 @@ impl Compiler {
         }
 
         // Shows the chunk.
-        c.chunk.disassemble("<script>");
+        // c.chunk.disassemble("<script>");
         // c.chunk.print_raw("<script>");
         // **** TEMPORARY ****
         c.emit_op_code(OpCode::OP_RETURN, (0, 0));
 
-        // Return the compiled chunk.
-        Ok(FunctionObject {
-            chunk: c.chunk,
-            min_arity: 0,
-            max_arity: 0,
-            name: String::from("<Script>"),
-        })
+        if !c.had_error {
+            // Return the compiled chunk.
+            Ok(FunctionObject {
+                chunk: c.chunk,
+                min_arity: 0,
+                max_arity: 0,
+                name: String::from("<Script>"),
+            })
+        } else {
+            return Err(InterpretResult::INTERPRET_COMPILE_ERROR);
+        }
     }
 
     /// Compiles an AST node.
@@ -74,18 +89,20 @@ impl Compiler {
     /// * `node` – The node to be compiled.
     pub fn compile_node(&mut self, node: ASTNode) {
         return match node {
-            ASTNode::Literal(x) => self.compile_literal(x),
             ASTNode::Binary(x) => self.compile_binary_expr(x),
-            ASTNode::Unary(x) => self.compile_unary_expr(x),
-            ASTNode::TernaryConditional(x) => self.compile_ternary_conditional(x),
-            ASTNode::Identifier(x) => self.compile_identifier_expr(x),
-            ASTNode::PrintStmt(x) => self.compile_print_stmt(x),
+            ASTNode::BlockStmt(x) => self.compile_block_stmt(x),
+            ASTNode::ConstantDecl(x) => self.compile_constant_decl(x),
             ASTNode::ExpressionStmt(x) => {
                 self.compile_node(*x.child);
                 self.emit_op_code(OpCode::OP_POP_STACK, x.pos);
             }
-            ASTNode::VariableDecl(x) => self.compile_variable_decl(x),
+            ASTNode::Identifier(x) => self.compile_identifier_expr(x),
+            ASTNode::Literal(x) => self.compile_literal(x),
+            ASTNode::PrintStmt(x) => self.compile_print_stmt(x),
+            ASTNode::TernaryConditional(x) => self.compile_ternary_conditional(x),
+            ASTNode::Unary(x) => self.compile_unary_expr(x),
             ASTNode::VarReassignment(x) => self.compile_var_reassignment_expr(x),
+            ASTNode::VariableDecl(x) => self.compile_variable_decl(x),
         };
     }
 
@@ -119,14 +136,14 @@ impl Compiler {
 
         self.is_in_panic = true;
 
-        print!("SyntaxError [{}:{}]", tok.line_num, tok.column_num);
+        print!("\x1b[31;1mSyntaxError\x1b[0m [{}:{}]", tok.line_num, tok.column_num);
 
         if let TokenType::EOF = tok.token_type {
             println!(" – At the end of the program.");
         } else if let TokenType::ERROR = tok.token_type {
             // Nothing...
         } else {
-            print!(" at '{}' – ", tok.lexeme);
+            print!(" at '\x1b[37;1m{}\x1b[0m' – ", tok.lexeme);
         }
 
         println!("{}", message);
