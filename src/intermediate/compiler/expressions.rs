@@ -52,6 +52,19 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – A binary expression node.
     pub(super) fn compile_binary_expr(&mut self, expr: BinaryExprNode) {
+        // Because logic 'AND' expressions are short-circuit expressions,
+        // they are compiled by a separate function.
+        if let BinaryExprType::LogicAND = expr.opr_type {
+            return self.compile_and_expr(expr);
+        }
+
+        // Because logic 'OR' expressions are short-circuit expressions,
+        // they are compiled by a separate function.
+        if let BinaryExprType::LogicOR = expr.opr_type {
+            return self.compile_or_expr(expr);
+        }
+
+        // Compiles the binary operators.
         self.compile_node(*expr.left);
         self.compile_node(*expr.right);
 
@@ -63,14 +76,14 @@ impl Compiler {
             BinaryExprType::BitwiseXOR => OpCode::OP_BITWISE_XOR,
             BinaryExprType::Division => OpCode::OP_DIVIDE,
             BinaryExprType::Expo => OpCode::OP_EXPO,
-            BinaryExprType::LogicAND => return (),
+            BinaryExprType::LogicAND => unreachable!("The 'AND' expression should have been compiled by now."),
             BinaryExprType::LogicEQ => OpCode::OP_EQUALS,
             BinaryExprType::LogicGreaterThan => OpCode::OP_GREATER_THAN,
             BinaryExprType::LogicGreaterThanEQ => OpCode::OP_GREATER_THAN_EQ,
             BinaryExprType::LogicLessThan => OpCode::OP_LESS_THAN,
             BinaryExprType::LogicLessThanEQ => OpCode::OP_LESS_THAN_EQ,
             BinaryExprType::LogicNotEQ => OpCode::OP_NOT_EQUALS,
-            BinaryExprType::LogicOR => return (),
+            BinaryExprType::LogicOR => unreachable!("The 'OR' expression should have been compiled by now."),
             BinaryExprType::Minus => OpCode::OP_SUBTRACT,
             BinaryExprType::Modulus => OpCode::OP_MODULUS,
             BinaryExprType::Multiplication => OpCode::OP_MULTIPLY,
@@ -79,19 +92,96 @@ impl Compiler {
             BinaryExprType::Range => OpCode::OP_GENERATE_RANGE,
         };
 
-        self.emit_op_code(expression_op_code, expr.pos);
+        self.emit_op_code(expression_op_code, (expr.opr_token.line_num, expr.opr_token.column_num));
     }
 
     /// Compiles a ternary conditional expression.
+    /// This is compiled in a similar way to how if statements are compiled.
     ///
     /// # Arguments
     /// * `expr` – A ternary conditional expression node.
     pub(super) fn compile_ternary_conditional(&mut self, expr: TernaryConditionalNode) {
         self.compile_node(*expr.condition);
+
+        // Compile the `true` branch of the ternary.
+        let then_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&expr.true_branch_token));
+        self.emit_op_code(OpCode::OP_POP_STACK, (expr.true_branch_token.line_num, expr.true_branch_token.column_num));
         self.compile_node(*expr.branch_true);
+
+        // At this point, if the condition is true, this instruction makes sure we jump
+        // over all the instructions related to the `false` branch of the ternary.
+        let else_jump = self.emit_jump(OpCode::OP_JUMP, Rc::clone(&expr.false_branch_token));
+
+        // Patches the `then_jump`, so that if the condition is false, the `OP_JUMP_IF_FALSE`
+        // instruction above knows where the `false` branch of the ternary starts.
+        self.patch_jump(then_jump, Rc::clone(&expr.true_branch_token));
+
+        // Compiles the `false` branch of the ternary
+        self.emit_op_code(OpCode::OP_POP_STACK, (expr.true_branch_token.line_num, expr.true_branch_token.column_num));
         self.compile_node(*expr.branch_false);
 
-        self.emit_op_code(OpCode::OP_TERNARY, expr.pos);
+        // Patches the `then_jump`, so that if the condition is true, the `OP_JUMP`
+        // instruction above knows where the end of the ternary expression is.
+        self.patch_jump(else_jump, expr.false_branch_token);
+    }
+
+    /// Compiles an 'AND' expression.
+    ///
+    /// # Arguments
+    /// * `expr` – A binary expression node.
+    pub(super) fn compile_and_expr(&mut self, expr: BinaryExprNode) {
+        match expr.opr_type {
+            BinaryExprType::LogicAND => {
+                // First compile the lhs of the expression which will leave its value on the stack.
+                self.compile_node(*expr.left);
+
+                // For 'AND' expressions, if the lhs is false, then the entire expression must be false.
+                // We emit a `OP_JUMP_IF_FALSE` instruction to jump over the rest of this expression
+                // if the lhs is falsey.
+                let end_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&expr.opr_token));
+
+                // If the lhs is not false, the we pop that value off the stack, and continue to execute the
+                // expressions in the rhs.
+                self.emit_op_code(OpCode::OP_POP_STACK, (expr.opr_token.line_num, expr.opr_token.column_num));
+                self.compile_node(*expr.right);
+
+                // Patches the `OP_JUMP_IF_FALSE` instruction above so that if the lhs is falsey, it knows
+                // where the end of the expression is.
+                self.patch_jump(end_jump, expr.opr_token);
+            }
+            _ => unreachable!("the `compile_and_expr(...)` function can only compile logical 'AND' expressions."),
+        }
+    }
+
+    // Compiles an 'OR' expression.
+    ///
+    /// # Arguments
+    /// * `expr` – A binary expression node.
+    pub(super) fn compile_or_expr(&mut self, expr: BinaryExprNode) {
+        match expr.opr_type {
+            BinaryExprType::LogicOR => {
+                // First compile the lhs of the expression which will leave its value on the stack.
+                self.compile_node(*expr.left);
+                
+                // For 'OR' expressions, if the lhs is true, then the entire expression must be true.
+                // We emit a `OP_JUMP_IF_FALSE` instruction to jump over to the next expression if the lhs is falsey.
+                let else_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&expr.opr_token));
+
+                // If the lhs is truthy, then we skip over the rest of this expression.
+                let end_jump = self.emit_jump(OpCode::OP_JUMP, Rc::clone(&expr.opr_token));
+
+                // Patches the 'else_jump' so that is the lhs is falsey, the `OP_JUMP_IF_FALSE` instruction
+                // above knows where the starts of the next expression is.
+                self.patch_jump(else_jump, Rc::clone(&expr.opr_token));
+                self.emit_op_code(OpCode::OP_POP_STACK, (expr.opr_token.line_num, expr.opr_token.column_num));
+                self.compile_node(*expr.right);
+
+                // Patches the 'end_jump' so that if the lhs is truthy, then the `OP_JUMP` instruction above
+                // knows where the end of the entire expression is.
+                self.patch_jump(end_jump, expr.opr_token);
+            }
+            _ => unreachable!("the `compile_or_expr(...)` function can only compile logical 'AND' expressions."),
+        }
     }
 
     /// Compiles an identifier expression.

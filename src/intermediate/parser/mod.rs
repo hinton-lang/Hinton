@@ -284,7 +284,7 @@ impl<'a> Parser {
         let mut expr = self.parse_nullish_coalescing();
 
         if self.matches(TokenType::QUESTION_MARK) {
-            let opr = Rc::clone(&self.previous);
+            let true_branch_opr = Rc::clone(&self.previous);
 
             let branch_true = match self.parse_expression() {
                 Some(t) => t,
@@ -292,6 +292,7 @@ impl<'a> Parser {
             };
 
             self.consume(TokenType::COLON_SEPARATOR, "Expected ':' in ternary operator.");
+            let false_branch_opr = Rc::clone(&self.previous);
 
             let branch_false = match self.parse_expression() {
                 Some(t) => t,
@@ -303,9 +304,10 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create conditional expression
                 },
+                true_branch_token: true_branch_opr,
                 branch_true: Box::new(branch_true),
                 branch_false: Box::new(branch_false),
-                pos: (opr.line_num, opr.column_num),
+                false_branch_token: false_branch_opr,
             }));
         }
 
@@ -331,7 +333,7 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
-                pos: (opr.line_num, opr.column_num),
+                opr_token: opr,
                 opr_type: BinaryExprType::Nullish,
             }));
         }
@@ -358,7 +360,7 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
-                pos: (opr.line_num, opr.column_num),
+                opr_token: opr,
                 opr_type: BinaryExprType::LogicOR,
             }));
         }
@@ -385,7 +387,7 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
-                pos: (opr.line_num, opr.column_num),
+                opr_token: opr,
                 opr_type: BinaryExprType::LogicAND,
             }));
         }
@@ -412,7 +414,7 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
-                pos: (opr.line_num, opr.column_num),
+                opr_token: opr,
                 opr_type: BinaryExprType::BitwiseOR,
             }));
         }
@@ -439,7 +441,7 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
-                pos: (opr.line_num, opr.column_num),
+                opr_token: opr,
                 opr_type: BinaryExprType::BitwiseXOR,
             }));
         }
@@ -466,7 +468,7 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
-                pos: (opr.line_num, opr.column_num),
+                opr_token: opr,
                 opr_type: BinaryExprType::BitwiseAND,
             }));
         }
@@ -499,7 +501,7 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
-                pos: (opr.line_num, opr.column_num),
+                opr_token: opr,
                 opr_type,
             }));
         }
@@ -540,7 +542,7 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
-                pos: (opr.line_num, opr.column_num),
+                opr_token: opr,
                 opr_type,
             }));
         }
@@ -567,7 +569,7 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
-                pos: (opr.line_num, opr.column_num),
+                opr_token: opr,
                 opr_type: BinaryExprType::Range,
             }));
         }
@@ -600,7 +602,7 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
-                pos: (opr.line_num, opr.column_num),
+                opr_token: opr,
                 opr_type: opr_type,
             }));
         }
@@ -633,7 +635,7 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
-                pos: (opr.line_num, opr.column_num),
+                opr_token: opr,
                 opr_type,
             }));
         }
@@ -668,7 +670,7 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
-                pos: (opr.line_num, opr.column_num),
+                opr_token: opr,
                 opr_type,
             }));
         }
@@ -695,7 +697,7 @@ impl<'a> Parser {
                     Some(e) => Box::new(e),
                     None => return None, // Could not create rhs of expression
                 },
-                pos: (opr.line_num, opr.column_num),
+                opr_token: opr,
                 opr_type: BinaryExprType::Expo,
             }));
         }

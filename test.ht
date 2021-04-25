@@ -1,6 +1,6 @@
 let initial = 3;
 
-if (initial == 1) {
+if (initial == 1 or true) {
     print("Initial equals one!");
 } else if (initial == 2) {
     print("Initial equals two!!");
