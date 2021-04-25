@@ -68,7 +68,7 @@ pub enum UnaryExprType {
 pub struct BinaryExprNode {
     pub left: Box<ASTNode>,
     pub right: Box<ASTNode>,
-    pub pos: (usize, usize),
+    pub opr_token: Rc<Token>,
     pub opr_type: BinaryExprType,
 }
 
@@ -102,9 +102,10 @@ pub enum BinaryExprType {
 #[derive(Clone)]
 pub struct TernaryConditionalNode {
     pub condition: Box<ASTNode>,
+    pub true_branch_token: Rc<Token>,
     pub branch_true: Box<ASTNode>,
+    pub false_branch_token: Rc<Token>,
     pub branch_false: Box<ASTNode>,
-    pub pos: (usize, usize),
 }
 
 /// Represents an identifier expression node in Hinton's Abstract Syntax Tree.

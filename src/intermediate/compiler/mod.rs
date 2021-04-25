@@ -150,11 +150,9 @@ impl Compiler {
     /// should be used by the call to the `patch_jump(...)` function to patch the
     /// correct jump instruction's offset.
     fn emit_jump(&mut self, instruction: OpCode, token: Rc<Token>) -> usize {
-        // TODO: Emit the correct position
         self.emit_op_code(instruction, (token.line_num, token.column_num));
         // We emit a temporary short representing the jump that will be
         // made by the vm during runtime
-        // TODO: Emit the correct position
         self.emit_short(0xffff, (token.line_num, token.column_num))
     }
 

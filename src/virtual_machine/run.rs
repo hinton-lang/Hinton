@@ -372,18 +372,6 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_TERNARY) => {
-                    let branch_else = Rc::clone(&self.stack.pop().unwrap());
-                    let branch_true = Rc::clone(&self.stack.pop().unwrap());
-                    let condition = Rc::clone(&self.stack.pop().unwrap());
-
-                    if !condition.is_falsey() {
-                        self.stack.push(branch_true);
-                    } else {
-                        self.stack.push(branch_else);
-                    }
-                }
-
                 Some(OpCode::OP_NULLISH_COALESCING) => {
                     let value = Rc::clone(&self.stack.pop().unwrap());
                     let nullish = Rc::clone(&self.stack.pop().unwrap());
