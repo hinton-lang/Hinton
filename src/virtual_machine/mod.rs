@@ -1,15 +1,16 @@
-pub mod run;
 use std::rc::Rc;
 
+mod arithmetic;
+mod run;
+
 use crate::{
-    analyzer,
+    chunk,
     intermediate::{compiler::Compiler, parser::Parser},
-    objects::{self, FunctionObject, Object},
+    objects::{self, Object},
 };
 
 /// The types of results the interpreter can return
 #[allow(non_camel_case_types)]
-#[derive(PartialEq)]
 pub enum InterpretResult {
     INTERPRET_OK,
     INTERPRET_PARSE_ERROR,
@@ -17,20 +18,11 @@ pub enum InterpretResult {
     INTERPRET_RUNTIME_ERROR,
 }
 
-/// Represents a function call frame
-pub struct CallFrame {
-    /// The function chunk associated with this call frame
-    pub function: Rc<FunctionObject>,
-    // The instruction pointer for this call frame
-    pub ip: usize,
-    // TODO: What does this do?
-    // pub slots: Vec<Object>
-}
-
 /// Represents a virtual machine
 pub struct VirtualMachine {
-    frames: Vec<CallFrame>,
     stack: Vec<Rc<objects::Object>>,
+    chunk: chunk::Chunk,
+    ip: usize,
 }
 
 impl<'a> VirtualMachine {
@@ -40,8 +32,9 @@ impl<'a> VirtualMachine {
     /// * `VirtualMachine` – a new instance of the virtual machine.
     pub fn new() -> Self {
         Self {
-            frames: Vec::new(),
             stack: Vec::new(),
+            chunk: chunk::Chunk::new(),
+            ip: 0,
         }
     }
 
@@ -49,7 +42,7 @@ impl<'a> VirtualMachine {
     ///
     /// ## Returns
     /// * `InterpretResult` – The result of the source interpretation.
-    pub(crate) fn interpret(&'a mut self, source: &'a str) -> InterpretResult {
+    pub(crate) fn interpret(&mut self, source: &'a str) -> InterpretResult {
         // Parses the program
         let ast = match Parser::parse(source) {
             Ok(x) => Rc::new(x),
@@ -58,14 +51,12 @@ impl<'a> VirtualMachine {
 
         // This is where different static analysis of the
         // AST would take place
-        analyzer::analyze_module(Rc::clone(&ast));
+        // analyzer::analyze_module(Rc::clone(&ast));
 
         // Executes the program after it has been compiled to ByteCode
         return match Compiler::compile(ast) {
             Ok(c) => {
-                let c = Rc::new(c);
-                self.stack.push(Rc::new(Object::Function(Rc::clone(&c))));
-                self.frames.push(CallFrame { function: c, ip: 0 });
+                self.chunk = c;
                 return self.run();
             }
             Err(e) => e,
@@ -74,11 +65,7 @@ impl<'a> VirtualMachine {
 
     /// Throws a runtime error to the console
     pub(super) fn report_runtime_error(&self, message: &'a str) {
-        let frame = self.frames.get(self.frames.len() - 1).unwrap();
-        // TODO: The frame's IP is not getting updated in the `run.rs`'s loop.
-        // This will show the wrong line and column when an error occurs.
-        let line = frame.function.chunk.locations.get(frame.ip + 1).unwrap();
-
+        let line = self.chunk.locations.get(self.ip).unwrap();
         eprintln!("\x1b[31;1mRuntimeError\x1b[0m at [{}:{}] – {}", line.0, line.1, message);
     }
 

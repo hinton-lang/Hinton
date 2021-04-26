@@ -34,7 +34,7 @@ impl InstructionsList {
         let byte = self.instructions.get(idx);
 
         match byte {
-            Some(x) => OpCode::get(*x),
+            Some(x) => OpCode::get(x),
             None => None,
         }
     }
@@ -80,11 +80,18 @@ impl InstructionsList {
     ///
     /// ## Returns
     /// `u16` – The short generated from the two bytes.
-    pub fn get_short(&self, idx: usize) -> u16 {
-        let b1 = self.instructions.get(idx).unwrap();
-        let b2 = self.instructions.get(idx + 1).unwrap();
+    pub fn get_short(&self, idx: usize) -> Option<u16> {
+        let b1 = match self.instructions.get(idx) {
+            Some(byte) => byte,
+            None => return None,
+        };
 
-        return u16::from_be_bytes([*b1, *b2]);
+        let b2 = match self.instructions.get(idx + 1) {
+            Some(byte) => byte,
+            None => return None,
+        };
+
+        return Some(u16::from_be_bytes([*b1, *b2]));
     }
 
     /// Splits a 16-bit integer into two bytes, and adds each individual
@@ -99,7 +106,12 @@ impl InstructionsList {
         self.instructions.push(short[1]);
     }
 
-    pub fn modify_byte(&mut self, pos: usize, new_val: u8) {
-        self.instructions[pos] = new_val;
+    /// Modifies the byte value at the specified chunk index.
+    ///
+    /// ## Arguments
+    /// * `idx` – The index in the chunk of the byte to be modified.
+    /// * `new_val` – The new value of the byte.
+    pub fn modify_byte(&mut self, idx: usize, new_val: u8) {
+        self.instructions[idx] = new_val;
     }
 }

@@ -57,7 +57,7 @@ impl OpCode {
     ///
     /// ## Returns
     /// `Option<OpCode>` – The OpCode at the given index.
-    pub fn get(idx: u8) -> Option<OpCode> {
+    pub fn get(idx: &u8) -> Option<OpCode> {
         return match idx {
             // Interpreter V1.0.0
             0 => Some(OpCode::OP_ADD),

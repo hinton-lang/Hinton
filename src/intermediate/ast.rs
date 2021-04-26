@@ -33,6 +33,7 @@ pub enum ASTNode {
     ExpressionStmt(ExpressionStmtNode),
     BlockStmt(BlockNode),
     IfStmt(IfStmtNode),
+    WhileStmt(WhileStmtNode),
 }
 
 /// Represents a literal node in Hinton's Abstract Syntax Tree.
@@ -159,7 +160,7 @@ pub struct BlockNode {
     pub body: Vec<ASTNode>,
 }
 
-/// Represents a if statement node in Hinton's Abstract Syntax Tree.
+/// Represents an if statement node in Hinton's Abstract Syntax Tree.
 #[derive(Clone)]
 pub struct IfStmtNode {
     pub condition: Box<ASTNode>,
@@ -167,4 +168,12 @@ pub struct IfStmtNode {
     pub then_branch: Box<ASTNode>,
     pub else_branch: Box<Option<ASTNode>>,
     pub else_token: Option<Rc<Token>>,
+}
+
+/// Represents a while statement node in Hinton's Abstract Syntax Tree.
+#[derive(Clone)]
+pub struct WhileStmtNode {
+    pub token: Rc<Token>,
+    pub condition: Box<ASTNode>,
+    pub body: Box<ASTNode>,
 }
