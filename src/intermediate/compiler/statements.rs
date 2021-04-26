@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use crate::{
     chunk::op_codes::OpCode,
-    intermediate::ast::{BlockNode, ConstantDeclNode, IfStmtNode, PrintStmtNode, VariableDeclNode},
+    intermediate::ast::{BlockNode, ConstantDeclNode, IfStmtNode, PrintStmtNode, VariableDeclNode, WhileStmtNode},
     lexer::tokens::Token,
 };
 
@@ -13,8 +13,8 @@ impl Compiler {
     ///
     /// ## Arguments
     /// * `expr` – A print statement node.
-    pub(super) fn compile_print_stmt(&mut self, stmt: PrintStmtNode) {
-        self.compile_node(*stmt.child);
+    pub(super) fn compile_print_stmt(&mut self, stmt: &PrintStmtNode) {
+        self.compile_node(&stmt.child);
         self.emit_op_code(OpCode::OP_PRINT, stmt.pos);
     }
 
@@ -22,13 +22,13 @@ impl Compiler {
     ///
     /// ## Arguments
     /// * `expr` – A variable declaration node.
-    pub fn compile_variable_decl(&mut self, decl: VariableDeclNode) {
+    pub fn compile_variable_decl(&mut self, decl: &VariableDeclNode) {
         // Declares the variables
         for id in decl.identifiers.iter() {
             match self.declare_variable(Rc::clone(&id), false) {
                 Ok(_) => {
                     // Compiles the variable's value
-                    self.compile_node(*decl.clone().value);
+                    self.compile_node(&decl.clone().value);
                 }
                 Err(_) => return,
             }
@@ -49,12 +49,12 @@ impl Compiler {
     ///
     /// ## Arguments
     /// * `expr` – A variable declaration node.
-    pub fn compile_constant_decl(&mut self, decl: ConstantDeclNode) {
+    pub fn compile_constant_decl(&mut self, decl: &ConstantDeclNode) {
         // Declares the variable
         match self.declare_variable(Rc::clone(&decl.name), true) {
             Ok(_) => {
                 // Compiles the variable's value
-                self.compile_node(*decl.value);
+                self.compile_node(&decl.value);
 
                 // Marks the variables as initialized the variables
                 for var in self.variables.iter_mut().rev() {
@@ -133,7 +133,7 @@ impl Compiler {
     /// Compiles a block statement.
     ///
     /// * `block` – The block node being compiled.
-    pub(super) fn compile_block_stmt(&mut self, block: BlockNode) {
+    pub(super) fn compile_block_stmt(&mut self, block: &BlockNode) {
         self.begin_scope();
 
         for node in block.body.iter() {
@@ -141,7 +141,7 @@ impl Compiler {
                 return;
             }
 
-            self.compile_node(node.clone());
+            self.compile_node(&node.clone());
         }
 
         self.end_scope();
@@ -175,15 +175,15 @@ impl Compiler {
     /// Compiles an if statement.
     ///
     /// * `block` – The if statement node being compiled.
-    pub(super) fn compile_if_statement(&mut self, stmt: IfStmtNode) {
+    pub(super) fn compile_if_stmt(&mut self, stmt: &IfStmtNode) {
         // Compiles the condition so that its value is at the top of the
         // stack during runtime. This value is then checked for truthiness
         // to execute the correct branch of the if statement.
-        self.compile_node(*stmt.condition);
+        self.compile_node(&stmt.condition);
 
         let then_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&stmt.then_token));
         self.emit_op_code(OpCode::OP_POP_STACK, (stmt.then_token.line_num, stmt.then_token.column_num));
-        self.compile_node(*stmt.then_branch);
+        self.compile_node(&stmt.then_branch);
 
         let else_jump = match stmt.else_token.borrow() {
             Some(token) => self.emit_jump(OpCode::OP_JUMP, Rc::clone(&token)),
@@ -197,14 +197,41 @@ impl Compiler {
         self.patch_jump(then_jump, Rc::clone(&stmt.then_token));
         self.emit_op_code(OpCode::OP_POP_STACK, (stmt.then_token.line_num, stmt.then_token.column_num));
 
-        match *stmt.else_branch {
+        match stmt.else_branch.borrow() {
             Some(else_branch) => {
-                self.compile_node(else_branch);
+                self.compile_node(&else_branch);
                 // Because at this point we *do* have an 'else' branch, we know that for sure
                 // these is an `else_token`, so it is safe to unwrap without check.
-                self.patch_jump(else_jump, stmt.else_token.unwrap());
+                self.patch_jump(else_jump, stmt.else_token.clone().unwrap());
             }
             None => {}
         }
+    }
+
+    /// Compiles a while statement.
+    ///
+    /// * `stmt` – The while statement node being compiled.
+    pub(super) fn compile_while_stmt(&mut self, stmt: &WhileStmtNode) {
+        let loop_start = self.chunk.codes.len();
+        // Compiles the condition so that its value is at the top of the
+        // stack during runtime. This value is then continuously checked
+        // for truthiness to keep executing the while loop.
+        self.compile_node(&stmt.condition);
+
+        // Stop the loop if the condition (the top of the stack) is false.
+        let exit_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&stmt.token));
+
+        // However, if the condition is not false, remove the condition value from the stack
+        // and execute the loop's body.
+        self.emit_op_code(OpCode::OP_POP_STACK, (stmt.token.line_num, stmt.token.column_num));
+        self.compile_node(&stmt.body);
+
+        // Jump back to the start of the loop (including the re-execution of the condition)
+        self.emit_loop(loop_start, Rc::clone(&stmt.token));
+
+        // Patches the 'exit_jump' so that is the condition is false, the 'OP_JUMP_IF_FALSE'
+        // instruction above knows where the end of the loop is.
+        self.patch_jump(exit_jump, Rc::clone(&stmt.token));
+        self.emit_op_code(OpCode::OP_POP_STACK, (stmt.token.line_num, stmt.token.column_num));
     }
 }

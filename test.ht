@@ -1,6 +1,6 @@
 let initial = 3;
 
-if (initial == 1 or true) {
+if (initial == 1 and true) {
     print("Initial equals one!");
 } else if (initial == 2) {
     print("Initial equals two!!");
@@ -10,4 +10,11 @@ if (initial == 1 or true) {
     print("Initial equals this value: '" + initial + "'.");
 }
 
-print("After branches.");
+let x = 0;
+
+while (x <= 10) {
+    print("X equals " + x);
+    x = x + 1;
+}
+
+print(false ? "value 1" : true ? "value 2" : "value 3");

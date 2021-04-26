@@ -12,30 +12,30 @@ impl<'a> VirtualMachine {
     ///
     /// ## Returns
     /// `InterpretResult` – The result of the execution.
-    pub(crate) fn run(&'a mut self) -> InterpretResult {
-        let frame = self.frames.get(self.frames.len() - 1).unwrap();
-        let mut frame_ip = frame.ip;
+    pub(crate) fn run(&mut self) -> InterpretResult {
+        while let Some(instruction) = self.get_next_op_code() {
+            // Prints the execution of the program.
+            // self.print_execution(&instruction);
 
-        loop {
-            let current_chunk = &frame.function.chunk;
-            let instruction = current_chunk.codes.get_op_code(frame_ip);
-
-            // Executes the instructions one by one
             match instruction {
-                Some(OpCode::OP_POP_STACK) => {
+                OpCode::OP_POP_STACK => {
                     self.stack.pop();
                 }
 
-                Some(OpCode::OP_NULL) => self.stack.push(Rc::new(Object::Null)),
-                Some(OpCode::OP_TRUE) => self.stack.push(Rc::new(Object::Bool(true))),
-                Some(OpCode::OP_FALSE) => self.stack.push(Rc::new(Object::Bool(false))),
+                OpCode::OP_NULL => self.stack.push(Rc::new(Object::Null)),
+                OpCode::OP_TRUE => self.stack.push(Rc::new(Object::Bool(true))),
+                OpCode::OP_FALSE => self.stack.push(Rc::new(Object::Bool(false))),
 
-                Some(OpCode::OP_VALUE) => {
-                    frame_ip += 1;
-                    let pos = current_chunk.codes.get_short(frame_ip);
-                    frame_ip += 1;
+                OpCode::OP_VALUE => {
+                    let pos = match self.get_next_short() {
+                        Some(short) => short,
+                        None => {
+                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
+                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                        }
+                    };
 
-                    match current_chunk.get_constant(pos) {
+                    match self.chunk.get_constant(pos) {
                         Some(val) => self.stack.push(Rc::clone(val)),
                         None => {
                             self.report_runtime_error(&format!("InternalRuntimeError: Constant pool index '{}' out of range", pos));
@@ -44,32 +44,36 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_GET_VAR) => {
-                    frame_ip += 1;
+                OpCode::OP_GET_VAR => {
                     // The position of the local variable's value in the stack
-                    let pos = current_chunk.codes.get_short(frame_ip);
-                    frame_ip += 1;
+                    let pos = match self.get_next_short() {
+                        Some(short) => short as usize,
+                        None => {
+                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
+                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                        }
+                    };
 
-                    // TODO: We shouldn't need to add 1 to get the position of the value.
-                    // This problem should be resolved later when we add functions.
-                    let value = Rc::clone(&self.stack.get_mut((pos + 1) as usize).unwrap());
+                    let value = Rc::clone(&self.stack.get_mut(pos).unwrap());
+
                     self.stack.push(value);
                 }
 
-                Some(OpCode::OP_SET_VAR) => {
-                    frame_ip += 1;
+                OpCode::OP_SET_VAR => {
                     // The position of the local variable's value in the stack
-                    let pos = current_chunk.codes.get_short(frame_ip);
-                    frame_ip += 1;
+                    let pos = match self.get_next_short() {
+                        Some(short) => short as usize,
+                        None => {
+                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
+                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                        }
+                    };
 
                     let value = Rc::clone(&self.stack.last_mut().unwrap());
-
-                    // TODO: We shouldn't need to add 1 to get the position of the value.
-                    // This problem should be resolved later when we add functions.
-                    self.stack[(pos + 1) as usize] = value;
+                    self.stack[pos] = value;
                 }
 
-                Some(OpCode::OP_NEGATE) => {
+                OpCode::OP_NEGATE => {
                     let val = Rc::clone(&self.stack.pop().unwrap());
 
                     if !val.is_numeric() {
@@ -80,154 +84,54 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_ADD) => {
-                    let val2 = Rc::clone(&self.stack.pop().unwrap());
-                    let val1 = Rc::clone(&self.stack.pop().unwrap());
+                OpCode::OP_ADD => match self.perform_addition() {
+                    Ok(_) => (),
+                    Err(e) => return e,
+                },
 
-                    if (val1.is_string() && val2.is_stringifyable()) || (val1.is_stringifyable() && val2.is_string()) {
-                        let v1 = val1.as_string().unwrap();
-                        let v2 = val2.as_string().unwrap();
-                        self.stack.push(Rc::new(Object::String(v1 + v2.as_str())));
-                    } else {
-                        let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "+");
-                        if numeric {
-                            let v1 = val1.as_number().unwrap();
-                            let v2 = val2.as_number().unwrap();
-                            self.stack.push(Rc::new(Object::Number(v1 + v2)));
-                        } else {
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
-                    }
-                }
+                OpCode::OP_SUBTRACT => match self.perform_subtraction() {
+                    Ok(_) => (),
+                    Err(e) => return e,
+                },
 
-                Some(OpCode::OP_SUBTRACT) => {
-                    let val2 = Rc::clone(&self.stack.pop().unwrap());
-                    let val1 = Rc::clone(&self.stack.pop().unwrap());
-                    let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "-");
+                OpCode::OP_MULTIPLY => match self.perform_multiplication() {
+                    Ok(_) => (),
+                    Err(e) => return e,
+                },
 
-                    if numeric {
-                        let v1 = val1.as_number().unwrap();
-                        let v2 = val2.as_number().unwrap();
-                        self.stack.push(Rc::new(Object::Number(v1 - v2)));
-                    } else {
-                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                    }
-                }
+                OpCode::OP_DIVIDE => match self.perform_division() {
+                    Ok(_) => (),
+                    Err(e) => return e,
+                },
 
-                Some(OpCode::OP_MULTIPLY) => {
-                    let val2 = Rc::clone(&self.stack.pop().unwrap());
-                    let val1 = Rc::clone(&self.stack.pop().unwrap());
+                OpCode::OP_MODULUS => match self.perform_modulus() {
+                    Ok(_) => (),
+                    Err(e) => return e,
+                },
 
-                    // Multiply Int * String
-                    if (val1.is_numeric() && val2.is_string()) || (val1.is_string() && val2.is_numeric()) {
-                        if val1.is_int() {
-                            let r = val1.as_number().unwrap() as isize;
-                            let s = if r >= 0 {
-                                val2.as_string().unwrap().repeat(r as usize)
-                            } else {
-                                String::from("")
-                            };
-                            self.stack.push(Rc::new(Object::String(s)));
-                        } else if val2.is_int() {
-                            let r = val2.as_number().unwrap() as isize;
-                            let s = if r >= 0 {
-                                val1.as_string().unwrap().repeat(r as usize)
-                            } else {
-                                String::from("")
-                            };
-                            self.stack.push(Rc::new(Object::String(s)));
-                        } else {
-                            self.report_runtime_error(&format!(
-                                "Operation '*' not defined for operands of type '{}' and '{}'.",
-                                val1.type_name(),
-                                val2.type_name()
-                            ));
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
-                    } else {
-                        let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "*");
-                        if numeric {
-                            let v1 = val1.as_number().unwrap();
-                            let v2 = val2.as_number().unwrap();
-                            self.stack.push(Rc::new(Object::Number(v1 * v2)));
-                        } else {
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
-                    }
-                }
+                OpCode::OP_EXPO => match self.perform_exponentiation() {
+                    Ok(_) => (),
+                    Err(e) => return e,
+                },
 
-                Some(OpCode::OP_DIVIDE) => {
-                    let val2 = Rc::clone(&self.stack.pop().unwrap());
-                    let val1 = Rc::clone(&self.stack.pop().unwrap());
-                    let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "/");
-
-                    if numeric {
-                        let v1 = val1.as_number().unwrap();
-                        let v2 = val2.as_number().unwrap();
-
-                        if v2 == 0.0 {
-                            self.report_runtime_error("Cannot divide by zero");
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
-
-                        self.stack.push(Rc::new(Object::Number(v1 / v2)));
-                    } else {
-                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                    }
-                }
-
-                Some(OpCode::OP_MODULUS) => {
-                    let val2 = Rc::clone(&self.stack.pop().unwrap());
-                    let val1 = Rc::clone(&self.stack.pop().unwrap());
-                    let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "%");
-
-                    if numeric {
-                        let v1 = val1.as_number().unwrap();
-                        let v2 = val2.as_number().unwrap();
-
-                        if v2 == 0.0 {
-                            self.report_runtime_error("Right-hand-size of modulus cannot be zero.");
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
-
-                        self.stack.push(Rc::new(Object::Number(v1 % v2)));
-                    } else {
-                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                    }
-                }
-
-                Some(OpCode::OP_EXPO) => {
-                    let val2 = Rc::clone(&self.stack.pop().unwrap());
-                    let val1 = Rc::clone(&self.stack.pop().unwrap());
-                    let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "**");
-
-                    if numeric {
-                        let v1 = val1.as_number().unwrap();
-                        let v2 = val2.as_number().unwrap();
-                        self.stack.push(Rc::new(Object::Number(v1.powf(v2))));
-                    } else {
-                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                    }
-                }
-
-                Some(OpCode::OP_LOGIC_NOT) => {
+                OpCode::OP_LOGIC_NOT => {
                     let val = Rc::clone(&self.stack.pop().unwrap());
                     self.stack.push(Rc::new(Object::Bool(val.is_falsey())));
                 }
 
-                Some(OpCode::OP_EQUALS) => {
+                OpCode::OP_EQUALS => {
                     let val2 = Rc::clone(&self.stack.pop().unwrap());
                     let val1 = Rc::clone(&self.stack.pop().unwrap());
                     self.stack.push(Rc::new(Object::Bool(val1.equals(val2))));
                 }
 
-                Some(OpCode::OP_NOT_EQUALS) => {
+                OpCode::OP_NOT_EQUALS => {
                     let val2 = Rc::clone(&self.stack.pop().unwrap());
                     let val1 = Rc::clone(&self.stack.pop().unwrap());
                     self.stack.push(Rc::new(Object::Bool(!val1.equals(val2))));
                 }
 
-                Some(OpCode::OP_LESS_THAN) => {
+                OpCode::OP_LESS_THAN => {
                     let val2 = Rc::clone(&self.stack.pop().unwrap());
                     let val1 = Rc::clone(&self.stack.pop().unwrap());
                     let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "<");
@@ -241,7 +145,7 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_LESS_THAN_EQ) => {
+                OpCode::OP_LESS_THAN_EQ => {
                     let val2 = Rc::clone(&self.stack.pop().unwrap());
                     let val1 = Rc::clone(&self.stack.pop().unwrap());
                     let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "<=");
@@ -255,7 +159,7 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_GREATER_THAN) => {
+                OpCode::OP_GREATER_THAN => {
                     let val2 = Rc::clone(&self.stack.pop().unwrap());
                     let val1 = Rc::clone(&self.stack.pop().unwrap());
                     let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), ">");
@@ -269,7 +173,7 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_GREATER_THAN_EQ) => {
+                OpCode::OP_GREATER_THAN_EQ => {
                     let val2 = Rc::clone(&self.stack.pop().unwrap());
                     let val1 = Rc::clone(&self.stack.pop().unwrap());
                     let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), ">=");
@@ -283,7 +187,7 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_BITWISE_OR) => {
+                OpCode::OP_BITWISE_OR => {
                     let right = Rc::clone(&self.stack.pop().unwrap());
                     let left = Rc::clone(&self.stack.pop().unwrap());
 
@@ -296,7 +200,7 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_BITWISE_XOR) => {
+                OpCode::OP_BITWISE_XOR => {
                     let right = Rc::clone(&self.stack.pop().unwrap());
                     let left = Rc::clone(&self.stack.pop().unwrap());
 
@@ -309,7 +213,7 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_BITWISE_AND) => {
+                OpCode::OP_BITWISE_AND => {
                     let right = Rc::clone(&self.stack.pop().unwrap());
                     let left = Rc::clone(&self.stack.pop().unwrap());
 
@@ -322,7 +226,7 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_BITWISE_NOT) => {
+                OpCode::OP_BITWISE_NOT => {
                     let operand = Rc::clone(&self.stack.pop().unwrap());
 
                     if operand.is_numeric() {
@@ -333,7 +237,7 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_BITWISE_L_SHIFT) => {
+                OpCode::OP_BITWISE_L_SHIFT => {
                     let right = Rc::clone(&self.stack.pop().unwrap());
                     let left = Rc::clone(&self.stack.pop().unwrap());
 
@@ -346,7 +250,7 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_BITWISE_R_SHIFT) => {
+                OpCode::OP_BITWISE_R_SHIFT => {
                     let right = Rc::clone(&self.stack.pop().unwrap());
                     let left = Rc::clone(&self.stack.pop().unwrap());
 
@@ -359,7 +263,7 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_GENERATE_RANGE) => {
+                OpCode::OP_GENERATE_RANGE => {
                     let right = Rc::clone(&self.stack.pop().unwrap());
                     let left = Rc::clone(&self.stack.pop().unwrap());
 
@@ -372,7 +276,7 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                Some(OpCode::OP_NULLISH_COALESCING) => {
+                OpCode::OP_NULLISH_COALESCING => {
                     let value = Rc::clone(&self.stack.pop().unwrap());
                     let nullish = Rc::clone(&self.stack.pop().unwrap());
 
@@ -383,126 +287,109 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                // Some(OpCode::OP_POST_INCREMENT) => {
-                //     frame_ip += 1;
-                //     let pos = current_chunk.codes.get_short(frame_ip);
-                //     frame_ip += 1;
+                OpCode::OP_JUMP_IF_FALSE => {
+                    let offset = match self.get_next_short() {
+                        Some(short) => short as usize,
+                        None => {
+                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
+                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                        }
+                    };
 
-                //     match current_chunk.get_constant(pos) {
-                //         Some(var_name) => {
-                //             if var_name.is_string() {
-                //                 let name = var_name.as_string().unwrap();
-
-                //                 match self.globals.get(&name) {
-                //                     Some(obj) => {
-                //                         // First return the value in post-increment
-                //                         self.stack.push(Rc::clone(obj));
-                //                         // Then update the variable
-                //                         if obj.is_numeric() {
-                //                             self.globals.insert(name, Rc::new(Object::Number(obj.as_number().unwrap() + 1f64)));
-                //                         } else {
-                //                             self.report_runtime_error(&format!("Cannot increment operand of type '{}'.", obj.type_name()));
-                //                             return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                //                         }
-                //                     }
-                //                     None => {
-                //                         self.report_runtime_error(&format!("Undefined variable '{}'.", name));
-                //                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                //                     }
-                //                 }
-                //             } else {
-                //                 self.report_runtime_error("InternalRuntimeError: Pool item is not an identifier");
-                //             }
-                //         }
-                //         None => {
-                //             self.report_runtime_error(&format!("InternalRuntimeError: Constant pool index '{}' out of range", pos));
-                //             return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                //         }
-                //     }
-                // }
-
-                // Some(OpCode::OP_POST_DECREMENT) => {
-                //     frame_ip += 1;
-                //     let pos = current_chunk.codes.get_short(frame_ip);
-                //     frame_ip += 1;
-
-                //     match current_chunk.get_constant(pos) {
-                //         Some(var_name) => {
-                //             if var_name.is_string() {
-                //                 let name = var_name.as_string().unwrap();
-
-                //                 match self.globals.get(&name) {
-                //                     Some(obj) => {
-                //                         // First return the value in post-increment
-                //                         self.stack.push(Rc::clone(obj));
-                //                         // Then update the variable
-                //                         if obj.is_numeric() {
-                //                             self.globals.insert(name, Rc::new(Object::Number(obj.as_number().unwrap() - 1f64)));
-                //                         } else {
-                //                             self.report_runtime_error(&format!("Cannot increment operand of type '{}'.", obj.type_name()));
-                //                             return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                //                         }
-                //                     }
-                //                     None => {
-                //                         self.report_runtime_error(&format!("Undefined variable '{}'.", name));
-                //                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                //                     }
-                //                 }
-                //             } else {
-                //                 self.report_runtime_error("InternalRuntimeError: Pool item is not an identifier");
-                //             }
-                //         }
-                //         None => {
-                //             self.report_runtime_error(&format!("InternalRuntimeError: Constant pool index '{}' out of range", pos));
-                //             return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                //         }
-                //     }
-                // }
-                Some(OpCode::OP_JUMP_IF_FALSE) => {
-                    frame_ip += 1;
-                    // The position of the local variable's value in the stack
-                    let offset = current_chunk.codes.get_short(frame_ip) as usize;
-                    frame_ip += 1;
-
-                    let top = Rc::clone(&self.stack.get((self.stack.len() - 1) as usize).unwrap());
+                    let top = Rc::clone(&self.stack.last().unwrap());
 
                     if top.is_falsey() {
-                        frame_ip += offset;
+                        self.ip += offset;
                     }
                 }
 
-                Some(OpCode::OP_JUMP) => {
-                    frame_ip += 1;
-                    // The position of the local variable's value in the stack
-                    let offset = current_chunk.codes.get_short(frame_ip) as usize;
-                    frame_ip += 1;
+                OpCode::OP_JUMP => {
+                    let offset = match self.get_next_short() {
+                        Some(short) => short as usize,
+                        None => {
+                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
+                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                        }
+                    };
 
-                    frame_ip += offset;
+                    self.ip += offset;
                 }
 
-                Some(OpCode::OP_PRINT) => {
+                OpCode::OP_LOOP => {
+                    let offset = match self.get_next_short() {
+                        Some(short) => short as usize,
+                        None => {
+                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
+                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                        }
+                    };
+
+                    self.ip -= offset;
+                }
+
+                OpCode::OP_PRINT => {
                     let val = self.stack.pop();
                     println!("{}", val.unwrap());
                 }
 
-                Some(OpCode::OP_RETURN) => {
-                    return InterpretResult::INTERPRET_OK;
-                }
-
-                None => {
-                    self.report_runtime_error("InternalRuntimeError: No OpCode to execute.");
-                    return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                }
+                // OpCode::OP_RETURN => { }
 
                 // Should be removed so that there are no unimplemented OpCodes
-                _ => {
-                    self.report_runtime_error(&format!("InternalRuntimeError: Unknown OpCode {:?}.", instruction));
-                    return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                }
+                _ => unreachable!("OpCode Not implemented! {:?}", instruction),
             }
-
-            // Increment the instruction pointer
-            frame_ip += 1;
         }
+
+        // If the compiler reaches this point, that means there were no errors
+        // to return (because errors are returned by the match rules), so we can
+        // safely return an `INTERPRET_OK` result.
+        return InterpretResult::INTERPRET_OK;
+    }
+
+    /// Gets the next OpCode to be executed, incrementing the
+    /// instruction pointer by one.
+    ///
+    /// ## Returns
+    /// * `Option<OpCode>` – The next OpCode to be executed, if the
+    /// instruction pointer is within bounds.
+    fn get_next_op_code(&mut self) -> Option<OpCode> {
+        let code = self.chunk.codes.get_op_code(self.ip);
+        self.ip += 1;
+        return code;
+    }
+
+    /// Gets the next short (next two bytes) to be executed, incrementing the
+    /// instruction pointer by 2.
+    ///
+    /// ## Returns
+    /// * `Option<u16>` – The next two bytes as a 16-bit unsigned integer, if the
+    /// instruction pointer is within bounds.
+    fn get_next_short(&mut self) -> Option<u16> {
+        let next_short = self.chunk.codes.get_short(self.ip);
+        self.ip += 2;
+        return next_short;
+    }
+
+    /// Prints the execution trace for the program. Useful for debugging the VM.
+    ///
+    /// ## Arguments
+    /// * `instr` – The current OpCode to be executed.
+    fn print_execution(&mut self, instr: &OpCode) {
+        println!("\n==========================");
+
+        // Prints the next instruction to be executed
+        println!("OpCode:\t\x1b[36m{:?}\x1b[0m ", instr);
+        println!("Byte:\t{:#04X} ", instr.clone() as u8);
+
+        // Prints the index of the current instruction
+        println!("IP:\t{:>04} ", self.ip);
+
+        // Prints the current state of the values stack
+        print!("stack\t[");
+        for val in self.stack.iter() {
+            print!("{}; ", val);
+        }
+        println!("]");
+
+        print!("Output:\t");
     }
 }

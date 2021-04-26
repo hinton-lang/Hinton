@@ -48,7 +48,7 @@ impl<'a> Chunk {
     /// object in the pool. If the item could not be added because the pool is
     /// full, returns the enum variant `ConstantPos::Error`.
     pub fn add_constant(&mut self, obj: Rc<Object>) -> ConstantPos {
-        return if self.constants.len() < (u16::max as usize) {
+        return if self.constants.len() < (u16::MAX as usize) {
             self.constants.push(obj);
             ConstantPos::Pos((self.constants.len() as u16) - 1)
         } else {
@@ -109,7 +109,10 @@ impl<'a> Chunk {
                     // Reads two bytes as the index of a constant
                     let mut const_val = || -> &Rc<Object> {
                         i += 1;
-                        let pos = self.codes.get_short(i);
+                        let pos = match self.codes.get_short(i) {
+                            Some(short) => short,
+                            None => unreachable!("Could not get short."),
+                        };
                         i += 1; // increment `i` again for the second byte in the short
                         self.get_constant(pos).unwrap()
                     };
@@ -117,11 +120,11 @@ impl<'a> Chunk {
                     match instr {
                         // Prints the value associated with an OP_CONSTANT instruction
                         OpCode::OP_VALUE => println!("\t\t---> {}", const_val()),
-                        OpCode::OP_GET_VAR | OpCode::OP_SET_VAR | OpCode::OP_JUMP_IF_FALSE | OpCode::OP_JUMP => {
+                        OpCode::OP_POST_INCREMENT | OpCode::OP_POST_DECREMENT => println!("\t---> {}", const_val()),
+                        OpCode::OP_GET_VAR | OpCode::OP_SET_VAR | OpCode::OP_JUMP_IF_FALSE | OpCode::OP_JUMP | OpCode::OP_LOOP => {
                             i += 2;
                             println!();
                         }
-                        // OpCode::OP_POST_INCREMENT | OpCode::OP_POST_DECREMENT => println!("\t---> {}", const_val()),
                         // If the instruction does not use the next to bytes, then print nothing
                         _ => println!(),
                     }

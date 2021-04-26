@@ -42,7 +42,7 @@ impl Parser {
         } else if self.matches(TokenType::IF_KEYWORD) {
             self.parse_if_statement()
         } else if self.matches(TokenType::WHILE_KEYWORD) {
-            todo!("Implement while loops")
+            self.parse_while_statement()
         } else if self.matches(TokenType::FOR_KEYWORD) {
             todo!("Implement for loops")
         } else if self.matches(TokenType::BREAK_KEYWORD) {
@@ -200,7 +200,7 @@ impl Parser {
     ///
     /// Returns
     /// * `Option<ASTNode>` – An if statement AST node.
-    pub fn parse_if_statement(&mut self) -> Option<ASTNode> {
+    fn parse_if_statement(&mut self) -> Option<ASTNode> {
         let then_tok = Rc::clone(&self.previous);
         self.consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'if'.");
 
@@ -209,7 +209,7 @@ impl Parser {
             None => return None, // Could not create condition for if-statement
         };
 
-        self.consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after if condition.");
+        self.consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after 'if' condition.");
 
         let then_branch = match self.parse_statement() {
             Some(val) => val,
@@ -233,6 +233,29 @@ impl Parser {
             then_branch: Box::new(then_branch),
             else_branch: Box::new(else_branch),
             else_token: else_tok,
+        }));
+    }
+
+    fn parse_while_statement(&mut self) -> Option<ASTNode> {
+        let tok = Rc::clone(&self.previous);
+        self.consume(TokenType::LEFT_PARENTHESIS, "Expected '(' after 'while'.");
+
+        let condition = match self.parse_expression() {
+            Some(val) => val,
+            None => return None, // Could not create condition for while-loop
+        };
+
+        self.consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after 'while' condition.");
+
+        let body = match self.parse_statement() {
+            Some(val) => val,
+            None => return None, // Could not create then branch
+        };
+
+        return Some(WhileStmt(WhileStmtNode {
+            token: Rc::clone(&tok),
+            condition: Box::new(condition),
+            body: Box::new(body),
         }));
     }
 }

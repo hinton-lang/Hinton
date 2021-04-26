@@ -6,7 +6,6 @@ mod statements;
 use crate::{
     chunk::{op_codes::OpCode, Chunk},
     lexer::tokens::{Token, TokenType},
-    objects::FunctionObject,
     virtual_machine::InterpretResult,
 };
 
@@ -41,9 +40,9 @@ impl Compiler {
     /// and declarations in a program.
     ///
     /// ## Returns
-    /// `Result<FunctionObject, InterpretResult>` – If the program had no compile-time errors, returns
-    /// the main function object for this module. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
-    pub fn compile(program: Rc<ModuleNode>) -> Result<FunctionObject, InterpretResult> {
+    /// `Result<chunk, InterpretResult>` – If the program had no compile-time errors, returns
+    /// the main chunk for this module. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
+    pub fn compile(program: Rc<ModuleNode>) -> Result<Chunk, InterpretResult> {
         let mut c = Compiler {
             had_error: false,
             is_in_panic: false,
@@ -57,28 +56,16 @@ impl Compiler {
                 return Err(InterpretResult::INTERPRET_COMPILE_ERROR);
             }
 
-            // TODO: What can we do so that cloning each node is no longer necessary?
-            // Cloning each node is a very expensive operation because some of the nodes
-            // could have an arbitrarily big amount of data. Fox example, large bodies
-            // of literal text could drastically slow down the performance of the compiler
-            // when those strings have to be cloned.
-            c.compile_node(node.clone());
+            c.compile_node(node);
         }
 
-        // **** TEMPORARY ****
-        c.emit_op_code(OpCode::OP_RETURN, (0, 0));
         // Shows the chunk.
         // c.chunk.disassemble("<script>");
         // c.chunk.print_raw("<script>");
 
         if !c.had_error {
             // Return the compiled chunk.
-            Ok(FunctionObject {
-                chunk: c.chunk,
-                min_arity: 0,
-                max_arity: 0,
-                name: String::from("<Script>"),
-            })
+            Ok(c.chunk)
         } else {
             return Err(InterpretResult::INTERPRET_COMPILE_ERROR);
         }
@@ -88,13 +75,13 @@ impl Compiler {
     ///
     /// ## Arguments
     /// * `node` – The node to be compiled.
-    pub fn compile_node(&mut self, node: ASTNode) {
+    pub fn compile_node(&mut self, node: &ASTNode) {
         return match node {
             ASTNode::Binary(x) => self.compile_binary_expr(x),
             ASTNode::BlockStmt(x) => self.compile_block_stmt(x),
             ASTNode::ConstantDecl(x) => self.compile_constant_decl(x),
             ASTNode::ExpressionStmt(x) => {
-                self.compile_node(*x.child);
+                self.compile_node(&x.child);
                 self.emit_op_code(OpCode::OP_POP_STACK, x.pos);
             }
             ASTNode::Identifier(x) => self.compile_identifier_expr(x),
@@ -104,7 +91,8 @@ impl Compiler {
             ASTNode::Unary(x) => self.compile_unary_expr(x),
             ASTNode::VarReassignment(x) => self.compile_var_reassignment_expr(x),
             ASTNode::VariableDecl(x) => self.compile_variable_decl(x),
-            ASTNode::IfStmt(x) => self.compile_if_statement(x),
+            ASTNode::IfStmt(x) => self.compile_if_stmt(x),
+            ASTNode::WhileStmt(x) => self.compile_while_stmt(x),
         };
     }
 
@@ -117,6 +105,20 @@ impl Compiler {
     /// * `usize` – The position of the currently emitted OpCode in the chunk.
     pub fn emit_op_code(&mut self, instr: OpCode, pos: (usize, usize)) -> usize {
         self.chunk.codes.push_byte(instr as u8);
+        self.chunk.locations.push(pos.clone());
+
+        return self.chunk.codes.len() - 1;
+    }
+
+    /// Emits a raw byte instruction into the chunk's instruction list.
+    ///
+    /// ## Arguments
+    /// * `byte` – The byte instruction to added to the chunk.
+    ///
+    /// ## Returns
+    /// * `usize` – The position of the currently emitted OpCode in the chunk.
+    pub fn emit_raw_byte(&mut self, byte: u8, pos: (usize, usize)) -> usize {
+        self.chunk.codes.push_byte(byte);
         self.chunk.locations.push(pos.clone());
 
         return self.chunk.codes.len() - 1;
@@ -135,7 +137,7 @@ impl Compiler {
         self.chunk.locations.push(pos.clone());
         self.chunk.locations.push(pos.clone());
 
-        return self.chunk.codes.len() - 1;
+        return self.chunk.codes.len() - 2;
     }
 
     /// Emits a jump instructions with a dummy jump offset. This offset should be
@@ -162,8 +164,8 @@ impl Compiler {
     /// * `offset` – The position in the chunk of the jump instruction to be patched.
     /// * `token` – The token associated with this jump patch.
     fn patch_jump(&mut self, offset: usize, token: Rc<Token>) {
-        // -1 to adjust for the bytecode for the jump offset itself.
-        let jump = match u16::try_from((self.chunk.codes.len() - offset) - 1) {
+        // -2 to adjust for the bytecode for the jump offset itself.
+        let jump = match u16::try_from((self.chunk.codes.len() - offset) - 2) {
             Ok(x) => x,
             Err(_) => {
                 return self.error_at_token(token, "Too much code to jump over.");
@@ -171,8 +173,29 @@ impl Compiler {
         };
 
         let j = jump.to_be_bytes();
-        self.chunk.codes.modify_byte(offset - 1, j[0]);
-        self.chunk.codes.modify_byte(offset, j[1]);
+        self.chunk.codes.modify_byte(offset, j[0]);
+        self.chunk.codes.modify_byte(offset + 1, j[1]);
+    }
+
+    /// Patches the offset of a jump instruction.
+    ///
+    /// ## Arguments
+    /// * `loop_start` – The position in the chunk of the jump instruction to be patched.
+    /// * `token` – The token associated with this jump patch.
+    fn emit_loop(&mut self, loop_start: usize, token: Rc<Token>) {
+        self.emit_op_code(OpCode::OP_LOOP, (token.line_num, token.column_num));
+
+        // +2 to adjust for the bytecode for the jump offset itself.
+        let jump = match u16::try_from(self.chunk.codes.len() - loop_start + 2) {
+            Ok(x) => x,
+            Err(_) => {
+                return self.error_at_token(token, "Loop body too large.");
+            }
+        };
+
+        let offset = jump.to_be_bytes();
+        self.emit_raw_byte(offset[0], (token.line_num, token.column_num));
+        self.emit_raw_byte(offset[1], (token.line_num, token.column_num));
     }
 
     /// Emits a compiler error from the given token.
