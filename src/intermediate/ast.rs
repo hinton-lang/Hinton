@@ -23,6 +23,9 @@ pub enum ASTNode {
     TernaryConditional(TernaryConditionalNode),
     Identifier(IdentifierExprNode),
     VarReassignment(VarReassignmentExprNode),
+    Array(ArrayExprNode),
+    PostIncrement(PostIncrementExprNode),
+    PostDecrement(PostDecrementExprNode),
 
     // Declarations
     VariableDecl(VariableDeclNode),
@@ -45,6 +48,13 @@ pub struct LiteralExprNode {
     // This node needs a reference to the token because at compile time,
     // we need information about the token for printing errors when there
     // is a problem with storing the literal in the constant pool.
+    pub token: Rc<Token>,
+}
+
+/// Represents an array expression node in Hinton's Abstract Syntax Tree.
+#[derive(Clone)]
+pub struct ArrayExprNode {
+    pub values: Vec<Box<ASTNode>>,
     pub token: Rc<Token>,
 }
 
@@ -115,6 +125,20 @@ pub struct IdentifierExprNode {
     // This node needs a reference to the token because at compile time,
     // we need information about the token for printing errors when there
     // is a problem with storing the identifier in the constant pool.
+    pub token: Rc<Token>,
+}
+
+/// Represents a post-increment expression node in Hinton's Abstract Syntax Tree.
+#[derive(Clone)]
+pub struct PostIncrementExprNode {
+    pub target: Rc<Token>,
+    pub token: Rc<Token>,
+}
+
+/// Represents a post-decrement expression node in Hinton's Abstract Syntax Tree.
+#[derive(Clone)]
+pub struct PostDecrementExprNode {
+    pub target: Rc<Token>,
     pub token: Rc<Token>,
 }
 

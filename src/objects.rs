@@ -9,7 +9,7 @@ pub enum Object {
     String(String),
     Bool(bool),
     Function(Rc<FunctionObject>),
-    Array(Vec<Object>),
+    Array(Vec<Rc<Object>>),
     Range(Rc<RangeObject>),
     Null,
 }
@@ -247,7 +247,10 @@ impl<'a> fmt::Display for Object {
                 let str = String::from("\x1b[38;5;81m") + inner.to_string().as_str() + String::from("\x1b[0m").as_str();
                 fmt::Display::fmt(&str, f)
             }
-            Object::String(ref inner) => fmt::Display::fmt(inner, f),
+            Object::String(ref inner) => {
+                let inner = format!("\"{}\"", inner);
+                fmt::Display::fmt(&inner, f)
+            },
             Object::Bool(ref inner) => {
                 let str = if *inner {
                     String::from("\x1b[38;5;3mtrue\x1b[0m")
@@ -259,8 +262,12 @@ impl<'a> fmt::Display for Object {
             }
             Object::Array(ref inner) => {
                 let mut arr_str = String::from("[");
-                for obj in inner.iter() {
-                    arr_str += &(format!("{}, ", obj))[..];
+                for (idx, obj) in inner.iter().enumerate() {
+                    if idx == inner.len() - 1 {
+                        arr_str += &(format!("{}", obj))[..]
+                    } else {
+                        arr_str += &(format!("{}, ", obj))[..];
+                    }
                 }
                 arr_str += "]";
 

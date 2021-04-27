@@ -60,7 +60,7 @@ impl Compiler {
         }
 
         // Shows the chunk.
-        // c.chunk.disassemble("<script>");
+        c.chunk.disassemble("<script>");
         // c.chunk.print_raw("<script>");
 
         if !c.had_error {
@@ -77,6 +77,7 @@ impl Compiler {
     /// * `node` – The node to be compiled.
     pub fn compile_node(&mut self, node: &ASTNode) {
         return match node {
+            ASTNode::Array(x) => self.compile_array_expr(x),
             ASTNode::Binary(x) => self.compile_binary_expr(x),
             ASTNode::BlockStmt(x) => self.compile_block_stmt(x),
             ASTNode::ConstantDecl(x) => self.compile_constant_decl(x),
@@ -85,13 +86,15 @@ impl Compiler {
                 self.emit_op_code(OpCode::OP_POP_STACK, x.pos);
             }
             ASTNode::Identifier(x) => self.compile_identifier_expr(x),
+            ASTNode::IfStmt(x) => self.compile_if_stmt(x),
             ASTNode::Literal(x) => self.compile_literal(x),
+            ASTNode::PostDecrement(x) => self.compile_post_decrement_expr(x),
+            ASTNode::PostIncrement(x) => self.compile_post_increment_expr(x),
             ASTNode::PrintStmt(x) => self.compile_print_stmt(x),
             ASTNode::TernaryConditional(x) => self.compile_ternary_conditional(x),
             ASTNode::Unary(x) => self.compile_unary_expr(x),
             ASTNode::VarReassignment(x) => self.compile_var_reassignment_expr(x),
             ASTNode::VariableDecl(x) => self.compile_variable_decl(x),
-            ASTNode::IfStmt(x) => self.compile_if_stmt(x),
             ASTNode::WhileStmt(x) => self.compile_while_stmt(x),
         };
     }

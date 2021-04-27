@@ -731,9 +731,42 @@ impl<'a> Parser {
                 opr_type,
             }));
         } else {
-            let expr = self.parse_primary();
+            let expr = match self.parse_primary() {
+                Some(e) => e,
+                None => return None,
+            };
 
-            return expr;
+            let expr_token = Rc::clone(&self.previous);
+
+            // Parse post-increment
+            if self.matches(TokenType::INCREMENT) {
+                return match expr {
+                    Identifier(x) => Some(PostIncrement(PostIncrementExprNode {
+                        target: x.token,
+                        token: Rc::clone(&self.previous),
+                    })),
+                    _ => {
+                        self.error_at_token(expr_token, "Invalid post-increment target.");
+                        None
+                    }
+                };
+            }
+
+            // Parse post-decrement
+            if self.matches(TokenType::DECREMENT) {
+                return match expr {
+                    Identifier(x) => Some(PostDecrement(PostDecrementExprNode {
+                        target: x.token,
+                        token: Rc::clone(&self.previous),
+                    })),
+                    _ => {
+                        self.error_at_token(expr_token, "Invalid post-decrement target.");
+                        None
+                    }
+                };
+            }
+
+            return Some(expr);
         }
     }
 
@@ -749,6 +782,7 @@ impl<'a> Parser {
             TokenType::TRUE_LITERAL => Rc::new(Object::Bool(true)),
             TokenType::FALSE_LITERAL => Rc::new(Object::Bool(false)),
             TokenType::NULL_LITERAL => Rc::new(Object::Null),
+            TokenType::LEFT_SQUARE_BRACKET => return self.construct_array(),
             TokenType::NUMERIC_LITERAL => match self.compile_number() {
                 Ok(x) => x,
                 Err(_) => return None,
@@ -862,5 +896,34 @@ impl<'a> Parser {
                 Err(())
             }
         };
+    }
+
+    /// Parses an array expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode>` – The expression's AST node.
+    pub(super) fn construct_array(&mut self) -> Option<ASTNode> {
+        let mut values: Vec<Box<ASTNode>> = vec![];
+
+        if !self.matches(TokenType::RIGHT_SQUARE_BRACKET) {
+            loop {
+                values.push(match self.parse_expression() {
+                    Some(e) => Box::new(e),
+                    None => return None,
+                });
+
+                if self.matches(TokenType::COMMA_SEPARATOR) {
+                    continue;
+                }
+
+                self.consume(TokenType::RIGHT_SQUARE_BRACKET, "Expected ']' after array declaration.");
+                break;
+            }
+        }
+
+        return Some(Array(ArrayExprNode {
+            values,
+            token: Rc::clone(&self.previous),
+        }));
     }
 }

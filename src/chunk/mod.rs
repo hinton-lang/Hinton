@@ -119,9 +119,15 @@ impl<'a> Chunk {
 
                     match instr {
                         // Prints the value associated with an OP_CONSTANT instruction
-                        OpCode::OP_VALUE => println!("\t\t---> {}", const_val()),
-                        OpCode::OP_POST_INCREMENT | OpCode::OP_POST_DECREMENT => println!("\t---> {}", const_val()),
-                        OpCode::OP_GET_VAR | OpCode::OP_SET_VAR | OpCode::OP_JUMP_IF_FALSE | OpCode::OP_JUMP | OpCode::OP_LOOP => {
+                        OpCode::OP_LOAD_VALUE => println!("\t\t---> {}", const_val()),
+                        OpCode::OP_GET_VAR
+                        | OpCode::OP_SET_VAR
+                        | OpCode::OP_JUMP_IF_FALSE
+                        | OpCode::OP_JUMP
+                        | OpCode::OP_LOOP
+                        | OpCode::OP_ARRAY
+                        | OpCode::OP_POST_INCREMENT
+                        | OpCode::OP_POST_DECREMENT => {
                             i += 2;
                             println!();
                         }

@@ -26,7 +26,7 @@ impl<'a> VirtualMachine {
                 OpCode::OP_TRUE => self.stack.push(Rc::new(Object::Bool(true))),
                 OpCode::OP_FALSE => self.stack.push(Rc::new(Object::Bool(false))),
 
-                OpCode::OP_VALUE => {
+                OpCode::OP_LOAD_VALUE => {
                     let pos = match self.get_next_short() {
                         Some(short) => short,
                         None => {
@@ -42,6 +42,33 @@ impl<'a> VirtualMachine {
                             return InterpretResult::INTERPRET_RUNTIME_ERROR;
                         }
                     }
+                }
+
+                OpCode::OP_ARRAY => {
+                    // The number of values to pop from the stack. Essentially the size of the array.
+                    let size = match self.get_next_short() {
+                        Some(short) => short,
+                        None => {
+                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
+                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                        }
+                    };
+
+                    let mut arr_values: Vec<Rc<Object>> = vec![];
+
+                    for _ in 0..size {
+                        let val = match self.stack.pop() {
+                            Some(v) => v,
+                            None => {
+                                self.report_runtime_error("Unexpected Runtime Error: Stack is empty.");
+                                return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                            }
+                        };
+
+                        arr_values.push(val);
+                    }
+
+                    self.stack.push(Rc::new(Object::Array(arr_values)));
                 }
 
                 OpCode::OP_GET_VAR => {
@@ -325,6 +352,46 @@ impl<'a> VirtualMachine {
                     };
 
                     self.ip -= offset;
+                }
+
+                OpCode::OP_POST_INCREMENT => {
+                    let pos = match self.get_next_short() {
+                        Some(short) => short as usize,
+                        None => {
+                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
+                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                        }
+                    };
+
+                    let value = Rc::clone(&self.stack.get_mut(pos).unwrap());
+
+                    if !value.is_numeric() {
+                        self.report_runtime_error(&format!("Cannot increment object of type '{}'.", value.type_name()));
+                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                    }
+
+                    self.stack[pos] = Rc::new(Object::Number(value.as_number().unwrap() + 1f64));
+                    self.stack.push(value);
+                }
+
+                OpCode::OP_POST_DECREMENT => {
+                    let pos = match self.get_next_short() {
+                        Some(short) => short as usize,
+                        None => {
+                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
+                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                        }
+                    };
+
+                    let value = Rc::clone(&self.stack.get_mut(pos).unwrap());
+
+                    if !value.is_numeric() {
+                        self.report_runtime_error(&format!("Cannot decrement object of type '{}'.", value.type_name()));
+                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                    }
+
+                    self.stack[pos] = Rc::new(Object::Number(value.as_number().unwrap() - 1f64));
+                    self.stack.push(value);
                 }
 
                 OpCode::OP_PRINT => {
