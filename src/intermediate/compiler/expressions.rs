@@ -214,8 +214,55 @@ impl Compiler {
         }
     }
 
+    /// Compiles a post-increment expression.
+    ///
+    /// # Arguments
+    /// * `expr` – A post-increment expression node.
+    pub(super) fn compile_post_increment_expr(&mut self, expr: &PostIncrementExprNode) {
+        match self.resolve_variable(Rc::clone(&expr.target), false) {
+            Some(idx) => {
+                self.emit_op_code(OpCode::OP_POST_INCREMENT, (expr.token.line_num, expr.token.column_num));
+                self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
+            }
+            None => {}
+        }
+    }
+
+        /// Compiles a post-decrement expression.
+    ///
+    /// # Arguments
+    /// * `expr` – A post-decrement expression node.
+    pub(super) fn compile_post_decrement_expr(&mut self, expr: &PostDecrementExprNode) {
+        match self.resolve_variable(Rc::clone(&expr.target), false) {
+            Some(idx) => {
+                self.emit_op_code(OpCode::OP_POST_DECREMENT, (expr.token.line_num, expr.token.column_num));
+                self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
+            }
+            None => {}
+        }
+    }
+
+    /// Compiles an array literal expression.
+    ///
+    /// # Arguments
+    /// * `expr` – A array expression node.
+    pub(super) fn compile_array_expr(&mut self, expr: &ArrayExprNode) {
+        if expr.values.len() <= (u16::MAX as usize) {
+            // We reverse the list here because at runtime, we pop each value of the stack in the
+            // opposite order (because it *is* a stack). Instead of performing that operation during
+            // runtime, we execute it once during compile time.
+            for node in expr.values.iter().rev() {
+                self.compile_node(&node);
+            }
+
+            self.emit_op_code(OpCode::OP_ARRAY, (expr.token.line_num, expr.token.column_num));
+            self.emit_short(expr.values.len() as u16, (expr.token.line_num, expr.token.column_num));
+        } else {
+            self.error_at_token(Rc::clone(&expr.token), "Too many values in the array.");
+        }
+    }
+
     /// Looks for a variable with the given token name in the list of variables.
-    /// This is used to
     ///
     /// ## Arguments
     /// * `token` – A reference to the token (variable name) related to the variable.
@@ -265,7 +312,7 @@ impl Compiler {
 
         match constant_pos {
             ConstantPos::Pos(idx) => {
-                self.emit_op_code(OpCode::OP_VALUE, opr_pos);
+                self.emit_op_code(OpCode::OP_LOAD_VALUE, opr_pos);
                 self.emit_short(idx, opr_pos);
             }
             ConstantPos::Error => {
