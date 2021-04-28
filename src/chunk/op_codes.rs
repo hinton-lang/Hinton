@@ -16,8 +16,8 @@ pub enum OpCode {
     OP_BITWISE_OR,
     OP_BITWISE_R_SHIFT,
     OP_BITWISE_XOR,
-    OP_CONST_0,
-    OP_CONST_1,
+    OP_LOAD_IMM_0,
+    OP_LOAD_IMM_1,
     OP_DIVIDE,
     OP_EQUALS,
     OP_EXPO,
@@ -57,6 +57,8 @@ pub enum OpCode {
     OP_SUBTRACT,
     OP_TRUE,
     OP_ARRAY_INDEXING,
+    OP_LOAD_IMM,
+    OP_LOAD_IMM_LONG,
     // Temporaries - These should always stay at
     // the bottom of the enum.
     OP_PRINT,
@@ -81,8 +83,8 @@ impl OpCode {
             6 => Some(OpCode::OP_BITWISE_OR),
             7 => Some(OpCode::OP_BITWISE_R_SHIFT),
             8 => Some(OpCode::OP_BITWISE_XOR),
-            9 => Some(OpCode::OP_CONST_0),
-            10 => Some(OpCode::OP_CONST_1),
+            9 => Some(OpCode::OP_LOAD_IMM_0),
+            10 => Some(OpCode::OP_LOAD_IMM_1),
             11 => Some(OpCode::OP_DIVIDE),
             12 => Some(OpCode::OP_EQUALS),
             13 => Some(OpCode::OP_EXPO),
@@ -123,7 +125,10 @@ impl OpCode {
             48 => Some(OpCode::OP_TRUE),
             49 => Some(OpCode::OP_ARRAY_INDEXING),
 
-            50 => Some(OpCode::OP_PRINT),
+            50 => Some(OpCode::OP_LOAD_IMM),
+            51 => Some(OpCode::OP_LOAD_IMM_LONG),
+
+            52 => Some(OpCode::OP_PRINT),
             _ => None,
         };
     }

@@ -46,7 +46,9 @@ impl Parser {
         } else if self.matches(TokenType::FOR_KEYWORD) {
             todo!("Implement for loops")
         } else if self.matches(TokenType::BREAK_KEYWORD) {
-            todo!("Implement breaks")
+            let tok = Rc::clone(&self.previous);
+            self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after break keyword.");
+            return Some(BreakStmt(BreakStmtNode { token: tok }));
         } else if self.matches(TokenType::CONTINUE_KEYWORD) {
             todo!("Implement continue")
         } else if self.matches(TokenType::RETURN_KEYWORD) {

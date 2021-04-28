@@ -38,6 +38,7 @@ pub enum ASTNode {
     BlockStmt(BlockNode),
     IfStmt(IfStmtNode),
     WhileStmt(WhileStmtNode),
+    BreakStmt(BreakStmtNode)
 }
 
 /// Represents a literal node in Hinton's Abstract Syntax Tree.
@@ -209,4 +210,10 @@ pub struct WhileStmtNode {
     pub token: Rc<Token>,
     pub condition: Box<ASTNode>,
     pub body: Box<ASTNode>,
+}
+
+/// Represents a break statement node in Hinton's Abstract Syntax Tree.
+#[derive(Clone)]
+pub struct BreakStmtNode {
+    pub token: Rc<Token>,
 }

@@ -20,6 +20,12 @@ pub struct Variable {
     is_used: bool,
 }
 
+/// Represents a break statement, which is associated with a loop.
+pub struct BreakScope {
+    loop_start: usize,
+    loop_position: usize,
+}
+
 /// Represents a compiler and its internal state.
 pub struct Compiler {
     had_error: bool,
@@ -28,6 +34,11 @@ pub struct Compiler {
     // Lexical scoping of declarations
     variables: Vec<Variable>,
     scope_depth: usize,
+    // Used to match the break statements with the correct
+    // loop (specially useful with nested loops), and to
+    // patch the break (OP_JUMP) offsets.
+    loops: Vec<usize>,
+    breaks: Vec<BreakScope>,
 }
 
 impl Compiler {
@@ -47,7 +58,9 @@ impl Compiler {
             had_error: false,
             is_in_panic: false,
             chunk: Chunk::new(),
-            variables: Vec::with_capacity(u16::MAX as usize),
+            variables: vec![],
+            loops: vec![],
+            breaks: vec![],
             scope_depth: 0,
         };
 
@@ -81,6 +94,7 @@ impl Compiler {
             ASTNode::ArrayIndexing(x) => self.compile_array_indexing_expr(x),
             ASTNode::Binary(x) => self.compile_binary_expr(x),
             ASTNode::BlockStmt(x) => self.compile_block_stmt(x),
+            ASTNode::BreakStmt(x) => self.compile_break_stmt(x),
             ASTNode::ConstantDecl(x) => self.compile_constant_decl(x),
             ASTNode::ExpressionStmt(x) => {
                 self.compile_node(&x.child);
@@ -170,6 +184,28 @@ impl Compiler {
     fn patch_jump(&mut self, offset: usize, token: Rc<Token>) {
         // -2 to adjust for the bytecode for the jump offset itself.
         let jump = match u16::try_from((self.chunk.codes.len() - offset) - 2) {
+            Ok(x) => x,
+            Err(_) => {
+                return self.error_at_token(token, "Too much code to jump over.");
+            }
+        };
+
+        let j = jump.to_be_bytes();
+        self.chunk.codes.modify_byte(offset, j[0]);
+        self.chunk.codes.modify_byte(offset + 1, j[1]);
+    }
+
+    /// Patches the offset of a break (OP_JUMP) instruction.
+    ///
+    /// ## Arguments
+    /// * `offset` – The position in the chunk of the break (OP_JUMP) instruction to be patched.
+    /// * `token` – The token associated with this jump patch.
+    fn patch_break(&mut self, offset: usize, token: Rc<Token>) {
+        // -1 to adjust for the bytecode for the jump offset itself.
+        // However, this is different from `patch_jump` because when patching
+        // a regular jump, we usually want to execute the `OP_POP_STACK` after the
+        // statement. When patching a break, this is not necessary, hence -1.
+        let jump = match u16::try_from((self.chunk.codes.len() - offset) - 1) {
             Ok(x) => x,
             Err(_) => {
                 return self.error_at_token(token, "Too much code to jump over.");
