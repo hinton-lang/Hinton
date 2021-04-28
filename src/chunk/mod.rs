@@ -63,8 +63,8 @@ impl<'a> Chunk {
     ///
     /// ## Returns
     /// `Option<&Rc<Object<'a>>>` – The object at the given index in the constant pool/
-    pub fn get_constant(&self, idx: u16) -> Option<&Rc<Object>> {
-        self.constants.get(idx as usize)
+    pub fn get_constant(&self, idx: usize) -> Option<&Rc<Object>> {
+        self.constants.get(idx)
     }
 
     /// Disassembles the chunk, printing the each instruction and
@@ -107,27 +107,48 @@ impl<'a> Chunk {
                     print!("\x1b[32m{:#04X}\x1b[0m – \x1b[36m{:?}\x1b[0m ", instr.clone() as u8, instr);
 
                     // Reads two bytes as the index of a constant
-                    let mut const_val = || -> &Rc<Object> {
+                    let mut const_val = |is_long: bool| -> &Rc<Object> {
                         i += 1;
-                        let pos = match self.codes.get_short(i) {
-                            Some(short) => short,
-                            None => unreachable!("Could not get short."),
-                        };
-                        i += 1; // increment `i` again for the second byte in the short
+
+                        let pos;
+                        if is_long {
+                            pos = match self.codes.get_short(i) {
+                                Some(short) => short as usize,
+                                None => unreachable!("Could not get short."),
+                            };
+                            i += 1; // increment `i` again for the second byte in the short
+                        } else {
+                            pos = match self.codes.get_byte(i) {
+                                Some(byte) => byte as usize,
+                                None => unreachable!("Could not get byte."),
+                            };
+                        }
+
                         self.get_constant(pos).unwrap()
                     };
 
                     match instr {
                         // Prints the value associated with an OP_CONSTANT instruction
-                        OpCode::OP_LOAD_VALUE => println!("\t\t---> {}", const_val()),
+                        OpCode::OP_LOAD_CONST => println!("\t\t---> {}", const_val(false)),
+                        OpCode::OP_LOAD_CONST_LONG => println!("\t\t---> {}", const_val(true)),
                         OpCode::OP_GET_VAR
                         | OpCode::OP_SET_VAR
-                        | OpCode::OP_JUMP_IF_FALSE
-                        | OpCode::OP_JUMP
-                        | OpCode::OP_LOOP
+                        | OpCode::OP_LOOP_JUMP
                         | OpCode::OP_ARRAY
                         | OpCode::OP_POST_INCREMENT
                         | OpCode::OP_POST_DECREMENT => {
+                            i += 1;
+                            println!();
+                        }
+
+                        OpCode::OP_GET_VAR_LONG
+                        | OpCode::OP_SET_VAR_LONG
+                        | OpCode::OP_JUMP
+                        | OpCode::OP_JUMP_IF_FALSE
+                        | OpCode::OP_LOOP_JUMP_LONG
+                        | OpCode::OP_ARRAY_LONG
+                        | OpCode::OP_POST_INCREMENT_LONG
+                        | OpCode::OP_POST_DECREMENT_LONG => {
                             i += 2;
                             println!();
                         }
@@ -166,6 +187,7 @@ impl<'a> Chunk {
             i += 1;
         }
 
-        println!("\n================\n");
+        println!("\n\nChunk Size: {}", i);
+        println!("================\n");
     }
 }

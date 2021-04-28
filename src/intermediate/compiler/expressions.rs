@@ -27,6 +27,12 @@ impl Compiler {
             Object::Null => {
                 self.emit_op_code(OpCode::OP_NULL, opr_pos);
             }
+            Object::Number(x) if x == 0f64 => {
+                self.emit_op_code(OpCode::OP_CONST_0, opr_pos);
+            }
+            Object::Number(x) if x == 1f64 => {
+                self.emit_op_code(OpCode::OP_CONST_1, opr_pos);
+            }
             _ => self.add_literal_to_pool(obj, Rc::clone(&expr.token)),
         };
     }
@@ -191,8 +197,13 @@ impl Compiler {
     pub(super) fn compile_identifier_expr(&mut self, expr: &IdentifierExprNode) {
         match self.resolve_variable(Rc::clone(&expr.token), false) {
             Some(idx) => {
-                self.emit_op_code(OpCode::OP_GET_VAR, (expr.token.line_num, expr.token.column_num));
-                self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
+                if idx < 256 {
+                    self.emit_op_code(OpCode::OP_GET_VAR, (expr.token.line_num, expr.token.column_num));
+                    self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
+                } else {
+                    self.emit_op_code(OpCode::OP_GET_VAR_LONG, (expr.token.line_num, expr.token.column_num));
+                    self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
+                }
             }
             None => {}
         }
@@ -207,8 +218,13 @@ impl Compiler {
 
         match self.resolve_variable(Rc::clone(&expr.target), true) {
             Some(idx) => {
-                self.emit_op_code(OpCode::OP_SET_VAR, (expr.target.line_num, expr.target.column_num));
-                self.emit_short(idx, (expr.target.line_num, expr.target.column_num));
+                if idx < 256 {
+                    self.emit_op_code(OpCode::OP_SET_VAR, (expr.target.line_num, expr.target.column_num));
+                    self.emit_raw_byte(idx as u8, (expr.target.line_num, expr.target.column_num));
+                } else {
+                    self.emit_op_code(OpCode::OP_SET_VAR_LONG, (expr.target.line_num, expr.target.column_num));
+                    self.emit_short(idx, (expr.target.line_num, expr.target.column_num));
+                }
             }
             None => {}
         }
@@ -221,22 +237,32 @@ impl Compiler {
     pub(super) fn compile_post_increment_expr(&mut self, expr: &PostIncrementExprNode) {
         match self.resolve_variable(Rc::clone(&expr.target), false) {
             Some(idx) => {
-                self.emit_op_code(OpCode::OP_POST_INCREMENT, (expr.token.line_num, expr.token.column_num));
-                self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
+                if idx < 256 {
+                    self.emit_op_code(OpCode::OP_POST_INCREMENT, (expr.token.line_num, expr.token.column_num));
+                    self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
+                } else {
+                    self.emit_op_code(OpCode::OP_POST_INCREMENT_LONG, (expr.token.line_num, expr.token.column_num));
+                    self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
+                }
             }
             None => {}
         }
     }
 
-        /// Compiles a post-decrement expression.
+    /// Compiles a post-decrement expression.
     ///
     /// # Arguments
     /// * `expr` – A post-decrement expression node.
     pub(super) fn compile_post_decrement_expr(&mut self, expr: &PostDecrementExprNode) {
         match self.resolve_variable(Rc::clone(&expr.target), false) {
             Some(idx) => {
-                self.emit_op_code(OpCode::OP_POST_DECREMENT, (expr.token.line_num, expr.token.column_num));
-                self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
+                if idx < 256 {
+                    self.emit_op_code(OpCode::OP_POST_DECREMENT, (expr.token.line_num, expr.token.column_num));
+                    self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
+                } else {
+                    self.emit_op_code(OpCode::OP_POST_DECREMENT_LONG, (expr.token.line_num, expr.token.column_num));
+                    self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
+                }
             }
             None => {}
         }
@@ -255,11 +281,22 @@ impl Compiler {
                 self.compile_node(&node);
             }
 
-            self.emit_op_code(OpCode::OP_ARRAY, (expr.token.line_num, expr.token.column_num));
-            self.emit_short(expr.values.len() as u16, (expr.token.line_num, expr.token.column_num));
+            if expr.values.len() < 256 {
+                self.emit_op_code(OpCode::OP_ARRAY, (expr.token.line_num, expr.token.column_num));
+                self.emit_raw_byte(expr.values.len() as u8, (expr.token.line_num, expr.token.column_num));
+            } else {
+                self.emit_op_code(OpCode::OP_ARRAY_LONG, (expr.token.line_num, expr.token.column_num));
+                self.emit_short(expr.values.len() as u16, (expr.token.line_num, expr.token.column_num));
+            }
         } else {
             self.error_at_token(Rc::clone(&expr.token), "Too many values in the array.");
         }
+    }
+
+    pub(super) fn compile_array_indexing_expr(&mut self, expr: &ArrayIndexingExprNode) {
+        self.compile_node(&expr.target);
+        self.compile_node(&expr.index);
+        self.emit_op_code(OpCode::OP_ARRAY_INDEXING, expr.pos);
     }
 
     /// Looks for a variable with the given token name in the list of variables.
@@ -307,13 +344,25 @@ impl Compiler {
     /// * `obj` – A reference to the literal object being added to the pool.
     /// * `token` – The object's original token.
     pub(super) fn add_literal_to_pool(&mut self, obj: Rc<Object>, token: Rc<Token>) {
+        // Objects in the constants pool are immutable because we never change their
+        // value once they are added to the pool. This means that the values could be
+        // added once per object, and multiple parts of the program can load the same
+        // object during runtime. This will allow a program to hold more than 2^16 literal
+        // values at once.
+        // TODO: Check if the object is already in the pool. If it is, emit the index of that
+        // object instead of adding a new one.
         let constant_pos = self.chunk.add_constant(obj);
         let opr_pos = (token.line_num, token.column_num);
 
         match constant_pos {
             ConstantPos::Pos(idx) => {
-                self.emit_op_code(OpCode::OP_LOAD_VALUE, opr_pos);
-                self.emit_short(idx, opr_pos);
+                if idx < 256 {
+                    self.emit_op_code(OpCode::OP_LOAD_CONST, opr_pos);
+                    self.emit_raw_byte(idx as u8, opr_pos);
+                } else {
+                    self.emit_op_code(OpCode::OP_LOAD_CONST_LONG, opr_pos);
+                    self.emit_short(idx, opr_pos);
+                }
             }
             ConstantPos::Error => {
                 self.error_at_token(Rc::clone(&token), "Too many constants in one chunk.");

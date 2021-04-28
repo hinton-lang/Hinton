@@ -210,6 +210,17 @@ impl Object {
         }
     }
 
+    /// Obtains the wrapped Hinton array from this object.
+    ///
+    /// ## Returns
+    /// `Option<Rc<RangeObject>>` – The underlying Rust vector.
+    pub fn as_array(&self) -> Option<&Vec<Rc<Object>>> {
+        match self {
+            Object::Array(v) => Some(v),
+            _ => None,
+        }
+    }
+
     /// Checks that this object equals some other object based on Hinton's rules
     /// for object equality.
     ///
@@ -250,7 +261,7 @@ impl<'a> fmt::Display for Object {
             Object::String(ref inner) => {
                 let inner = format!("\"{}\"", inner);
                 fmt::Display::fmt(&inner, f)
-            },
+            }
             Object::Bool(ref inner) => {
                 let str = if *inner {
                     String::from("\x1b[38;5;3mtrue\x1b[0m")

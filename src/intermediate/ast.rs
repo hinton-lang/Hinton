@@ -26,6 +26,7 @@ pub enum ASTNode {
     Array(ArrayExprNode),
     PostIncrement(PostIncrementExprNode),
     PostDecrement(PostDecrementExprNode),
+    ArrayIndexing(ArrayIndexingExprNode),
 
     // Declarations
     VariableDecl(VariableDeclNode),
@@ -168,6 +169,14 @@ pub struct VariableDeclNode {
 pub struct VarReassignmentExprNode {
     pub target: Rc<Token>,
     pub value: Box<ASTNode>,
+    pub pos: (usize, usize),
+}
+
+/// Represents an array indexing expression node in Hinton's Abstract Syntax Tree.
+#[derive(Clone)]
+pub struct ArrayIndexingExprNode {
+    pub target: Box<ASTNode>,
+    pub index: Box<ASTNode>,
     pub pos: (usize, usize),
 }
 
