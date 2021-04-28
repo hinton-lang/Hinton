@@ -83,7 +83,7 @@ The project is still in the "pre-development" stages. This means that anything a
 This to-do list only applies to the Rust implementation of the Hinton interpreter. For the Java implementation, which has more implemented features, visit the [Hinton - Java Implementation](https://github.com/hinton-lang/Hinton/) branch.
 - [ ] Parse & Execute Expressions.
     - [x] Arithmetic expressions.
-    - [ ] Array literals.
+    - [x] Array literals.
     - [x] Assignment expressions.
     - [x] Binary (0b), Hexadecimal (0x), and Octal (0o) numbers
     - [ ] Elvis expressions.

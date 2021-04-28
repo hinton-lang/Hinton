@@ -55,7 +55,7 @@ impl InstructionsList {
     ///
     /// ## Returns
     /// `Option<u8>` – The byte instruction at the given index.
-    pub fn get_byte(&mut self, idx: usize) -> Option<u8> {
+    pub fn get_byte(&self, idx: usize) -> Option<u8> {
         let byte = self.instructions.get(idx);
 
         match byte {

@@ -60,7 +60,7 @@ impl Compiler {
         }
 
         // Shows the chunk.
-        c.chunk.disassemble("<script>");
+        // c.chunk.disassemble("<script>");
         // c.chunk.print_raw("<script>");
 
         if !c.had_error {
@@ -78,6 +78,7 @@ impl Compiler {
     pub fn compile_node(&mut self, node: &ASTNode) {
         return match node {
             ASTNode::Array(x) => self.compile_array_expr(x),
+            ASTNode::ArrayIndexing(x) => self.compile_array_indexing_expr(x),
             ASTNode::Binary(x) => self.compile_binary_expr(x),
             ASTNode::BlockStmt(x) => self.compile_block_stmt(x),
             ASTNode::ConstantDecl(x) => self.compile_constant_decl(x),
@@ -186,19 +187,23 @@ impl Compiler {
     /// * `loop_start` – The position in the chunk of the jump instruction to be patched.
     /// * `token` – The token associated with this jump patch.
     fn emit_loop(&mut self, loop_start: usize, token: Rc<Token>) {
-        self.emit_op_code(OpCode::OP_LOOP, (token.line_num, token.column_num));
+        let offset = self.chunk.codes.len() - loop_start;
 
-        // +2 to adjust for the bytecode for the jump offset itself.
-        let jump = match u16::try_from(self.chunk.codes.len() - loop_start + 2) {
-            Ok(x) => x,
-            Err(_) => {
-                return self.error_at_token(token, "Loop body too large.");
-            }
-        };
+        if (offset - 2) < 256 {
+            self.emit_op_code(OpCode::OP_LOOP_JUMP, (token.line_num, token.column_num));
 
-        let offset = jump.to_be_bytes();
-        self.emit_raw_byte(offset[0], (token.line_num, token.column_num));
-        self.emit_raw_byte(offset[1], (token.line_num, token.column_num));
+            // +2 to account for the 'OP_LOOP_JUMP' and its operand.
+            let jump = (offset + 2) as u8;
+            self.emit_raw_byte(jump, (token.line_num, token.column_num));
+        } else if (offset - 3) < (u16::MAX as usize) {
+            self.emit_op_code(OpCode::OP_LOOP_JUMP_LONG, (token.line_num, token.column_num));
+
+            // +3 to account for the 'OP_LOOP_JUMP_LONG' and its operands.
+            let jump = (offset + 3) as u16;
+            self.emit_short(jump, (token.line_num, token.column_num));
+        } else {
+            return self.error_at_token(token, "Loop body too large.");
+        }
     }
 
     /// Emits a compiler error from the given token.

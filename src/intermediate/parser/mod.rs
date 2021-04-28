@@ -738,6 +738,11 @@ impl<'a> Parser {
 
             let expr_token = Rc::clone(&self.previous);
 
+            // Parse array indexing
+            if self.matches(TokenType::LEFT_SQUARE_BRACKET) {
+                return self.array_indexing(expr);
+            }
+
             // Parse post-increment
             if self.matches(TokenType::INCREMENT) {
                 return match expr {
@@ -925,5 +930,41 @@ impl<'a> Parser {
             values,
             token: Rc::clone(&self.previous),
         }));
+    }
+
+    pub(super) fn array_indexing(&mut self, expr: ASTNode) -> Option<ASTNode> {
+        let pos = (self.previous.line_num, self.previous.column_num);
+
+        let mut expr = Some(ArrayIndexing(ArrayIndexingExprNode {
+            target: Box::new(expr),
+            index: match self.parse_expression() {
+                Some(e) => Box::new(e),
+                None => return None,
+            },
+            pos,
+        }));
+
+        self.consume(TokenType::RIGHT_SQUARE_BRACKET, "Expected ']' after array index.");
+
+        // Keep matching chained array indexers
+        while self.matches(TokenType::LEFT_SQUARE_BRACKET) {
+            let pos = (self.previous.line_num, self.previous.column_num);
+
+            expr = Some(ArrayIndexing(ArrayIndexingExprNode {
+                target: match expr {
+                    Some(e) => Box::new(e),
+                    None => return None,
+                },
+                index: match self.parse_expression() {
+                    Some(e) => Box::new(e),
+                    None => return None,
+                },
+                pos,
+            }));
+
+            self.consume(TokenType::RIGHT_SQUARE_BRACKET, "Expected ']' after array index.");
+        }
+
+        return expr;
     }
 }

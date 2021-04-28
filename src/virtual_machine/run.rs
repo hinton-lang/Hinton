@@ -25,16 +25,20 @@ impl<'a> VirtualMachine {
                 OpCode::OP_NULL => self.stack.push(Rc::new(Object::Null)),
                 OpCode::OP_TRUE => self.stack.push(Rc::new(Object::Bool(true))),
                 OpCode::OP_FALSE => self.stack.push(Rc::new(Object::Bool(false))),
+                OpCode::OP_CONST_0 => self.stack.push(Rc::new(Object::Number(0f64))),
+                OpCode::OP_CONST_1 => self.stack.push(Rc::new(Object::Number(1f64))),
 
-                OpCode::OP_LOAD_VALUE => {
-                    let pos = match self.get_next_short() {
-                        Some(short) => short,
-                        None => {
-                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
+                OpCode::OP_LOAD_CONST | OpCode::OP_LOAD_CONST_LONG => {
+                    // Either gets the next byte or the next short based on the instruction
+                    // The compiler makes sure that the structure of the bytecode is correct
+                    // for the VM to execute, so unwrapping without check should be fine.
+                    let pos = if let OpCode::OP_LOAD_CONST = instruction {
+                        self.get_next_op_code().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
                     };
 
+                    // Gets the value from the pool and places it on top of the stack
                     match self.chunk.get_constant(pos) {
                         Some(val) => self.stack.push(Rc::clone(val)),
                         None => {
@@ -44,14 +48,12 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                OpCode::OP_ARRAY => {
+                OpCode::OP_ARRAY | OpCode::OP_ARRAY_LONG => {
                     // The number of values to pop from the stack. Essentially the size of the array.
-                    let size = match self.get_next_short() {
-                        Some(short) => short,
-                        None => {
-                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
+                    let size = if let OpCode::OP_ARRAY = instruction {
+                        self.get_next_op_code().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
                     };
 
                     let mut arr_values: Vec<Rc<Object>> = vec![];
@@ -71,29 +73,58 @@ impl<'a> VirtualMachine {
                     self.stack.push(Rc::new(Object::Array(arr_values)));
                 }
 
-                OpCode::OP_GET_VAR => {
-                    // The position of the local variable's value in the stack
-                    let pos = match self.get_next_short() {
-                        Some(short) => short as usize,
+                OpCode::OP_ARRAY_INDEXING => {
+                    let index = Rc::clone(&self.stack.pop().unwrap());
+                    let target = Rc::clone(&self.stack.pop().unwrap());
+
+                    if !index.is_int() {
+                        self.report_runtime_error("Array index must be an integer.");
+                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                    }
+
+                    if !target.is_array() {
+                        self.report_runtime_error(&format!("Cannot index object of type '{}'.", target.type_name()));
+                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                    }
+
+                    let array = target.as_array().unwrap();
+                    let idx = index.as_number().unwrap();
+                    let idx = if idx >= 0f64 {
+                        idx as usize
+                    } else {
+                        self.report_runtime_error("Array index out of bounds.");
+                        return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                    };
+
+                    match array.get(idx) {
+                        Some(val) => {
+                            self.stack.push(Rc::clone(val));
+                        }
                         None => {
-                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
+                            self.report_runtime_error("Array index out of bounds.");
                             return InterpretResult::INTERPRET_RUNTIME_ERROR;
                         }
+                    }
+                }
+
+                OpCode::OP_GET_VAR | OpCode::OP_GET_VAR_LONG => {
+                    // The position of the local variable's value in the stack
+                    let pos = if let OpCode::OP_GET_VAR = instruction {
+                        self.get_next_op_code().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
                     };
 
                     let value = Rc::clone(&self.stack.get_mut(pos).unwrap());
-
                     self.stack.push(value);
                 }
 
-                OpCode::OP_SET_VAR => {
+                OpCode::OP_SET_VAR | OpCode::OP_SET_VAR_LONG => {
                     // The position of the local variable's value in the stack
-                    let pos = match self.get_next_short() {
-                        Some(short) => short as usize,
-                        None => {
-                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
+                    let pos = if let OpCode::OP_SET_VAR = instruction {
+                        self.get_next_op_code().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
                     };
 
                     let value = Rc::clone(&self.stack.last_mut().unwrap());
@@ -315,13 +346,8 @@ impl<'a> VirtualMachine {
                 }
 
                 OpCode::OP_JUMP_IF_FALSE => {
-                    let offset = match self.get_next_short() {
-                        Some(short) => short as usize,
-                        None => {
-                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
-                    };
+                    // The OP_JUMP_IF_FALSE instruction always has a short as its operand.
+                    let offset = self.get_next_short().unwrap() as usize;
 
                     let top = Rc::clone(&self.stack.last().unwrap());
 
@@ -331,36 +357,26 @@ impl<'a> VirtualMachine {
                 }
 
                 OpCode::OP_JUMP => {
-                    let offset = match self.get_next_short() {
-                        Some(short) => short as usize,
-                        None => {
-                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
-                    };
-
+                    // The OP_JUM instruction always has a short as its operand.
+                    let offset = self.get_next_short().unwrap() as usize;
                     self.ip += offset;
                 }
 
-                OpCode::OP_LOOP => {
-                    let offset = match self.get_next_short() {
-                        Some(short) => short as usize,
-                        None => {
-                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
+                OpCode::OP_LOOP_JUMP | OpCode::OP_LOOP_JUMP_LONG => {
+                    let offset = if let OpCode::OP_LOOP_JUMP = instruction {
+                        self.get_next_op_code().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
                     };
 
                     self.ip -= offset;
                 }
 
                 OpCode::OP_POST_INCREMENT => {
-                    let pos = match self.get_next_short() {
-                        Some(short) => short as usize,
-                        None => {
-                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
+                    let pos = if let OpCode::OP_POST_INCREMENT = instruction {
+                        self.get_next_op_code().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
                     };
 
                     let value = Rc::clone(&self.stack.get_mut(pos).unwrap());
@@ -375,12 +391,10 @@ impl<'a> VirtualMachine {
                 }
 
                 OpCode::OP_POST_DECREMENT => {
-                    let pos = match self.get_next_short() {
-                        Some(short) => short as usize,
-                        None => {
-                            self.report_runtime_error("Unexpected Runtime Error: Could not get next short.");
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
+                    let pos = if let OpCode::OP_POST_DECREMENT = instruction {
+                        self.get_next_op_code().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
                     };
 
                     let value = Rc::clone(&self.stack.get_mut(pos).unwrap());
