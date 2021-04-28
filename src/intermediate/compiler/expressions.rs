@@ -28,10 +28,23 @@ impl Compiler {
                 self.emit_op_code(OpCode::OP_NULL, opr_pos);
             }
             Object::Number(x) if x == 0f64 => {
-                self.emit_op_code(OpCode::OP_CONST_0, opr_pos);
+                self.emit_op_code(OpCode::OP_LOAD_IMM_0, opr_pos);
             }
             Object::Number(x) if x == 1f64 => {
-                self.emit_op_code(OpCode::OP_CONST_1, opr_pos);
+                self.emit_op_code(OpCode::OP_LOAD_IMM_1, opr_pos);
+            }
+            Object::Number(x) if x > 1f64 && x.fract() == 0.0 => {
+                if x < 256 as f64 {
+                    self.emit_op_code(OpCode::OP_LOAD_IMM, opr_pos);
+                    self.emit_raw_byte(x as u8, opr_pos);
+                } else if x < (u16::MAX as f64) {
+                    self.emit_op_code(OpCode::OP_LOAD_IMM_LONG, opr_pos);
+                    self.emit_short(x as u16, opr_pos);
+                } else {
+                    // If the number cannot be encoded within two bytes (as an unsigned short),
+                    // the we add it to the constant pool.
+                    self.add_literal_to_pool(obj, Rc::clone(&expr.token))
+                }
             }
             _ => self.add_literal_to_pool(obj, Rc::clone(&expr.token)),
         };
@@ -293,6 +306,10 @@ impl Compiler {
         }
     }
 
+    /// Compiles an array indexing expression.
+    ///
+    /// # Arguments
+    /// * `expr` – A array indexing expression node.
     pub(super) fn compile_array_indexing_expr(&mut self, expr: &ArrayIndexingExprNode) {
         self.compile_node(&expr.target);
         self.compile_node(&expr.index);

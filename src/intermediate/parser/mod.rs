@@ -932,6 +932,10 @@ impl<'a> Parser {
         }));
     }
 
+    /// Parses an array indexing expression as specified in the grammar.cfg file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode>` – The expression's AST node.
     pub(super) fn array_indexing(&mut self, expr: ASTNode) -> Option<ASTNode> {
         let pos = (self.previous.line_num, self.previous.column_num);
 

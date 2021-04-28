@@ -21,7 +21,7 @@ pub struct Chunk {
     /// code. This is useful when throwing runtime errors
     pub locations: Vec<(usize, usize)>,
     /// The literal constant values found in this chuck of code.
-    constants: Vec<Rc<Object>>,
+    pub constants: Vec<Rc<Object>>,
 }
 
 impl<'a> Chunk {
@@ -133,24 +133,36 @@ impl<'a> Chunk {
                         OpCode::OP_LOAD_CONST_LONG => println!("\t\t---> {}", const_val(true)),
                         OpCode::OP_GET_VAR
                         | OpCode::OP_SET_VAR
-                        | OpCode::OP_LOOP_JUMP
                         | OpCode::OP_ARRAY
                         | OpCode::OP_POST_INCREMENT
-                        | OpCode::OP_POST_DECREMENT => {
+                        | OpCode::OP_POST_DECREMENT
+                        | OpCode::OP_LOAD_IMM => {
                             i += 1;
-                            println!();
+                            println!("\t{}", self.codes.get_byte(i).unwrap());
+                        }
+
+                        OpCode::OP_LOOP_JUMP => {
+                            i += 1;
+                            println!("\t{}", (i + 1) - (self.codes.get_byte(i).unwrap() as usize));
                         }
 
                         OpCode::OP_GET_VAR_LONG
                         | OpCode::OP_SET_VAR_LONG
-                        | OpCode::OP_JUMP
                         | OpCode::OP_JUMP_IF_FALSE
                         | OpCode::OP_LOOP_JUMP_LONG
                         | OpCode::OP_ARRAY_LONG
                         | OpCode::OP_POST_INCREMENT_LONG
-                        | OpCode::OP_POST_DECREMENT_LONG => {
-                            i += 2;
-                            println!();
+                        | OpCode::OP_POST_DECREMENT_LONG
+                        | OpCode::OP_LOAD_IMM_LONG => {
+                            i += 1;
+                            println!("\t{}", self.codes.get_short(i).unwrap());
+                            i += 1;
+                        }
+
+                        OpCode::OP_JUMP => {
+                            i += 1;
+                            println!("\t{}", (self.codes.get_short(i).unwrap() as usize) + i + 2);
+                            i += 1;
                         }
                         // If the instruction does not use the next to bytes, then print nothing
                         _ => println!(),

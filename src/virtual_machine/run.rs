@@ -25,15 +25,25 @@ impl<'a> VirtualMachine {
                 OpCode::OP_NULL => self.stack.push(Rc::new(Object::Null)),
                 OpCode::OP_TRUE => self.stack.push(Rc::new(Object::Bool(true))),
                 OpCode::OP_FALSE => self.stack.push(Rc::new(Object::Bool(false))),
-                OpCode::OP_CONST_0 => self.stack.push(Rc::new(Object::Number(0f64))),
-                OpCode::OP_CONST_1 => self.stack.push(Rc::new(Object::Number(1f64))),
+                OpCode::OP_LOAD_IMM_0 => self.stack.push(Rc::new(Object::Number(0f64))),
+                OpCode::OP_LOAD_IMM_1 => self.stack.push(Rc::new(Object::Number(1f64))),
+
+                OpCode::OP_LOAD_IMM | OpCode::OP_LOAD_IMM_LONG => {
+                    let imm = if let OpCode::OP_LOAD_IMM = instruction {
+                        self.get_next_byte().unwrap() as f64
+                    } else {
+                        self.get_next_short().unwrap() as f64
+                    };
+
+                    self.stack.push(Rc::new(Object::Number(imm)))
+                }
 
                 OpCode::OP_LOAD_CONST | OpCode::OP_LOAD_CONST_LONG => {
                     // Either gets the next byte or the next short based on the instruction
                     // The compiler makes sure that the structure of the bytecode is correct
                     // for the VM to execute, so unwrapping without check should be fine.
                     let pos = if let OpCode::OP_LOAD_CONST = instruction {
-                        self.get_next_op_code().unwrap() as usize
+                        self.get_next_byte().unwrap() as usize
                     } else {
                         self.get_next_short().unwrap() as usize
                     };
@@ -51,7 +61,7 @@ impl<'a> VirtualMachine {
                 OpCode::OP_ARRAY | OpCode::OP_ARRAY_LONG => {
                     // The number of values to pop from the stack. Essentially the size of the array.
                     let size = if let OpCode::OP_ARRAY = instruction {
-                        self.get_next_op_code().unwrap() as usize
+                        self.get_next_byte().unwrap() as usize
                     } else {
                         self.get_next_short().unwrap() as usize
                     };
@@ -110,7 +120,7 @@ impl<'a> VirtualMachine {
                 OpCode::OP_GET_VAR | OpCode::OP_GET_VAR_LONG => {
                     // The position of the local variable's value in the stack
                     let pos = if let OpCode::OP_GET_VAR = instruction {
-                        self.get_next_op_code().unwrap() as usize
+                        self.get_next_byte().unwrap() as usize
                     } else {
                         self.get_next_short().unwrap() as usize
                     };
@@ -122,7 +132,7 @@ impl<'a> VirtualMachine {
                 OpCode::OP_SET_VAR | OpCode::OP_SET_VAR_LONG => {
                     // The position of the local variable's value in the stack
                     let pos = if let OpCode::OP_SET_VAR = instruction {
-                        self.get_next_op_code().unwrap() as usize
+                        self.get_next_byte().unwrap() as usize
                     } else {
                         self.get_next_short().unwrap() as usize
                     };
@@ -364,7 +374,7 @@ impl<'a> VirtualMachine {
 
                 OpCode::OP_LOOP_JUMP | OpCode::OP_LOOP_JUMP_LONG => {
                     let offset = if let OpCode::OP_LOOP_JUMP = instruction {
-                        self.get_next_op_code().unwrap() as usize
+                        self.get_next_byte().unwrap() as usize
                     } else {
                         self.get_next_short().unwrap() as usize
                     };
@@ -374,7 +384,7 @@ impl<'a> VirtualMachine {
 
                 OpCode::OP_POST_INCREMENT => {
                     let pos = if let OpCode::OP_POST_INCREMENT = instruction {
-                        self.get_next_op_code().unwrap() as usize
+                        self.get_next_byte().unwrap() as usize
                     } else {
                         self.get_next_short().unwrap() as usize
                     };
@@ -392,7 +402,7 @@ impl<'a> VirtualMachine {
 
                 OpCode::OP_POST_DECREMENT => {
                     let pos = if let OpCode::OP_POST_DECREMENT = instruction {
-                        self.get_next_op_code().unwrap() as usize
+                        self.get_next_byte().unwrap() as usize
                     } else {
                         self.get_next_short().unwrap() as usize
                     };
@@ -438,6 +448,18 @@ impl<'a> VirtualMachine {
         return code;
     }
 
+    /// Gets the next byte to be executed, incrementing the
+    /// instruction pointer by one.
+    ///
+    /// ## Returns
+    /// * `Option<OpCode>` – The next byte to be executed, if the
+    /// instruction pointer is within bounds.
+    fn get_next_byte(&mut self) -> Option<u8> {
+        let code = self.chunk.codes.get_byte(self.ip);
+        self.ip += 1;
+        return code;
+    }
+
     /// Gets the next short (next two bytes) to be executed, incrementing the
     /// instruction pointer by 2.
     ///
@@ -470,6 +492,9 @@ impl<'a> VirtualMachine {
             print!("{}; ", val);
         }
         println!("]");
+
+        // Prints the number of objects currently present in the heap
+        println!("Heap Size: {}", self.chunk.constants.len());
 
         print!("Output:\t");
     }

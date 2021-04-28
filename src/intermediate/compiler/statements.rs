@@ -1,10 +1,10 @@
-use super::{Compiler, Variable};
+use super::{BreakScope, Compiler, Variable};
 use std::borrow::Borrow;
 use std::rc::Rc;
 
 use crate::{
     chunk::op_codes::OpCode,
-    intermediate::ast::{BlockNode, ConstantDeclNode, IfStmtNode, PrintStmtNode, VariableDeclNode, WhileStmtNode},
+    intermediate::ast::{BlockNode, BreakStmtNode, ConstantDeclNode, IfStmtNode, PrintStmtNode, VariableDeclNode, WhileStmtNode},
     lexer::tokens::Token,
 };
 
@@ -213,9 +213,17 @@ impl Compiler {
     /// * `stmt` – The while statement node being compiled.
     pub(super) fn compile_while_stmt(&mut self, stmt: &WhileStmtNode) {
         let loop_start = self.chunk.codes.len();
+        self.loops.push(loop_start); // starts this loop's scope
+
         // Compiles the condition so that its value is at the top of the
         // stack during runtime. This value is then continuously checked
         // for truthiness to keep executing the while loop.
+        // TODO: Check if the condition is a `true` literal.
+        // If it is, then do not compile the condition or the `OP_JUMP_IF_FALSE`
+        // or the `OP_POP_STACK` that follows. None of those are needed when the
+        // condition is always true.
+        // TODO: Check if the condition is a `false` literal.
+        // If it is, then do not compile the loop at all since it will never run.
         self.compile_node(&stmt.condition);
 
         // Stop the loop if the condition (the top of the stack) is false.
@@ -229,9 +237,52 @@ impl Compiler {
         // Jump back to the start of the loop (including the re-execution of the condition)
         self.emit_loop(loop_start, Rc::clone(&stmt.token));
 
+        // Looks for any break statements associated with this loop
+        let mut breaks: Vec<usize> = vec![];
+        for b in self.breaks.iter().filter(|br| br.loop_start == loop_start) {
+            breaks.push(b.loop_position);
+        }
+
+        // Patches all the breaks associated with this loop
+        for b in breaks {
+            self.patch_break(b, Rc::clone(&stmt.token));
+        }
+
         // Patches the 'exit_jump' so that is the condition is false, the 'OP_JUMP_IF_FALSE'
         // instruction above knows where the end of the loop is.
         self.patch_jump(exit_jump, Rc::clone(&stmt.token));
         self.emit_op_code(OpCode::OP_POP_STACK, (stmt.token.line_num, stmt.token.column_num));
+
+        self.loops.pop(); // ends this loop's scope
+    }
+
+    /// Compiles a break statement.
+    ///
+    /// * `stmt` – The break statement node being compiled.
+    pub(super) fn compile_break_stmt(&mut self, stmt: &BreakStmtNode) {
+        // TODO: Check that this works well with function declarations.
+        // Specially, check for the cases when a function is declared inside
+        // of a loop, but the break statement is inside the function declaration.
+        // For example, consider the bellow Hinton code:
+        // ```
+        // while (true) {
+        //     func my_function() {
+        //         break; // This is wrong...
+        //     }
+        // }
+        // ```
+        // Having the break inside the function body should result in a compiler error,
+        // even when the function is inside of a loop.
+        if self.loops.len() == 0 {
+            self.error_at_token(Rc::clone(&stmt.token), "Cannot break outside of loop.");
+            return;
+        }
+
+        let break_pos = self.emit_jump(OpCode::OP_JUMP, Rc::clone(&stmt.token));
+
+        self.breaks.push(BreakScope {
+            loop_start: *self.loops.last().unwrap(),
+            loop_position: break_pos,
+        })
     }
 }
