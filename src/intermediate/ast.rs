@@ -38,7 +38,26 @@ pub enum ASTNode {
     BlockStmt(BlockNode),
     IfStmt(IfStmtNode),
     WhileStmt(WhileStmtNode),
-    BreakStmt(BreakStmtNode)
+    BreakStmt(BreakStmtNode),
+}
+
+impl ASTNode {
+    pub fn is_truthy_literal(&self) -> bool {
+        match self {
+            ASTNode::Literal(x) => !x.value.is_falsey(),
+            _ => return false,
+        }
+    }
+
+    pub fn is_false_literal(&self) -> bool {
+        match self {
+            ASTNode::Literal(x) => match *x.value {
+                Object::Bool(y) => !y,
+                _ => false,
+            },
+            _ => return false,
+        }
+    }
 }
 
 /// Represents a literal node in Hinton's Abstract Syntax Tree.

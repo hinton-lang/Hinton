@@ -200,12 +200,16 @@ impl Compiler {
     /// ## Arguments
     /// * `offset` – The position in the chunk of the break (OP_JUMP) instruction to be patched.
     /// * `token` – The token associated with this jump patch.
-    fn patch_break(&mut self, offset: usize, token: Rc<Token>) {
-        // -1 to adjust for the bytecode for the jump offset itself.
-        // However, this is different from `patch_jump` because when patching
-        // a regular jump, we usually want to execute the `OP_POP_STACK` after the
-        // statement. When patching a break, this is not necessary, hence -1.
-        let jump = match u16::try_from((self.chunk.codes.len() - offset) - 1) {
+    fn patch_break(&mut self, offset: usize, has_condition: bool, token: Rc<Token>) {
+        // If the corresponding loop does not have a truthy literal condition, then that
+        // condition MUST be popped off the stack after the loop ends. Because breaking the
+        // loop with the `break` keyword ends the loop early, the break statement must take care
+        // of popping the condition off the stack. That is why we add one to the jump offset,
+        // so that the condition is popped off correctly. However, if there is no condition
+        // to pop off, then we leave the stack untouched when we break the loop.
+        let with_condition = if has_condition { 1 } else { 0 };
+
+        let jump = match u16::try_from(self.chunk.codes.len() - offset + with_condition) {
             Ok(x) => x,
             Err(_) => {
                 return self.error_at_token(token, "Too much code to jump over.");

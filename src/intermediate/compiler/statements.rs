@@ -176,14 +176,43 @@ impl Compiler {
     ///
     /// * `block` – The if statement node being compiled.
     pub(super) fn compile_if_stmt(&mut self, stmt: &IfStmtNode) {
-        // Compiles the condition so that its value is at the top of the
-        // stack during runtime. This value is then checked for truthiness
-        // to execute the correct branch of the if statement.
-        self.compile_node(&stmt.condition);
+        let condition_is_lit_true = stmt.condition.is_truthy_literal();
+        let condition_is_lit_false = stmt.condition.is_false_literal();
 
-        let then_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&stmt.then_token));
-        self.emit_op_code(OpCode::OP_POP_STACK, (stmt.then_token.line_num, stmt.then_token.column_num));
-        self.compile_node(&stmt.then_branch);
+        let mut then_jump = 0;
+        // Only execute the condition if it is not a boolean literal (or equivalent).
+        if !condition_is_lit_true && !condition_is_lit_false {
+            // Compiles the condition so that its value is at the top of the
+            // stack during runtime. This value is then checked for truthiness
+            // to execute the correct branch of the if statement.
+            self.compile_node(&stmt.condition);
+            then_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&stmt.then_token));
+            self.emit_op_code(OpCode::OP_POP_STACK, (stmt.then_token.line_num, stmt.then_token.column_num));
+        }
+
+        // If the condition is always false, the `then`
+        // branch does not need to be compiled at all.
+        if !condition_is_lit_false {
+            self.compile_node(&stmt.then_branch);
+        }
+
+        // If the condition is always true, then the `else`
+        // branch does not need to be compiled at all.
+        if condition_is_lit_true {
+            return;
+        }
+
+        // If the condition is always false, then we only care about
+        // compiling the else branch. However, if there is no else branch
+        // we return out of the function because there is nothing else to do.
+        if condition_is_lit_false {
+            match stmt.else_branch.borrow() {
+                Some(else_branch) => self.compile_node(&else_branch),
+                None => return
+            }
+
+            return;
+        }
 
         let else_jump = match stmt.else_token.borrow() {
             Some(token) => self.emit_jump(OpCode::OP_JUMP, Rc::clone(&token)),
@@ -194,8 +223,10 @@ impl Compiler {
             None => 0,
         };
 
-        self.patch_jump(then_jump, Rc::clone(&stmt.then_token));
-        self.emit_op_code(OpCode::OP_POP_STACK, (stmt.then_token.line_num, stmt.then_token.column_num));
+        if !condition_is_lit_false {
+            self.patch_jump(then_jump, Rc::clone(&stmt.then_token));
+            self.emit_op_code(OpCode::OP_POP_STACK, (stmt.then_token.line_num, stmt.then_token.column_num));
+        }
 
         match stmt.else_branch.borrow() {
             Some(else_branch) => {
@@ -212,30 +243,32 @@ impl Compiler {
     ///
     /// * `stmt` – The while statement node being compiled.
     pub(super) fn compile_while_stmt(&mut self, stmt: &WhileStmtNode) {
+        let do_compile_condition = !stmt.condition.is_truthy_literal();
+
+        // We don't need to compile the loop if the condition is a
+        // `false` literal because it will never execute.
+        if stmt.condition.is_false_literal() {
+            return;
+        }
+
         let loop_start = self.chunk.codes.len();
         self.loops.push(loop_start); // starts this loop's scope
 
-        // Compiles the condition so that its value is at the top of the
-        // stack during runtime. This value is then continuously checked
-        // for truthiness to keep executing the while loop.
-        // TODO: Check if the condition is a `true` literal.
-        // If it is, then do not compile the condition or the `OP_JUMP_IF_FALSE`
-        // or the `OP_POP_STACK` that follows. None of those are needed when the
-        // condition is always true.
-        // TODO: Check if the condition is a `false` literal.
-        // If it is, then do not compile the loop at all since it will never run.
-        self.compile_node(&stmt.condition);
+        let mut exit_jump = 0;
+        if do_compile_condition {
+            // Compiles the condition so that its value is at the top of the
+            // stack during runtime. This value is then continuously checked
+            // for truthiness to keep executing the while loop.
+            self.compile_node(&stmt.condition);
+            // Stop the loop if the condition (the top of the stack) is false.
+            exit_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&stmt.token));
 
-        // Stop the loop if the condition (the top of the stack) is false.
-        let exit_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&stmt.token));
+            // However, if the condition is not false, remove the condition value from the stack
+            // and execute the loop's body.
+            self.emit_op_code(OpCode::OP_POP_STACK, (stmt.token.line_num, stmt.token.column_num));
+        }
 
-        // However, if the condition is not false, remove the condition value from the stack
-        // and execute the loop's body.
-        self.emit_op_code(OpCode::OP_POP_STACK, (stmt.token.line_num, stmt.token.column_num));
         self.compile_node(&stmt.body);
-
-        // Jump back to the start of the loop (including the re-execution of the condition)
-        self.emit_loop(loop_start, Rc::clone(&stmt.token));
 
         // Looks for any break statements associated with this loop
         let mut breaks: Vec<usize> = vec![];
@@ -245,13 +278,18 @@ impl Compiler {
 
         // Patches all the breaks associated with this loop
         for b in breaks {
-            self.patch_break(b, Rc::clone(&stmt.token));
+            self.patch_break(b, do_compile_condition, Rc::clone(&stmt.token));
         }
 
-        // Patches the 'exit_jump' so that is the condition is false, the 'OP_JUMP_IF_FALSE'
-        // instruction above knows where the end of the loop is.
-        self.patch_jump(exit_jump, Rc::clone(&stmt.token));
-        self.emit_op_code(OpCode::OP_POP_STACK, (stmt.token.line_num, stmt.token.column_num));
+        // Jump back to the start of the loop (including the re-execution of the condition)
+        self.emit_loop(loop_start, Rc::clone(&stmt.token));
+
+        if do_compile_condition {
+            // Patches the 'exit_jump' so that is the condition is false, the 'OP_JUMP_IF_FALSE'
+            // instruction above knows where the end of the loop is.
+            self.patch_jump(exit_jump, Rc::clone(&stmt.token));
+            self.emit_op_code(OpCode::OP_POP_STACK, (stmt.token.line_num, stmt.token.column_num));
+        }
 
         self.loops.pop(); // ends this loop's scope
     }

@@ -125,7 +125,13 @@ impl<'a> VirtualMachine {
                         self.get_next_short().unwrap() as usize
                     };
 
-                    let value = Rc::clone(&self.stack.get_mut(pos).unwrap());
+                    let value = match self.stack.get_mut(pos) {
+                        Some(x) => Rc::clone(x),
+                        None => {
+                            unreachable!("Variable not found in scope.");
+                        }
+                    };
+
                     self.stack.push(value);
                 }
 

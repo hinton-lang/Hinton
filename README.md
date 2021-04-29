@@ -100,11 +100,11 @@ This to-do list only applies to the Rust implementation of the Hinton interprete
 - [ ] Parse & Execute Statements.
     - [ ] Class declarations.
     - [x] Constant declarations.
-    - [ ] Control flow statements.
+    - [x] Control flow statements.
     - [ ] Dictionary declarations.
     - [ ] Enum declarations.
     - [ ] Function declarations.
-    - [ ] Looping statements.
+    - [x] Looping statements.
     - [ ] Named parameters.
     - [x] Variable declarations.
 - [ ] Define Built-In Types as Objects
