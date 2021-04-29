@@ -148,7 +148,6 @@ impl<'a> Chunk {
 
                         OpCode::OP_GET_VAR_LONG
                         | OpCode::OP_SET_VAR_LONG
-                        | OpCode::OP_JUMP_IF_FALSE
                         | OpCode::OP_LOOP_JUMP_LONG
                         | OpCode::OP_ARRAY_LONG
                         | OpCode::OP_POST_INCREMENT_LONG
@@ -159,11 +158,12 @@ impl<'a> Chunk {
                             i += 1;
                         }
 
-                        OpCode::OP_JUMP => {
+                        OpCode::OP_JUMP | OpCode::OP_JUMP_IF_FALSE => {
                             i += 1;
-                            println!("\t{}", (self.codes.get_short(i).unwrap() as usize) + i + 2);
+                            println!("\t{}", (self.codes.get_short(i).unwrap() as usize) + i + 1);
                             i += 1;
                         }
+
                         // If the instruction does not use the next to bytes, then print nothing
                         _ => println!(),
                     }
