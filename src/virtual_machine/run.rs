@@ -499,8 +499,8 @@ impl<'a> VirtualMachine {
         }
         println!("]");
 
-        // Prints the number of objects currently present in the heap
-        println!("Heap Size: {}", self.chunk.constants.len());
+        // Prints the number of objects currently present in the constants pool
+        println!("Heap Size: {}", self.chunk.get_pool_size());
 
         print!("Output:\t");
     }

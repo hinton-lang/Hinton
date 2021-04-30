@@ -21,7 +21,7 @@ pub struct Chunk {
     /// code. This is useful when throwing runtime errors
     pub locations: Vec<(usize, usize)>,
     /// The literal constant values found in this chuck of code.
-    pub constants: Vec<Rc<Object>>,
+    constants: Vec<Rc<Object>>,
 }
 
 impl<'a> Chunk {
@@ -33,7 +33,7 @@ impl<'a> Chunk {
         Self {
             codes: instructions_list::InstructionsList::new(),
             locations: Vec::new(),
-            constants: Vec::with_capacity(u16::MAX as usize),
+            constants: Vec::new(),
         }
     }
 
@@ -49,8 +49,17 @@ impl<'a> Chunk {
     /// full, returns the enum variant `ConstantPos::Error`.
     pub fn add_constant(&mut self, obj: Rc<Object>) -> ConstantPos {
         return if self.constants.len() < (u16::MAX as usize) {
-            self.constants.push(obj);
-            ConstantPos::Pos((self.constants.len() as u16) - 1)
+            // Having to create an iterator, then enumerating that iterator, to finally
+            // look for the object seems very expensive. Can we do better? Do the benefits
+            // of storing a single object in the heap outweigh the cost of these operations?
+            // TODO: Find a better way of doing this, or do research to see if the benefits outweigh the cost.
+            match self.constants.iter().enumerate().find(|x| x.1.equals(Rc::clone(&obj))) {
+                Some(x) => ConstantPos::Pos(x.0 as u16),
+                None => {
+                    self.constants.push(obj);
+                    ConstantPos::Pos((self.constants.len() as u16) - 1)
+                }
+            }
         } else {
             ConstantPos::Error
         };
@@ -62,9 +71,17 @@ impl<'a> Chunk {
     /// * `idx` – The index of the object constant.
     ///
     /// ## Returns
-    /// `Option<&Rc<Object<'a>>>` – The object at the given index in the constant pool/
+    /// `Option<&Rc<Object<'a>>>` – The object at the given index in the constant pool
     pub fn get_constant(&self, idx: usize) -> Option<&Rc<Object>> {
         self.constants.get(idx)
+    }
+
+    /// Gets the size of the constant pool for this chunk.
+    ///
+    /// ## Returns
+    /// `usize` – The size of the constant pool.
+    pub fn get_pool_size(&self) -> usize {
+        self.constants.len()
     }
 
     /// Disassembles the chunk, printing the each instruction and
