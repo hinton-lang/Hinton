@@ -346,13 +346,6 @@ impl Compiler {
     /// * `obj` – A reference to the literal object being added to the pool.
     /// * `token` – The object's original token.
     pub(super) fn add_literal_to_pool(&mut self, obj: Rc<Object>, token: Rc<Token>) {
-        // Objects in the constants pool are immutable because we never change their
-        // value once they are added to the pool. This means that the values could be
-        // added once per object, and multiple parts of the program can load the same
-        // object during runtime. This will allow a program to hold more than 2^16 literal
-        // values at once.
-        // TODO: Check if the object is already in the pool. If it is, emit the index of that
-        // object instead of adding a new one.
         let constant_pos = self.chunk.add_constant(obj);
         let opr_pos = (token.line_num, token.column_num);
 

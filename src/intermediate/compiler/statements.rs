@@ -208,7 +208,7 @@ impl Compiler {
         if condition_is_lit_false {
             match stmt.else_branch.borrow() {
                 Some(else_branch) => self.compile_node(&else_branch),
-                None => return
+                None => return,
             }
 
             return;

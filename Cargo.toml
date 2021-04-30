@@ -6,4 +6,9 @@ edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
+[features]
+# Run `cargo run --features bench_time` to see benchmark results
+# for the execution times of the parser, compiler, and VM.
+bench_time = []
+
 # [dependencies]

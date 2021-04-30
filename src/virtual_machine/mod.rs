@@ -1,10 +1,13 @@
+#[cfg(feature = "bench_time")]
+use std::time::Instant;
+
 use std::rc::Rc;
 
 mod arithmetic;
 mod run;
 
 use crate::{
-    chunk,
+    chunk, exec_time,
     intermediate::{compiler::Compiler, parser::Parser},
     objects::{self, Object},
 };
@@ -43,8 +46,10 @@ impl<'a> VirtualMachine {
     /// ## Returns
     /// * `InterpretResult` – The result of the source interpretation.
     pub(crate) fn interpret(&mut self, source: &'a str) -> InterpretResult {
-        // Parses the program
-        let ast = match Parser::parse(source) {
+        // Parses the program into an AST and calculates the parser's execution time
+        let parsing = exec_time(|| Parser::parse(source));
+
+        let ast = match parsing.0 {
             Ok(x) => Rc::new(x),
             Err(e) => return e,
         };
@@ -53,11 +58,32 @@ impl<'a> VirtualMachine {
         // AST would take place
         // analyzer::analyze_module(Rc::clone(&ast));
 
-        // Executes the program after it has been compiled to ByteCode
-        return match Compiler::compile(ast) {
+        // Compiles the program into bytecode and calculates the compiler's execution time
+        let compiling = exec_time(|| Compiler::compile(Rc::clone(&ast)));
+
+        // Executes the program
+        return match compiling.0 {
             Ok(c) => {
                 self.chunk = c;
-                return self.run();
+
+                #[cfg(feature = "bench_time")]
+                let start = Instant::now();
+
+                // Rus the program.
+                let runtime_result = self.run();
+
+                #[cfg(feature = "bench_time")]
+                {
+                    let run_time = start.elapsed();
+
+                    println!("\n======= ⚠️  Execution Results ⚠️  =======");
+                    println!("Parse Time:\t{:?}", parsing.1);
+                    println!("Compile Time:\t{:?}", compiling.1);
+                    println!("Run Time:\t{:?}", run_time);
+                    println!("=======================================");
+                }
+
+                return runtime_result;
             }
             Err(e) => e,
         };

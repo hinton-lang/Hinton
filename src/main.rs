@@ -1,7 +1,10 @@
 #![allow(dead_code)]
 
+#[cfg(feature = "bench_time")]
+use std::time::Instant;
+
 // Using other modules
-use std::fs;
+use std::{fs, time::Duration};
 
 // Declaring crate-level Modules
 mod analyzer;
@@ -36,4 +39,21 @@ fn run_file(filename: &str) {
         InterpretResult::INTERPRET_RUNTIME_ERROR => std::process::exit(70),
         InterpretResult::INTERPRET_OK => std::process::exit(0),
     }
+}
+
+pub fn exec_time<T, K>(executor: T) -> (K, Duration)
+where
+    T: Fn() -> K,
+{
+    #[cfg(feature = "bench_time")]
+    {
+        let start = Instant::now();
+        let exec = executor();
+        let time = start.elapsed();
+
+        return (exec, time);
+    }
+
+    #[cfg(not(feature = "bench_time"))]
+    (executor(), Duration::new(0, 0))
 }
