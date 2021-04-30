@@ -41,10 +41,15 @@ fn run_file(filename: &str) {
     }
 }
 
-pub fn exec_time<T, K>(executor: T) -> (K, Duration)
-where
-    T: Fn() -> K,
-{
+/// Executes the provided function while also calculating it's execution time.
+///
+/// ## Arguments
+/// `executor` – The function (with no parameters) to be executed.
+///
+/// ## Returns
+/// `(T, Duration)` – A tuple with the result of the executed function as its
+/// first parameter, and the execution time of the function as its second parameter.
+pub fn exec_time<T, F: Fn() -> T>(executor: F) -> (T, Duration) {
     #[cfg(feature = "bench_time")]
     {
         let start = Instant::now();

@@ -1,4 +1,4 @@
-use super::Compiler;
+use super::{Compiler, SymbolType};
 use std::rc::Rc;
 
 use crate::{
@@ -193,7 +193,7 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – An identifier expression node.
     pub(super) fn compile_identifier_expr(&mut self, expr: &IdentifierExprNode) {
-        match self.resolve_variable(Rc::clone(&expr.token), false) {
+        match self.resolve_symbol(Rc::clone(&expr.token), false) {
             Some(idx) => {
                 if idx < 256 {
                     self.emit_op_code(OpCode::OP_GET_VAR, (expr.token.line_num, expr.token.column_num));
@@ -214,7 +214,7 @@ impl Compiler {
     pub(super) fn compile_var_reassignment_expr(&mut self, expr: &VarReassignmentExprNode) {
         self.compile_node(&expr.value);
 
-        match self.resolve_variable(Rc::clone(&expr.target), true) {
+        match self.resolve_symbol(Rc::clone(&expr.target), true) {
             Some(idx) => {
                 if idx < 256 {
                     self.emit_op_code(OpCode::OP_SET_VAR, (expr.target.line_num, expr.target.column_num));
@@ -233,7 +233,7 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – A post-increment expression node.
     pub(super) fn compile_post_increment_expr(&mut self, expr: &PostIncrementExprNode) {
-        match self.resolve_variable(Rc::clone(&expr.target), false) {
+        match self.resolve_symbol(Rc::clone(&expr.target), false) {
             Some(idx) => {
                 if idx < 256 {
                     self.emit_op_code(OpCode::OP_POST_INCREMENT, (expr.token.line_num, expr.token.column_num));
@@ -252,7 +252,7 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – A post-decrement expression node.
     pub(super) fn compile_post_decrement_expr(&mut self, expr: &PostDecrementExprNode) {
-        match self.resolve_variable(Rc::clone(&expr.target), false) {
+        match self.resolve_symbol(Rc::clone(&expr.target), false) {
             Some(idx) => {
                 if idx < 256 {
                     self.emit_op_code(OpCode::OP_POST_DECREMENT, (expr.token.line_num, expr.token.column_num));
@@ -301,42 +301,64 @@ impl Compiler {
         self.emit_op_code(OpCode::OP_ARRAY_INDEXING, expr.pos);
     }
 
-    /// Looks for a variable with the given token name in the list of variables.
+    /// Looks for a symbol with the given token name in the symbol table.
     ///
     /// ## Arguments
-    /// * `token` – A reference to the token (variable name) related to the variable.
-    /// * `for_reassign` – Wether of not we are resolving the variable for the purpose of reassignment.
+    /// * `token` – A reference to the token (symbol name) related to the symbol.
+    /// * `for_reassign` – Wether of not we are resolving the symbol for the purpose of reassignment.
     ///
     /// ## Returns
-    /// * `Option<u16>` – If there were no errors with resolving the variable, it returns the position
-    /// of the variable in the variables array.
-    fn resolve_variable(&mut self, token: Rc<Token>, for_reassign: bool) -> Option<u16> {
-        // Look for the variable in the locals array starting from the back.
-        // We loop backwards because we want to first check if the variable
+    /// * `Option<u16>` – If there were no errors with resolving the symbol, it returns the position
+    /// of the symbol in the symbol table.
+    fn resolve_symbol(&mut self, token: Rc<Token>, for_reassign: bool) -> Option<u16> {
+        // Look for the symbol in the symbol table starting from the back.
+        // We loop backwards because we want to first check if the symbol
         // exists in the current scope, then in any of the parent scopes, etc..
-        for (index, var) in self.variables.iter_mut().enumerate().rev() {
-            if var.name.lexeme == token.lexeme {
-                if !var.is_initialized {
-                    if !var.is_const {
-                        self.error_at_token(token, "Cannot read variable in its own initializer.");
-                    } else {
-                        self.error_at_token(token, "Cannot read constant in its own initializer.");
+        for (index, symbol) in self.symbol_table.iter_mut().enumerate().rev() {
+            if symbol.name.lexeme == token.lexeme {
+                if !symbol.is_initialized {
+                    match symbol.symbol_type {
+                        SymbolType::Variable => self.error_at_token(Rc::clone(&token), "Cannot read variable in its own initializer."),
+                        SymbolType::Constant => self.error_at_token(Rc::clone(&token), "Cannot read constant in its own initializer."),
+                        // Functions, Classes, and Enums are initialized upon declaration. Hence, unreachable here.
+                        _ => unreachable!("Symbol should have been initialized by now."),
                     }
+
+                    // Return None here because a symbol should be referenced
+                    // unless it has been initialized.
                     return None;
                 }
 
-                if for_reassign && var.is_const {
-                    self.error_at_token(token, "Cannot reassign to constant.");
-                    return None;
+                if for_reassign {
+                    match symbol.symbol_type {
+                        SymbolType::Constant => {
+                            self.error_at_token(token, "Cannot reassign to constant.");
+                            return None;
+                        }
+                        SymbolType::Function => {
+                            self.error_at_token(token, "Cannot reassign to function.");
+                            return None;
+                        }
+                        SymbolType::Class => {
+                            self.error_at_token(token, "Cannot reassign to class.");
+                            return None;
+                        }
+                        SymbolType::Enum => {
+                            self.error_at_token(token, "Cannot reassign to enum.");
+                            return None;
+                        }
+                        // Only variables are reassignable
+                        SymbolType::Variable => {}
+                    }
                 }
 
-                var.is_used = true;
+                symbol.is_used = true;
                 return Some(index as u16);
             }
         }
 
-        // The variable doesn't exist
-        self.error_at_token(token, "Use of undeclared identifer.");
+        // The symbol doesn't exist
+        self.error_at_token(token, "Use of undeclared symbol.");
         None
     }
 
