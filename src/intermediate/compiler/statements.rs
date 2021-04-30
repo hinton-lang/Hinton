@@ -1,4 +1,4 @@
-use super::{BreakScope, Compiler, Variable};
+use super::{BreakScope, Compiler, Symbol, SymbolType};
 use std::borrow::Borrow;
 use std::rc::Rc;
 
@@ -25,109 +25,107 @@ impl Compiler {
     pub fn compile_variable_decl(&mut self, decl: &VariableDeclNode) {
         // Declares the variables
         for id in decl.identifiers.iter() {
-            match self.declare_variable(Rc::clone(&id), false) {
-                Ok(_) => {
+            match self.declare_symbol(Rc::clone(&id), SymbolType::Variable) {
+                Ok(symbol_pos) => {
                     // Compiles the variable's value
                     self.compile_node(&decl.clone().value);
-                }
-                Err(_) => return,
-            }
-        }
 
-        // Marks the variables as initialized the variables
-        // a.k.a, defines the variables
-        for var in self.variables.iter_mut().rev() {
-            if var.depth < self.scope_depth {
-                break;
-            } else {
-                var.is_initialized = true;
+                    // Marks the variables as initialized
+                    // a.k.a, defines the variables
+                    self.symbol_table[symbol_pos].is_initialized = true;
+                }
+
+                // We do nothing if there was an error because the `declare_symbol()`
+                // function takes care of reporting the appropriate error for us.
+                // Explicit `return` to stop the loop.
+                Err(_) => return,
             }
         }
     }
 
-    /// Compiles a variable declaration.
+    /// Compiles a constant declaration.
     ///
     /// ## Arguments
-    /// * `expr` – A variable declaration node.
+    /// * `expr` – A constant declaration node.
     pub fn compile_constant_decl(&mut self, decl: &ConstantDeclNode) {
-        // Declares the variable
-        match self.declare_variable(Rc::clone(&decl.name), true) {
-            Ok(_) => {
-                // Compiles the variable's value
+        // Declares the constant
+        match self.declare_symbol(Rc::clone(&decl.name), SymbolType::Constant) {
+            Ok(symbol_pos) => {
+                // Compiles the constant's value
                 self.compile_node(&decl.value);
 
-                // Marks the variables as initialized the variables
-                for var in self.variables.iter_mut().rev() {
-                    if var.depth < self.scope_depth {
-                        break;
-                    } else {
-                        var.is_initialized = true;
-                    }
-                }
+                // Marks the constant as initialized
+                self.symbol_table[symbol_pos].is_initialized = true;
             }
 
-            // We do nothing if there was an error because the `declare_variable()`
+            // We do nothing if there was an error because the `declare_symbol()`
             // function takes care of reporting the appropriate error for us.
             Err(_) => {}
         }
     }
 
-    /// Declares the variable by adding it to the variables array
+    /// Declares the symbol by adding it to the symbol table
     ///
     /// ## Arguments
-    /// * `token` – The token (variable name) related to the variable being declared.
-    /// * `is_const` – Whether or not the variable being declared is a constant.
+    /// * `token` – The token (symbol name) related to the symbol being declared.
+    /// * `symbol_type` – The type of symbol being declared.
     ///
     /// ## Returns
     /// `Result<(), ()>` – Whether or not there was an error with the variable declaration.
-    fn declare_variable(&mut self, token: Rc<Token>, is_const: bool) -> Result<(), ()> {
-        // Look for the variables declared in this scope to see if
-        // there is a variable with the same name already declared.
-        for var in self.variables.iter() {
-            // Only look for the variable in the current scope.
-            if var.depth < self.scope_depth {
+    fn declare_symbol(&mut self, token: Rc<Token>, symbol_type: SymbolType) -> Result<usize, ()> {
+        // Look for the symbols declared in this scope to see if
+        // there is a symbol with the same name already declared.
+        for symbol in self.symbol_table.iter() {
+            // Only look for the symbol in the current scope.
+            if symbol.symbol_depth < self.scope_depth {
                 break;
             }
 
-            if var.name.lexeme == token.lexeme {
-                if !is_const {
-                    self.error_at_token(token, "Cannot redeclare variable in the same scope.");
-                } else {
-                    self.error_at_token(token, "Cannot redeclare constant.");
+            if symbol.name.lexeme == token.lexeme {
+                match symbol.symbol_type {
+                    SymbolType::Variable => self.error_at_token(token, "Cannot redeclare variable in the same scope."),
+                    SymbolType::Constant => self.error_at_token(token, "Cannot redeclare constant in the same scope."),
+                    SymbolType::Function => self.error_at_token(token, "Cannot redeclare function in the same scope."),
+                    SymbolType::Class => self.error_at_token(token, "Cannot redeclare class in the same scope."),
+                    SymbolType::Enum => self.error_at_token(token, "Cannot redeclare enum in the same scope."),
                 }
+
                 return Err(());
             }
         }
 
-        // Emit the variable if there is no variable with the
+        // Emit the symbol if there is no symbol with the
         // same name in the current scope.
-        self.emit_variable(token, is_const)
+        self.emit_symbol(token, symbol_type)
     }
 
-    /// Tries to emit a variable declaration into the variables array.
+    /// Tries to emit a symbol declaration into the symbol table.
     ///
     /// ## Arguments
-    /// * `token` – The token (variable name) related to the variable being emitted.
-    /// * `is_const` – Whether or not the variable being emitted is a constant.
+    /// * `token` – The token (symbol name) related to the symbol being emitted.
+    /// * `symbol_type` – The type of symbol being emitted.
     ///
     /// ## Returns
-    /// `Result<(), ()>` – Whether or not there was an error with the variable declaration.
-    fn emit_variable(&mut self, name: Rc<Token>, is_const: bool) -> Result<(), ()> {
-        if self.variables.len() >= (u16::MAX as usize) {
+    /// `Result<(), ()>` – Whether or not there was an error with the symbol declaration.
+    fn emit_symbol(&mut self, name: Rc<Token>, symbol_type: SymbolType) -> Result<usize, ()> {
+        if self.symbol_table.len() >= (u16::MAX as usize) {
             self.error_at_token(name, "Too many variables in this program. Only 2^16 variables allowed.");
             return Err(());
         }
 
-        self.variables.push(Variable {
+        self.symbol_table.push(Symbol {
             name,
-            depth: self.scope_depth,
-            is_initialized: false,
-            is_const,
+            symbol_depth: self.scope_depth,
+            is_initialized: match symbol_type {
+                SymbolType::Variable | SymbolType::Constant => false,
+                _ => true,
+            },
+            symbol_type,
             is_used: false,
         });
 
         // Variable was successfully declared
-        Ok(())
+        Ok(self.symbol_table.len() - 1)
     }
 
     /// Compiles a block statement.
@@ -156,13 +154,13 @@ impl Compiler {
     pub(super) fn end_scope(&mut self) {
         self.scope_depth -= 1;
 
-        while self.variables.len() > 0 && self.variables.get(self.variables.len() - 1).unwrap().depth > self.scope_depth {
+        while self.symbol_table.len() > 0 && self.symbol_table.get(self.symbol_table.len() - 1).unwrap().symbol_depth > self.scope_depth {
             // Because variables live in the stack, once we are done with
             // them for this scope, we take them out of the stack by emitting
             // the OP_POP_STACK instruction for each one of the variables.
             // TODO: Change position to be the correct tuple
             self.emit_op_code(OpCode::OP_POP_STACK, (0, 0));
-            let var = self.variables.pop().unwrap();
+            let var = self.symbol_table.pop().unwrap();
             if !var.is_used {
                 println!(
                     "\x1b[33;1mCompilerWarning\x1b[0m at [{}:{}] – Variable '\x1b[37;1m{}\x1b[0m' is never used.",

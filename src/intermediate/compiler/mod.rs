@@ -1,5 +1,5 @@
-use std::convert::TryFrom;
 use std::rc::Rc;
+use std::{convert::TryFrom, str};
 mod expressions;
 mod statements;
 
@@ -11,12 +11,21 @@ use crate::{
 
 use super::ast::*;
 
-/// Represents a variable declaration. Used for lexical scoping.
-pub struct Variable {
+/// Types of symbols available in Hinton.
+pub enum SymbolType {
+    Variable,
+    Constant,
+    Function,
+    Class,
+    Enum,
+}
+
+/// Represents a symbol. Used for lexical scoping.
+pub struct Symbol {
     name: Rc<Token>,
-    depth: usize,
+    symbol_depth: usize,
+    symbol_type: SymbolType,
     is_initialized: bool,
-    is_const: bool,
     is_used: bool,
 }
 
@@ -32,7 +41,7 @@ pub struct Compiler {
     is_in_panic: bool,
     chunk: Chunk,
     // Lexical scoping of declarations
-    variables: Vec<Variable>,
+    symbol_table: Vec<Symbol>,
     scope_depth: usize,
     // Used to match the break statements with the correct
     // loop (specially useful with nested loops), and to
@@ -58,7 +67,7 @@ impl Compiler {
             had_error: false,
             is_in_panic: false,
             chunk: Chunk::new(),
-            variables: vec![],
+            symbol_table: vec![],
             loops: vec![],
             breaks: vec![],
             scope_depth: 0,
