@@ -120,28 +120,13 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – A ternary conditional expression node.
     pub(super) fn compile_ternary_conditional(&mut self, expr: &TernaryConditionalNode) {
-        self.compile_node(&expr.condition);
-
-        // Compile the `true` branch of the ternary.
-        let then_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&expr.true_branch_token));
-        self.emit_op_code(OpCode::OP_POP_STACK, (expr.true_branch_token.line_num, expr.true_branch_token.column_num));
-        self.compile_node(&expr.branch_true);
-
-        // At this point, if the condition is true, this instruction makes sure we jump
-        // over all the instructions related to the `false` branch of the ternary.
-        let else_jump = self.emit_jump(OpCode::OP_JUMP, Rc::clone(&expr.false_branch_token));
-
-        // Patches the `then_jump`, so that if the condition is false, the `OP_JUMP_IF_FALSE`
-        // instruction above knows where the `false` branch of the ternary starts.
-        self.patch_jump(then_jump, Rc::clone(&expr.true_branch_token));
-
-        // Compiles the `false` branch of the ternary
-        self.emit_op_code(OpCode::OP_POP_STACK, (expr.true_branch_token.line_num, expr.true_branch_token.column_num));
-        self.compile_node(&expr.branch_false);
-
-        // Patches the `then_jump`, so that if the condition is true, the `OP_JUMP`
-        // instruction above knows where the end of the ternary expression is.
-        self.patch_jump(else_jump, Rc::clone(&expr.false_branch_token));
+        self.compile_if_stmt(&IfStmtNode {
+            condition: expr.condition.clone(),
+            then_token: Rc::clone(&expr.true_branch_token),
+            then_branch: expr.branch_true.clone(),
+            else_branch: Box::new(Some(*expr.branch_false.clone())),
+            else_token: Some(Rc::clone(&expr.false_branch_token)),
+        });
     }
 
     /// Compiles an 'AND' expression.
