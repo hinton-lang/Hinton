@@ -1,15 +1,16 @@
-use crate::chunk;
+use crate::chunk::Chunk;
 use std::fmt;
 use std::rc::Rc;
 use std::result;
 
 /// All types of objects in Hinton
+#[derive(Clone)]
 pub enum Object {
     Number(f64),
     String(String),
     Bool(bool),
-    Function(Rc<FunctionObject>),
-    Array(Vec<Rc<Object>>),
+    Function(FunctionObject),
+    Array(Vec<Object>),
     Range(Rc<RangeObject>),
     Null,
 }
@@ -214,7 +215,7 @@ impl Object {
     ///
     /// ## Returns
     /// `Option<Rc<RangeObject>>` – The underlying Rust vector.
-    pub fn as_array(&self) -> Option<&Vec<Rc<Object>>> {
+    pub fn as_array(&self) -> Option<&Vec<Object>> {
         match self {
             Object::Array(v) => Some(v),
             _ => None,
@@ -230,7 +231,7 @@ impl Object {
     /// ## Returns
     /// `bool` – True if the objects match based on Hinton rules for equality,
     /// false otherwise.
-    pub fn equals(&self, b: Rc<Object>) -> bool {
+    pub fn equals(&self, b: &Object) -> bool {
         // If the operands differ in type, we can safely assume
         // they are not equal in value.
         if std::mem::discriminant(self) != std::mem::discriminant(&b) {
@@ -285,18 +286,38 @@ impl<'a> fmt::Display for Object {
                 write!(f, "{}", arr_str)
             }
             Object::Range(ref inner) => write!(f, "[\x1b[38;5;81m{}\x1b[0m..\x1b[38;5;81m{}\x1b[0m]", inner.min, inner.max),
-            Object::Function(ref inner) => write!(f, "<Func '{}'>", inner.name),
+            Object::Function(ref inner) => {
+                let str = if inner.name == "" {
+                    String::from("<script>")
+                } else {
+                    format!("<Func '{}'>", inner.name)
+                };
+
+                fmt::Display::fmt(&str, f)
+            }
             Object::Null => f.write_str("\x1b[37;1mnull\x1b[0m"),
         }
     }
 }
 
 /// Represents a Hinton function object.
+#[derive(Clone)]
 pub struct FunctionObject {
     pub min_arity: i32,
     pub max_arity: i32,
-    pub chunk: chunk::Chunk,
+    pub chunk: Chunk,
     pub name: String,
+}
+
+impl FunctionObject {
+    pub fn new() -> Self {
+        Self {
+            min_arity: 0,
+            max_arity: 0,
+            chunk: Chunk::new(),
+            name: String::from(""),
+        }
+    }
 }
 
 /// Represents a Hinton range object.

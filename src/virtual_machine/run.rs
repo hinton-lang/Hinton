@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
-use super::InterpretResult;
 use super::VirtualMachine;
+use super::{CallFrame, InterpretResult};
 use crate::objects::Object;
 use crate::{chunk::op_codes::OpCode, objects::RangeObject};
 
@@ -14,19 +14,18 @@ impl<'a> VirtualMachine {
     /// `InterpretResult` – The result of the execution.
     pub(crate) fn run(&mut self) -> InterpretResult {
         while let Some(instruction) = self.get_next_op_code() {
-            // Prints the execution of the program.
-            // self.print_execution(&instruction);
-
             match instruction {
+                OpCode::OP_PRINT => println!("{}", self.pop_stack()),
+
                 OpCode::OP_POP_STACK => {
-                    self.stack.pop();
+                    self.pop_stack();
                 }
 
-                OpCode::OP_NULL => self.stack.push(Rc::new(Object::Null)),
-                OpCode::OP_TRUE => self.stack.push(Rc::new(Object::Bool(true))),
-                OpCode::OP_FALSE => self.stack.push(Rc::new(Object::Bool(false))),
-                OpCode::OP_LOAD_IMM_0 => self.stack.push(Rc::new(Object::Number(0f64))),
-                OpCode::OP_LOAD_IMM_1 => self.stack.push(Rc::new(Object::Number(1f64))),
+                OpCode::OP_NULL => self.push_stack(Object::Null),
+                OpCode::OP_TRUE => self.push_stack(Object::Bool(true)),
+                OpCode::OP_FALSE => self.push_stack(Object::Bool(false)),
+                OpCode::OP_LOAD_IMM_0 => self.push_stack(Object::Number(0f64)),
+                OpCode::OP_LOAD_IMM_1 => self.push_stack(Object::Number(1f64)),
 
                 OpCode::OP_LOAD_IMM | OpCode::OP_LOAD_IMM_LONG => {
                     let imm = if let OpCode::OP_LOAD_IMM = instruction {
@@ -35,7 +34,7 @@ impl<'a> VirtualMachine {
                         self.get_next_short().unwrap() as f64
                     };
 
-                    self.stack.push(Rc::new(Object::Number(imm)))
+                    self.push_stack(Object::Number(imm))
                 }
 
                 OpCode::OP_LOAD_CONST | OpCode::OP_LOAD_CONST_LONG => {
@@ -49,13 +48,16 @@ impl<'a> VirtualMachine {
                     };
 
                     // Gets the value from the pool and places it on top of the stack
-                    match self.chunk.get_constant(pos) {
-                        Some(val) => self.stack.push(Rc::clone(val)),
-                        None => {
-                            self.report_runtime_error(&format!("InternalRuntimeError: Constant pool index '{}' out of range", pos));
-                            return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                        }
-                    }
+                    let val = self.read_constant(pos).clone();
+                    self.push_stack(val)
+
+                    // match c {
+                    //     Some(val) => self.push_stack(Rc::clone(val)),
+                    //     None => {
+                    //         self.report_runtime_error(&format!("InternalRuntimeError: Constant pool index '{}' out of range", pos));
+                    //         return InterpretResult::INTERPRET_RUNTIME_ERROR;
+                    //     }
+                    // }
                 }
 
                 OpCode::OP_ARRAY | OpCode::OP_ARRAY_LONG => {
@@ -66,26 +68,18 @@ impl<'a> VirtualMachine {
                         self.get_next_short().unwrap() as usize
                     };
 
-                    let mut arr_values: Vec<Rc<Object>> = vec![];
+                    let mut arr_values: Vec<Object> = vec![];
 
                     for _ in 0..size {
-                        let val = match self.stack.pop() {
-                            Some(v) => v,
-                            None => {
-                                self.report_runtime_error("Unexpected Runtime Error: Stack is empty.");
-                                return InterpretResult::INTERPRET_RUNTIME_ERROR;
-                            }
-                        };
-
-                        arr_values.push(val);
+                        arr_values.push(self.pop_stack());
                     }
 
-                    self.stack.push(Rc::new(Object::Array(arr_values)));
+                    self.push_stack(Object::Array(arr_values));
                 }
 
                 OpCode::OP_ARRAY_INDEXING => {
-                    let index = Rc::clone(&self.stack.pop().unwrap());
-                    let target = Rc::clone(&self.stack.pop().unwrap());
+                    let index = self.pop_stack();
+                    let target = self.pop_stack();
 
                     if !index.is_int() {
                         self.report_runtime_error("Array index must be an integer.");
@@ -108,7 +102,7 @@ impl<'a> VirtualMachine {
 
                     match array.get(idx) {
                         Some(val) => {
-                            self.stack.push(Rc::clone(val));
+                            self.push_stack(val.clone());
                         }
                         None => {
                             self.report_runtime_error("Array index out of bounds.");
@@ -125,14 +119,9 @@ impl<'a> VirtualMachine {
                         self.get_next_short().unwrap() as usize
                     };
 
-                    let value = match self.stack.get_mut(pos) {
-                        Some(x) => Rc::clone(x),
-                        None => {
-                            unreachable!("Variable not found in scope.");
-                        }
-                    };
-
-                    self.stack.push(value);
+                    let idx = self.current_frame().slots_base + pos;
+                    let value = self.stack[idx].clone();
+                    self.push_stack(value);
                 }
 
                 OpCode::OP_SET_VAR | OpCode::OP_SET_VAR_LONG => {
@@ -143,18 +132,20 @@ impl<'a> VirtualMachine {
                         self.get_next_short().unwrap() as usize
                     };
 
-                    let value = Rc::clone(&self.stack.last_mut().unwrap());
-                    self.stack[pos] = value;
+                    let value = self.stack.last().unwrap();
+                    let offset = self.current_frame().slots_base;
+
+                    self.stack[pos + offset] = value.clone();
                 }
 
                 OpCode::OP_NEGATE => {
-                    let val = Rc::clone(&self.stack.pop().unwrap());
+                    let val = self.pop_stack();
 
                     if !val.is_numeric() {
                         self.report_runtime_error(&format!("Cannot negate operand of type '{}'.", val.type_name()));
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     } else {
-                        self.stack.push(Rc::new(Object::Number(-val.as_number().unwrap())));
+                        self.push_stack(Object::Number(-val.as_number().unwrap()));
                     }
                 }
 
@@ -189,122 +180,122 @@ impl<'a> VirtualMachine {
                 },
 
                 OpCode::OP_LOGIC_NOT => {
-                    let val = Rc::clone(&self.stack.pop().unwrap());
-                    self.stack.push(Rc::new(Object::Bool(val.is_falsey())));
+                    let val = self.pop_stack();
+                    self.push_stack(Object::Bool(val.is_falsey()));
                 }
 
                 OpCode::OP_EQUALS => {
-                    let val2 = Rc::clone(&self.stack.pop().unwrap());
-                    let val1 = Rc::clone(&self.stack.pop().unwrap());
-                    self.stack.push(Rc::new(Object::Bool(val1.equals(val2))));
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
+                    self.push_stack(Object::Bool(val1.equals(&val2)));
                 }
 
                 OpCode::OP_NOT_EQUALS => {
-                    let val2 = Rc::clone(&self.stack.pop().unwrap());
-                    let val1 = Rc::clone(&self.stack.pop().unwrap());
-                    self.stack.push(Rc::new(Object::Bool(!val1.equals(val2))));
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
+                    self.push_stack(Object::Bool(!val1.equals(&val2)));
                 }
 
                 OpCode::OP_LESS_THAN => {
-                    let val2 = Rc::clone(&self.stack.pop().unwrap());
-                    let val1 = Rc::clone(&self.stack.pop().unwrap());
-                    let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "<");
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
+                    let numeric = self.check_numeric_operands(&val1, &val2, "<");
 
                     if numeric {
                         let v1 = val1.as_number().unwrap();
                         let v2 = val2.as_number().unwrap();
-                        self.stack.push(Rc::new(Object::Bool(v1 < v2)));
+                        self.push_stack(Object::Bool(v1 < v2));
                     } else {
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     }
                 }
 
                 OpCode::OP_LESS_THAN_EQ => {
-                    let val2 = Rc::clone(&self.stack.pop().unwrap());
-                    let val1 = Rc::clone(&self.stack.pop().unwrap());
-                    let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "<=");
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
+                    let numeric = self.check_numeric_operands(&val1, &val2, "<=");
 
                     if numeric {
                         let v1 = val1.as_number().unwrap();
                         let v2 = val2.as_number().unwrap();
-                        self.stack.push(Rc::new(Object::Bool(v1 <= v2)));
+                        self.push_stack(Object::Bool(v1 <= v2));
                     } else {
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     }
                 }
 
                 OpCode::OP_GREATER_THAN => {
-                    let val2 = Rc::clone(&self.stack.pop().unwrap());
-                    let val1 = Rc::clone(&self.stack.pop().unwrap());
-                    let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), ">");
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
+                    let numeric = self.check_numeric_operands(&val1, &val2, ">");
 
                     if numeric {
                         let v1 = val1.as_number().unwrap();
                         let v2 = val2.as_number().unwrap();
-                        self.stack.push(Rc::new(Object::Bool(v1 > v2)));
+                        self.push_stack(Object::Bool(v1 > v2));
                     } else {
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     }
                 }
 
                 OpCode::OP_GREATER_THAN_EQ => {
-                    let val2 = Rc::clone(&self.stack.pop().unwrap());
-                    let val1 = Rc::clone(&self.stack.pop().unwrap());
-                    let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), ">=");
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
+                    let numeric = self.check_numeric_operands(&val1, &val2, ">=");
 
                     if numeric {
                         let v1 = val1.as_number().unwrap();
                         let v2 = val2.as_number().unwrap();
-                        self.stack.push(Rc::new(Object::Bool(v1 >= v2)));
+                        self.push_stack(Object::Bool(v1 >= v2));
                     } else {
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     }
                 }
 
                 OpCode::OP_BITWISE_OR => {
-                    let right = Rc::clone(&self.stack.pop().unwrap());
-                    let left = Rc::clone(&self.stack.pop().unwrap());
+                    let right = self.pop_stack();
+                    let left = self.pop_stack();
 
-                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), "|") {
-                        self.stack.push(Rc::new(Object::Number(
+                    if self.check_integer_operands(&left, &right, "|") {
+                        self.push_stack(Object::Number(
                             ((left.as_number().unwrap() as isize) | (right.as_number().unwrap() as isize)) as f64,
-                        )));
+                        ));
                     } else {
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     }
                 }
 
                 OpCode::OP_BITWISE_XOR => {
-                    let right = Rc::clone(&self.stack.pop().unwrap());
-                    let left = Rc::clone(&self.stack.pop().unwrap());
+                    let right = self.pop_stack();
+                    let left = self.pop_stack();
 
-                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), "^") {
-                        self.stack.push(Rc::new(Object::Number(
+                    if self.check_integer_operands(&left, &right, "^") {
+                        self.push_stack(Object::Number(
                             ((left.as_number().unwrap() as isize) ^ (right.as_number().unwrap() as isize)) as f64,
-                        )));
+                        ));
                     } else {
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     }
                 }
 
                 OpCode::OP_BITWISE_AND => {
-                    let right = Rc::clone(&self.stack.pop().unwrap());
-                    let left = Rc::clone(&self.stack.pop().unwrap());
+                    let right = self.pop_stack();
+                    let left = self.pop_stack();
 
-                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), "&") {
-                        self.stack.push(Rc::new(Object::Number(
+                    if self.check_integer_operands(&left, &right, "&") {
+                        self.push_stack(Object::Number(
                             ((left.as_number().unwrap() as isize) & (right.as_number().unwrap() as isize)) as f64,
-                        )));
+                        ));
                     } else {
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     }
                 }
 
                 OpCode::OP_BITWISE_NOT => {
-                    let operand = Rc::clone(&self.stack.pop().unwrap());
+                    let operand = self.pop_stack();
 
                     if operand.is_numeric() {
-                        self.stack.push(Rc::new(Object::Number(!(operand.as_number().unwrap() as isize) as f64)));
+                        self.push_stack(Object::Number(!(operand.as_number().unwrap() as isize) as f64));
                     } else {
                         self.report_runtime_error(&format!("Operation '~' not defined for operand of type '{}'.", operand.type_name()));
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
@@ -312,52 +303,52 @@ impl<'a> VirtualMachine {
                 }
 
                 OpCode::OP_BITWISE_L_SHIFT => {
-                    let right = Rc::clone(&self.stack.pop().unwrap());
-                    let left = Rc::clone(&self.stack.pop().unwrap());
+                    let right = self.pop_stack();
+                    let left = self.pop_stack();
 
-                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), "<<") {
-                        self.stack.push(Rc::new(Object::Number(
+                    if self.check_integer_operands(&left, &right, "<<") {
+                        self.push_stack(Object::Number(
                             ((left.as_number().unwrap() as isize) << (right.as_number().unwrap() as isize)) as f64,
-                        )));
+                        ));
                     } else {
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     }
                 }
 
                 OpCode::OP_BITWISE_R_SHIFT => {
-                    let right = Rc::clone(&self.stack.pop().unwrap());
-                    let left = Rc::clone(&self.stack.pop().unwrap());
+                    let right = self.pop_stack();
+                    let left = self.pop_stack();
 
-                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), ">>") {
-                        self.stack.push(Rc::new(Object::Number(
+                    if self.check_integer_operands(&left, &right, ">>") {
+                        self.push_stack(Object::Number(
                             ((left.as_number().unwrap() as isize) >> (right.as_number().unwrap() as isize)) as f64,
-                        )));
+                        ));
                     } else {
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     }
                 }
 
                 OpCode::OP_GENERATE_RANGE => {
-                    let right = Rc::clone(&self.stack.pop().unwrap());
-                    let left = Rc::clone(&self.stack.pop().unwrap());
+                    let right = self.pop_stack();
+                    let left = self.pop_stack();
 
-                    if self.check_integer_operands(Rc::clone(&left), Rc::clone(&right), "..") {
+                    if self.check_integer_operands(&left, &right, "..") {
                         let a = left.as_number().unwrap() as isize;
                         let b = right.as_number().unwrap() as isize;
-                        self.stack.push(Rc::new(Object::Range(Rc::new(RangeObject { min: a, max: b, step: 1 }))));
+                        self.push_stack(Object::Range(Rc::new(RangeObject { min: a, max: b, step: 1 })));
                     } else {
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     }
                 }
 
                 OpCode::OP_NULLISH_COALESCING => {
-                    let value = Rc::clone(&self.stack.pop().unwrap());
-                    let nullish = Rc::clone(&self.stack.pop().unwrap());
+                    let value = self.pop_stack();
+                    let nullish = self.pop_stack();
 
                     if nullish.is_null() {
-                        self.stack.push(value);
+                        self.push_stack(value);
                     } else {
-                        self.stack.push(nullish);
+                        self.push_stack(nullish);
                     }
                 }
 
@@ -365,17 +356,17 @@ impl<'a> VirtualMachine {
                     // The OP_JUMP_IF_FALSE instruction always has a short as its operand.
                     let offset = self.get_next_short().unwrap() as usize;
 
-                    let top = Rc::clone(&self.stack.last().unwrap());
+                    let top = self.stack.last().unwrap();
 
                     if top.is_falsey() {
-                        self.ip += offset;
+                        self.current_frame_mut().ip += offset;
                     }
                 }
 
                 OpCode::OP_JUMP => {
                     // The OP_JUM instruction always has a short as its operand.
                     let offset = self.get_next_short().unwrap() as usize;
-                    self.ip += offset;
+                    self.current_frame_mut().ip += offset;
                 }
 
                 OpCode::OP_LOOP_JUMP | OpCode::OP_LOOP_JUMP_LONG => {
@@ -385,7 +376,7 @@ impl<'a> VirtualMachine {
                         self.get_next_short().unwrap() as usize
                     };
 
-                    self.ip -= offset;
+                    self.current_frame_mut().ip -= offset;
                 }
 
                 OpCode::OP_POST_INCREMENT => {
@@ -395,15 +386,15 @@ impl<'a> VirtualMachine {
                         self.get_next_short().unwrap() as usize
                     };
 
-                    let value = Rc::clone(&self.stack.get_mut(pos).unwrap());
+                    let value = self.stack[pos].clone();
 
                     if !value.is_numeric() {
                         self.report_runtime_error(&format!("Cannot increment object of type '{}'.", value.type_name()));
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     }
 
-                    self.stack[pos] = Rc::new(Object::Number(value.as_number().unwrap() + 1f64));
-                    self.stack.push(value);
+                    self.stack[pos] = Object::Number(value.as_number().unwrap() + 1f64);
+                    self.push_stack(value);
                 }
 
                 OpCode::OP_POST_DECREMENT => {
@@ -413,20 +404,15 @@ impl<'a> VirtualMachine {
                         self.get_next_short().unwrap() as usize
                     };
 
-                    let value = Rc::clone(&self.stack.get_mut(pos).unwrap());
+                    let value = self.stack[pos].clone();
 
                     if !value.is_numeric() {
                         self.report_runtime_error(&format!("Cannot decrement object of type '{}'.", value.type_name()));
                         return InterpretResult::INTERPRET_RUNTIME_ERROR;
                     }
 
-                    self.stack[pos] = Rc::new(Object::Number(value.as_number().unwrap() - 1f64));
-                    self.stack.push(value);
-                }
-
-                OpCode::OP_PRINT => {
-                    let val = self.stack.pop();
-                    println!("{}", val.unwrap());
+                    self.stack[pos] = Object::Number(value.as_number().unwrap() - 1f64);
+                    self.push_stack(value);
                 }
 
                 // OpCode::OP_RETURN => { }
@@ -434,6 +420,9 @@ impl<'a> VirtualMachine {
                 // Should be removed so that there are no unimplemented OpCodes
                 _ => unreachable!("OpCode Not implemented! {:?}", instruction),
             }
+
+            // Prints the execution of the program.
+            // self.print_execution(&instruction);
         }
 
         // If the compiler reaches this point, that means there were no errors
@@ -442,40 +431,42 @@ impl<'a> VirtualMachine {
         return InterpretResult::INTERPRET_OK;
     }
 
-    /// Gets the next OpCode to be executed, incrementing the
-    /// instruction pointer by one.
-    ///
-    /// ## Returns
-    /// * `Option<OpCode>` – The next OpCode to be executed, if the
-    /// instruction pointer is within bounds.
+    fn current_frame(&self) -> &CallFrame {
+        self.frames.last().unwrap()
+    }
+
+    fn current_frame_mut(&mut self) -> &mut CallFrame {
+        let frames_len = self.frames.len();
+        &mut self.frames[frames_len - 1]
+    }
+
     fn get_next_op_code(&mut self) -> Option<OpCode> {
-        let code = self.chunk.codes.get_op_code(self.ip);
-        self.ip += 1;
-        return code;
+        self.current_frame_mut().get_next_op_code()
     }
 
-    /// Gets the next byte to be executed, incrementing the
-    /// instruction pointer by one.
-    ///
-    /// ## Returns
-    /// * `Option<OpCode>` – The next byte to be executed, if the
-    /// instruction pointer is within bounds.
     fn get_next_byte(&mut self) -> Option<u8> {
-        let code = self.chunk.codes.get_byte(self.ip);
-        self.ip += 1;
-        return code;
+        self.current_frame_mut().get_next_byte()
     }
 
-    /// Gets the next short (next two bytes) to be executed, incrementing the
-    /// instruction pointer by 2.
-    ///
-    /// ## Returns
-    /// * `Option<u16>` – The next two bytes as a 16-bit unsigned integer, if the
-    /// instruction pointer is within bounds.
     fn get_next_short(&mut self) -> Option<u16> {
-        let next_short = self.chunk.codes.get_short(self.ip);
-        self.ip += 2;
-        return next_short;
+        self.current_frame_mut().get_next_short()
+    }
+
+    fn pop_stack(&mut self) -> Object {
+        match self.stack.pop() {
+            Some(obj) => obj,
+            None => {
+                panic!("Stack is empty!")
+            }
+        }
+    }
+
+    fn push_stack(&mut self, new_val: Object) {
+        self.stack.push(new_val)
+    }
+
+    fn read_constant(&self, idx: usize) -> &Object {
+        return self.current_frame().get_constant(idx);
     }
 
     /// Prints the execution trace for the program. Useful for debugging the VM.
@@ -490,7 +481,7 @@ impl<'a> VirtualMachine {
         println!("Byte:\t{:#04X} ", instr.clone() as u8);
 
         // Prints the index of the current instruction
-        println!("IP:\t{:>04} ", self.ip);
+        println!("IP:\t{:>04} ", self.current_frame().ip);
 
         // Prints the current state of the values stack
         print!("stack\t[");
@@ -498,9 +489,6 @@ impl<'a> VirtualMachine {
             print!("{}; ", val);
         }
         println!("]");
-
-        // Prints the number of objects currently present in the constants pool
-        println!("Heap Size: {}", self.chunk.get_pool_size());
 
         print!("Output:\t");
     }

@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use crate::objects::Object;
 
 use super::{InterpretResult, VirtualMachine};
@@ -11,21 +9,21 @@ impl<'a> VirtualMachine {
     /// * `Result<(), InterpretResult>` – Nothing if the values could be successfully added;
     /// `InterpretResult::INTERPRET_RUNTIME_ERROR` otherwise.
     pub(super) fn perform_addition(&mut self) -> Result<(), InterpretResult> {
-        let val2 = Rc::clone(&self.stack.pop().unwrap());
-        let val1 = Rc::clone(&self.stack.pop().unwrap());
+        let val2 = self.stack.pop().unwrap();
+        let val1 = self.stack.pop().unwrap();
 
         if (val1.is_string() && val2.is_stringifyable()) || (val1.is_stringifyable() && val2.is_string()) {
             let v1 = val1.as_string().unwrap();
             let v2 = val2.as_string().unwrap();
-            self.stack.push(Rc::new(Object::String(v1 + v2.as_str())));
+            self.stack.push(Object::String(v1 + v2.as_str()));
 
             Ok(())
         } else {
-            let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "+");
+            let numeric = self.check_numeric_operands(&val1, &val2, "+");
             if numeric {
                 let v1 = val1.as_number().unwrap();
                 let v2 = val2.as_number().unwrap();
-                self.stack.push(Rc::new(Object::Number(v1 + v2)));
+                self.stack.push(Object::Number(v1 + v2));
 
                 Ok(())
             } else {
@@ -40,14 +38,14 @@ impl<'a> VirtualMachine {
     /// * `Result<(), InterpretResult>` – Nothing if the values could be successfully subtracted;
     /// `InterpretResult::INTERPRET_RUNTIME_ERROR` otherwise.
     pub(super) fn perform_subtraction(&mut self) -> Result<(), InterpretResult> {
-        let val2 = Rc::clone(&self.stack.pop().unwrap());
-        let val1 = Rc::clone(&self.stack.pop().unwrap());
-        let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "-");
+        let val2 = self.stack.pop().unwrap();
+        let val1 = self.stack.pop().unwrap();
+        let numeric = self.check_numeric_operands(&val1, &val2, "-");
 
         if numeric {
             let v1 = val1.as_number().unwrap();
             let v2 = val2.as_number().unwrap();
-            self.stack.push(Rc::new(Object::Number(v1 - v2)));
+            self.stack.push(Object::Number(v1 - v2));
 
             Ok(())
         } else {
@@ -61,8 +59,8 @@ impl<'a> VirtualMachine {
     /// * `Result<(), InterpretResult>` – Nothing if the values could be successfully multiplied;
     /// `InterpretResult::INTERPRET_RUNTIME_ERROR` otherwise.
     pub(super) fn perform_multiplication(&mut self) -> Result<(), InterpretResult> {
-        let val2 = Rc::clone(&self.stack.pop().unwrap());
-        let val1 = Rc::clone(&self.stack.pop().unwrap());
+        let val2 = self.stack.pop().unwrap();
+        let val1 = self.stack.pop().unwrap();
 
         // Multiply Int * String
         if (val1.is_numeric() && val2.is_string()) || (val1.is_string() && val2.is_numeric()) {
@@ -73,7 +71,7 @@ impl<'a> VirtualMachine {
                 } else {
                     String::from("")
                 };
-                self.stack.push(Rc::new(Object::String(s)));
+                self.stack.push(Object::String(s));
 
                 Ok(())
             } else if val2.is_int() {
@@ -83,7 +81,7 @@ impl<'a> VirtualMachine {
                 } else {
                     String::from("")
                 };
-                self.stack.push(Rc::new(Object::String(s)));
+                self.stack.push(Object::String(s));
 
                 Ok(())
             } else {
@@ -95,11 +93,11 @@ impl<'a> VirtualMachine {
                 return Err(InterpretResult::INTERPRET_RUNTIME_ERROR);
             }
         } else {
-            let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "*");
+            let numeric = self.check_numeric_operands(&val1, &val2, "*");
             if numeric {
                 let v1 = val1.as_number().unwrap();
                 let v2 = val2.as_number().unwrap();
-                self.stack.push(Rc::new(Object::Number(v1 * v2)));
+                self.stack.push(Object::Number(v1 * v2));
 
                 Ok(())
             } else {
@@ -114,9 +112,9 @@ impl<'a> VirtualMachine {
     /// * `Result<(), InterpretResult>` – Nothing if the values could be successfully divided;
     /// `InterpretResult::INTERPRET_RUNTIME_ERROR` otherwise.
     pub(super) fn perform_division(&mut self) -> Result<(), InterpretResult> {
-        let val2 = Rc::clone(&self.stack.pop().unwrap());
-        let val1 = Rc::clone(&self.stack.pop().unwrap());
-        let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "/");
+        let val2 = self.stack.pop().unwrap();
+        let val1 = self.stack.pop().unwrap();
+        let numeric = self.check_numeric_operands(&val1, &val2, "/");
 
         if numeric {
             let v1 = val1.as_number().unwrap();
@@ -127,7 +125,7 @@ impl<'a> VirtualMachine {
                 return Err(InterpretResult::INTERPRET_RUNTIME_ERROR);
             }
 
-            self.stack.push(Rc::new(Object::Number(v1 / v2)));
+            self.stack.push(Object::Number(v1 / v2));
             Ok(())
         } else {
             return Err(InterpretResult::INTERPRET_RUNTIME_ERROR);
@@ -140,9 +138,9 @@ impl<'a> VirtualMachine {
     /// * `Result<(), InterpretResult>` – Nothing if the modulus of the two values could be
     /// successfully computed; `InterpretResult::INTERPRET_RUNTIME_ERROR` otherwise.
     pub(super) fn perform_modulus(&mut self) -> Result<(), InterpretResult> {
-        let val2 = Rc::clone(&self.stack.pop().unwrap());
-        let val1 = Rc::clone(&self.stack.pop().unwrap());
-        let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "%");
+        let val2 = self.stack.pop().unwrap();
+        let val1 = self.stack.pop().unwrap();
+        let numeric = self.check_numeric_operands(&val1, &val2, "%");
 
         if numeric {
             let v1 = val1.as_number().unwrap();
@@ -153,7 +151,7 @@ impl<'a> VirtualMachine {
                 return Err(InterpretResult::INTERPRET_RUNTIME_ERROR);
             }
 
-            self.stack.push(Rc::new(Object::Number(v1 % v2)));
+            self.stack.push(Object::Number(v1 % v2));
 
             Ok(())
         } else {
@@ -167,14 +165,14 @@ impl<'a> VirtualMachine {
     /// * `Result<(), InterpretResult>` – Nothing if the values could be successfully exponentiated;
     /// `InterpretResult::INTERPRET_RUNTIME_ERROR` otherwise.
     pub(super) fn perform_exponentiation(&mut self) -> Result<(), InterpretResult> {
-        let val2 = Rc::clone(&self.stack.pop().unwrap());
-        let val1 = Rc::clone(&self.stack.pop().unwrap());
-        let numeric = self.check_numeric_operands(Rc::clone(&val1), Rc::clone(&val2), "**");
+        let val2 = self.stack.pop().unwrap();
+        let val1 = self.stack.pop().unwrap();
+        let numeric = self.check_numeric_operands(&val1, &val2, "**");
 
         if numeric {
             let v1 = val1.as_number().unwrap();
             let v2 = val2.as_number().unwrap();
-            self.stack.push(Rc::new(Object::Number(v1.powf(v2))));
+            self.stack.push(Object::Number(v1.powf(v2)));
 
             Ok(())
         } else {

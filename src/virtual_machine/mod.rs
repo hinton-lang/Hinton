@@ -7,9 +7,10 @@ mod arithmetic;
 mod run;
 
 use crate::{
-    chunk, exec_time,
+    chunk::op_codes::OpCode,
+    exec_time,
     intermediate::{compiler::Compiler, parser::Parser},
-    objects::{self, Object},
+    objects::{self, FunctionObject, Object},
 };
 
 /// The types of results the interpreter can return
@@ -21,11 +22,61 @@ pub enum InterpretResult {
     INTERPRET_RUNTIME_ERROR,
 }
 
+/// Represents a single ongoing function call.
+pub struct CallFrame {
+    function: FunctionObject,
+    /// IP of the CallFrame's chunk
+    ip: usize,
+    /// The offset of this CallFrame in the VM's stack
+    slots_base: usize,
+}
+
+impl CallFrame {
+    /// Gets the next OpCode to be executed, incrementing the
+    /// instruction pointer by one.
+    ///
+    /// ## Returns
+    /// * `Option<OpCode>` – The next OpCode to be executed, if the
+    /// instruction pointer is within bounds.
+    fn get_next_op_code(&mut self) -> Option<OpCode> {
+        let code = self.function.chunk.codes.get_op_code(self.ip);
+        self.ip += 1;
+        return code;
+    }
+
+    /// Gets the next byte to be executed, incrementing the
+    /// instruction pointer by one.
+    ///
+    /// ## Returns
+    /// * `Option<OpCode>` – The next byte to be executed, if the
+    /// instruction pointer is within bounds.
+    fn get_next_byte(&mut self) -> Option<u8> {
+        let code = self.function.chunk.codes.get_byte(self.ip);
+        self.ip += 1;
+        return code;
+    }
+
+    /// Gets the next short (next two bytes) to be executed, incrementing the
+    /// instruction pointer by 2.
+    ///
+    /// ## Returns
+    /// * `Option<u16>` – The next two bytes as a 16-bit unsigned integer, if the
+    /// instruction pointer is within bounds.
+    fn get_next_short(&mut self) -> Option<u16> {
+        let next_short = self.function.chunk.codes.get_short(self.ip);
+        self.ip += 2;
+        return next_short;
+    }
+
+    fn get_constant(&self, idx: usize) -> &Object {
+        self.function.chunk.get_constant(idx).unwrap()
+    }
+}
+
 /// Represents a virtual machine
 pub struct VirtualMachine {
-    stack: Vec<Rc<objects::Object>>,
-    chunk: chunk::Chunk,
-    ip: usize,
+    stack: Vec<objects::Object>,
+    frames: Vec<CallFrame>,
 }
 
 impl<'a> VirtualMachine {
@@ -35,9 +86,8 @@ impl<'a> VirtualMachine {
     /// * `VirtualMachine` – a new instance of the virtual machine.
     pub fn new() -> Self {
         Self {
-            stack: Vec::new(),
-            chunk: chunk::Chunk::new(),
-            ip: 0,
+            stack: vec![],
+            frames: vec![],
         }
     }
 
@@ -64,7 +114,12 @@ impl<'a> VirtualMachine {
         // Executes the program
         return match compiling.0 {
             Ok(c) => {
-                self.chunk = c;
+                self.stack.push(Object::Function(c.clone()));
+                self.frames.push(CallFrame {
+                    function: c,
+                    ip: 0,
+                    slots_base: 0,
+                });
 
                 #[cfg(feature = "bench_time")]
                 let start = Instant::now();
@@ -91,7 +146,9 @@ impl<'a> VirtualMachine {
 
     /// Throws a runtime error to the console
     pub(super) fn report_runtime_error(&self, message: &'a str) {
-        let line = self.chunk.locations.get(self.ip).unwrap();
+        let frame = self.frames.last().unwrap();
+
+        let line = frame.function.chunk.locations.get(frame.ip).unwrap();
         eprintln!("\x1b[31;1mRuntimeError\x1b[0m at [{}:{}] – {}", line.0, line.1, message);
     }
 
@@ -104,7 +161,7 @@ impl<'a> VirtualMachine {
     ///
     /// ## Returns
     /// `bool` – True if both operands are numeric, false otherwise.
-    pub(super) fn check_numeric_operands(&self, left: Rc<Object>, right: Rc<Object>, opr: &str) -> bool {
+    pub(super) fn check_numeric_operands(&self, left: &Object, right: &Object, opr: &str) -> bool {
         // If the operands are not numeric, throw a runtime error.
         if !left.is_numeric() || !right.is_numeric() {
             self.report_runtime_error(&format!(
@@ -128,7 +185,7 @@ impl<'a> VirtualMachine {
     ///
     /// ## Returns
     /// `bool` – True if both operands are numeric, false otherwise.
-    pub(super) fn check_integer_operands(&self, left: Rc<Object>, right: Rc<Object>, opr: &str) -> bool {
+    pub(super) fn check_integer_operands(&self, left: &Object, right: &Object, opr: &str) -> bool {
         // If the operands are not numeric, throw a runtime error.
         if !left.is_int() || !right.is_int() {
             self.report_runtime_error(&format!(

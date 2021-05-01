@@ -51,7 +51,7 @@ impl ASTNode {
 
     pub fn is_false_literal(&self) -> bool {
         match self {
-            ASTNode::Literal(x) => match *x.value {
+            ASTNode::Literal(x) => match x.value {
                 Object::Bool(y) => !y,
                 _ => false,
             },
@@ -65,7 +65,7 @@ impl ASTNode {
 /// like strings, arrays, numerals, booleans, etc...
 #[derive(Clone)]
 pub struct LiteralExprNode {
-    pub value: Rc<Object>,
+    pub value: Object,
     // This node needs a reference to the token because at compile time,
     // we need information about the token for printing errors when there
     // is a problem with storing the literal in the constant pool.

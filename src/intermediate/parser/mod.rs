@@ -784,9 +784,9 @@ impl<'a> Parser {
 
         let literal_value = match self.get_previous_tok_type() {
             TokenType::STRING_LITERAL => self.compile_string(),
-            TokenType::TRUE_LITERAL => Rc::new(Object::Bool(true)),
-            TokenType::FALSE_LITERAL => Rc::new(Object::Bool(false)),
-            TokenType::NULL_LITERAL => Rc::new(Object::Null),
+            TokenType::TRUE_LITERAL => Object::Bool(true),
+            TokenType::FALSE_LITERAL => Object::Bool(false),
+            TokenType::NULL_LITERAL => Object::Null,
             TokenType::LEFT_SQUARE_BRACKET => return self.construct_array(),
             TokenType::NUMERIC_LITERAL => match self.compile_number() {
                 Ok(x) => x,
@@ -836,7 +836,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Rc<Object>` – The Hinton string object.
-    pub(super) fn compile_string(&mut self) -> Rc<Object> {
+    pub(super) fn compile_string(&mut self) -> Object {
         let lexeme = self.previous.lexeme.clone();
 
         // Remove outer quotes from the source string
@@ -851,14 +851,14 @@ impl<'a> Parser {
             .replace("\\\"", "\"");
 
         // Emits the constant instruction
-        return Rc::new(Object::String(lexeme));
+        return Object::String(lexeme);
     }
 
     /// Compiles a number token to a Hinton Number.
     ///
     /// ## Returns
     /// `Rc<Object>` – The Hinton number object.
-    pub(super) fn compile_number(&mut self) -> Result<Rc<Object>, ()> {
+    pub(super) fn compile_number(&mut self) -> Result<Object, ()> {
         let lexeme = self.previous.lexeme.clone();
         // Removes the underscores from the lexeme
         let lexeme = lexeme.replace('_', "");
@@ -869,7 +869,7 @@ impl<'a> Parser {
         // then we proceed to save it in the constant pool and emit the
         // instruction. Otherwise, we indicate that there was a compilation error.
         return match num {
-            Ok(x) => Ok(Rc::new(Object::Number(x))),
+            Ok(x) => Ok(Object::Number(x)),
             Err(_) => {
                 // This should almost never happen.
                 self.error_at_previous("Unexpected token.");
@@ -881,9 +881,9 @@ impl<'a> Parser {
     /// Compiles a binary, octal, or hexadecimal number token to a Hinton Number.
     ///
     /// ## Returns
-    /// `Result<Rc<Object>, ()>` – If there was no error converting the lexeme to an integer
+    /// `Result<Object, ()>` – If there was no error converting the lexeme to an integer
     /// of the specified base, returns the Hinton number object. Otherwise, returns an empty error.
-    pub(super) fn compile_int_from_base(&mut self, radix: u32) -> Result<Rc<Object>, ()> {
+    pub(super) fn compile_int_from_base(&mut self, radix: u32) -> Result<Object, ()> {
         let lexeme = self.previous.lexeme.clone();
         // Removes the underscores from the lexeme
         let lexeme = lexeme.replace('_', "");
@@ -894,7 +894,7 @@ impl<'a> Parser {
         // then we proceed to save it in the constant pool and emit the
         // instruction. Otherwise, we indicate that there was a compilation error.
         return match num {
-            Ok(x) => Ok(Rc::new(Object::Number(x as f64))),
+            Ok(x) => Ok(Object::Number(x as f64)),
             Err(_) => {
                 // This should almost never happen.
                 self.error_at_previous("Unexpected token.");
