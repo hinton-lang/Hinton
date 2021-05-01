@@ -81,7 +81,7 @@ impl Compiler {
                 break;
             }
 
-            if symbol.name.lexeme == token.lexeme {
+            if symbol.name == token.lexeme {
                 match symbol.symbol_type {
                     SymbolType::Variable => self.error_at_token(token, "Cannot redeclare variable in the same scope."),
                     SymbolType::Constant => self.error_at_token(token, "Cannot redeclare constant in the same scope."),
@@ -114,7 +114,7 @@ impl Compiler {
         }
 
         self.symbol_table.push(Symbol {
-            name,
+            name: name.lexeme.clone(),
             symbol_depth: self.scope_depth,
             is_initialized: match symbol_type {
                 SymbolType::Variable | SymbolType::Constant => false,
@@ -122,6 +122,7 @@ impl Compiler {
             },
             symbol_type,
             is_used: false,
+            pos: (name.line_num, name.column_num),
         });
 
         // Variable was successfully declared
@@ -154,17 +155,21 @@ impl Compiler {
     pub(super) fn end_scope(&mut self) {
         self.scope_depth -= 1;
 
+        // When a scope ends, we remove all local symbols in the scope.
+        self.pop_local_symbols();
+    }
+
+    pub(super) fn pop_local_symbols(&mut self) {
         while self.symbol_table.len() > 0 && self.symbol_table.get(self.symbol_table.len() - 1).unwrap().symbol_depth > self.scope_depth {
             // Because variables live in the stack, once we are done with
             // them for this scope, we take them out of the stack by emitting
             // the OP_POP_STACK instruction for each one of the variables.
-            // TODO: Change position to be the correct tuple
-            self.emit_op_code(OpCode::OP_POP_STACK, (0, 0));
-            let var = self.symbol_table.pop().unwrap();
-            if !var.is_used {
+            let symbol = self.symbol_table.pop().unwrap();
+            self.emit_op_code(OpCode::OP_POP_STACK, symbol.pos);
+            if !symbol.is_used {
                 println!(
                     "\x1b[33;1mCompilerWarning\x1b[0m at [{}:{}] – Variable '\x1b[37;1m{}\x1b[0m' is never used.",
-                    var.name.line_num, var.name.column_num, var.name.lexeme
+                    symbol.pos.0, symbol.pos.1, symbol.name
                 );
             }
         }
@@ -241,28 +246,25 @@ impl Compiler {
     ///
     /// * `stmt` – The while statement node being compiled.
     pub(super) fn compile_while_stmt(&mut self, stmt: &WhileStmtNode) {
-        let do_compile_condition = !stmt.condition.is_truthy_literal();
-
         // We don't need to compile the loop if the condition is a
         // `false` literal because it will never execute.
         if stmt.condition.is_false_literal() {
             return;
         }
 
-        let loop_start = self.chunk.codes.len();
+        let condition_is_truthy_lit = stmt.condition.is_truthy_literal();
+
+        let loop_start = self.function.chunk.codes.len();
         self.loops.push(loop_start); // starts this loop's scope
 
+        // Only compile the condition if it is not a truthy literal or equivalent.
         let mut exit_jump = 0;
-        if do_compile_condition {
-            // Compiles the condition so that its value is at the top of the
-            // stack during runtime. This value is then continuously checked
-            // for truthiness to keep executing the while loop.
+        if !condition_is_truthy_lit {
             self.compile_node(&stmt.condition);
-            // Stop the loop if the condition (the top of the stack) is false.
             exit_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&stmt.token));
 
-            // However, if the condition is not false, remove the condition value from the stack
-            // and execute the loop's body.
+            // If the condition is not false, remove the condition value from the stack
+            // and continue to execute the loop's body.
             self.emit_op_code(OpCode::OP_POP_STACK, (stmt.token.line_num, stmt.token.column_num));
         }
 
@@ -276,15 +278,14 @@ impl Compiler {
 
         // Patches all the breaks associated with this loop
         for b in breaks {
-            self.patch_break(b, do_compile_condition, Rc::clone(&stmt.token));
+            self.patch_break(b, !condition_is_truthy_lit, Rc::clone(&stmt.token));
         }
 
         // Jump back to the start of the loop (including the re-execution of the condition)
         self.emit_loop(loop_start, Rc::clone(&stmt.token));
 
-        if do_compile_condition {
-            // Patches the 'exit_jump' so that is the condition is false, the 'OP_JUMP_IF_FALSE'
-            // instruction above knows where the end of the loop is.
+        // If the condition is not a truthy literal, then we must patch the 'OP_JUMP_IF_FALSE' above 
+        if !condition_is_truthy_lit {
             self.patch_jump(exit_jump, Rc::clone(&stmt.token));
             self.emit_op_code(OpCode::OP_POP_STACK, (stmt.token.line_num, stmt.token.column_num));
         }
@@ -314,8 +315,23 @@ impl Compiler {
             return;
         }
 
+        // Pop all local symbols off the stack when the loop ends, but do not
+        // remove the symbols from the symbol table since they must also be
+        // removed when the loop's scope.
+        let mut i = 1;
+        while self.symbol_table.len() > 0 && self.symbol_table.get(self.symbol_table.len() - i).unwrap().symbol_depth >= self.scope_depth {
+            let idx = self.symbol_table.len() - i;
+            let symbol = &self.symbol_table[idx];
+            let pos = symbol.pos;
+
+            self.emit_op_code(OpCode::OP_POP_STACK, pos);
+            i += 1;
+        }
+
+        // Jump out of the loop
         let break_pos = self.emit_jump(OpCode::OP_JUMP, Rc::clone(&stmt.token));
 
+        // Add to the breaks list to breaks associated with the current loop
         self.breaks.push(BreakScope {
             loop_start: *self.loops.last().unwrap(),
             loop_position: break_pos,

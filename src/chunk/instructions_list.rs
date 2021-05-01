@@ -1,6 +1,7 @@
 use super::op_codes::OpCode;
 
 /// A list that holds the ByteCode instructions in a chunk.
+#[derive(Clone)]
 pub struct InstructionsList {
     instructions: Vec<u8>,
 }

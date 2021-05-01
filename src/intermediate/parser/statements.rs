@@ -144,7 +144,7 @@ impl Parser {
             }
         } else {
             ASTNode::Literal(LiteralExprNode {
-                value: Rc::new(Object::Null),
+                value: Object::Null,
                 token: Rc::clone(&self.previous),
             })
         };

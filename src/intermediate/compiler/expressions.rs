@@ -14,10 +14,10 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – A literal expression node.
     pub(super) fn compile_literal(&mut self, expr: &LiteralExprNode) {
-        let obj = Rc::clone(&expr.value);
+        let obj = expr.value.clone();
         let opr_pos = (expr.token.line_num, expr.token.column_num);
 
-        match *obj {
+        match obj {
             Object::Bool(x) if x => {
                 self.emit_op_code(OpCode::OP_TRUE, opr_pos);
             }
@@ -315,7 +315,7 @@ impl Compiler {
         // We loop backwards because we want to first check if the symbol
         // exists in the current scope, then in any of the parent scopes, etc..
         for (index, symbol) in self.symbol_table.iter_mut().enumerate().rev() {
-            if symbol.name.lexeme == token.lexeme {
+            if symbol.name == token.lexeme {
                 if !symbol.is_initialized {
                     match symbol.symbol_type {
                         SymbolType::Variable => self.error_at_token(Rc::clone(&token), "Cannot read variable in its own initializer."),
@@ -367,8 +367,8 @@ impl Compiler {
     /// # Arguments
     /// * `obj` – A reference to the literal object being added to the pool.
     /// * `token` – The object's original token.
-    pub(super) fn add_literal_to_pool(&mut self, obj: Rc<Object>, token: Rc<Token>) {
-        let constant_pos = self.chunk.add_constant(obj);
+    pub(super) fn add_literal_to_pool(&mut self, obj: Object, token: Rc<Token>) {
+        let constant_pos = self.function.chunk.add_constant(obj);
         let opr_pos = (token.line_num, token.column_num);
 
         match constant_pos {

@@ -33,7 +33,7 @@ fn check_valid_division<'a>(node: BinaryExprNode) {
     if let BinaryExprType::Division = node.opr_type {
         let rhs = get_object_value(*node.right);
 
-        match *rhs {
+        match rhs {
             Object::Number(x) if x != 0f64 => {
                 return;
             }
@@ -45,7 +45,7 @@ fn check_valid_division<'a>(node: BinaryExprNode) {
     }
 }
 
-fn get_object_value(node: ASTNode) -> Rc<Object> {
+fn get_object_value(node: ASTNode) -> Object {
     return match node {
         ASTNode::Literal(x) => x.value,
         _ => get_object_value(node),

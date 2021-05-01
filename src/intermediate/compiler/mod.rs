@@ -4,8 +4,9 @@ mod expressions;
 mod statements;
 
 use crate::{
-    chunk::{op_codes::OpCode, Chunk},
+    chunk::op_codes::OpCode,
     lexer::tokens::{Token, TokenType},
+    objects::FunctionObject,
     virtual_machine::InterpretResult,
 };
 
@@ -22,11 +23,12 @@ pub enum SymbolType {
 
 /// Represents a symbol. Used for lexical scoping.
 pub struct Symbol {
-    name: Rc<Token>,
+    name: String,
     symbol_depth: usize,
     symbol_type: SymbolType,
     is_initialized: bool,
     is_used: bool,
+    pos: (usize, usize),
 }
 
 /// Represents a break statement, which is associated with a loop.
@@ -39,7 +41,7 @@ pub struct BreakScope {
 pub struct Compiler {
     had_error: bool,
     is_in_panic: bool,
-    chunk: Chunk,
+    function: FunctionObject,
     // Lexical scoping of declarations
     symbol_table: Vec<Symbol>,
     scope_depth: usize,
@@ -62,15 +64,22 @@ impl Compiler {
     /// ## Returns
     /// `Result<chunk, InterpretResult>` – If the program had no compile-time errors, returns
     /// the main chunk for this module. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
-    pub fn compile(program: Rc<ModuleNode>) -> Result<Chunk, InterpretResult> {
+    pub fn compile(program: Rc<ModuleNode>) -> Result<FunctionObject, InterpretResult> {
         let mut c = Compiler {
             had_error: false,
             is_in_panic: false,
-            chunk: Chunk::new(),
-            symbol_table: vec![],
+            function: FunctionObject::new(),
+            symbol_table: vec![Symbol {
+                name: String::from(""),
+                symbol_depth: 0,
+                symbol_type: SymbolType::Function,
+                is_initialized: true,
+                is_used: true,
+                pos: (0, 0),
+            }],
+            scope_depth: 0,
             loops: vec![],
             breaks: vec![],
-            scope_depth: 0,
         };
 
         for node in program.body.iter() {
@@ -82,12 +91,12 @@ impl Compiler {
         }
 
         // Shows the chunk.
-        // c.chunk.disassemble("<script>");
-        // c.chunk.print_raw("<script>");
+        c.function.chunk.disassemble("<script>");
+        c.function.chunk.print_raw("<script>");
 
         if !c.had_error {
             // Return the compiled chunk.
-            Ok(c.chunk)
+            Ok(c.function)
         } else {
             return Err(InterpretResult::INTERPRET_COMPILE_ERROR);
         }
@@ -131,10 +140,10 @@ impl Compiler {
     /// ## Returns
     /// * `usize` – The position of the currently emitted OpCode in the chunk.
     pub fn emit_op_code(&mut self, instr: OpCode, pos: (usize, usize)) -> usize {
-        self.chunk.codes.push_byte(instr as u8);
-        self.chunk.locations.push(pos.clone());
+        self.function.chunk.codes.push_byte(instr as u8);
+        self.function.chunk.locations.push(pos.clone());
 
-        return self.chunk.codes.len() - 1;
+        return self.function.chunk.codes.len() - 1;
     }
 
     /// Emits a raw byte instruction into the chunk's instruction list.
@@ -145,10 +154,10 @@ impl Compiler {
     /// ## Returns
     /// * `usize` – The position of the currently emitted OpCode in the chunk.
     pub fn emit_raw_byte(&mut self, byte: u8, pos: (usize, usize)) -> usize {
-        self.chunk.codes.push_byte(byte);
-        self.chunk.locations.push(pos.clone());
+        self.function.chunk.codes.push_byte(byte);
+        self.function.chunk.locations.push(pos.clone());
 
-        return self.chunk.codes.len() - 1;
+        return self.function.chunk.codes.len() - 1;
     }
 
     /// Emits a short instruction from a 16-bit integer into the chunk's instruction list.
@@ -160,11 +169,11 @@ impl Compiler {
     /// * `usize` – The position of the first byte for the currently emitted 16-bit short
     /// in the chunk.
     pub fn emit_short(&mut self, instr: u16, pos: (usize, usize)) -> usize {
-        self.chunk.codes.push_short(instr);
-        self.chunk.locations.push(pos.clone());
-        self.chunk.locations.push(pos.clone());
+        self.function.chunk.codes.push_short(instr);
+        self.function.chunk.locations.push(pos.clone());
+        self.function.chunk.locations.push(pos.clone());
 
-        return self.chunk.codes.len() - 2;
+        return self.function.chunk.codes.len() - 2;
     }
 
     /// Emits a jump instructions with a dummy jump offset. This offset should be
@@ -192,7 +201,7 @@ impl Compiler {
     /// * `token` – The token associated with this jump patch.
     fn patch_jump(&mut self, offset: usize, token: Rc<Token>) {
         // -2 to adjust for the bytecode for the jump offset itself.
-        let jump = match u16::try_from((self.chunk.codes.len() - offset) - 2) {
+        let jump = match u16::try_from((self.function.chunk.codes.len() - offset) - 2) {
             Ok(x) => x,
             Err(_) => {
                 return self.error_at_token(token, "Too much code to jump over.");
@@ -200,8 +209,8 @@ impl Compiler {
         };
 
         let j = jump.to_be_bytes();
-        self.chunk.codes.modify_byte(offset, j[0]);
-        self.chunk.codes.modify_byte(offset + 1, j[1]);
+        self.function.chunk.codes.modify_byte(offset, j[0]);
+        self.function.chunk.codes.modify_byte(offset + 1, j[1]);
     }
 
     /// Patches the offset of a break (OP_JUMP) instruction.
@@ -218,7 +227,7 @@ impl Compiler {
         // to pop off, then we leave the stack untouched when we break the loop.
         let with_condition = if has_condition { 1 } else { 0 };
 
-        let jump = match u16::try_from(self.chunk.codes.len() - offset + with_condition) {
+        let jump = match u16::try_from(self.function.chunk.codes.len() - offset + with_condition) {
             Ok(x) => x,
             Err(_) => {
                 return self.error_at_token(token, "Too much code to jump over.");
@@ -226,8 +235,8 @@ impl Compiler {
         };
 
         let j = jump.to_be_bytes();
-        self.chunk.codes.modify_byte(offset, j[0]);
-        self.chunk.codes.modify_byte(offset + 1, j[1]);
+        self.function.chunk.codes.modify_byte(offset, j[0]);
+        self.function.chunk.codes.modify_byte(offset + 1, j[1]);
     }
 
     /// Patches the offset of a jump instruction.
@@ -236,15 +245,15 @@ impl Compiler {
     /// * `loop_start` – The position in the chunk of the jump instruction to be patched.
     /// * `token` – The token associated with this jump patch.
     fn emit_loop(&mut self, loop_start: usize, token: Rc<Token>) {
-        let offset = self.chunk.codes.len() - loop_start;
+        let offset = self.function.chunk.codes.len() - loop_start;
 
-        if (offset - 2) < 256 {
+        if offset < (u8::MAX - 2) as usize {
             self.emit_op_code(OpCode::OP_LOOP_JUMP, (token.line_num, token.column_num));
 
             // +2 to account for the 'OP_LOOP_JUMP' and its operand.
             let jump = (offset + 2) as u8;
             self.emit_raw_byte(jump, (token.line_num, token.column_num));
-        } else if (offset - 3) < (u16::MAX as usize) {
+        } else if offset < (u16::MAX - 3) as usize {
             self.emit_op_code(OpCode::OP_LOOP_JUMP_LONG, (token.line_num, token.column_num));
 
             // +3 to account for the 'OP_LOOP_JUMP_LONG' and its operands.

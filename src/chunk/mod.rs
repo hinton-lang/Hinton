@@ -1,9 +1,9 @@
 pub mod instructions_list;
 pub mod op_codes;
 
-use super::objects::Object;
 use op_codes::OpCode;
-use std::rc::Rc;
+
+use super::objects::Object;
 
 /// The result of storing a constant object
 /// into the constant pool.
@@ -14,6 +14,7 @@ pub enum ConstantPos {
 
 /// Contains all the necessary information about
 /// the instructions to be executed.
+#[derive(Clone)]
 pub struct Chunk {
     /// The list of op_code instructions
     pub codes: instructions_list::InstructionsList,
@@ -21,7 +22,7 @@ pub struct Chunk {
     /// code. This is useful when throwing runtime errors
     pub locations: Vec<(usize, usize)>,
     /// The literal constant values found in this chuck of code.
-    constants: Vec<Rc<Object>>,
+    constants: Vec<Object>,
 }
 
 impl<'a> Chunk {
@@ -47,13 +48,13 @@ impl<'a> Chunk {
     /// returns the variant `ConstantPos::Pos(u16)` with the position of the
     /// object in the pool. If the item could not be added because the pool is
     /// full, returns the enum variant `ConstantPos::Error`.
-    pub fn add_constant(&mut self, obj: Rc<Object>) -> ConstantPos {
+    pub fn add_constant(&mut self, obj: Object) -> ConstantPos {
         return if self.constants.len() < (u16::MAX as usize) {
             // Having to create an iterator, then enumerating that iterator, to finally
             // look for the object seems very expensive. Can we do better? Do the benefits
             // of storing a single object in the heap outweigh the cost of these operations?
             // TODO: Find a better way of doing this, or do research to see if the benefits outweigh the cost.
-            match self.constants.iter().enumerate().find(|x| x.1.equals(Rc::clone(&obj))) {
+            match self.constants.iter().enumerate().find(|x| x.1.equals(&obj)) {
                 Some(x) => ConstantPos::Pos(x.0 as u16),
                 None => {
                     self.constants.push(obj);
@@ -72,7 +73,7 @@ impl<'a> Chunk {
     ///
     /// ## Returns
     /// `Option<&Rc<Object<'a>>>` – The object at the given index in the constant pool
-    pub fn get_constant(&self, idx: usize) -> Option<&Rc<Object>> {
+    pub fn get_constant(&self, idx: usize) -> Option<&Object> {
         self.constants.get(idx)
     }
 
@@ -124,7 +125,7 @@ impl<'a> Chunk {
                     print!("\x1b[32m{:#04X}\x1b[0m – \x1b[36m{:?}\x1b[0m ", instr.clone() as u8, instr);
 
                     // Reads two bytes as the index of a constant
-                    let mut const_val = |is_long: bool| -> &Rc<Object> {
+                    let mut const_val = |is_long: bool| -> &Object {
                         i += 1;
 
                         let pos;
@@ -177,7 +178,7 @@ impl<'a> Chunk {
 
                         OpCode::OP_JUMP | OpCode::OP_JUMP_IF_FALSE => {
                             i += 1;
-                            println!("\t{}", (self.codes.get_short(i).unwrap() as usize) + i + 1);
+                            println!("\t{}", (self.codes.get_short(i).unwrap() as usize) + i + 2);
                             i += 1;
                         }
 
@@ -187,7 +188,6 @@ impl<'a> Chunk {
                 }
                 None => println!("No Instruction Found..."),
             }
-
             i += 1;
         }
     }
