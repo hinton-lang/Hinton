@@ -10,22 +10,6 @@ pub struct Token {
     pub lexeme: String,
 }
 
-/// Implementation of Token methods
-impl Token {
-    /// Print's a console-friendly version of this token
-    /// ## Arguments
-    /// * `details` – Whether or not to print other information about the token.
-    pub fn print(&self, details: bool) {
-        print!("Token: \x1b[36m{:?}\x1b[0m", self.token_type);
-
-        if details {
-            println!(" \"{}\" at [{}:{}].", self.lexeme, self.line_num, self.column_num);
-        } else {
-            println!();
-        }
-    }
-}
-
 /// Represents the type of a token.
 #[allow(non_camel_case_types)]
 #[derive(Debug, PartialEq, Clone)]
@@ -48,7 +32,6 @@ pub enum TokenType {
     DECREMENT,
     DOT_SEPARATOR,
     ELSE_KEYWORD,
-    ELVIS_OPERATOR,
     ENUM_KEYWORD,
     EOF,
     EQUALS_SIGN,

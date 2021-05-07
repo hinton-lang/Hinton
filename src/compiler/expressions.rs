@@ -1,12 +1,6 @@
 use super::{Compiler, SymbolType};
+use crate::{ast::*, chunk::OpCode, lexer::tokens::Token, objects::Object};
 use std::rc::Rc;
-
-use crate::{
-    chunk::{op_codes::OpCode, ConstantPos},
-    intermediate::ast::*,
-    lexer::tokens::Token,
-    objects::Object,
-};
 
 impl Compiler {
     /// Compiles a literal expression.
@@ -14,31 +8,31 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – A literal expression node.
     pub(super) fn compile_literal(&mut self, expr: &LiteralExprNode) {
-        let obj = Rc::clone(&expr.value);
+        let obj = expr.value.clone();
         let opr_pos = (expr.token.line_num, expr.token.column_num);
 
-        match *obj {
+        match obj {
             Object::Bool(x) if x => {
-                self.emit_op_code(OpCode::OP_TRUE, opr_pos);
+                self.emit_op_code(OpCode::LoadImmTrue, opr_pos);
             }
             Object::Bool(x) if !x => {
-                self.emit_op_code(OpCode::OP_FALSE, opr_pos);
+                self.emit_op_code(OpCode::LoadImmFalse, opr_pos);
             }
             Object::Null => {
-                self.emit_op_code(OpCode::OP_NULL, opr_pos);
+                self.emit_op_code(OpCode::LoadImmNull, opr_pos);
             }
             Object::Number(x) if x == 0f64 => {
-                self.emit_op_code(OpCode::OP_LOAD_IMM_0, opr_pos);
+                self.emit_op_code(OpCode::LoadImm0, opr_pos);
             }
             Object::Number(x) if x == 1f64 => {
-                self.emit_op_code(OpCode::OP_LOAD_IMM_1, opr_pos);
+                self.emit_op_code(OpCode::LoadImm1, opr_pos);
             }
             Object::Number(x) if x > 1f64 && x.fract() == 0.0 => {
                 if x < 256 as f64 {
-                    self.emit_op_code(OpCode::OP_LOAD_IMM, opr_pos);
+                    self.emit_op_code(OpCode::LoadImm, opr_pos);
                     self.emit_raw_byte(x as u8, opr_pos);
                 } else if x < (u16::MAX as f64) {
-                    self.emit_op_code(OpCode::OP_LOAD_IMM_LONG, opr_pos);
+                    self.emit_op_code(OpCode::LoadImmLong, opr_pos);
                     self.emit_short(x as u16, opr_pos);
                 } else {
                     // If the number cannot be encoded within two bytes (as an unsigned short),
@@ -58,9 +52,9 @@ impl Compiler {
         self.compile_node(&expr.operand);
 
         let expression_op_code = match expr.opr_type {
-            UnaryExprType::ArithmeticNeg => OpCode::OP_NEGATE,
-            UnaryExprType::LogicNeg => OpCode::OP_LOGIC_NOT,
-            UnaryExprType::BitwiseNeg => OpCode::OP_BITWISE_NOT,
+            UnaryExprType::ArithmeticNeg => OpCode::Negate,
+            UnaryExprType::LogicNeg => OpCode::LogicNot,
+            UnaryExprType::BitwiseNeg => OpCode::BitwiseNot,
         };
 
         self.emit_op_code(expression_op_code, expr.pos);
@@ -88,27 +82,27 @@ impl Compiler {
         self.compile_node(&expr.right);
 
         let expression_op_code = match expr.opr_type {
-            BinaryExprType::BitwiseAND => OpCode::OP_BITWISE_AND,
-            BinaryExprType::BitwiseOR => OpCode::OP_BITWISE_OR,
-            BinaryExprType::BitwiseShiftLeft => OpCode::OP_BITWISE_L_SHIFT,
-            BinaryExprType::BitwiseShiftRight => OpCode::OP_BITWISE_R_SHIFT,
-            BinaryExprType::BitwiseXOR => OpCode::OP_BITWISE_XOR,
-            BinaryExprType::Division => OpCode::OP_DIVIDE,
-            BinaryExprType::Expo => OpCode::OP_EXPO,
+            BinaryExprType::BitwiseAND => OpCode::BitwiseAnd,
+            BinaryExprType::BitwiseOR => OpCode::BitwiseOr,
+            BinaryExprType::BitwiseShiftLeft => OpCode::BitwiseShiftLeft,
+            BinaryExprType::BitwiseShiftRight => OpCode::BitwiseShiftRight,
+            BinaryExprType::BitwiseXOR => OpCode::BitwiseXor,
+            BinaryExprType::Division => OpCode::Divide,
+            BinaryExprType::Expo => OpCode::Expo,
             BinaryExprType::LogicAND => unreachable!("The 'AND' expression should have been compiled by now."),
-            BinaryExprType::LogicEQ => OpCode::OP_EQUALS,
-            BinaryExprType::LogicGreaterThan => OpCode::OP_GREATER_THAN,
-            BinaryExprType::LogicGreaterThanEQ => OpCode::OP_GREATER_THAN_EQ,
-            BinaryExprType::LogicLessThan => OpCode::OP_LESS_THAN,
-            BinaryExprType::LogicLessThanEQ => OpCode::OP_LESS_THAN_EQ,
-            BinaryExprType::LogicNotEQ => OpCode::OP_NOT_EQUALS,
+            BinaryExprType::LogicEQ => OpCode::Equals,
+            BinaryExprType::LogicGreaterThan => OpCode::GreaterThan,
+            BinaryExprType::LogicGreaterThanEQ => OpCode::GreaterThanEq,
+            BinaryExprType::LogicLessThan => OpCode::LessThan,
+            BinaryExprType::LogicLessThanEQ => OpCode::LessThanEq,
+            BinaryExprType::LogicNotEQ => OpCode::NotEq,
             BinaryExprType::LogicOR => unreachable!("The 'OR' expression should have been compiled by now."),
-            BinaryExprType::Minus => OpCode::OP_SUBTRACT,
-            BinaryExprType::Modulus => OpCode::OP_MODULUS,
-            BinaryExprType::Multiplication => OpCode::OP_MULTIPLY,
-            BinaryExprType::Nullish => OpCode::OP_NULLISH_COALESCING,
-            BinaryExprType::Addition => OpCode::OP_ADD,
-            BinaryExprType::Range => OpCode::OP_GENERATE_RANGE,
+            BinaryExprType::Minus => OpCode::Subtract,
+            BinaryExprType::Modulus => OpCode::Modulus,
+            BinaryExprType::Multiplication => OpCode::Multiply,
+            BinaryExprType::Nullish => OpCode::NullishCoalescing,
+            BinaryExprType::Addition => OpCode::Add,
+            BinaryExprType::Range => OpCode::MakeRange,
         };
 
         self.emit_op_code(expression_op_code, (expr.opr_token.line_num, expr.opr_token.column_num));
@@ -142,11 +136,11 @@ impl Compiler {
                 // For 'AND' expressions, if the lhs is false, then the entire expression must be false.
                 // We emit a `OP_JUMP_IF_FALSE` instruction to jump over the rest of this expression
                 // if the lhs is falsey.
-                let end_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&expr.opr_token));
+                let end_jump = self.emit_jump(OpCode::JumpIfFalse, Rc::clone(&expr.opr_token));
 
                 // If the lhs is not false, the we pop that value off the stack, and continue to execute the
                 // expressions in the rhs.
-                self.emit_op_code(OpCode::OP_POP_STACK, (expr.opr_token.line_num, expr.opr_token.column_num));
+                self.emit_op_code(OpCode::PopStack, (expr.opr_token.line_num, expr.opr_token.column_num));
                 self.compile_node(&expr.right);
 
                 // Patches the `OP_JUMP_IF_FALSE` instruction above so that if the lhs is falsey, it knows
@@ -169,15 +163,15 @@ impl Compiler {
 
                 // For 'OR' expressions, if the lhs is true, then the entire expression must be true.
                 // We emit a `OP_JUMP_IF_FALSE` instruction to jump over to the next expression if the lhs is falsey.
-                let else_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&expr.opr_token));
+                let else_jump = self.emit_jump(OpCode::JumpIfFalse, Rc::clone(&expr.opr_token));
 
                 // If the lhs is truthy, then we skip over the rest of this expression.
-                let end_jump = self.emit_jump(OpCode::OP_JUMP, Rc::clone(&expr.opr_token));
+                let end_jump = self.emit_jump(OpCode::Jump, Rc::clone(&expr.opr_token));
 
                 // Patches the 'else_jump' so that is the lhs is falsey, the `OP_JUMP_IF_FALSE` instruction
                 // above knows where the starts of the next expression is.
                 self.patch_jump(else_jump, Rc::clone(&expr.opr_token));
-                self.emit_op_code(OpCode::OP_POP_STACK, (expr.opr_token.line_num, expr.opr_token.column_num));
+                self.emit_op_code(OpCode::PopStack, (expr.opr_token.line_num, expr.opr_token.column_num));
                 self.compile_node(&expr.right);
 
                 // Patches the 'end_jump' so that if the lhs is truthy, then the `OP_JUMP` instruction above
@@ -196,10 +190,10 @@ impl Compiler {
         match self.resolve_symbol(Rc::clone(&expr.token), false) {
             Some(idx) => {
                 if idx < 256 {
-                    self.emit_op_code(OpCode::OP_GET_VAR, (expr.token.line_num, expr.token.column_num));
+                    self.emit_op_code(OpCode::GetVar, (expr.token.line_num, expr.token.column_num));
                     self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
                 } else {
-                    self.emit_op_code(OpCode::OP_GET_VAR_LONG, (expr.token.line_num, expr.token.column_num));
+                    self.emit_op_code(OpCode::GetVarLong, (expr.token.line_num, expr.token.column_num));
                     self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
                 }
             }
@@ -217,10 +211,10 @@ impl Compiler {
         match self.resolve_symbol(Rc::clone(&expr.target), true) {
             Some(idx) => {
                 if idx < 256 {
-                    self.emit_op_code(OpCode::OP_SET_VAR, (expr.target.line_num, expr.target.column_num));
+                    self.emit_op_code(OpCode::SetVar, (expr.target.line_num, expr.target.column_num));
                     self.emit_raw_byte(idx as u8, (expr.target.line_num, expr.target.column_num));
                 } else {
-                    self.emit_op_code(OpCode::OP_SET_VAR_LONG, (expr.target.line_num, expr.target.column_num));
+                    self.emit_op_code(OpCode::SetVarLong, (expr.target.line_num, expr.target.column_num));
                     self.emit_short(idx, (expr.target.line_num, expr.target.column_num));
                 }
             }
@@ -236,10 +230,10 @@ impl Compiler {
         match self.resolve_symbol(Rc::clone(&expr.target), false) {
             Some(idx) => {
                 if idx < 256 {
-                    self.emit_op_code(OpCode::OP_POST_INCREMENT, (expr.token.line_num, expr.token.column_num));
+                    self.emit_op_code(OpCode::PostIncrement, (expr.token.line_num, expr.token.column_num));
                     self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
                 } else {
-                    self.emit_op_code(OpCode::OP_POST_INCREMENT_LONG, (expr.token.line_num, expr.token.column_num));
+                    self.emit_op_code(OpCode::PostIncrementLong, (expr.token.line_num, expr.token.column_num));
                     self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
                 }
             }
@@ -255,10 +249,10 @@ impl Compiler {
         match self.resolve_symbol(Rc::clone(&expr.target), false) {
             Some(idx) => {
                 if idx < 256 {
-                    self.emit_op_code(OpCode::OP_POST_DECREMENT, (expr.token.line_num, expr.token.column_num));
+                    self.emit_op_code(OpCode::PostDecrement, (expr.token.line_num, expr.token.column_num));
                     self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
                 } else {
-                    self.emit_op_code(OpCode::OP_POST_DECREMENT_LONG, (expr.token.line_num, expr.token.column_num));
+                    self.emit_op_code(OpCode::PostDecrementLong, (expr.token.line_num, expr.token.column_num));
                     self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
                 }
             }
@@ -280,10 +274,10 @@ impl Compiler {
             }
 
             if expr.values.len() < 256 {
-                self.emit_op_code(OpCode::OP_ARRAY, (expr.token.line_num, expr.token.column_num));
+                self.emit_op_code(OpCode::MakeArray, (expr.token.line_num, expr.token.column_num));
                 self.emit_raw_byte(expr.values.len() as u8, (expr.token.line_num, expr.token.column_num));
             } else {
-                self.emit_op_code(OpCode::OP_ARRAY_LONG, (expr.token.line_num, expr.token.column_num));
+                self.emit_op_code(OpCode::MakeArrayLong, (expr.token.line_num, expr.token.column_num));
                 self.emit_short(expr.values.len() as u16, (expr.token.line_num, expr.token.column_num));
             }
         } else {
@@ -298,7 +292,21 @@ impl Compiler {
     pub(super) fn compile_array_indexing_expr(&mut self, expr: &ArrayIndexingExprNode) {
         self.compile_node(&expr.target);
         self.compile_node(&expr.index);
-        self.emit_op_code(OpCode::OP_ARRAY_INDEXING, expr.pos);
+        self.emit_op_code(OpCode::Indexing, expr.pos);
+    }
+
+    pub(super) fn compile_function_call_expr(&mut self, expr: &FunctionCallExprNode) {
+        // Compile the call's identifier
+        self.compile_node(&expr.target);
+
+        // Compile call's arguments
+        for arg in expr.args.iter() {
+            self.compile_node(&arg.value);
+        }
+
+        // Call the function at runtime
+        self.emit_op_code(OpCode::FuncCall, expr.pos);
+        self.emit_raw_byte(expr.args.len() as u8, expr.pos);
     }
 
     /// Looks for a symbol with the given token name in the symbol table.
@@ -315,7 +323,7 @@ impl Compiler {
         // We loop backwards because we want to first check if the symbol
         // exists in the current scope, then in any of the parent scopes, etc..
         for (index, symbol) in self.symbol_table.iter_mut().enumerate().rev() {
-            if symbol.name.lexeme == token.lexeme {
+            if symbol.name == token.lexeme {
                 if !symbol.is_initialized {
                     match symbol.symbol_type {
                         SymbolType::Variable => self.error_at_token(Rc::clone(&token), "Cannot read variable in its own initializer."),
@@ -347,8 +355,8 @@ impl Compiler {
                             self.error_at_token(token, "Cannot reassign to enum.");
                             return None;
                         }
-                        // Only variables are reassignable
-                        SymbolType::Variable => {}
+                        // Only variables & parameters are reassignable
+                        SymbolType::Variable | SymbolType::Parameter => {}
                     }
                 }
 
@@ -358,7 +366,7 @@ impl Compiler {
         }
 
         // The symbol doesn't exist
-        self.error_at_token(token, "Use of undeclared symbol.");
+        self.error_at_token(token, "Use of undeclared identifier.");
         None
     }
 
@@ -367,21 +375,21 @@ impl Compiler {
     /// # Arguments
     /// * `obj` – A reference to the literal object being added to the pool.
     /// * `token` – The object's original token.
-    pub(super) fn add_literal_to_pool(&mut self, obj: Rc<Object>, token: Rc<Token>) {
-        let constant_pos = self.chunk.add_constant(obj);
+    pub(super) fn add_literal_to_pool(&mut self, obj: Object, token: Rc<Token>) {
+        let constant_pos = self.function.body.chunk.add_constant(obj);
         let opr_pos = (token.line_num, token.column_num);
 
         match constant_pos {
-            ConstantPos::Pos(idx) => {
+            Ok(idx) => {
                 if idx < 256 {
-                    self.emit_op_code(OpCode::OP_LOAD_CONST, opr_pos);
+                    self.emit_op_code(OpCode::LoadConstant, opr_pos);
                     self.emit_raw_byte(idx as u8, opr_pos);
                 } else {
-                    self.emit_op_code(OpCode::OP_LOAD_CONST_LONG, opr_pos);
+                    self.emit_op_code(OpCode::LoadConstantLong, opr_pos);
                     self.emit_short(idx, opr_pos);
                 }
             }
-            ConstantPos::Error => {
+            Err(_) => {
                 self.error_at_token(Rc::clone(&token), "Too many constants in one chunk.");
             }
         }

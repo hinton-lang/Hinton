@@ -1,31 +1,62 @@
 #[cfg(feature = "bench_time")]
 use std::time::Instant;
 
+use crate::{
+    chunk::OpCode,
+    compiler::Compiler,
+    exec_time,
+    objects::{self, FunctionObject, Object},
+    parser::Parser,
+};
 use std::rc::Rc;
 
+// Submodules
 mod arithmetic;
 mod run;
 
-use crate::{
-    chunk, exec_time,
-    intermediate::{compiler::Compiler, parser::Parser},
-    objects::{self, Object},
-};
-
 /// The types of results the interpreter can return
-#[allow(non_camel_case_types)]
 pub enum InterpretResult {
-    INTERPRET_OK,
-    INTERPRET_PARSE_ERROR,
-    INTERPRET_COMPILE_ERROR,
-    INTERPRET_RUNTIME_ERROR,
+    CompileError,
+    Ok,
+    ParseError,
+    RuntimeError,
+}
+
+/// Represents a single ongoing function call.
+pub struct CallFrame {
+    function: FunctionObject,
+    ip: usize,
+    base_pointer: usize,
+}
+
+impl CallFrame {
+    fn get_next_op_code(&mut self) -> Option<OpCode> {
+        let code = self.function.body.chunk.get_op_code(self.ip);
+        self.ip += 1;
+        return code;
+    }
+
+    fn get_next_byte(&mut self) -> Option<u8> {
+        let code = self.function.body.chunk.get_byte(self.ip);
+        self.ip += 1;
+        return code;
+    }
+
+    fn get_next_short(&mut self) -> Option<u16> {
+        let next_short = self.function.body.chunk.get_short(self.ip);
+        self.ip += 2;
+        return next_short;
+    }
+
+    fn get_constant(&self, idx: usize) -> &Object {
+        self.function.body.chunk.get_constant(idx).unwrap()
+    }
 }
 
 /// Represents a virtual machine
 pub struct VirtualMachine {
-    stack: Vec<Rc<objects::Object>>,
-    chunk: chunk::Chunk,
-    ip: usize,
+    stack: Vec<objects::Object>,
+    frames: Vec<CallFrame>,
 }
 
 impl<'a> VirtualMachine {
@@ -35,9 +66,8 @@ impl<'a> VirtualMachine {
     /// * `VirtualMachine` – a new instance of the virtual machine.
     pub fn new() -> Self {
         Self {
-            stack: Vec::new(),
-            chunk: chunk::Chunk::new(),
-            ip: 0,
+            stack: vec![],
+            frames: vec![],
         }
     }
 
@@ -54,45 +84,113 @@ impl<'a> VirtualMachine {
             Err(e) => return e,
         };
 
-        // This is where different static analysis of the
-        // AST would take place
-        // analyzer::analyze_module(Rc::clone(&ast));
-
         // Compiles the program into bytecode and calculates the compiler's execution time
-        let compiling = exec_time(|| Compiler::compile(Rc::clone(&ast)));
+        let compiling = exec_time(|| Compiler::compile("<script>", &ast, &vec![], 0, 0));
 
         // Executes the program
         return match compiling.0 {
-            Ok(c) => {
-                self.chunk = c;
+            Ok(main_func) => {
+                self.stack.push(Object::Function(main_func.clone()));
 
-                #[cfg(feature = "bench_time")]
-                let start = Instant::now();
+                match self.call(main_func, 0) {
+                    Ok(_) => {
+                        #[cfg(feature = "bench_time")]
+                        let start = Instant::now();
 
-                // Rus the program.
-                let runtime_result = self.run();
+                        // Rus the program.
+                        let runtime_result = self.run();
 
-                #[cfg(feature = "bench_time")]
-                {
-                    let run_time = start.elapsed();
+                        #[cfg(feature = "bench_time")]
+                        {
+                            let run_time = start.elapsed();
 
-                    println!("\n======= ⚠️  Execution Results ⚠️  =======");
-                    println!("Parse Time:\t{:?}", parsing.1);
-                    println!("Compile Time:\t{:?}", compiling.1);
-                    println!("Run Time:\t{:?}", run_time);
-                    println!("=======================================");
+                            println!("\n======= ⚠️  Execution Results ⚠️  =======");
+                            println!("Parse Time:\t{:?}", parsing.1);
+                            println!("Compile Time:\t{:?}", compiling.1);
+                            println!("Run Time:\t{:?}", run_time);
+                            println!("=======================================");
+                        }
+
+                        return runtime_result;
+                    }
+                    Err(_) => return InterpretResult::RuntimeError,
                 }
-
-                return runtime_result;
             }
             Err(e) => e,
         };
     }
 
+    fn current_frame(&self) -> &CallFrame {
+        self.frames.last().unwrap()
+    }
+
+    fn current_frame_mut(&mut self) -> &mut CallFrame {
+        let frames_len = self.frames.len();
+        &mut self.frames[frames_len - 1]
+    }
+
+    fn get_next_op_code(&mut self) -> Option<OpCode> {
+        self.current_frame_mut().get_next_op_code()
+    }
+
+    fn get_next_byte(&mut self) -> Option<u8> {
+        self.current_frame_mut().get_next_byte()
+    }
+
+    fn get_next_short(&mut self) -> Option<u16> {
+        self.current_frame_mut().get_next_short()
+    }
+
+    fn pop_stack(&mut self) -> Object {
+        match self.stack.pop() {
+            Some(obj) => obj,
+            None => {
+                panic!("Stack is empty!")
+            }
+        }
+    }
+
+    fn push_stack(&mut self, new_val: Object) {
+        self.stack.push(new_val)
+    }
+
+    fn peek_stack(&self, pos: usize) -> &Object {
+        &self.stack[pos]
+    }
+
+    fn peek_stack_mut(&mut self, pos: usize) -> &mut Object {
+        &mut self.stack[pos]
+    }
+
+    fn read_constant(&self, idx: usize) -> &Object {
+        return self.current_frame().get_constant(idx);
+    }
+
+    fn call_value(&mut self, callee: Object, arg_count: u8) -> Result<(), ()> {
+        return match callee {
+            Object::Function(obj) => self.call(obj, arg_count),
+            _ => {
+                self.report_runtime_error(&format!("Cannot call object of type '{}'.", callee.type_name()));
+                Err(())
+            }
+        };
+    }
+
     /// Throws a runtime error to the console
-    pub(super) fn report_runtime_error(&self, message: &'a str) {
-        let line = self.chunk.locations.get(self.ip).unwrap();
+    pub fn report_runtime_error(&self, message: &'a str) {
+        let frame = self.current_frame();
+        let line = frame.function.body.chunk.get_line_info(frame.ip).unwrap();
         eprintln!("\x1b[31;1mRuntimeError\x1b[0m at [{}:{}] – {}", line.0, line.1, message);
+
+        // Print stack trace
+        for frame in self.frames.iter().rev() {
+            let func = &frame.function;
+            let line = frame.function.body.chunk.get_line_info(frame.ip).unwrap();
+
+            if func.body.name != "" {
+                eprintln!("Stack trace: [{}:{}] at '{}(...)'", line.0, line.1, func.body.name);
+            }
+        }
     }
 
     /// Checks that both operands of a binary operand are numeric.
@@ -104,7 +202,7 @@ impl<'a> VirtualMachine {
     ///
     /// ## Returns
     /// `bool` – True if both operands are numeric, false otherwise.
-    pub(super) fn check_numeric_operands(&self, left: Rc<Object>, right: Rc<Object>, opr: &str) -> bool {
+    pub fn check_numeric_operands(&self, left: &Object, right: &Object, opr: &str) -> bool {
         // If the operands are not numeric, throw a runtime error.
         if !left.is_numeric() || !right.is_numeric() {
             self.report_runtime_error(&format!(
@@ -128,7 +226,7 @@ impl<'a> VirtualMachine {
     ///
     /// ## Returns
     /// `bool` – True if both operands are numeric, false otherwise.
-    pub(super) fn check_integer_operands(&self, left: Rc<Object>, right: Rc<Object>, opr: &str) -> bool {
+    pub fn check_integer_operands(&self, left: &Object, right: &Object, opr: &str) -> bool {
         // If the operands are not numeric, throw a runtime error.
         if !left.is_int() || !right.is_int() {
             self.report_runtime_error(&format!(

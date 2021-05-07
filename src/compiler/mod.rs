@@ -1,36 +1,45 @@
-use std::rc::Rc;
-use std::{convert::TryFrom, str};
+use crate::{
+    ast::*,
+    chunk::{self, Chunk, OpCode},
+    lexer::tokens::{Token, TokenType},
+    objects::{FunctionChunk, FunctionObject},
+    virtual_machine::InterpretResult,
+};
+use std::{convert::TryFrom, fmt, fmt::Display, rc::Rc, str};
+
+// Submodules
 mod expressions;
 mod statements;
 
-use crate::{
-    chunk::{op_codes::OpCode, Chunk},
-    lexer::tokens::{Token, TokenType},
-    virtual_machine::InterpretResult,
-};
-
-use super::ast::*;
-
 /// Types of symbols available in Hinton.
-pub enum SymbolType {
+enum SymbolType {
     Variable,
     Constant,
     Function,
     Class,
     Enum,
+    Parameter,
 }
 
 /// Represents a symbol. Used for lexical scoping.
-pub struct Symbol {
-    name: Rc<Token>,
+struct Symbol {
+    name: String,
     symbol_depth: usize,
     symbol_type: SymbolType,
     is_initialized: bool,
     is_used: bool,
+    pos: (usize, usize),
+}
+
+impl Display for Symbol {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        let s = format!("(name: {}, scope: {})", self.name.as_str(), self.symbol_depth);
+        fmt::Debug::fmt(s.as_str(), f)
+    }
 }
 
 /// Represents a break statement, which is associated with a loop.
-pub struct BreakScope {
+struct BreakScope {
     loop_start: usize,
     loop_position: usize,
 }
@@ -39,7 +48,7 @@ pub struct BreakScope {
 pub struct Compiler {
     had_error: bool,
     is_in_panic: bool,
-    chunk: Chunk,
+    function: FunctionObject,
     // Lexical scoping of declarations
     symbol_table: Vec<Symbol>,
     scope_depth: usize,
@@ -50,54 +59,95 @@ pub struct Compiler {
     breaks: Vec<BreakScope>,
 }
 
+pub enum CompilerType {
+    Function,
+    Script,
+}
+
 impl Compiler {
     /// Compiles an Abstract Syntax Tree into ByteCode.
     /// While the AST is used to perform static analysis like type checking
     /// and error detection, the ByteCode is used to execute the program faster.
     ///
     /// ## Arguments
+    /// * `name` – The name of the function/module to be compiled.
     /// * `program` – The root node of the AST for a particular program. This contains all the statements
     /// and declarations in a program.
+    /// * `params` – The parameters of the function to be compiled. If compiling a module, pass an
+    /// empty vector.
+    /// * `min_arity` – Minimum number of parameters when compiling a function.
+    /// * `max_arity` – Maximum number of parameters when compiling a function.
     ///
     /// ## Returns
     /// `Result<chunk, InterpretResult>` – If the program had no compile-time errors, returns
     /// the main chunk for this module. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
-    pub fn compile(program: Rc<ModuleNode>) -> Result<Chunk, InterpretResult> {
+    pub fn compile(
+        name: &str,
+        program: &ASTNode,
+        params: &Vec<Parameter>,
+        min_arity: u8,
+        max_arity: u8,
+    ) -> Result<FunctionObject, InterpretResult> {
         let mut c = Compiler {
             had_error: false,
             is_in_panic: false,
-            chunk: Chunk::new(),
-            symbol_table: vec![],
+            function: FunctionObject {
+                defaults: vec![],
+                body: FunctionChunk {
+                    min_arity,
+                    max_arity,
+                    chunk: Chunk::new(),
+                    name: String::from(name),
+                },
+            },
+            symbol_table: vec![Symbol {
+                name: String::from(name),
+                symbol_depth: 0,
+                symbol_type: SymbolType::Function,
+                is_initialized: true,
+                is_used: true,
+                pos: (0, 0),
+            }],
+            scope_depth: 0,
             loops: vec![],
             breaks: vec![],
-            scope_depth: 0,
         };
 
-        for node in program.body.iter() {
-            if c.had_error {
-                return Err(InterpretResult::INTERPRET_COMPILE_ERROR);
-            }
+        // compiles the parameter declarations so that the compiler
+        // knows about their their lexical scoping (their stack position),
+        // but does not compile the default value for named parameters.
+        c.compile_parameters(params);
+        // Compile the function body
+        c.compile_node(&program);
+        // ends the compiler.
+        c.end_compiler();
 
-            c.compile_node(node);
+        if !c.had_error && !c.is_in_panic {
+            Ok(c.function)
+        } else {
+            return Err(InterpretResult::CompileError);
         }
+    }
+
+    fn end_compiler(&mut self) {
+        // TODO: Emit the correct position
+        self.emit_op_code(OpCode::LoadImmNull, (0, 0));
+        self.emit_op_code(OpCode::Return, (0, 0));
+
+        // The number of local symbols that need to be popped off the stack
+        let num_of_symbols = self.symbol_table.len() - 1;
+        self.emit_raw_byte(num_of_symbols as u8, (0, 0));
 
         // Shows the chunk.
-        // c.chunk.disassemble("<script>");
-        // c.chunk.print_raw("<script>");
-
-        if !c.had_error {
-            // Return the compiled chunk.
-            Ok(c.chunk)
-        } else {
-            return Err(InterpretResult::INTERPRET_COMPILE_ERROR);
-        }
+        // chunk::disassemble_chunk(&self.function.body.chunk, self.function.body.name.as_str());
+        // chunk::print_raw(&self.function.body.chunk, self.function.body.name.as_str());
     }
 
     /// Compiles an AST node.
     ///
     /// ## Arguments
     /// * `node` – The node to be compiled.
-    pub fn compile_node(&mut self, node: &ASTNode) {
+    fn compile_node(&mut self, node: &ASTNode) {
         return match node {
             ASTNode::Array(x) => self.compile_array_expr(x),
             ASTNode::ArrayIndexing(x) => self.compile_array_indexing_expr(x),
@@ -105,22 +155,33 @@ impl Compiler {
             ASTNode::BlockStmt(x) => self.compile_block_stmt(x),
             ASTNode::BreakStmt(x) => self.compile_break_stmt(x),
             ASTNode::ConstantDecl(x) => self.compile_constant_decl(x),
-            ASTNode::ExpressionStmt(x) => {
-                self.compile_node(&x.child);
-                self.emit_op_code(OpCode::OP_POP_STACK, x.pos);
-            }
+            ASTNode::ExpressionStmt(x) => self.compile_expression_stmt(x),
+            ASTNode::FunctionCallExpr(x) => self.compile_function_call_expr(x),
+            ASTNode::FunctionDecl(x) => self.compile_function_decl(x),
             ASTNode::Identifier(x) => self.compile_identifier_expr(x),
             ASTNode::IfStmt(x) => self.compile_if_stmt(x),
             ASTNode::Literal(x) => self.compile_literal(x),
+            ASTNode::Module(x) => self.compile_module(x),
             ASTNode::PostDecrement(x) => self.compile_post_decrement_expr(x),
             ASTNode::PostIncrement(x) => self.compile_post_increment_expr(x),
             ASTNode::PrintStmt(x) => self.compile_print_stmt(x),
+            ASTNode::ReturnStmt(x) => self.compile_return_stmt(x),
             ASTNode::TernaryConditional(x) => self.compile_ternary_conditional(x),
             ASTNode::Unary(x) => self.compile_unary_expr(x),
             ASTNode::VarReassignment(x) => self.compile_var_reassignment_expr(x),
             ASTNode::VariableDecl(x) => self.compile_variable_decl(x),
             ASTNode::WhileStmt(x) => self.compile_while_stmt(x),
         };
+    }
+
+    fn compile_module(&mut self, module: &ModuleNode) {
+        for node in module.body.iter() {
+            self.compile_node(node);
+
+            if self.had_error {
+                break;
+            }
+        }
     }
 
     /// Emits a byte instruction from an OpCode into the chunk's instruction list.
@@ -130,11 +191,11 @@ impl Compiler {
     ///
     /// ## Returns
     /// * `usize` – The position of the currently emitted OpCode in the chunk.
-    pub fn emit_op_code(&mut self, instr: OpCode, pos: (usize, usize)) -> usize {
-        self.chunk.codes.push_byte(instr as u8);
-        self.chunk.locations.push(pos.clone());
+    fn emit_op_code(&mut self, instr: OpCode, pos: (usize, usize)) -> usize {
+        self.function.body.chunk.push_byte(instr as u8);
+        self.function.body.chunk.push_line_info(pos.clone());
 
-        return self.chunk.codes.len() - 1;
+        return self.function.body.chunk.len() - 1;
     }
 
     /// Emits a raw byte instruction into the chunk's instruction list.
@@ -144,11 +205,11 @@ impl Compiler {
     ///
     /// ## Returns
     /// * `usize` – The position of the currently emitted OpCode in the chunk.
-    pub fn emit_raw_byte(&mut self, byte: u8, pos: (usize, usize)) -> usize {
-        self.chunk.codes.push_byte(byte);
-        self.chunk.locations.push(pos.clone());
+    fn emit_raw_byte(&mut self, byte: u8, pos: (usize, usize)) -> usize {
+        self.function.body.chunk.push_byte(byte);
+        self.function.body.chunk.push_line_info(pos.clone());
 
-        return self.chunk.codes.len() - 1;
+        return self.function.body.chunk.len() - 1;
     }
 
     /// Emits a short instruction from a 16-bit integer into the chunk's instruction list.
@@ -159,12 +220,12 @@ impl Compiler {
     /// ## Returns
     /// * `usize` – The position of the first byte for the currently emitted 16-bit short
     /// in the chunk.
-    pub fn emit_short(&mut self, instr: u16, pos: (usize, usize)) -> usize {
-        self.chunk.codes.push_short(instr);
-        self.chunk.locations.push(pos.clone());
-        self.chunk.locations.push(pos.clone());
+    fn emit_short(&mut self, instr: u16, pos: (usize, usize)) -> usize {
+        self.function.body.chunk.push_short(instr);
+        self.function.body.chunk.push_line_info(pos.clone());
+        self.function.body.chunk.push_line_info(pos.clone());
 
-        return self.chunk.codes.len() - 2;
+        return self.function.body.chunk.len() - 2;
     }
 
     /// Emits a jump instructions with a dummy jump offset. This offset should be
@@ -192,7 +253,7 @@ impl Compiler {
     /// * `token` – The token associated with this jump patch.
     fn patch_jump(&mut self, offset: usize, token: Rc<Token>) {
         // -2 to adjust for the bytecode for the jump offset itself.
-        let jump = match u16::try_from((self.chunk.codes.len() - offset) - 2) {
+        let jump = match u16::try_from((self.function.body.chunk.len() - offset) - 2) {
             Ok(x) => x,
             Err(_) => {
                 return self.error_at_token(token, "Too much code to jump over.");
@@ -200,8 +261,8 @@ impl Compiler {
         };
 
         let j = jump.to_be_bytes();
-        self.chunk.codes.modify_byte(offset, j[0]);
-        self.chunk.codes.modify_byte(offset + 1, j[1]);
+        self.function.body.chunk.modify_byte(offset, j[0]);
+        self.function.body.chunk.modify_byte(offset + 1, j[1]);
     }
 
     /// Patches the offset of a break (OP_JUMP) instruction.
@@ -218,7 +279,7 @@ impl Compiler {
         // to pop off, then we leave the stack untouched when we break the loop.
         let with_condition = if has_condition { 1 } else { 0 };
 
-        let jump = match u16::try_from(self.chunk.codes.len() - offset + with_condition) {
+        let jump = match u16::try_from(self.function.body.chunk.len() - offset + with_condition) {
             Ok(x) => x,
             Err(_) => {
                 return self.error_at_token(token, "Too much code to jump over.");
@@ -226,8 +287,8 @@ impl Compiler {
         };
 
         let j = jump.to_be_bytes();
-        self.chunk.codes.modify_byte(offset, j[0]);
-        self.chunk.codes.modify_byte(offset + 1, j[1]);
+        self.function.body.chunk.modify_byte(offset, j[0]);
+        self.function.body.chunk.modify_byte(offset + 1, j[1]);
     }
 
     /// Patches the offset of a jump instruction.
@@ -236,16 +297,16 @@ impl Compiler {
     /// * `loop_start` – The position in the chunk of the jump instruction to be patched.
     /// * `token` – The token associated with this jump patch.
     fn emit_loop(&mut self, loop_start: usize, token: Rc<Token>) {
-        let offset = self.chunk.codes.len() - loop_start;
+        let offset = self.function.body.chunk.len() - loop_start;
 
-        if (offset - 2) < 256 {
-            self.emit_op_code(OpCode::OP_LOOP_JUMP, (token.line_num, token.column_num));
+        if offset < (u8::MAX - 2) as usize {
+            self.emit_op_code(OpCode::LoopJump, (token.line_num, token.column_num));
 
             // +2 to account for the 'OP_LOOP_JUMP' and its operand.
             let jump = (offset + 2) as u8;
             self.emit_raw_byte(jump, (token.line_num, token.column_num));
-        } else if (offset - 3) < (u16::MAX as usize) {
-            self.emit_op_code(OpCode::OP_LOOP_JUMP_LONG, (token.line_num, token.column_num));
+        } else if offset < (u16::MAX - 3) as usize {
+            self.emit_op_code(OpCode::LoopJumpLong, (token.line_num, token.column_num));
 
             // +3 to account for the 'OP_LOOP_JUMP_LONG' and its operands.
             let jump = (offset + 3) as u16;
@@ -260,9 +321,9 @@ impl Compiler {
     /// ## Arguments
     /// *  `tok` – The token that caused the error.
     /// * `message` – The error message to display.
-    pub(super) fn error_at_token(&mut self, tok: Rc<Token>, message: &str) {
+    fn error_at_token(&mut self, tok: Rc<Token>, message: &str) {
         if self.is_in_panic {
-            return ();
+            return;
         }
 
         self.is_in_panic = true;
