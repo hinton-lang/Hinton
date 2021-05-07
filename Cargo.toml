@@ -11,4 +11,6 @@ edition = "2018"
 # for the execution times of the parser, compiler, and VM.
 bench_time = []
 
-# [dependencies]
+[dependencies]
+num-derive = "0.3"
+num-traits = "0.2"
