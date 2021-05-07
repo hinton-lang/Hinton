@@ -27,7 +27,7 @@ impl<'a> VirtualMachine {
 
                 Ok(())
             } else {
-                return Err(InterpretResult::INTERPRET_RUNTIME_ERROR);
+                return Err(InterpretResult::RuntimeError);
             }
         }
     }
@@ -49,7 +49,7 @@ impl<'a> VirtualMachine {
 
             Ok(())
         } else {
-            return Err(InterpretResult::INTERPRET_RUNTIME_ERROR);
+            return Err(InterpretResult::RuntimeError);
         }
     }
 
@@ -90,7 +90,7 @@ impl<'a> VirtualMachine {
                     val1.type_name(),
                     val2.type_name()
                 ));
-                return Err(InterpretResult::INTERPRET_RUNTIME_ERROR);
+                return Err(InterpretResult::RuntimeError);
             }
         } else {
             let numeric = self.check_numeric_operands(&val1, &val2, "*");
@@ -101,7 +101,7 @@ impl<'a> VirtualMachine {
 
                 Ok(())
             } else {
-                return Err(InterpretResult::INTERPRET_RUNTIME_ERROR);
+                return Err(InterpretResult::RuntimeError);
             }
         }
     }
@@ -122,13 +122,13 @@ impl<'a> VirtualMachine {
 
             if v2 == 0.0 {
                 self.report_runtime_error("Cannot divide by zero");
-                return Err(InterpretResult::INTERPRET_RUNTIME_ERROR);
+                return Err(InterpretResult::RuntimeError);
             }
 
             self.stack.push(Object::Number(v1 / v2));
             Ok(())
         } else {
-            return Err(InterpretResult::INTERPRET_RUNTIME_ERROR);
+            return Err(InterpretResult::RuntimeError);
         }
     }
 
@@ -148,14 +148,14 @@ impl<'a> VirtualMachine {
 
             if v2 == 0.0 {
                 self.report_runtime_error("Right-hand-size of modulus cannot be zero.");
-                return Err(InterpretResult::INTERPRET_RUNTIME_ERROR);
+                return Err(InterpretResult::RuntimeError);
             }
 
             self.stack.push(Object::Number(v1 % v2));
 
             Ok(())
         } else {
-            return Err(InterpretResult::INTERPRET_RUNTIME_ERROR);
+            return Err(InterpretResult::RuntimeError);
         }
     }
 
@@ -176,7 +176,7 @@ impl<'a> VirtualMachine {
 
             Ok(())
         } else {
-            return Err(InterpretResult::INTERPRET_RUNTIME_ERROR);
+            return Err(InterpretResult::RuntimeError);
         }
     }
 }

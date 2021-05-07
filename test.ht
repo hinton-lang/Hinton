@@ -45,3 +45,25 @@ while (true) {
     if (i == 5) break;
     i++;
 }
+
+func myFunction(a, b?, c := "named parameter") {
+    print(a);
+    print(b);
+    print(c);
+    return "this is the returned value: " + b;
+}
+
+print(myFunction("hello", "world"));
+
+func fib(n := 0) {
+    if (n < 2) return n;
+    return fib(n - 2) + fib(n - 1);
+}
+
+func fact(x) {
+    if (x == 0) return 1;
+    return x * fact(x - 1);
+}
+
+print(fact(30));
+print(fib(25));

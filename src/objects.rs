@@ -222,6 +222,17 @@ impl Object {
         }
     }
 
+    /// Obtains the wrapped Hinton function from this object.
+    ///
+    /// ## Returns
+    /// `Option<Rc<RangeObject>>` – The underlying Rust vector.
+    pub fn as_function(&self) -> Option<&FunctionObject> {
+        match self {
+            Object::Function(f) => Some(f),
+            _ => None,
+        }
+    }
+
     /// Checks that this object equals some other object based on Hinton's rules
     /// for object equality.
     ///
@@ -287,10 +298,10 @@ impl<'a> fmt::Display for Object {
             }
             Object::Range(ref inner) => write!(f, "[\x1b[38;5;81m{}\x1b[0m..\x1b[38;5;81m{}\x1b[0m]", inner.min, inner.max),
             Object::Function(ref inner) => {
-                let str = if inner.name == "" {
+                let str = if inner.body.name == "" {
                     String::from("<script>")
                 } else {
-                    format!("<Func '{}'>", inner.name)
+                    format!("<Func '{}'>", inner.body.name)
                 };
 
                 fmt::Display::fmt(&str, f)
@@ -301,23 +312,19 @@ impl<'a> fmt::Display for Object {
 }
 
 /// Represents a Hinton function object.
+
 #[derive(Clone)]
 pub struct FunctionObject {
-    pub min_arity: i32,
-    pub max_arity: i32,
-    pub chunk: Chunk,
-    pub name: String,
+    pub defaults: Vec<Object>,
+    pub body: FunctionChunk,
 }
 
-impl FunctionObject {
-    pub fn new() -> Self {
-        Self {
-            min_arity: 0,
-            max_arity: 0,
-            chunk: Chunk::new(),
-            name: String::from(""),
-        }
-    }
+#[derive(Clone)]
+pub struct FunctionChunk {
+    pub min_arity: u8,
+    pub max_arity: u8,
+    pub chunk: Chunk,
+    pub name: String,
 }
 
 /// Represents a Hinton range object.

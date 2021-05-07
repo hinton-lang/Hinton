@@ -1,8 +1,9 @@
 use super::Parser;
-use std::rc::Rc;
+use std::{rc::Rc, vec};
 
 use crate::{
-    intermediate::{ast::ASTNode::*, ast::*},
+    ast::ASTNode::*,
+    ast::*,
     lexer::tokens::{Token, TokenType},
     objects::Object,
 };
@@ -18,8 +19,7 @@ impl Parser {
         } else if self.matches(TokenType::CONST_KEYWORD) {
             return self.parse_const_declaration();
         } else if self.matches(TokenType::FUNC_KEYWORD) {
-            // statements.add(function());
-            todo!("Implement function declarations")
+            return self.parse_func_declaration();
         } else if self.matches(TokenType::ENUM_KEYWORD) {
             // statements.add(enumDeclaration());
             todo!("Implement enum declarations")
@@ -36,7 +36,7 @@ impl Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The statement's AST node.
-    pub(super) fn parse_statement(&mut self) -> Option<ASTNode> {
+    fn parse_statement(&mut self) -> Option<ASTNode> {
         if self.matches(TokenType::LEFT_CURLY_BRACES) {
             self.parse_block()
         } else if self.matches(TokenType::IF_KEYWORD) {
@@ -52,7 +52,7 @@ impl Parser {
         } else if self.matches(TokenType::CONTINUE_KEYWORD) {
             todo!("Implement continue")
         } else if self.matches(TokenType::RETURN_KEYWORD) {
-            todo!("Implement return")
+            self.parse_return_stmt()
         } else if self.matches(TokenType::PRINT) {
             self.parse_print_statement()
         } else {
@@ -259,5 +259,115 @@ impl Parser {
             condition: Box::new(condition),
             body: Box::new(body),
         }));
+    }
+
+    fn parse_func_declaration(&mut self) -> Option<ASTNode> {
+        self.consume(TokenType::IDENTIFIER, "Expected a function name.");
+        let name = Rc::clone(&self.previous);
+        self.consume(TokenType::LEFT_PARENTHESIS, "Expected opening parenthesis after function name.");
+
+        let mut params: Vec<Parameter> = vec![];
+        let mut min_arity: u8 = 0;
+        let mut max_arity: u8 = 0;
+
+        while !self.matches(TokenType::RIGHT_PARENTHESIS) {
+            if params.len() > 255 {
+                self.error_at_current("Can't have more than 255 parameters.");
+                return None;
+            }
+
+            match self.parse_parameter() {
+                Some(p) => {
+                    if params.len() > 0 && !p.is_optional && params.last().unwrap().is_optional {
+                        self.error_at_token(
+                            Rc::clone(&params.last().unwrap().name),
+                            "Optional and named parameters must be declared after all required parameters.",
+                        );
+                        return None;
+                    }
+
+                    max_arity += 1;
+
+                    if !p.is_optional {
+                        min_arity += 1
+                    }
+
+                    params.push(p);
+                }
+                None => return None, // Could not parse the parameter
+            }
+
+            if !self.matches(TokenType::RIGHT_PARENTHESIS) {
+                self.consume(TokenType::COMMA_SEPARATOR, "Expected comma after parameter.");
+            } else {
+                break;
+            }
+        }
+
+        self.consume(TokenType::LEFT_CURLY_BRACES, "Expected opening curly braces before function body.");
+
+        let body = match self.parse_block() {
+            Some(b) => b,
+            None => return None,
+        };
+
+        return Some(FunctionDecl(FunctionDeclNode {
+            name,
+            params,
+            min_arity,
+            max_arity,
+            body: Box::new(body),
+        }));
+    }
+
+    fn parse_parameter(&mut self) -> Option<Parameter> {
+        self.consume(TokenType::IDENTIFIER, "Expected a parameter name.");
+        let name = Rc::clone(&self.previous);
+
+        if self.matches(TokenType::QUESTION_MARK) {
+            return Some(Parameter {
+                name,
+                is_optional: true,
+                default: None,
+            });
+        }
+
+        if self.matches(TokenType::COLON_EQUALS) {
+            return Some(Parameter {
+                name,
+                is_optional: true,
+                default: match self.parse_expression() {
+                    Some(x) => Some(Box::new(x)),
+                    None => return None, // Could not compile default value for parameter
+                },
+            });
+        }
+
+        Some(Parameter {
+            name,
+            is_optional: false,
+            default: None,
+        })
+    }
+
+    fn parse_return_stmt(&mut self) -> Option<ASTNode> {
+        let tok = Rc::clone(&self.previous);
+
+        // Compiles the return expression
+        if !self.matches(TokenType::SEMICOLON_SEPARATOR) {
+            let expr = match self.parse_expression() {
+                Some(val) => val,
+                // Report parse error if node has None value
+                None => return None,
+            };
+
+            self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after break keyword.");
+            return Some(ReturnStmt(ReturnStmtNode {
+                token: tok,
+                value: Some(Box::new(expr)),
+            }));
+        }
+
+        return Some(ReturnStmt(ReturnStmtNode { token: tok, value: None }));
     }
 }
