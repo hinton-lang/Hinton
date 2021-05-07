@@ -1,5 +1,8 @@
 #![allow(dead_code)]
 
+#[macro_use]
+extern crate num_derive;
+
 #[cfg(feature = "bench_time")]
 use std::time::Instant;
 
@@ -7,16 +10,20 @@ use std::time::Instant;
 use std::{fs, time::Duration};
 
 // Declaring crate-level Modules
-mod analyzer;
+mod ast;
 mod chunk;
-mod intermediate;
+mod compiler;
 mod lexer;
 mod objects;
+mod parser;
 mod virtual_machine;
 
 // Using create-level sub-modules
 use virtual_machine::InterpretResult;
 use virtual_machine::VirtualMachine;
+
+// Static things
+static FRAMES_MAX: u16 = 1000;
 
 /// The main function
 fn main() {
@@ -34,10 +41,10 @@ fn run_file(filename: &str) {
 
     // Exit the interpreter with the appropriate code
     match result {
-        InterpretResult::INTERPRET_PARSE_ERROR => std::process::exit(65),
-        InterpretResult::INTERPRET_COMPILE_ERROR => std::process::exit(65),
-        InterpretResult::INTERPRET_RUNTIME_ERROR => std::process::exit(70),
-        InterpretResult::INTERPRET_OK => std::process::exit(0),
+        InterpretResult::ParseError => std::process::exit(65),
+        InterpretResult::CompileError => std::process::exit(65),
+        InterpretResult::RuntimeError => std::process::exit(70),
+        InterpretResult::Ok => std::process::exit(0),
     }
 }
 

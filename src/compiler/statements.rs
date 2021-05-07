@@ -2,11 +2,7 @@ use super::{BreakScope, Compiler, Symbol, SymbolType};
 use std::borrow::Borrow;
 use std::rc::Rc;
 
-use crate::{
-    chunk::op_codes::OpCode,
-    intermediate::ast::{BlockNode, BreakStmtNode, ConstantDeclNode, IfStmtNode, PrintStmtNode, VariableDeclNode, WhileStmtNode},
-    lexer::tokens::Token,
-};
+use crate::{ast::*, chunk::OpCode, lexer::tokens::Token, objects::Object};
 
 impl Compiler {
     /// Compiles a print statement.
@@ -15,7 +11,12 @@ impl Compiler {
     /// * `expr` – A print statement node.
     pub(super) fn compile_print_stmt(&mut self, stmt: &PrintStmtNode) {
         self.compile_node(&stmt.child);
-        self.emit_op_code(OpCode::OP_PRINT, stmt.pos);
+        self.emit_op_code(OpCode::Print, stmt.pos);
+    }
+
+    pub(super) fn compile_expression_stmt(&mut self, stmt: &ExpressionStmtNode) {
+        self.compile_node(&stmt.child);
+        self.emit_op_code(OpCode::PopStack, stmt.pos);
     }
 
     /// Compiles a variable declaration.
@@ -75,19 +76,20 @@ impl Compiler {
     fn declare_symbol(&mut self, token: Rc<Token>, symbol_type: SymbolType) -> Result<usize, ()> {
         // Look for the symbols declared in this scope to see if
         // there is a symbol with the same name already declared.
-        for symbol in self.symbol_table.iter() {
+        for symbol in self.symbol_table.iter().rev() {
             // Only look for the symbol in the current scope.
             if symbol.symbol_depth < self.scope_depth {
                 break;
             }
 
-            if symbol.name.lexeme == token.lexeme {
+            if symbol.name == token.lexeme {
                 match symbol.symbol_type {
-                    SymbolType::Variable => self.error_at_token(token, "Cannot redeclare variable in the same scope."),
-                    SymbolType::Constant => self.error_at_token(token, "Cannot redeclare constant in the same scope."),
-                    SymbolType::Function => self.error_at_token(token, "Cannot redeclare function in the same scope."),
-                    SymbolType::Class => self.error_at_token(token, "Cannot redeclare class in the same scope."),
-                    SymbolType::Enum => self.error_at_token(token, "Cannot redeclare enum in the same scope."),
+                    SymbolType::Variable => self.error_at_token(token, "A variable with this name already exists in this scope."),
+                    SymbolType::Constant => self.error_at_token(token, "A constant with this name already exists in this scope."),
+                    SymbolType::Function => self.error_at_token(token, "A function with this name already exists in this scope."),
+                    SymbolType::Class => self.error_at_token(token, "A class with this name already exists in this scope."),
+                    SymbolType::Enum => self.error_at_token(token, "An enum with this name already exists in this scope."),
+                    SymbolType::Parameter => self.error_at_token(token, "A parameter with this name already exists in this scope."),
                 }
 
                 return Err(());
@@ -114,7 +116,7 @@ impl Compiler {
         }
 
         self.symbol_table.push(Symbol {
-            name,
+            name: name.lexeme.clone(),
             symbol_depth: self.scope_depth,
             is_initialized: match symbol_type {
                 SymbolType::Variable | SymbolType::Constant => false,
@@ -122,6 +124,7 @@ impl Compiler {
             },
             symbol_type,
             is_used: false,
+            pos: (name.line_num, name.column_num),
         });
 
         // Variable was successfully declared
@@ -135,11 +138,13 @@ impl Compiler {
         self.begin_scope();
 
         for node in block.body.iter() {
+            self.compile_node(&node.clone());
+
+            // If after compiling the node there was an error, stop
+            // the loop and return out of the function.
             if self.had_error {
                 return;
             }
-
-            self.compile_node(&node.clone());
         }
 
         self.end_scope();
@@ -154,17 +159,17 @@ impl Compiler {
     pub(super) fn end_scope(&mut self) {
         self.scope_depth -= 1;
 
+        // When a scope ends, we remove all local symbols in the scope.
         while self.symbol_table.len() > 0 && self.symbol_table.get(self.symbol_table.len() - 1).unwrap().symbol_depth > self.scope_depth {
             // Because variables live in the stack, once we are done with
             // them for this scope, we take them out of the stack by emitting
             // the OP_POP_STACK instruction for each one of the variables.
-            // TODO: Change position to be the correct tuple
-            self.emit_op_code(OpCode::OP_POP_STACK, (0, 0));
-            let var = self.symbol_table.pop().unwrap();
-            if !var.is_used {
+            let symbol = self.symbol_table.pop().unwrap();
+            self.emit_op_code(OpCode::PopStack, symbol.pos);
+            if !symbol.is_used {
                 println!(
                     "\x1b[33;1mCompilerWarning\x1b[0m at [{}:{}] – Variable '\x1b[37;1m{}\x1b[0m' is never used.",
-                    var.name.line_num, var.name.column_num, var.name.lexeme
+                    symbol.pos.0, symbol.pos.1, symbol.name
                 );
             }
         }
@@ -184,8 +189,8 @@ impl Compiler {
             // stack during runtime. This value is then checked for truthiness
             // to execute the correct branch of the if statement.
             self.compile_node(&stmt.condition);
-            then_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&stmt.then_token));
-            self.emit_op_code(OpCode::OP_POP_STACK, (stmt.then_token.line_num, stmt.then_token.column_num));
+            then_jump = self.emit_jump(OpCode::JumpIfFalse, Rc::clone(&stmt.then_token));
+            self.emit_op_code(OpCode::PopStack, (stmt.then_token.line_num, stmt.then_token.column_num));
         }
 
         // If the condition is always false, the `then`
@@ -213,7 +218,7 @@ impl Compiler {
         }
 
         let else_jump = match stmt.else_token.borrow() {
-            Some(token) => self.emit_jump(OpCode::OP_JUMP, Rc::clone(&token)),
+            Some(token) => self.emit_jump(OpCode::Jump, Rc::clone(&token)),
             // We are okay to return a dummy value because the only way `else_jump` can
             // be used is if there was an `else` branch in the first place. If there is
             // no `else` token, then there is no `else` branch, which means that the bellow
@@ -223,7 +228,7 @@ impl Compiler {
 
         if !condition_is_lit_false {
             self.patch_jump(then_jump, Rc::clone(&stmt.then_token));
-            self.emit_op_code(OpCode::OP_POP_STACK, (stmt.then_token.line_num, stmt.then_token.column_num));
+            self.emit_op_code(OpCode::PopStack, (stmt.then_token.line_num, stmt.then_token.column_num));
         }
 
         match stmt.else_branch.borrow() {
@@ -241,32 +246,33 @@ impl Compiler {
     ///
     /// * `stmt` – The while statement node being compiled.
     pub(super) fn compile_while_stmt(&mut self, stmt: &WhileStmtNode) {
-        let do_compile_condition = !stmt.condition.is_truthy_literal();
-
         // We don't need to compile the loop if the condition is a
         // `false` literal because it will never execute.
         if stmt.condition.is_false_literal() {
             return;
         }
 
-        let loop_start = self.chunk.codes.len();
+        let condition_is_truthy_lit = stmt.condition.is_truthy_literal();
+
+        let loop_start = self.function.body.chunk.len();
         self.loops.push(loop_start); // starts this loop's scope
 
+        // Only compile the condition if it is not a truthy literal or equivalent.
         let mut exit_jump = 0;
-        if do_compile_condition {
-            // Compiles the condition so that its value is at the top of the
-            // stack during runtime. This value is then continuously checked
-            // for truthiness to keep executing the while loop.
+        if !condition_is_truthy_lit {
             self.compile_node(&stmt.condition);
-            // Stop the loop if the condition (the top of the stack) is false.
-            exit_jump = self.emit_jump(OpCode::OP_JUMP_IF_FALSE, Rc::clone(&stmt.token));
+            exit_jump = self.emit_jump(OpCode::JumpIfFalse, Rc::clone(&stmt.token));
 
-            // However, if the condition is not false, remove the condition value from the stack
-            // and execute the loop's body.
-            self.emit_op_code(OpCode::OP_POP_STACK, (stmt.token.line_num, stmt.token.column_num));
+            // If the condition is not false, remove the condition value from the stack
+            // and continue to execute the loop's body.
+            self.emit_op_code(OpCode::PopStack, (stmt.token.line_num, stmt.token.column_num));
         }
 
         self.compile_node(&stmt.body);
+        // Stop compiling if there was an error compiling the loop's body.
+        if self.had_error {
+            return;
+        }
 
         // Looks for any break statements associated with this loop
         let mut breaks: Vec<usize> = vec![];
@@ -276,17 +282,16 @@ impl Compiler {
 
         // Patches all the breaks associated with this loop
         for b in breaks {
-            self.patch_break(b, do_compile_condition, Rc::clone(&stmt.token));
+            self.patch_break(b, !condition_is_truthy_lit, Rc::clone(&stmt.token));
         }
 
         // Jump back to the start of the loop (including the re-execution of the condition)
         self.emit_loop(loop_start, Rc::clone(&stmt.token));
 
-        if do_compile_condition {
-            // Patches the 'exit_jump' so that is the condition is false, the 'OP_JUMP_IF_FALSE'
-            // instruction above knows where the end of the loop is.
+        // If the condition is not a truthy literal, then we must patch the 'OP_JUMP_IF_FALSE' above
+        if !condition_is_truthy_lit {
             self.patch_jump(exit_jump, Rc::clone(&stmt.token));
-            self.emit_op_code(OpCode::OP_POP_STACK, (stmt.token.line_num, stmt.token.column_num));
+            self.emit_op_code(OpCode::PopStack, (stmt.token.line_num, stmt.token.column_num));
         }
 
         self.loops.pop(); // ends this loop's scope
@@ -296,29 +301,112 @@ impl Compiler {
     ///
     /// * `stmt` – The break statement node being compiled.
     pub(super) fn compile_break_stmt(&mut self, stmt: &BreakStmtNode) {
-        // TODO: Check that this works well with function declarations.
-        // Specially, check for the cases when a function is declared inside
-        // of a loop, but the break statement is inside the function declaration.
-        // For example, consider the bellow Hinton code:
-        // ```
-        // while (true) {
-        //     func my_function() {
-        //         break; // This is wrong...
-        //     }
-        // }
-        // ```
-        // Having the break inside the function body should result in a compiler error,
-        // even when the function is inside of a loop.
         if self.loops.len() == 0 {
             self.error_at_token(Rc::clone(&stmt.token), "Cannot break outside of loop.");
             return;
         }
 
-        let break_pos = self.emit_jump(OpCode::OP_JUMP, Rc::clone(&stmt.token));
+        // Pop all local symbols off the stack when the loop ends, but do not
+        // remove the symbols from the symbol table since they must also be
+        // removed when the loop's scope.
+        let mut i = 1;
+        while self.symbol_table.len() > 0 && self.symbol_table.get(self.symbol_table.len() - i).unwrap().symbol_depth >= self.scope_depth {
+            let idx = self.symbol_table.len() - i;
+            let symbol = &self.symbol_table[idx];
+            let pos = symbol.pos;
 
+            self.emit_op_code(OpCode::PopStack, pos);
+            i += 1;
+        }
+
+        // Jump out of the loop
+        let break_pos = self.emit_jump(OpCode::Jump, Rc::clone(&stmt.token));
+
+        // Add to the breaks list to breaks associated with the current loop
         self.breaks.push(BreakScope {
             loop_start: *self.loops.last().unwrap(),
             loop_position: break_pos,
         })
+    }
+
+    pub(super) fn compile_function_decl(&mut self, decl: &FunctionDeclNode) {
+        match self.declare_symbol(Rc::clone(&decl.name), SymbolType::Function) {
+            Ok(_) => {
+                let comp = match Compiler::compile(&decl.name.lexeme, &decl.body, &decl.params, decl.min_arity, decl.max_arity) {
+                    Ok(func) => func,
+                    Err(_) => {
+                        // We specify that there was an error inside the body
+                        // of the function so that we can stop compiling the
+                        // program all together.
+                        self.had_error = true;
+                        return;
+                    }
+                };
+
+                // Defines the function so that it can be loaded onto the stack.
+                // When the function is first loaded onto the stack, it has no
+                // default parameters initialized.
+                self.add_literal_to_pool(Object::Function(comp), Rc::clone(&decl.name));
+
+                if decl.min_arity != decl.max_arity {
+                    // Compiles the named parameters so that they can be on top
+                    // of the stack when the function gets composed at runtime.
+                    for param in &decl.params {
+                        match &param.default {
+                            Some(expr) => {
+                                self.compile_node(&expr);
+                            }
+                            None => {
+                                if param.is_optional {
+                                    self.emit_op_code(OpCode::LoadImmNull, (param.name.line_num, param.name.column_num));
+                                }
+                            }
+                        }
+                    }
+
+                    // Once all the named parameter expressions are compiled, we bind
+                    // each of the named parameters to the function
+                    self.emit_op_code(OpCode::BindDefaults, (decl.name.line_num, decl.name.column_num));
+                    self.emit_raw_byte((decl.max_arity - decl.min_arity) as u8, (decl.name.line_num, decl.name.column_num));
+                }
+            }
+
+            // We do nothing if there was an error because the `declare_symbol()`
+            // function takes care of reporting the appropriate error for us.
+            // Explicit `return` to stop the loop.
+            Err(_) => return,
+        }
+    }
+
+    pub(super) fn compile_parameters(&mut self, params: &Vec<Parameter>) {
+        for param in params.iter() {
+            match self.declare_symbol(Rc::clone(&param.name), SymbolType::Parameter) {
+                Ok(symbol_pos) => {
+                    self.symbol_table[symbol_pos].is_initialized = true;
+                }
+
+                // We do nothing if there was an error because the `declare_symbol()`
+                // function takes care of reporting the appropriate error for us.
+                // Explicit `return` to stop the loop.
+                Err(_) => return,
+            }
+        }
+    }
+
+    pub(super) fn compile_return_stmt(&mut self, stmt: &ReturnStmtNode) {
+        // TODO: Emit the correct position
+        match &stmt.value {
+            Some(v) => {
+                self.compile_node(v);
+            }
+            None => {
+                self.emit_op_code(OpCode::LoadImmNull, (stmt.token.line_num, stmt.token.column_num));
+            }
+        }
+
+        self.emit_op_code(OpCode::Return, (stmt.token.line_num, stmt.token.column_num));
+        // The number of local symbols that need to be popped off the stack
+        let num_of_symbols = self.symbol_table.len() - 1;
+        self.emit_raw_byte(num_of_symbols as u8, (stmt.token.line_num, stmt.token.column_num));
     }
 }

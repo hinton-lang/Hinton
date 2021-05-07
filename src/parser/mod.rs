@@ -1,8 +1,6 @@
-use std::rc::Rc;
-
-mod statements;
-
 use crate::{
+    ast::ASTNode::*,
+    ast::*,
     lexer::{
         tokens::{Token, TokenType},
         Lexer,
@@ -10,18 +8,19 @@ use crate::{
     objects::Object,
     virtual_machine::InterpretResult,
 };
+use std::rc::Rc;
 
-use super::ast::ASTNode::*;
-use super::ast::*;
+// Submodules
+mod statements;
 
 /// Represents Hinton's parser, which converts source text into
 /// an Abstract Syntax Tree representation of the program.
 pub struct Parser {
     lexer: Lexer,
-    pub previous: Rc<Token>,
-    pub current: Rc<Token>,
-    pub had_error: bool,
-    pub is_in_panic: bool,
+    previous: Rc<Token>,
+    current: Rc<Token>,
+    had_error: bool,
+    is_in_panic: bool,
 }
 
 impl<'a> Parser {
@@ -32,7 +31,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Vec<ASTNode>` – A list of nodes in the AST
-    pub fn parse(src: &'a str) -> Result<ModuleNode, InterpretResult> {
+    pub fn parse(src: &'a str) -> Result<ASTNode, InterpretResult> {
         // Initialize the compiler
         let mut parser = Parser {
             lexer: Lexer::lex(src),
@@ -60,14 +59,14 @@ impl<'a> Parser {
             match parser.parse_declaration() {
                 Some(val) => program.body.push(val),
                 // Report parse error if node has None value
-                None => return Err(InterpretResult::INTERPRET_PARSE_ERROR),
+                None => return Err(InterpretResult::ParseError),
             }
         }
 
         return if parser.had_error {
-            Err(InterpretResult::INTERPRET_PARSE_ERROR)
+            Err(InterpretResult::ParseError)
         } else {
-            Ok(program)
+            Ok(ASTNode::Module(program))
         };
     }
 
@@ -79,7 +78,7 @@ impl<'a> Parser {
     /// # Results
     /// * `bool` – True if the current token matches the given token type
     /// false otherwise.
-    pub(super) fn check(&mut self, tok_type: TokenType) -> bool {
+    fn check(&mut self, tok_type: TokenType) -> bool {
         if tok_type == self.get_current_tok_type() {
             true
         } else {
@@ -97,7 +96,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `bool` – True if the tokens match, false otherwise.
-    pub(super) fn matches(&mut self, tok_type: TokenType) -> bool {
+    fn matches(&mut self, tok_type: TokenType) -> bool {
         if self.check(tok_type) {
             self.advance();
             return true;
@@ -107,7 +106,7 @@ impl<'a> Parser {
     }
 
     /// Advances the compiler to the next token.
-    pub(super) fn advance(&mut self) {
+    fn advance(&mut self) {
         self.previous = Rc::clone(&self.current);
 
         // We need a loop so that if the current
@@ -129,7 +128,7 @@ impl<'a> Parser {
     /// * `tok_type` – the expected type of the token to consume.
     /// * `message` – the error message to be displayed if the current token does
     /// not match the provided type.
-    pub(super) fn consume(&mut self, tok_type: TokenType, message: &str) {
+    fn consume(&mut self, tok_type: TokenType, message: &str) {
         if self.check(tok_type) {
             self.advance();
             return ();
@@ -142,7 +141,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `TokenType` – The type of the current token.
-    pub(super) fn get_current_tok_type(&self) -> TokenType {
+    fn get_current_tok_type(&self) -> TokenType {
         Rc::clone(&self.current).token_type.clone()
     }
 
@@ -150,7 +149,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `TokenType` – The type of the previous token.
-    pub(super) fn get_previous_tok_type(&self) -> TokenType {
+    fn get_previous_tok_type(&self) -> TokenType {
         self.previous.token_type.clone()
     }
 
@@ -158,7 +157,7 @@ impl<'a> Parser {
     ///
     /// ## Arguments
     /// * `message` – The error message to display.
-    pub(super) fn error_at_current(&mut self, message: &str) {
+    fn error_at_current(&mut self, message: &str) {
         self.error_at_token(Rc::clone(&self.previous), message);
     }
 
@@ -166,7 +165,7 @@ impl<'a> Parser {
     ///
     /// ## Arguments
     /// * `message` – The error message to display.
-    pub(super) fn error_at_previous(&mut self, message: &str) {
+    fn error_at_previous(&mut self, message: &str) {
         self.error_at_token(Rc::clone(&self.previous), message);
     }
 
@@ -175,7 +174,7 @@ impl<'a> Parser {
     /// ## Arguments
     /// *  `tok` – The token that caused the error.
     /// * `message` – The error message to display.
-    pub(super) fn error_at_token(&mut self, tok: Rc<Token>, message: &str) {
+    fn error_at_token(&mut self, tok: Rc<Token>, message: &str) {
         if self.is_in_panic {
             return ();
         }
@@ -199,7 +198,7 @@ impl<'a> Parser {
     /// This method helps minimize the number of cascading errors the compiler emits
     /// when it finds a parsing error. Once it reaches a synchronization point – like
     /// a keyword for a statement – it stops emitting errors.
-    pub(super) fn synchronize(&mut self) {
+    fn synchronize(&mut self) {
         self.is_in_panic = false;
 
         while self.get_current_tok_type() != TokenType::EOF {
@@ -230,7 +229,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_expression(&mut self) -> Option<ASTNode> {
+    fn parse_expression(&mut self) -> Option<ASTNode> {
         self.parse_assignment()
     }
 
@@ -238,7 +237,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The assignment expression's AST node.
-    pub(super) fn parse_assignment(&mut self) -> Option<ASTNode> {
+    fn parse_assignment(&mut self) -> Option<ASTNode> {
         let expr = self.parse_ternary_conditional();
         let expr_tok = Rc::clone(&self.previous);
 
@@ -280,7 +279,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The assignment expression's AST node.
-    pub(super) fn parse_ternary_conditional(&mut self) -> Option<ASTNode> {
+    fn parse_ternary_conditional(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_nullish_coalescing();
 
         if self.matches(TokenType::QUESTION_MARK) {
@@ -318,7 +317,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_nullish_coalescing(&mut self) -> Option<ASTNode> {
+    fn parse_nullish_coalescing(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_logic_or();
 
         while self.matches(TokenType::NULLISH_COALESCING) {
@@ -345,7 +344,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_logic_or(&mut self) -> Option<ASTNode> {
+    fn parse_logic_or(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_logic_and();
 
         while self.matches(TokenType::LOGICAL_OR) {
@@ -372,7 +371,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_logic_and(&mut self) -> Option<ASTNode> {
+    fn parse_logic_and(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_bitwise_or();
 
         while self.matches(TokenType::LOGICAL_AND) {
@@ -399,7 +398,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_bitwise_or(&mut self) -> Option<ASTNode> {
+    fn parse_bitwise_or(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_bitwise_xor();
 
         while self.matches(TokenType::BITWISE_OR) {
@@ -426,7 +425,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_bitwise_xor(&mut self) -> Option<ASTNode> {
+    fn parse_bitwise_xor(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_bitwise_and();
 
         while self.matches(TokenType::BITWISE_XOR) {
@@ -453,7 +452,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_bitwise_and(&mut self) -> Option<ASTNode> {
+    fn parse_bitwise_and(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_equality();
 
         while self.matches(TokenType::BITWISE_AND) {
@@ -480,7 +479,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_equality(&mut self) -> Option<ASTNode> {
+    fn parse_equality(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_comparison();
 
         while self.matches(TokenType::LOGICAL_EQ) || self.matches(TokenType::LOGICAL_NOT_EQ) {
@@ -513,7 +512,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_comparison(&mut self) -> Option<ASTNode> {
+    fn parse_comparison(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_range();
 
         while self.matches(TokenType::LESS_THAN)
@@ -554,7 +553,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_range(&mut self) -> Option<ASTNode> {
+    fn parse_range(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_bitwise_shift();
 
         if self.matches(TokenType::RANGE_OPERATOR) {
@@ -581,7 +580,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_bitwise_shift(&mut self) -> Option<ASTNode> {
+    fn parse_bitwise_shift(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_term();
 
         while self.matches(TokenType::BITWISE_LEFT_SHIFT) || self.matches(TokenType::BITWISE_RIGHT_SHIFT) {
@@ -614,7 +613,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_term(&mut self) -> Option<ASTNode> {
+    fn parse_term(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_factor();
 
         while self.matches(TokenType::PLUS) || self.matches(TokenType::MINUS) {
@@ -647,7 +646,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_factor(&mut self) -> Option<ASTNode> {
+    fn parse_factor(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_expo();
 
         while self.matches(TokenType::SLASH) || self.matches(TokenType::STAR) || self.matches(TokenType::MODULUS) {
@@ -682,7 +681,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_expo(&mut self) -> Option<ASTNode> {
+    fn parse_expo(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_unary();
 
         while self.matches(TokenType::EXPO) {
@@ -709,7 +708,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_unary(&mut self) -> Option<ASTNode> {
+    fn parse_unary(&mut self) -> Option<ASTNode> {
         if self.matches(TokenType::LOGICAL_NOT) || self.matches(TokenType::MINUS) || self.matches(TokenType::BITWISE_NOT) {
             let opr = Rc::clone(&self.previous);
             let expr = self.parse_primary();
@@ -771,6 +770,11 @@ impl<'a> Parser {
                 };
             }
 
+            // Parse function call
+            if self.matches(TokenType::LEFT_PARENTHESIS) {
+                return self.construct_function_call(expr, expr_token);
+            }
+
             return Some(expr);
         }
     }
@@ -779,14 +783,14 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn parse_primary(&mut self) -> Option<ASTNode> {
+    fn parse_primary(&mut self) -> Option<ASTNode> {
         self.advance();
 
         let literal_value = match self.get_previous_tok_type() {
             TokenType::STRING_LITERAL => self.compile_string(),
-            TokenType::TRUE_LITERAL => Rc::new(Object::Bool(true)),
-            TokenType::FALSE_LITERAL => Rc::new(Object::Bool(false)),
-            TokenType::NULL_LITERAL => Rc::new(Object::Null),
+            TokenType::TRUE_LITERAL => Object::Bool(true),
+            TokenType::FALSE_LITERAL => Object::Bool(false),
+            TokenType::NULL_LITERAL => Object::Null,
             TokenType::LEFT_SQUARE_BRACKET => return self.construct_array(),
             TokenType::NUMERIC_LITERAL => match self.compile_number() {
                 Ok(x) => x,
@@ -836,7 +840,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Rc<Object>` – The Hinton string object.
-    pub(super) fn compile_string(&mut self) -> Rc<Object> {
+    fn compile_string(&mut self) -> Object {
         let lexeme = self.previous.lexeme.clone();
 
         // Remove outer quotes from the source string
@@ -851,14 +855,14 @@ impl<'a> Parser {
             .replace("\\\"", "\"");
 
         // Emits the constant instruction
-        return Rc::new(Object::String(lexeme));
+        return Object::String(lexeme);
     }
 
     /// Compiles a number token to a Hinton Number.
     ///
     /// ## Returns
     /// `Rc<Object>` – The Hinton number object.
-    pub(super) fn compile_number(&mut self) -> Result<Rc<Object>, ()> {
+    fn compile_number(&mut self) -> Result<Object, ()> {
         let lexeme = self.previous.lexeme.clone();
         // Removes the underscores from the lexeme
         let lexeme = lexeme.replace('_', "");
@@ -869,7 +873,7 @@ impl<'a> Parser {
         // then we proceed to save it in the constant pool and emit the
         // instruction. Otherwise, we indicate that there was a compilation error.
         return match num {
-            Ok(x) => Ok(Rc::new(Object::Number(x))),
+            Ok(x) => Ok(Object::Number(x)),
             Err(_) => {
                 // This should almost never happen.
                 self.error_at_previous("Unexpected token.");
@@ -881,9 +885,9 @@ impl<'a> Parser {
     /// Compiles a binary, octal, or hexadecimal number token to a Hinton Number.
     ///
     /// ## Returns
-    /// `Result<Rc<Object>, ()>` – If there was no error converting the lexeme to an integer
+    /// `Result<Object, ()>` – If there was no error converting the lexeme to an integer
     /// of the specified base, returns the Hinton number object. Otherwise, returns an empty error.
-    pub(super) fn compile_int_from_base(&mut self, radix: u32) -> Result<Rc<Object>, ()> {
+    fn compile_int_from_base(&mut self, radix: u32) -> Result<Object, ()> {
         let lexeme = self.previous.lexeme.clone();
         // Removes the underscores from the lexeme
         let lexeme = lexeme.replace('_', "");
@@ -894,7 +898,7 @@ impl<'a> Parser {
         // then we proceed to save it in the constant pool and emit the
         // instruction. Otherwise, we indicate that there was a compilation error.
         return match num {
-            Ok(x) => Ok(Rc::new(Object::Number(x as f64))),
+            Ok(x) => Ok(Object::Number(x as f64)),
             Err(_) => {
                 // This should almost never happen.
                 self.error_at_previous("Unexpected token.");
@@ -907,7 +911,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn construct_array(&mut self) -> Option<ASTNode> {
+    fn construct_array(&mut self) -> Option<ASTNode> {
         let mut values: Vec<Box<ASTNode>> = vec![];
 
         if !self.matches(TokenType::RIGHT_SQUARE_BRACKET) {
@@ -936,7 +940,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
-    pub(super) fn array_indexing(&mut self, expr: ASTNode) -> Option<ASTNode> {
+    fn array_indexing(&mut self, expr: ASTNode) -> Option<ASTNode> {
         let pos = (self.previous.line_num, self.previous.column_num);
 
         let mut expr = Some(ArrayIndexing(ArrayIndexingExprNode {
@@ -970,5 +974,64 @@ impl<'a> Parser {
         }
 
         return expr;
+    }
+
+    fn construct_function_call(&mut self, name: ASTNode, token: Rc<Token>) -> Option<ASTNode> {
+        let mut args: Vec<Argument> = vec![];
+
+        while !self.matches(TokenType::RIGHT_PARENTHESIS) {
+            if args.len() >= 255 {
+                self.error_at_current("Can't have more than 255 arguments.");
+                return None;
+            }
+
+            match self.parse_argument() {
+                Some(a) => {
+                    if args.len() > 0 && !a.is_named && args.last().unwrap().is_named {
+                        self.error_at_previous("Optional and named parameters must be declared after all required parameters.");
+                        return None;
+                    }
+
+                    args.push(a);
+                }
+                None => return None, // Could not parse the parameter
+            }
+
+            if !self.matches(TokenType::RIGHT_PARENTHESIS) {
+                self.consume(TokenType::COMMA_SEPARATOR, "Expected comma after parameter.");
+            } else {
+                break;
+            }
+        }
+
+        return Some(FunctionCallExpr(FunctionCallExprNode {
+            target: Box::new(name),
+            args,
+            pos: (token.line_num, token.column_num),
+        }));
+    }
+
+    fn parse_argument(&mut self) -> Option<Argument> {
+        let expr = match self.parse_expression() {
+            Some(e) => e,
+            None => return None, // could not parse argument expression
+        };
+
+        if self.matches(TokenType::COLON_EQUALS) {
+            return Some(Argument {
+                name: Some(expr),
+                is_named: true,
+                value: match self.parse_expression() {
+                    Some(x) => Box::new(x),
+                    None => return None, // Could not compile default value for parameter
+                },
+            });
+        }
+
+        Some(Argument {
+            name: None,
+            is_named: false,
+            value: Box::new(expr),
+        })
     }
 }
