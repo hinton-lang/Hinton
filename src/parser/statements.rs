@@ -151,12 +151,13 @@ impl Parser {
 
         // Requires a semicolon at the end of the declaration if the declaration
         // was not a block (e.g., when assigning a lambda function to a variable).
-        if self.previous.token_type != TokenType::RIGHT_CURLY_BRACES {
+        // if self.previous.token_type.clone() as u8 != TokenType::RIGHT_CURLY_BRACES as u8 {
+        if !self.previous.token_type.type_match(&TokenType::RIGHT_CURLY_BRACES) {
             self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after variable declaration.");
         }
 
         // But if there is a semicolon after a curly brace, then we consume it
-        if self.previous.token_type == TokenType::RIGHT_CURLY_BRACES && self.check(TokenType::SEMICOLON_SEPARATOR) {
+        if self.previous.token_type.type_match(&TokenType::RIGHT_CURLY_BRACES) && self.check(TokenType::SEMICOLON_SEPARATOR) {
             self.advance();
         }
 
@@ -183,12 +184,12 @@ impl Parser {
 
         // Requires a semicolon at the end of the declaration if the declaration
         // was not a block (e.g., when assigning a lambda function to a constant).
-        if self.previous.token_type != TokenType::RIGHT_CURLY_BRACES {
-            self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after variable declaration.");
+        if !self.previous.token_type.type_match(&TokenType::RIGHT_CURLY_BRACES) {
+            self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after constant declaration.");
         }
 
         // But if there is a semicolon after a curly brace, then we consume it
-        if self.previous.token_type == TokenType::RIGHT_CURLY_BRACES && self.check(TokenType::SEMICOLON_SEPARATOR) {
+        if self.previous.token_type.type_match(&TokenType::RIGHT_CURLY_BRACES) && self.check(TokenType::SEMICOLON_SEPARATOR) {
             self.advance();
         }
 

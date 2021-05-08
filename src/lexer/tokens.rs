@@ -12,7 +12,8 @@ pub struct Token {
 
 /// Represents the type of a token.
 #[allow(non_camel_case_types)]
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, Clone)]
+#[repr(u8)]
 pub enum TokenType {
     AS_OPERATOR,
     BINARY_LITERAL,
@@ -127,6 +128,16 @@ pub enum TokenType {
 
     // This one is only used to initialize the compiler
     __INIT_PARSER__,
+}
+
+impl TokenType {
+    pub fn type_match(&self, token_type: &TokenType) -> bool {
+        if std::mem::discriminant(self) == std::mem::discriminant(token_type) {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 /// Maps a keyword string to a token type.

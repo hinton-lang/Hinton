@@ -29,6 +29,9 @@ print(b);   // 0
 
 print(a[2][b]); // "a"
 
+print(++b); // 1
+print(b); // 1
+
 let i = 0;
 
 while (true) {
@@ -67,3 +70,6 @@ func fact(x) {
 
 print(fact(30));
 print(fib(25));
+
+let a_b_c = "Identifier with underscores";
+print(a_b_c);

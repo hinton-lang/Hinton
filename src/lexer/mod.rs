@@ -201,7 +201,7 @@ impl<'a> Lexer {
         while !self.is_at_end() {
             let c = self.get_current();
 
-            if c.is_alphabetic() || c.is_digit(10) {
+            if c.is_alphabetic() || c.is_digit(10) || c == '_' {
                 self.advance();
             } else {
                 break;
@@ -229,7 +229,7 @@ impl<'a> Lexer {
     pub(super) fn make_token(&self, tok_type: TokenType) -> Rc<Token> {
         return Rc::new(Token {
             line_num: self.line,
-            column_num: if tok_type != EOF {
+            column_num: if tok_type.clone() as u8 != EOF as u8 {
                 self.token_start - self.line_start
             } else {
                 self.current
@@ -238,7 +238,7 @@ impl<'a> Lexer {
             // If the token is the EOF token, then the lexeme becomes the null terminator.
             // It is okay to use the null terminator for the EOF value because the EOF Token's
             // lexeme is never used for anything.
-            lexeme: if tok_type != EOF {
+            lexeme: if tok_type as u8 != EOF as u8 {
                 self.source[(self.token_start)..(self.current)].into_iter().collect()
             } else {
                 String::from("\0")

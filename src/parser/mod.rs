@@ -79,7 +79,7 @@ impl<'a> Parser {
     /// * `bool` – True if the current token matches the given token type
     /// false otherwise.
     fn check(&mut self, tok_type: TokenType) -> bool {
-        if tok_type == self.get_current_tok_type() {
+        if tok_type as u8 == self.get_current_tok_type() as u8 {
             true
         } else {
             false
@@ -201,8 +201,8 @@ impl<'a> Parser {
     fn synchronize(&mut self) {
         self.is_in_panic = false;
 
-        while self.get_current_tok_type() != TokenType::EOF {
-            if self.get_previous_tok_type() == TokenType::SEMICOLON_SEPARATOR {
+        while self.get_current_tok_type() as u8 != TokenType::EOF as u8 {
+            if let TokenType::SEMICOLON_SEPARATOR = self.get_previous_tok_type() {
                 return ();
             }
 
@@ -485,7 +485,7 @@ impl<'a> Parser {
         while self.matches(TokenType::LOGICAL_EQ) || self.matches(TokenType::LOGICAL_NOT_EQ) {
             let opr = Rc::clone(&self.previous);
 
-            let opr_type = if opr.token_type == TokenType::LOGICAL_EQ {
+            let opr_type = if let TokenType::LOGICAL_EQ = opr.token_type {
                 BinaryExprType::LogicEQ
             } else {
                 BinaryExprType::LogicNotEQ
@@ -522,11 +522,11 @@ impl<'a> Parser {
         {
             let opr = Rc::clone(&self.previous);
 
-            let opr_type = if opr.token_type == TokenType::LESS_THAN {
+            let opr_type = if let TokenType::LESS_THAN = opr.token_type {
                 BinaryExprType::LogicLessThan
-            } else if opr.token_type == TokenType::LESS_THAN_EQ {
+            } else if let TokenType::LESS_THAN_EQ = opr.token_type {
                 BinaryExprType::LogicLessThanEQ
-            } else if opr.token_type == TokenType::GREATER_THAN {
+            } else if let TokenType::GREATER_THAN = opr.token_type {
                 BinaryExprType::LogicGreaterThan
             } else {
                 BinaryExprType::LogicGreaterThanEQ
@@ -586,7 +586,7 @@ impl<'a> Parser {
         while self.matches(TokenType::BITWISE_LEFT_SHIFT) || self.matches(TokenType::BITWISE_RIGHT_SHIFT) {
             let opr = Rc::clone(&self.previous);
 
-            let opr_type = if opr.token_type == TokenType::BITWISE_LEFT_SHIFT {
+            let opr_type = if let TokenType::BITWISE_LEFT_SHIFT = opr.token_type {
                 BinaryExprType::BitwiseShiftLeft
             } else {
                 BinaryExprType::BitwiseShiftRight
@@ -619,7 +619,7 @@ impl<'a> Parser {
         while self.matches(TokenType::PLUS) || self.matches(TokenType::MINUS) {
             let opr = Rc::clone(&self.previous);
 
-            let opr_type = if opr.token_type == TokenType::PLUS {
+            let opr_type = if let TokenType::PLUS = opr.token_type {
                 BinaryExprType::Addition
             } else {
                 BinaryExprType::Minus
@@ -652,9 +652,9 @@ impl<'a> Parser {
         while self.matches(TokenType::SLASH) || self.matches(TokenType::STAR) || self.matches(TokenType::MODULUS) {
             let opr = Rc::clone(&self.previous);
 
-            let opr_type = if opr.token_type == TokenType::SLASH {
+            let opr_type = if let TokenType::SLASH = opr.token_type {
                 BinaryExprType::Division
-            } else if opr.token_type == TokenType::STAR {
+            } else if let TokenType::STAR = opr.token_type {
                 BinaryExprType::Multiplication
             } else {
                 BinaryExprType::Modulus
@@ -713,9 +713,9 @@ impl<'a> Parser {
             let opr = Rc::clone(&self.previous);
             let expr = self.parse_primary();
 
-            let opr_type = if opr.token_type == TokenType::LOGICAL_NOT {
+            let opr_type = if let TokenType::LOGICAL_NOT = opr.token_type {
                 UnaryExprType::LogicNeg
-            } else if opr.token_type == TokenType::BITWISE_NOT {
+            } else if let TokenType::BITWISE_NOT = opr.token_type {
                 UnaryExprType::BitwiseNeg
             } else {
                 UnaryExprType::ArithmeticNeg
@@ -729,6 +729,34 @@ impl<'a> Parser {
                 pos: (opr.line_num, opr.column_num),
                 opr_type,
             }));
+        } else if self.matches(TokenType::INCREMENT) || self.matches(TokenType::DECREMENT) {
+            let opr = Rc::clone(&self.previous);
+
+            let expr = match self.parse_primary() {
+                Some(e) => e,
+                None => return None,
+            };
+            let expr_token = Rc::clone(&self.previous);
+
+            return match expr {
+                Identifier(x) => {
+                    if let TokenType::INCREMENT = opr.token_type {
+                        Some(PreIncrement(PreIncrementExprNode {
+                            target: x.token,
+                            token: Rc::clone(&self.previous),
+                        }))
+                    } else {
+                        Some(PreDecrement(PreDecrementExprNode {
+                            target: x.token,
+                            token: Rc::clone(&self.previous),
+                        }))
+                    }
+                }
+                _ => {
+                    self.error_at_token(expr_token, "Invalid pre-decrement target.");
+                    None
+                }
+            };
         } else {
             let expr = match self.parse_primary() {
                 Some(e) => e,

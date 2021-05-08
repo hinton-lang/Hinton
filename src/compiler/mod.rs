@@ -205,6 +205,8 @@ impl Compiler {
             ASTNode::Module(x) => self.compile_module_node(x),
             ASTNode::PostDecrement(x) => self.compile_post_decrement_expr(x),
             ASTNode::PostIncrement(x) => self.compile_post_increment_expr(x),
+            ASTNode::PreDecrement(x) => self.compile_pre_decrement_expr(x),
+            ASTNode::PreIncrement(x) => self.compile_pre_increment_expr(x),
             ASTNode::PrintStmt(x) => self.compile_print_stmt(x),
             ASTNode::ReturnStmt(x) => self.compile_return_stmt(x),
             ASTNode::TernaryConditional(x) => self.compile_ternary_conditional_expr(x),
