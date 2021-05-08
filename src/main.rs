@@ -37,7 +37,7 @@ fn run_file(filename: &str) {
     // Creates a virtual machine with the given source contents
     let mut vm = VirtualMachine::new();
     // Interprets the source contents in the VM
-    let result = vm.interpret(&contents);
+    let result = vm.interpret(filename, &contents);
 
     // Exit the interpreter with the appropriate code
     match result {

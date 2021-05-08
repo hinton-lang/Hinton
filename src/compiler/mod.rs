@@ -46,6 +46,7 @@ struct BreakScope {
 
 /// Represents a compiler and its internal state.
 pub struct Compiler {
+    compiler_type: CompilerType,
     had_error: bool,
     is_in_panic: bool,
     function: FunctionObject,
@@ -59,7 +60,8 @@ pub struct Compiler {
     breaks: Vec<BreakScope>,
 }
 
-pub enum CompilerType {
+/// Types of compilers we can create
+enum CompilerType {
     Function,
     Script,
 }
@@ -70,38 +72,77 @@ impl Compiler {
     /// and error detection, the ByteCode is used to execute the program faster.
     ///
     /// ## Arguments
-    /// * `name` – The name of the function/module to be compiled.
-    /// * `program` – The root node of the AST for a particular program. This contains all the statements
-    /// and declarations in a program.
-    /// * `params` – The parameters of the function to be compiled. If compiling a module, pass an
-    /// empty vector.
-    /// * `min_arity` – Minimum number of parameters when compiling a function.
-    /// * `max_arity` – Maximum number of parameters when compiling a function.
+    /// * `filepath` – The program's filepath.
+    /// * `program` – The root node of the AST for a particular program.
     ///
     /// ## Returns
     /// `Result<chunk, InterpretResult>` – If the program had no compile-time errors, returns
     /// the main chunk for this module. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
-    pub fn compile(
-        name: &str,
-        program: &ASTNode,
-        params: &Vec<Parameter>,
-        min_arity: u8,
-        max_arity: u8,
-    ) -> Result<FunctionObject, InterpretResult> {
+    pub fn compile_file(filepath: &str, program: &ASTNode) -> Result<FunctionObject, InterpretResult> {
         let mut c = Compiler {
+            compiler_type: CompilerType::Script,
             had_error: false,
             is_in_panic: false,
             function: FunctionObject {
                 defaults: vec![],
                 body: FunctionChunk {
-                    min_arity,
-                    max_arity,
+                    min_arity: 0,
+                    max_arity: 0,
                     chunk: Chunk::new(),
-                    name: String::from(name),
+                    name: format!("Script: '{}'", filepath),
                 },
             },
             symbol_table: vec![Symbol {
-                name: String::from(name),
+                name: format!("Script: '{}'", filepath),
+                symbol_depth: 0,
+                symbol_type: SymbolType::Function,
+                is_initialized: true,
+                is_used: true,
+                pos: (0, 0),
+            }],
+            scope_depth: 0,
+            loops: vec![],
+            breaks: vec![],
+        };
+
+        // Compile the function body
+        c.compile_node(&program);
+        // ends the compiler.
+        c.end_compiler();
+
+        if !c.had_error && !c.is_in_panic {
+            Ok(c.function)
+        } else {
+            return Err(InterpretResult::CompileError);
+        }
+    }
+
+    /// Compiles an Abstract Syntax Tree into ByteCode.
+    /// While the AST is used to perform static analysis like type checking
+    /// and error detection, the ByteCode is used to execute the program faster.
+    ///
+    /// ## Arguments
+    /// * `Func` – The function declaration node to be compiled into a chunk.
+    ///
+    /// ## Returns
+    /// `Result<chunk, InterpretResult>` – If the program had no compile-time errors, returns
+    /// the main chunk for this module. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
+    pub fn compile_function(func: &FunctionDeclNode) -> Result<FunctionObject, InterpretResult> {
+        let mut c = Compiler {
+            compiler_type: CompilerType::Function,
+            had_error: false,
+            is_in_panic: false,
+            function: FunctionObject {
+                defaults: vec![],
+                body: FunctionChunk {
+                    min_arity: func.min_arity,
+                    max_arity: func.max_arity,
+                    chunk: Chunk::new(),
+                    name: func.name.lexeme.clone(),
+                },
+            },
+            symbol_table: vec![Symbol {
+                name: func.name.lexeme.clone(),
                 symbol_depth: 0,
                 symbol_type: SymbolType::Function,
                 is_initialized: true,
@@ -116,9 +157,9 @@ impl Compiler {
         // compiles the parameter declarations so that the compiler
         // knows about their their lexical scoping (their stack position),
         // but does not compile the default value for named parameters.
-        c.compile_parameters(params);
+        c.compile_parameters(&func.params);
         // Compile the function body
-        c.compile_node(&program);
+        c.compile_node(&func.body);
         // ends the compiler.
         c.end_compiler();
 
@@ -160,13 +201,13 @@ impl Compiler {
             ASTNode::FunctionDecl(x) => self.compile_function_decl(x),
             ASTNode::Identifier(x) => self.compile_identifier_expr(x),
             ASTNode::IfStmt(x) => self.compile_if_stmt(x),
-            ASTNode::Literal(x) => self.compile_literal(x),
-            ASTNode::Module(x) => self.compile_module(x),
+            ASTNode::Literal(x) => self.compile_literal_expr(x),
+            ASTNode::Module(x) => self.compile_module_node(x),
             ASTNode::PostDecrement(x) => self.compile_post_decrement_expr(x),
             ASTNode::PostIncrement(x) => self.compile_post_increment_expr(x),
             ASTNode::PrintStmt(x) => self.compile_print_stmt(x),
             ASTNode::ReturnStmt(x) => self.compile_return_stmt(x),
-            ASTNode::TernaryConditional(x) => self.compile_ternary_conditional(x),
+            ASTNode::TernaryConditional(x) => self.compile_ternary_conditional_expr(x),
             ASTNode::Unary(x) => self.compile_unary_expr(x),
             ASTNode::VarReassignment(x) => self.compile_var_reassignment_expr(x),
             ASTNode::VariableDecl(x) => self.compile_variable_decl(x),
@@ -174,7 +215,7 @@ impl Compiler {
         };
     }
 
-    fn compile_module(&mut self, module: &ModuleNode) {
+    fn compile_module_node(&mut self, module: &ModuleNode) {
         for node in module.body.iter() {
             self.compile_node(node);
 
