@@ -1,4 +1,4 @@
-use super::{BreakScope, Compiler, Symbol, SymbolType};
+use super::{BreakScope, Compiler, Symbol, SymbolType, CompilerType};
 use std::borrow::Borrow;
 use std::rc::Rc;
 
@@ -332,7 +332,7 @@ impl Compiler {
     pub(super) fn compile_function_decl(&mut self, decl: &FunctionDeclNode) {
         match self.declare_symbol(Rc::clone(&decl.name), SymbolType::Function) {
             Ok(_) => {
-                let comp = match Compiler::compile(&decl.name.lexeme, &decl.body, &decl.params, decl.min_arity, decl.max_arity) {
+                let comp = match Compiler::compile_function(&decl) {
                     Ok(func) => func,
                     Err(_) => {
                         // We specify that there was an error inside the body
@@ -394,7 +394,11 @@ impl Compiler {
     }
 
     pub(super) fn compile_return_stmt(&mut self, stmt: &ReturnStmtNode) {
-        // TODO: Emit the correct position
+        if let CompilerType::Script = self.compiler_type {
+            self.error_at_token(Rc::clone(&stmt.token), "Cannot return outside of function.");
+            return;
+        }
+
         match &stmt.value {
             Some(v) => {
                 self.compile_node(v);

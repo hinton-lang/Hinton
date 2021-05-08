@@ -75,7 +75,7 @@ impl<'a> VirtualMachine {
     ///
     /// ## Returns
     /// * `InterpretResult` – The result of the source interpretation.
-    pub(crate) fn interpret(&mut self, source: &'a str) -> InterpretResult {
+    pub(crate) fn interpret(&mut self, filepath: &str, source: &'a str) -> InterpretResult {
         // Parses the program into an AST and calculates the parser's execution time
         let parsing = exec_time(|| Parser::parse(source));
 
@@ -85,7 +85,7 @@ impl<'a> VirtualMachine {
         };
 
         // Compiles the program into bytecode and calculates the compiler's execution time
-        let compiling = exec_time(|| Compiler::compile("<script>", &ast, &vec![], 0, 0));
+        let compiling = exec_time(|| Compiler::compile_file(filepath, &ast));
 
         // Executes the program
         return match compiling.0 {

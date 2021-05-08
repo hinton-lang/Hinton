@@ -7,7 +7,7 @@ impl Compiler {
     ///
     /// # Arguments
     /// * `expr` – A literal expression node.
-    pub(super) fn compile_literal(&mut self, expr: &LiteralExprNode) {
+    pub(super) fn compile_literal_expr(&mut self, expr: &LiteralExprNode) {
         let obj = expr.value.clone();
         let opr_pos = (expr.token.line_num, expr.token.column_num);
 
@@ -113,7 +113,7 @@ impl Compiler {
     ///
     /// # Arguments
     /// * `expr` – A ternary conditional expression node.
-    pub(super) fn compile_ternary_conditional(&mut self, expr: &TernaryConditionalNode) {
+    pub(super) fn compile_ternary_conditional_expr(&mut self, expr: &TernaryConditionalNode) {
         self.compile_if_stmt(&IfStmtNode {
             condition: expr.condition.clone(),
             then_token: Rc::clone(&expr.true_branch_token),
