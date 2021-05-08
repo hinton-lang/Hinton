@@ -259,6 +259,43 @@ impl Compiler {
             None => {}
         }
     }
+    /// Compiles a post-decrement expression.
+    ///
+    /// # Arguments
+    /// * `expr` – A post-decrement expression node.
+    pub(super) fn compile_pre_increment_expr(&mut self, expr: &PreIncrementExprNode) {
+        match self.resolve_symbol(Rc::clone(&expr.target), false) {
+            Some(idx) => {
+                if idx < 256 {
+                    self.emit_op_code(OpCode::PreIncrement, (expr.token.line_num, expr.token.column_num));
+                    self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
+                } else {
+                    self.emit_op_code(OpCode::PreIncrementLong, (expr.token.line_num, expr.token.column_num));
+                    self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
+                }
+            }
+            None => {}
+        }
+    }
+
+    /// Compiles a post-decrement expression.
+    ///
+    /// # Arguments
+    /// * `expr` – A post-decrement expression node.
+    pub(super) fn compile_pre_decrement_expr(&mut self, expr: &PreDecrementExprNode) {
+        match self.resolve_symbol(Rc::clone(&expr.target), false) {
+            Some(idx) => {
+                if idx < 256 {
+                    self.emit_op_code(OpCode::PreDecrement, (expr.token.line_num, expr.token.column_num));
+                    self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
+                } else {
+                    self.emit_op_code(OpCode::PreDecrementLong, (expr.token.line_num, expr.token.column_num));
+                    self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
+                }
+            }
+            None => {}
+        }
+    }
 
     /// Compiles an array literal expression.
     ///

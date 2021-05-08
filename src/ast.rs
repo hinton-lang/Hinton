@@ -14,6 +14,8 @@ pub enum ASTNode {
     Literal(LiteralExprNode),
     PostDecrement(PostDecrementExprNode),
     PostIncrement(PostIncrementExprNode),
+    PreDecrement(PreDecrementExprNode),
+    PreIncrement(PreIncrementExprNode),
     TernaryConditional(TernaryConditionalNode),
     Unary(UnaryExprNode),
     VarReassignment(VarReassignmentExprNode),
@@ -127,6 +129,18 @@ pub struct TernaryConditionalNode {
 
 #[derive(Clone)]
 pub struct IdentifierExprNode {
+    pub token: Rc<Token>,
+}
+
+#[derive(Clone)]
+pub struct PreIncrementExprNode {
+    pub target: Rc<Token>,
+    pub token: Rc<Token>,
+}
+
+#[derive(Clone)]
+pub struct PreDecrementExprNode {
+    pub target: Rc<Token>,
     pub token: Rc<Token>,
 }
 

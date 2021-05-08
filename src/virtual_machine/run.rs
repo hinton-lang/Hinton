@@ -374,7 +374,7 @@ impl<'a> VirtualMachine {
                     self.current_frame_mut().ip -= offset;
                 }
 
-                OpCode::PostIncrement => {
+                OpCode::PostIncrement | OpCode::PostIncrementLong => {
                     let pos = if let OpCode::PostIncrement = instruction {
                         self.get_next_byte().unwrap() as usize
                     } else {
@@ -392,7 +392,7 @@ impl<'a> VirtualMachine {
                     self.push_stack(value);
                 }
 
-                OpCode::PostDecrement => {
+                OpCode::PostDecrement | OpCode::PostDecrementLong => {
                     let pos = if let OpCode::PostDecrement = instruction {
                         self.get_next_byte().unwrap() as usize
                     } else {
@@ -408,6 +408,44 @@ impl<'a> VirtualMachine {
 
                     self.stack[pos] = Object::Number(value.as_number().unwrap() - 1f64);
                     self.push_stack(value);
+                }
+
+                OpCode::PreIncrement | OpCode::PreIncrementLong => {
+                    let pos = if let OpCode::PreIncrement = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    let value = self.peek_stack(pos).clone();
+
+                    if !value.is_numeric() {
+                        self.report_runtime_error(&format!("Cannot decrement object of type '{}'.", value.type_name()));
+                        return InterpretResult::RuntimeError;
+                    }
+
+                    let new_value = Object::Number(value.as_number().unwrap() + 1f64);
+                    self.stack[pos] = new_value.clone();
+                    self.push_stack(new_value);
+                }
+
+                OpCode::PreDecrement | OpCode::PreDecrementLong => {
+                    let pos = if let OpCode::PreDecrement = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    let value = self.peek_stack(pos).clone();
+
+                    if !value.is_numeric() {
+                        self.report_runtime_error(&format!("Cannot decrement object of type '{}'.", value.type_name()));
+                        return InterpretResult::RuntimeError;
+                    }
+
+                    let new_value = Object::Number(value.as_number().unwrap() - 1f64);
+                    self.stack[pos] = new_value.clone();
+                    self.push_stack(new_value);
                 }
 
                 OpCode::FuncCall => {
@@ -459,9 +497,6 @@ impl<'a> VirtualMachine {
 
                     self.push_stack(result);
                 }
-
-                // Should be removed so that there are no unimplemented OpCodes
-                _ => unreachable!("OpCode Not implemented! {:?}", instruction),
             }
 
             // Prints the execution of the program.
