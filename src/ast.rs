@@ -148,13 +148,18 @@ pub struct VariableDeclNode {
 
 #[derive(Clone)]
 pub enum ReassignmentType {
-    Plus,  // aka, a += b
-    Minus, // aka, a -= b
-    Mul,   // aka, a *= b
-    Div,   // aka, a /= b
-    Expo,  // aka, a **= b
-    Mod,   // aka, a %= b
-    None,  // Regular reassignment (aka, `a = b`)
+    Plus,   // a += b
+    Minus,  // a -= b
+    Mul,    // a *= b
+    Div,    // a /= b
+    Expo,   // a **= b
+    Mod,    // a %= b
+    ShiftL, // a <<= b
+    ShiftR, // a =>> b
+    BitAnd, // a &= b
+    Xor,    // a ^= b
+    BitOr,  // a |= b
+    None,   // a = b
 }
 
 #[derive(Clone)]

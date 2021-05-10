@@ -37,7 +37,6 @@ impl<'a> Lexer {
             ']' => self.make_token(RIGHT_SQUARE_BRACKET),
             ';' => self.make_token(SEMICOLON_SEPARATOR),
             ',' => self.make_token(COMMA_SEPARATOR),
-            '^' => self.make_token(BITWISE_XOR),
             '~' => self.make_token(BITWISE_NOT),
             '/' => {
                 let tok = if self.matches('=') {
@@ -79,9 +78,19 @@ impl<'a> Lexer {
                 };
                 self.make_token(tok)
             }
+            '^' => {
+                let tok = if self.matches('=') {
+                    BITWISE_XOR_EQUALS
+                } else {
+                    BITWISE_XOR
+                };
+                self.make_token(tok)
+            }
             '&' => {
                 let tok = if self.matches('&') {
                     LOGICAL_AND
+                } else if self.matches('=') {
+                    BITWISE_AND_EQUALS
                 } else {
                     BITWISE_AND
                 };
@@ -90,6 +99,8 @@ impl<'a> Lexer {
             '|' => {
                 let tok = if self.matches('|') {
                     LOGICAL_OR
+                } else if self.matches('=') {
+                    BITWISE_OR_EQUALS
                 } else {
                     BITWISE_OR
                 };
@@ -148,7 +159,11 @@ impl<'a> Lexer {
                 if self.matches('=') {
                     self.make_token(LESS_THAN_EQ)
                 } else if self.matches('<') {
-                    self.make_token(BITWISE_LEFT_SHIFT)
+                    if self.matches('=') {
+                        self.make_token(BITWISE_LEFT_SHIFT_EQUALS)
+                    } else {
+                        self.make_token(BITWISE_LEFT_SHIFT)
+                    }
                 } else {
                     self.make_token(LESS_THAN)
                 }
@@ -157,7 +172,11 @@ impl<'a> Lexer {
                 if self.matches('=') {
                     self.make_token(GREATER_THAN_EQ)
                 } else if self.matches('>') {
-                    self.make_token(BITWISE_RIGHT_SHIFT)
+                    if self.matches('=') {
+                        self.make_token(BITWISE_RIGHT_SHIFT_EQUALS)
+                    } else {
+                        self.make_token(BITWISE_RIGHT_SHIFT)
+                    }
                 } else {
                     self.make_token(GREATER_THAN)
                 }
