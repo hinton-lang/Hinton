@@ -90,8 +90,6 @@ impl<'a> Lexer {
             '-' => {
                 if self.matches('=') {
                     self.make_token(MINUS_EQUALS)
-                } else if self.matches('-') {
-                    self.make_token(DECREMENT)
                 } else if self.matches('>') {
                     self.make_token(THIN_ARROW)
                 } else {
@@ -101,8 +99,6 @@ impl<'a> Lexer {
             '+' => {
                 if self.matches('=') {
                     self.make_token(PLUS_EQUALS)
-                } else if self.matches('+') {
-                    self.make_token(INCREMENT)
                 } else {
                     self.make_token(PLUS)
                 }

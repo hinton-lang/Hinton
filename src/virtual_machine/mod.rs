@@ -11,7 +11,6 @@ use crate::{
 use std::rc::Rc;
 
 // Submodules
-mod arithmetic;
 mod run;
 
 /// The types of results the interpreter can return
@@ -31,25 +30,25 @@ pub struct CallFrame {
 
 impl CallFrame {
     fn get_next_op_code(&mut self) -> Option<OpCode> {
-        let code = self.function.body.chunk.get_op_code(self.ip);
+        let code = self.function.chunk.get_op_code(self.ip);
         self.ip += 1;
         return code;
     }
 
     fn get_next_byte(&mut self) -> Option<u8> {
-        let code = self.function.body.chunk.get_byte(self.ip);
+        let code = self.function.chunk.get_byte(self.ip);
         self.ip += 1;
         return code;
     }
 
     fn get_next_short(&mut self) -> Option<u16> {
-        let next_short = self.function.body.chunk.get_short(self.ip);
+        let next_short = self.function.chunk.get_short(self.ip);
         self.ip += 2;
         return next_short;
     }
 
     fn get_constant(&self, idx: usize) -> &Object {
-        self.function.body.chunk.get_constant(idx).unwrap()
+        self.function.chunk.get_constant(idx).unwrap()
     }
 }
 
@@ -179,16 +178,16 @@ impl<'a> VirtualMachine {
     /// Throws a runtime error to the console
     pub fn report_runtime_error(&self, message: &'a str) {
         let frame = self.current_frame();
-        let line = frame.function.body.chunk.get_line_info(frame.ip).unwrap();
+        let line = frame.function.chunk.get_line_info(frame.ip).unwrap();
         eprintln!("\x1b[31;1mRuntimeError\x1b[0m at [{}:{}] – {}", line.0, line.1, message);
 
         // Print stack trace
         for frame in self.frames.iter().rev() {
             let func = &frame.function;
-            let line = frame.function.body.chunk.get_line_info(frame.ip).unwrap();
+            let line = frame.function.chunk.get_line_info(frame.ip).unwrap();
 
-            if func.body.name != "" {
-                eprintln!("Stack trace: [{}:{}] at '{}(...)'", line.0, line.1, func.body.name);
+            if func.name != "" {
+                eprintln!("Stack trace: [{}:{}] at '{}(...)'", line.0, line.1, func.name);
             }
         }
     }

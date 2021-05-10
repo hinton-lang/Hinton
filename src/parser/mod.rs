@@ -729,34 +729,6 @@ impl<'a> Parser {
                 pos: (opr.line_num, opr.column_num),
                 opr_type,
             }));
-        } else if self.matches(TokenType::INCREMENT) || self.matches(TokenType::DECREMENT) {
-            let opr = Rc::clone(&self.previous);
-
-            let expr = match self.parse_primary() {
-                Some(e) => e,
-                None => return None,
-            };
-            let expr_token = Rc::clone(&self.previous);
-
-            return match expr {
-                Identifier(x) => {
-                    if let TokenType::INCREMENT = opr.token_type {
-                        Some(PreIncrement(PreIncrementExprNode {
-                            target: x.token,
-                            token: Rc::clone(&self.previous),
-                        }))
-                    } else {
-                        Some(PreDecrement(PreDecrementExprNode {
-                            target: x.token,
-                            token: Rc::clone(&self.previous),
-                        }))
-                    }
-                }
-                _ => {
-                    self.error_at_token(expr_token, "Invalid pre-decrement target.");
-                    None
-                }
-            };
         } else {
             let expr = match self.parse_primary() {
                 Some(e) => e,
@@ -768,34 +740,6 @@ impl<'a> Parser {
             // Parse array indexing
             if self.matches(TokenType::LEFT_SQUARE_BRACKET) {
                 return self.array_indexing(expr);
-            }
-
-            // Parse post-increment
-            if self.matches(TokenType::INCREMENT) {
-                return match expr {
-                    Identifier(x) => Some(PostIncrement(PostIncrementExprNode {
-                        target: x.token,
-                        token: Rc::clone(&self.previous),
-                    })),
-                    _ => {
-                        self.error_at_token(expr_token, "Invalid post-increment target.");
-                        None
-                    }
-                };
-            }
-
-            // Parse post-decrement
-            if self.matches(TokenType::DECREMENT) {
-                return match expr {
-                    Identifier(x) => Some(PostDecrement(PostDecrementExprNode {
-                        target: x.token,
-                        token: Rc::clone(&self.previous),
-                    })),
-                    _ => {
-                        self.error_at_token(expr_token, "Invalid post-decrement target.");
-                        None
-                    }
-                };
             }
 
             // Parse function call
@@ -820,7 +764,11 @@ impl<'a> Parser {
             TokenType::FALSE_LITERAL => Object::Bool(false),
             TokenType::NULL_LITERAL => Object::Null,
             TokenType::LEFT_SQUARE_BRACKET => return self.construct_array(),
-            TokenType::NUMERIC_LITERAL => match self.compile_number() {
+            TokenType::INTEGER_LITERAL => match self.compile_integer() {
+                Ok(x) => x,
+                Err(_) => return None,
+            },
+            TokenType::FLOAT_LITERAL => match self.compile_float() {
                 Ok(x) => x,
                 Err(_) => return None,
             },
@@ -886,11 +834,35 @@ impl<'a> Parser {
         return Object::String(lexeme);
     }
 
-    /// Compiles a number token to a Hinton Number.
+    /// Compiles an integer token to a Hinton Int.
     ///
     /// ## Returns
     /// `Rc<Object>` – The Hinton number object.
-    fn compile_number(&mut self) -> Result<Object, ()> {
+    fn compile_integer(&mut self) -> Result<Object, ()> {
+        let lexeme = self.previous.lexeme.clone();
+        // Removes the underscores from the lexeme
+        let lexeme = lexeme.replace('_', "");
+        // Parses the lexeme into a float
+        let num = lexeme.parse::<i64>();
+
+        // If the lexeme could successfully be converted to `isize` integer
+        // then we proceed to save it in the constant pool and emit the
+        // instruction. Otherwise, we indicate that there was a compilation error.
+        return match num {
+            Ok(x) => Ok(Object::Int(x)),
+            Err(_) => {
+                // This should almost never happen.
+                self.error_at_previous("Unexpected token.");
+                Err(())
+            }
+        };
+    }
+
+    /// Compiles a float token to a Hinton Float.
+    ///
+    /// ## Returns
+    /// `Rc<Object>` – The Hinton number object.
+    fn compile_float(&mut self) -> Result<Object, ()> {
         let lexeme = self.previous.lexeme.clone();
         // Removes the underscores from the lexeme
         let lexeme = lexeme.replace('_', "");
@@ -901,7 +873,7 @@ impl<'a> Parser {
         // then we proceed to save it in the constant pool and emit the
         // instruction. Otherwise, we indicate that there was a compilation error.
         return match num {
-            Ok(x) => Ok(Object::Number(x)),
+            Ok(x) => Ok(Object::Float(x)),
             Err(_) => {
                 // This should almost never happen.
                 self.error_at_previous("Unexpected token.");
@@ -926,7 +898,7 @@ impl<'a> Parser {
         // then we proceed to save it in the constant pool and emit the
         // instruction. Otherwise, we indicate that there was a compilation error.
         return match num {
-            Ok(x) => Ok(Object::Number(x as f64)),
+            Ok(x) => Ok(Object::Int(x as i64)),
             Err(_) => {
                 // This should almost never happen.
                 self.error_at_previous("Unexpected token.");
