@@ -251,24 +251,29 @@ impl<'a> Parser {
             || self.matches(TokenType::SLASH_EQUALS)
             || self.matches(TokenType::EXPO_EQUALS)
             || self.matches(TokenType::MOD_EQUALS)
+            || self.matches(TokenType::BITWISE_LEFT_SHIFT_EQUALS)
+            || self.matches(TokenType::BITWISE_RIGHT_SHIFT_EQUALS)
+            || self.matches(TokenType::BITWISE_AND_EQUALS)
+            || self.matches(TokenType::BITWISE_XOR_EQUALS)
+            || self.matches(TokenType::BITWISE_OR_EQUALS)
         {
             let opr = Rc::clone(&self.previous);
 
             // Gets the type of reassignment
-            let opr_type = if let TokenType::PLUS_EQUALS = opr.token_type {
-                ReassignmentType::Plus
-            } else if let TokenType::MINUS_EQUALS = opr.token_type {
-                ReassignmentType::Minus
-            } else if let TokenType::STAR_EQUALS = opr.token_type {
-                ReassignmentType::Mul
-            } else if let TokenType::SLASH_EQUALS = opr.token_type {
-                ReassignmentType::Div
-            } else if let TokenType::EXPO_EQUALS = opr.token_type {
-                ReassignmentType::Expo
-            } else if let TokenType::MOD_EQUALS = opr.token_type {
-                ReassignmentType::Mod
-            } else {
-                ReassignmentType::None
+            let opr_type = match opr.token_type {
+                TokenType::PLUS_EQUALS => ReassignmentType::Plus,
+                TokenType::MINUS_EQUALS => ReassignmentType::Minus,
+                TokenType::STAR_EQUALS => ReassignmentType::Mul,
+                TokenType::SLASH_EQUALS => ReassignmentType::Div,
+                TokenType::EXPO_EQUALS => ReassignmentType::Expo,
+                TokenType::MOD_EQUALS => ReassignmentType::Mod,
+                TokenType::BITWISE_LEFT_SHIFT_EQUALS => ReassignmentType::ShiftL,
+                TokenType::BITWISE_RIGHT_SHIFT_EQUALS => ReassignmentType::ShiftR,
+                TokenType::BITWISE_AND_EQUALS => ReassignmentType::BitAnd,
+                TokenType::BITWISE_XOR_EQUALS => ReassignmentType::Xor,
+                TokenType::BITWISE_OR_EQUALS => ReassignmentType::BitOr,
+                // Regular re-assignment
+                _ => ReassignmentType::None,
             };
 
             // Gets the value for assignment

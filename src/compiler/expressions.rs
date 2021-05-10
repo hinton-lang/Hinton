@@ -255,6 +255,15 @@ impl Compiler {
                     ReassignmentType::Mul => self.emit_op_code(OpCode::Multiply, line_info),
                     ReassignmentType::Expo => self.emit_op_code(OpCode::Expo, line_info),
                     ReassignmentType::Mod => self.emit_op_code(OpCode::Modulus, line_info),
+                    ReassignmentType::ShiftL => {
+                        self.emit_op_code(OpCode::BitwiseShiftLeft, line_info)
+                    }
+                    ReassignmentType::ShiftR => {
+                        self.emit_op_code(OpCode::BitwiseShiftRight, line_info)
+                    }
+                    ReassignmentType::BitAnd => self.emit_op_code(OpCode::BitwiseAnd, line_info),
+                    ReassignmentType::Xor => self.emit_op_code(OpCode::BitwiseXor, line_info),
+                    ReassignmentType::BitOr => self.emit_op_code(OpCode::BitwiseOr, line_info),
                     ReassignmentType::None => 0,
                 };
             }

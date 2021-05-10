@@ -448,7 +448,7 @@ impl std::ops::Mul<Object> for Object {
 
         match self {
             Object::Int(lhs) => match rhs {
-                Object::Int(rhs) => Ok(Object::Int(lhs * rhs)),
+                Object::Int(rhs) => Ok(Object::Int(lhs.saturating_mul(rhs))),
                 Object::Float(rhs) => Ok(Object::Float(lhs as f64 * rhs)),
                 Object::Bool(rhs) => Ok(Object::Int(if rhs { lhs } else { 0 })),
                 Object::String(rhs) => Ok(Object::String(rhs.repeat(lhs as usize))),
