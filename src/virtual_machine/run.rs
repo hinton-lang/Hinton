@@ -84,7 +84,10 @@ impl<'a> VirtualMachine {
                     }
 
                     if !target.is_array() {
-                        self.report_runtime_error(&format!("Cannot index object of type '{}'.", target.type_name()));
+                        self.report_runtime_error(&format!(
+                            "Cannot index object of type '{}'.",
+                            target.type_name()
+                        ));
                         return InterpretResult::RuntimeError;
                     }
 
@@ -135,28 +138,13 @@ impl<'a> VirtualMachine {
                     self.stack[pos + offset] = value.clone();
                 }
 
-                OpCode::Negate => {
-                    let val = self.pop_stack();
-
-                    match val {
-                        Object::Int(i) => {
-                            self.push_stack(Object::Int(-i));
-                        }
-                        Object::Float(f) => {
-                            self.push_stack(Object::Float(-f));
-                        }
-                        Object::Bool(b) if b => {
-                            self.push_stack(Object::Int(-1));
-                        }
-                        Object::Bool(b) if !b => {
-                            self.push_stack(Object::Int(0));
-                        }
-                        _ => {
-                            self.report_runtime_error(&format!("Cannot negate operand of type '{}'.", val.type_name()));
-                            return InterpretResult::RuntimeError;
-                        }
+                OpCode::Negate => match -self.pop_stack() {
+                    Ok(r) => self.push_stack(r),
+                    Err(e) => {
+                        self.report_runtime_error(e.as_str());
+                        return InterpretResult::RuntimeError;
                     }
-                }
+                },
 
                 OpCode::Add => {
                     let val2 = self.stack.pop().unwrap();
@@ -208,7 +196,7 @@ impl<'a> VirtualMachine {
                             return InterpretResult::RuntimeError;
                         }
                     }
-                },
+                }
 
                 OpCode::Modulus => {
                     let val2 = self.stack.pop().unwrap();
@@ -221,7 +209,7 @@ impl<'a> VirtualMachine {
                             return InterpretResult::RuntimeError;
                         }
                     }
-                },
+                }
 
                 OpCode::Expo => {
                     let val2 = self.stack.pop().unwrap();
@@ -234,7 +222,7 @@ impl<'a> VirtualMachine {
                             return InterpretResult::RuntimeError;
                         }
                     }
-                },
+                }
 
                 OpCode::LogicNot => {
                     let val = self.pop_stack();
@@ -344,15 +332,13 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                OpCode::BitwiseNot => {
-                    match !self.pop_stack() {
-                        Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                OpCode::BitwiseNot => match !self.pop_stack() {
+                    Ok(r) => self.push_stack(r),
+                    Err(e) => {
+                        self.report_runtime_error(e.as_str());
+                        return InterpretResult::RuntimeError;
                     }
-                }
+                },
 
                 OpCode::BitwiseShiftLeft => {
                     let right = self.pop_stack();
@@ -387,7 +373,12 @@ impl<'a> VirtualMachine {
                     if self.check_integer_operands(&left, &right, "..") {
                         let a = left.as_int().unwrap() as isize;
                         let b = right.as_int().unwrap() as isize;
-                        self.push_stack(Object::Range(Rc::new(RangeObject { min: a, max: b, step: 1 })));
+
+                        self.push_stack(Object::Range(Rc::new(RangeObject {
+                            min: a,
+                            max: b,
+                            step: 1,
+                        })));
                     } else {
                         return InterpretResult::RuntimeError;
                     }
@@ -434,7 +425,9 @@ impl<'a> VirtualMachine {
                 OpCode::FuncCall => {
                     let arg_count = self.get_next_byte().unwrap();
 
-                    let maybe_function = self.peek_stack(self.stack.len() - (arg_count as usize) - 1).clone();
+                    let maybe_function = self
+                        .peek_stack(self.stack.len() - (arg_count as usize) - 1)
+                        .clone();
 
                     match self.call_value(maybe_function, arg_count) {
                         Ok(_) => {}
@@ -499,7 +492,10 @@ impl<'a> VirtualMachine {
         // Check that the correct number of arguments is passed to the function
         if arg_count < min_arity || arg_count > max_arity {
             if min_arity == max_arity {
-                self.report_runtime_error(&format!("Expected {} arguments but got {} instead.", min_arity, arg_count))
+                self.report_runtime_error(&format!(
+                    "Expected {} arguments but got {} instead.",
+                    min_arity, arg_count
+                ))
             } else {
                 self.report_runtime_error(&format!(
                     "Expected {} to {} arguments but got {} instead.",

@@ -47,7 +47,10 @@ impl Parser {
             todo!("Implement for loops")
         } else if self.matches(TokenType::BREAK_KEYWORD) {
             let tok = Rc::clone(&self.previous);
-            self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after break keyword.");
+            self.consume(
+                TokenType::SEMICOLON_SEPARATOR,
+                "Expected ';' after break keyword.",
+            );
             return Some(BreakStmt(BreakStmtNode { token: tok }));
         } else if self.matches(TokenType::CONTINUE_KEYWORD) {
             todo!("Implement continue")
@@ -67,10 +70,19 @@ impl Parser {
     fn parse_print_statement(&mut self) -> Option<ASTNode> {
         let opr = Rc::clone(&self.previous);
 
-        self.consume(TokenType::LEFT_PARENTHESIS, "Expected '(' before expression.");
+        self.consume(
+            TokenType::LEFT_PARENTHESIS,
+            "Expected '(' before expression.",
+        );
         let expr = self.parse_expression();
-        self.consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after expression.");
-        self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after expression.");
+        self.consume(
+            TokenType::RIGHT_PARENTHESIS,
+            "Expected ')' after expression.",
+        );
+        self.consume(
+            TokenType::SEMICOLON_SEPARATOR,
+            "Expected ';' after expression.",
+        );
 
         return Some(PrintStmt(PrintStmtNode {
             child: match expr {
@@ -89,7 +101,10 @@ impl Parser {
         let opr = Rc::clone(&self.previous);
         let expr = self.parse_expression();
 
-        self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after expression.");
+        self.consume(
+            TokenType::SEMICOLON_SEPARATOR,
+            "Expected ';' after expression.",
+        );
 
         return Some(ExpressionStmt(ExpressionStmtNode {
             child: match expr {
@@ -152,12 +167,24 @@ impl Parser {
         // Requires a semicolon at the end of the declaration if the declaration
         // was not a block (e.g., when assigning a lambda function to a variable).
         // if self.previous.token_type.clone() as u8 != TokenType::RIGHT_CURLY_BRACES as u8 {
-        if !self.previous.token_type.type_match(&TokenType::RIGHT_CURLY_BRACES) {
-            self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after variable declaration.");
+        if !self
+            .previous
+            .token_type
+            .type_match(&TokenType::RIGHT_CURLY_BRACES)
+        {
+            self.consume(
+                TokenType::SEMICOLON_SEPARATOR,
+                "Expected ';' after variable declaration.",
+            );
         }
 
         // But if there is a semicolon after a curly brace, then we consume it
-        if self.previous.token_type.type_match(&TokenType::RIGHT_CURLY_BRACES) && self.check(TokenType::SEMICOLON_SEPARATOR) {
+        if self
+            .previous
+            .token_type
+            .type_match(&TokenType::RIGHT_CURLY_BRACES)
+            && self.check(TokenType::SEMICOLON_SEPARATOR)
+        {
             self.advance();
         }
 
@@ -184,12 +211,24 @@ impl Parser {
 
         // Requires a semicolon at the end of the declaration if the declaration
         // was not a block (e.g., when assigning a lambda function to a constant).
-        if !self.previous.token_type.type_match(&TokenType::RIGHT_CURLY_BRACES) {
-            self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after constant declaration.");
+        if !self
+            .previous
+            .token_type
+            .type_match(&TokenType::RIGHT_CURLY_BRACES)
+        {
+            self.consume(
+                TokenType::SEMICOLON_SEPARATOR,
+                "Expected ';' after constant declaration.",
+            );
         }
 
         // But if there is a semicolon after a curly brace, then we consume it
-        if self.previous.token_type.type_match(&TokenType::RIGHT_CURLY_BRACES) && self.check(TokenType::SEMICOLON_SEPARATOR) {
+        if self
+            .previous
+            .token_type
+            .type_match(&TokenType::RIGHT_CURLY_BRACES)
+            && self.check(TokenType::SEMICOLON_SEPARATOR)
+        {
             self.advance();
         }
 
@@ -212,7 +251,10 @@ impl Parser {
             None => return None, // Could not create condition for if-statement
         };
 
-        self.consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after 'if' condition.");
+        self.consume(
+            TokenType::RIGHT_PARENTHESIS,
+            "Expected ')' after 'if' condition.",
+        );
 
         let then_branch = match self.parse_statement() {
             Some(val) => val,
@@ -248,7 +290,10 @@ impl Parser {
             None => return None, // Could not create condition for while-loop
         };
 
-        self.consume(TokenType::RIGHT_PARENTHESIS, "Expected ')' after 'while' condition.");
+        self.consume(
+            TokenType::RIGHT_PARENTHESIS,
+            "Expected ')' after 'while' condition.",
+        );
 
         let body = match self.parse_statement() {
             Some(val) => val,
@@ -265,7 +310,10 @@ impl Parser {
     fn parse_func_declaration(&mut self) -> Option<ASTNode> {
         self.consume(TokenType::IDENTIFIER, "Expected a function name.");
         let name = Rc::clone(&self.previous);
-        self.consume(TokenType::LEFT_PARENTHESIS, "Expected opening parenthesis after function name.");
+        self.consume(
+            TokenType::LEFT_PARENTHESIS,
+            "Expected opening parenthesis after function name.",
+        );
 
         let mut params: Vec<Parameter> = vec![];
         let mut min_arity: u8 = 0;
@@ -299,13 +347,19 @@ impl Parser {
             }
 
             if !self.matches(TokenType::RIGHT_PARENTHESIS) {
-                self.consume(TokenType::COMMA_SEPARATOR, "Expected comma after parameter.");
+                self.consume(
+                    TokenType::COMMA_SEPARATOR,
+                    "Expected comma after parameter.",
+                );
             } else {
                 break;
             }
         }
 
-        self.consume(TokenType::LEFT_CURLY_BRACES, "Expected opening curly braces before function body.");
+        self.consume(
+            TokenType::LEFT_CURLY_BRACES,
+            "Expected opening curly braces before function body.",
+        );
 
         let body = match self.parse_block() {
             Some(b) => b,
@@ -362,13 +416,19 @@ impl Parser {
                 None => return None,
             };
 
-            self.consume(TokenType::SEMICOLON_SEPARATOR, "Expected ';' after break keyword.");
+            self.consume(
+                TokenType::SEMICOLON_SEPARATOR,
+                "Expected ';' after break keyword.",
+            );
             return Some(ReturnStmt(ReturnStmtNode {
                 token: tok,
                 value: Some(Box::new(expr)),
             }));
         }
 
-        return Some(ReturnStmt(ReturnStmtNode { token: tok, value: None }));
+        return Some(ReturnStmt(ReturnStmtNode {
+            token: tok,
+            value: None,
+        }));
     }
 }

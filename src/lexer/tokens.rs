@@ -185,7 +185,7 @@ pub fn make_identifier_type(id: &str) -> TokenType {
         // "Null"      => TokenType::NULL_TYPE,
         // "String"    => TokenType::STRING_TYPE,
         // "Void"      => TokenType::VOID_TYPE,
-        
+
         // "abstract"  => TokenType::ABSTRACT_KEYWORD,
         // "async"  => TokenType::ASYNC_KEYWORD,
         // "await"  => TokenType::AWAIT_KEYWORD,

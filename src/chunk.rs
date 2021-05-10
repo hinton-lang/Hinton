@@ -255,7 +255,8 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
 
     let mut current_line = 0;
 
-    for mut idx in 0..chunk.len() {
+    let mut idx = 0;
+    while idx < chunk.len() {
         let code = chunk.get_op_code(idx);
         let line_info = chunk.get_line_info(idx);
 
@@ -280,7 +281,11 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
         match code {
             Some(instr) => {
                 // Prints the instruction with a teal color
-                print!("\x1b[32m{:#04X}\x1b[0m – \x1b[36m{:?}\x1b[0m ", instr.clone() as u8, instr);
+                print!(
+                    "\x1b[32m{:#04X}\x1b[0m – \x1b[36m{:?}\x1b[0m ",
+                    instr.clone() as u8,
+                    instr
+                );
 
                 // Reads two bytes as the index of a constant
                 let mut const_val = |is_long: bool| -> &Object {
@@ -334,7 +339,10 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
 
                     OpCode::Jump | OpCode::JumpIfFalse => {
                         idx += 2;
-                        println!("\t{}", (chunk.get_short(idx - 1).unwrap() as usize) + idx + 2);
+                        println!(
+                            "\t{}",
+                            (chunk.get_short(idx - 1).unwrap() as usize) + idx + 2
+                        );
                     }
 
                     // If the instruction does not use the next to bytes, then print nothing
@@ -343,6 +351,8 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
             }
             None => println!("No Instruction Found..."),
         }
+
+        idx += 1;
     }
 
     println!();

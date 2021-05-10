@@ -169,7 +169,10 @@ impl<'a> VirtualMachine {
         return match callee {
             Object::Function(obj) => self.call(obj, arg_count),
             _ => {
-                self.report_runtime_error(&format!("Cannot call object of type '{}'.", callee.type_name()));
+                self.report_runtime_error(&format!(
+                    "Cannot call object of type '{}'.",
+                    callee.type_name()
+                ));
                 Err(())
             }
         };
@@ -179,7 +182,10 @@ impl<'a> VirtualMachine {
     pub fn report_runtime_error(&self, message: &'a str) {
         let frame = self.current_frame();
         let line = frame.function.chunk.get_line_info(frame.ip).unwrap();
-        eprintln!("\x1b[31;1mRuntimeError\x1b[0m at [{}:{}] – {}", line.0, line.1, message);
+        eprintln!(
+            "\x1b[31;1mRuntimeError\x1b[0m at [{}:{}] – {}",
+            line.0, line.1, message
+        );
 
         // Print stack trace
         for frame in self.frames.iter().rev() {
@@ -187,33 +193,12 @@ impl<'a> VirtualMachine {
             let line = frame.function.chunk.get_line_info(frame.ip).unwrap();
 
             if func.name != "" {
-                eprintln!("Stack trace: [{}:{}] at '{}(...)'", line.0, line.1, func.name);
+                eprintln!(
+                    "Stack trace: [{}:{}] at '{}(...)'",
+                    line.0, line.1, func.name
+                );
             }
         }
-    }
-
-    /// Checks that both operands of a binary operand are numeric.
-    ///
-    /// ## Arguments
-    /// * `left` – The left operand.
-    /// * `right` – The right operand.
-    /// * `operator` – A string representation of the operator (for error reporting)
-    ///
-    /// ## Returns
-    /// `bool` – True if both operands are numeric, false otherwise.
-    pub fn check_numeric_operands(&self, left: &Object, right: &Object, opr: &str) -> bool {
-        // If the operands are not numeric, throw a runtime error.
-        if !left.is_numeric() || !right.is_numeric() {
-            self.report_runtime_error(&format!(
-                "Operation '{}' not defined for operands of type '{}' and '{}'.",
-                opr.to_string(),
-                left.type_name(),
-                right.type_name()
-            ));
-            return false;
-        }
-
-        return true;
     }
 
     /// Checks that both operands of a binary operand are numeric.

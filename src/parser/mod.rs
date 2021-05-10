@@ -180,7 +180,10 @@ impl<'a> Parser {
         }
         self.is_in_panic = true;
 
-        print!("\x1b[31;1mSyntaxError\x1b[0m [{}:{}]", tok.line_num, tok.column_num);
+        print!(
+            "\x1b[31;1mSyntaxError\x1b[0m [{}:{}]",
+            tok.line_num, tok.column_num
+        );
 
         if let TokenType::EOF = tok.token_type {
             println!(" – At the end of the program.");
@@ -241,8 +244,32 @@ impl<'a> Parser {
         let expr = self.parse_ternary_conditional();
         let expr_tok = Rc::clone(&self.previous);
 
-        if self.matches(TokenType::EQUALS_SIGN) {
+        if self.matches(TokenType::EQUALS_SIGN)
+            || self.matches(TokenType::PLUS_EQUALS)
+            || self.matches(TokenType::MINUS_EQUALS)
+            || self.matches(TokenType::STAR_EQUALS)
+            || self.matches(TokenType::SLASH_EQUALS)
+            || self.matches(TokenType::EXPO_EQUALS)
+            || self.matches(TokenType::MOD_EQUALS)
+        {
             let opr = Rc::clone(&self.previous);
+
+            // Gets the type of reassignment
+            let opr_type = if let TokenType::PLUS_EQUALS = opr.token_type {
+                ReassignmentType::Plus
+            } else if let TokenType::MINUS_EQUALS = opr.token_type {
+                ReassignmentType::Minus
+            } else if let TokenType::STAR_EQUALS = opr.token_type {
+                ReassignmentType::Mul
+            } else if let TokenType::SLASH_EQUALS = opr.token_type {
+                ReassignmentType::Div
+            } else if let TokenType::EXPO_EQUALS = opr.token_type {
+                ReassignmentType::Expo
+            } else if let TokenType::MOD_EQUALS = opr.token_type {
+                ReassignmentType::Mod
+            } else {
+                ReassignmentType::None
+            };
 
             // Gets the value for assignment
             let rhs = match self.parse_expression() {
@@ -256,9 +283,14 @@ impl<'a> Parser {
                     // Variable re-assignment
                     Identifier(id) => Some(VarReassignment(VarReassignmentExprNode {
                         target: id.token,
+                        opr_type,
                         value: Box::new(rhs),
                         pos: (opr.line_num, opr.column_num),
                     })),
+
+                    // Reassignment of collection item (`a[1] *= 3`),
+                    // and reassignment of member access (`a.member += "hello"`)
+                    // should be handled here.
 
                     // The assignment target is not valid
                     _ => {
@@ -270,9 +302,9 @@ impl<'a> Parser {
                 // Could not parse lhs of expression
                 None => None,
             };
-        } else {
-            return expr;
         }
+
+        return expr;
     }
 
     /// Parses a ternary conditional expression as specified in the grammar.cfg file.
@@ -290,7 +322,10 @@ impl<'a> Parser {
                 None => return None, // Could not create expression for branch_true
             };
 
-            self.consume(TokenType::COLON_SEPARATOR, "Expected ':' in ternary operator.");
+            self.consume(
+                TokenType::COLON_SEPARATOR,
+                "Expected ':' in ternary operator.",
+            );
             let false_branch_opr = Rc::clone(&self.previous);
 
             let branch_false = match self.parse_expression() {
@@ -583,7 +618,9 @@ impl<'a> Parser {
     fn parse_bitwise_shift(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_term();
 
-        while self.matches(TokenType::BITWISE_LEFT_SHIFT) || self.matches(TokenType::BITWISE_RIGHT_SHIFT) {
+        while self.matches(TokenType::BITWISE_LEFT_SHIFT)
+            || self.matches(TokenType::BITWISE_RIGHT_SHIFT)
+        {
             let opr = Rc::clone(&self.previous);
 
             let opr_type = if let TokenType::BITWISE_LEFT_SHIFT = opr.token_type {
@@ -649,7 +686,10 @@ impl<'a> Parser {
     fn parse_factor(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_expo();
 
-        while self.matches(TokenType::SLASH) || self.matches(TokenType::STAR) || self.matches(TokenType::MODULUS) {
+        while self.matches(TokenType::SLASH)
+            || self.matches(TokenType::STAR)
+            || self.matches(TokenType::MODULUS)
+        {
             let opr = Rc::clone(&self.previous);
 
             let opr_type = if let TokenType::SLASH = opr.token_type {
@@ -709,7 +749,10 @@ impl<'a> Parser {
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
     fn parse_unary(&mut self) -> Option<ASTNode> {
-        if self.matches(TokenType::LOGICAL_NOT) || self.matches(TokenType::MINUS) || self.matches(TokenType::BITWISE_NOT) {
+        if self.matches(TokenType::LOGICAL_NOT)
+            || self.matches(TokenType::MINUS)
+            || self.matches(TokenType::BITWISE_NOT)
+        {
             let opr = Rc::clone(&self.previous);
             let expr = self.parse_primary();
 
@@ -925,7 +968,10 @@ impl<'a> Parser {
                     continue;
                 }
 
-                self.consume(TokenType::RIGHT_SQUARE_BRACKET, "Expected ']' after array declaration.");
+                self.consume(
+                    TokenType::RIGHT_SQUARE_BRACKET,
+                    "Expected ']' after array declaration.",
+                );
                 break;
             }
         }
@@ -952,7 +998,10 @@ impl<'a> Parser {
             pos,
         }));
 
-        self.consume(TokenType::RIGHT_SQUARE_BRACKET, "Expected ']' after array index.");
+        self.consume(
+            TokenType::RIGHT_SQUARE_BRACKET,
+            "Expected ']' after array index.",
+        );
 
         // Keep matching chained array indexers
         while self.matches(TokenType::LEFT_SQUARE_BRACKET) {
@@ -970,7 +1019,10 @@ impl<'a> Parser {
                 pos,
             }));
 
-            self.consume(TokenType::RIGHT_SQUARE_BRACKET, "Expected ']' after array index.");
+            self.consume(
+                TokenType::RIGHT_SQUARE_BRACKET,
+                "Expected ']' after array index.",
+            );
         }
 
         return expr;
@@ -998,7 +1050,10 @@ impl<'a> Parser {
             }
 
             if !self.matches(TokenType::RIGHT_PARENTHESIS) {
-                self.consume(TokenType::COMMA_SEPARATOR, "Expected comma after parameter.");
+                self.consume(
+                    TokenType::COMMA_SEPARATOR,
+                    "Expected comma after parameter.",
+                );
             } else {
                 break;
             }

@@ -128,7 +128,6 @@ pub struct IdentifierExprNode {
     pub token: Rc<Token>,
 }
 
-
 #[derive(Clone)]
 pub struct PrintStmtNode {
     pub child: Box<ASTNode>,
@@ -148,9 +147,21 @@ pub struct VariableDeclNode {
 }
 
 #[derive(Clone)]
+pub enum ReassignmentType {
+    Plus,  // aka, a += b
+    Minus, // aka, a -= b
+    Mul,   // aka, a *= b
+    Div,   // aka, a /= b
+    Expo,  // aka, a **= b
+    Mod,   // aka, a %= b
+    None,  // Regular reassignment (aka, `a = b`)
+}
+
+#[derive(Clone)]
 pub struct VarReassignmentExprNode {
     pub target: Rc<Token>,
     pub value: Box<ASTNode>,
+    pub opr_type: ReassignmentType,
     pub pos: (usize, usize),
 }
 

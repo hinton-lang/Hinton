@@ -156,21 +156,21 @@ impl Object {
             _ => None,
         }
     }
-    
+
     pub fn as_range(&self) -> Option<Rc<RangeObject>> {
         match self {
             Object::Range(v) => Some(Rc::clone(v)),
             _ => None,
         }
     }
-    
+
     pub fn as_array(&self) -> Option<&Vec<Object>> {
         match self {
             Object::Array(v) => Some(v),
             _ => None,
         }
     }
-    
+
     pub fn as_function(&self) -> Option<&FunctionObject> {
         match self {
             Object::Function(f) => Some(f),
@@ -258,11 +258,16 @@ impl<'a> fmt::Display for Object {
     fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
         match *self {
             Object::Int(ref inner) => {
-                let str = String::from("\x1b[38;5;81m") + inner.to_string().as_str() + String::from("\x1b[0m").as_str();
+                let str = String::from("\x1b[38;5;81m")
+                    + inner.to_string().as_str()
+                    + String::from("\x1b[0m").as_str();
                 fmt::Display::fmt(&str, f)
             }
             Object::Float(ref inner) => {
-                let str = String::from("\x1b[38;5;81m") + inner.to_string().as_str() + String::from("\x1b[0m").as_str();
+                let str = String::from("\x1b[38;5;81m")
+                    + inner.to_string().as_str()
+                    + if inner.fract() == 0.0 { ".0" } else { "" } // display the .0
+                    + String::from("\x1b[0m").as_str();
                 fmt::Display::fmt(&str, f)
             }
             Object::String(ref inner) => {
@@ -291,7 +296,11 @@ impl<'a> fmt::Display for Object {
 
                 write!(f, "{}", arr_str)
             }
-            Object::Range(ref inner) => write!(f, "[\x1b[38;5;81m{}\x1b[0m..\x1b[38;5;81m{}\x1b[0m]", inner.min, inner.max),
+            Object::Range(ref inner) => write!(
+                f,
+                "[\x1b[38;5;81m{}\x1b[0m..\x1b[38;5;81m{}\x1b[0m]",
+                inner.min, inner.max
+            ),
             Object::Function(ref inner) => {
                 let str = if inner.name == "" {
                     String::from("<script>")
@@ -302,6 +311,26 @@ impl<'a> fmt::Display for Object {
                 fmt::Display::fmt(&str, f)
             }
             Object::Null => f.write_str("\x1b[37;1mnull\x1b[0m"),
+        }
+    }
+}
+
+/// Defines addition of Hinton objects.
+impl std::ops::Neg for Object {
+    type Output = Result<Object, String>;
+
+    fn neg(self) -> Self::Output {
+        match self {
+            Object::Int(lhs) => Ok(Object::Int(-lhs)),
+            Object::Float(lhs) => Ok(Object::Float(-lhs)),
+            Object::Bool(lhs) if lhs => Ok(Object::Int(-1)),
+            Object::Bool(lhs) if !lhs => Ok(Object::Int(0)),
+            _ => {
+                return Err(format!(
+                    "Cannot negate operand of type '{}'.",
+                    self.type_name()
+                ))
+            }
         }
     }
 }
@@ -329,12 +358,22 @@ impl std::ops::Add<Object> for Object {
                 Object::Int(rhs) => Ok(Object::Float(lhs + rhs as f64)),
                 Object::Float(rhs) => Ok(Object::Float(lhs + rhs)),
                 Object::Bool(rhs) => Ok(Object::Float(lhs + if rhs { 1f64 } else { 0f64 })),
-                Object::String(rhs) => Ok(Object::String(format!("{}{}", lhs, rhs))),
+                Object::String(rhs) => Ok(Object::String(format!(
+                    "{}{}{}",
+                    lhs,
+                    if lhs.fract() == 0.0 { ".0" } else { "" },
+                    rhs
+                ))),
                 _ => return error_msg,
             },
             Object::String(lhs) => match rhs {
                 Object::Int(rhs) => Ok(Object::String(format!("{}{}", lhs, rhs))),
-                Object::Float(rhs) => Ok(Object::String(format!("{}{}", lhs, rhs))),
+                Object::Float(rhs) => Ok(Object::String(format!(
+                    "{}{}{}",
+                    lhs,
+                    rhs,
+                    if rhs.fract() == 0.0 { ".0" } else { "" }
+                ))),
                 Object::String(rhs) => Ok(Object::String(format!("{}{}", lhs, rhs))),
                 _ => return error_msg,
             },
@@ -561,7 +600,9 @@ impl std::ops::BitAnd<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } & rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } & if rhs { 1 } else { 0 })),
+                Object::Bool(rhs) => Ok(Object::Int(
+                    if lhs { 1 } else { 0 } & if rhs { 1 } else { 0 },
+                )),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -588,7 +629,9 @@ impl std::ops::BitOr<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } | rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } | if rhs { 1 } else { 0 })),
+                Object::Bool(rhs) => Ok(Object::Int(
+                    if lhs { 1 } else { 0 } | if rhs { 1 } else { 0 },
+                )),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -615,7 +658,9 @@ impl std::ops::BitXor<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } ^ rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } ^ if rhs { 1 } else { 0 })),
+                Object::Bool(rhs) => Ok(Object::Int(
+                    if lhs { 1 } else { 0 } ^ if rhs { 1 } else { 0 },
+                )),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -642,7 +687,9 @@ impl std::ops::Shl<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } << rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } << if rhs { 1 } else { 0 })),
+                Object::Bool(rhs) => Ok(Object::Int(
+                    if lhs { 1 } else { 0 } << if rhs { 1 } else { 0 },
+                )),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -669,7 +716,9 @@ impl std::ops::Shr<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } >> rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } >> if rhs { 1 } else { 0 })),
+                Object::Bool(rhs) => Ok(Object::Int(
+                    if lhs { 1 } else { 0 } >> if rhs { 1 } else { 0 },
+                )),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -678,16 +727,24 @@ impl std::ops::Shr<Object> for Object {
 }
 
 /// Defines the bitwise-not operation of Hinton objects.
+/// NOTE: Rust does not have a special bitwise-not (~)
+/// operator, instead Rust uses the '!' for both logical-not
+// and bitwise-not. Using the '!' operator on a Hinton
+// object only applies the bitwise-not operation. For the
+// logic-not operation use the `Object.is_falsey()` method.
 impl std::ops::Not for Object {
     type Output = Result<Object, String>;
 
     fn not(self) -> Self::Output {
-        let error_msg = Err(format!("Operation not defined for object of type '{}'.", self.type_name()));
-
         match self {
             Object::Int(opr) => Ok(Object::Int(!opr)),
             Object::Bool(opr) => Ok(Object::Int(!(opr as i64))),
-            _ => return error_msg,
+            _ => {
+                return Err(format!(
+                    "Operation not defined for object of type '{}'.",
+                    self.type_name()
+                ))
+            }
         }
     }
 }
