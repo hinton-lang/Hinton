@@ -1,4 +1,4 @@
-use super::{BreakScope, Compiler, Symbol, SymbolType, CompilerType};
+use super::{BreakScope, Compiler, CompilerType, Symbol, SymbolType};
 use std::borrow::Borrow;
 use std::rc::Rc;
 
@@ -84,12 +84,30 @@ impl Compiler {
 
             if symbol.name == token.lexeme {
                 match symbol.symbol_type {
-                    SymbolType::Variable => self.error_at_token(token, "A variable with this name already exists in this scope."),
-                    SymbolType::Constant => self.error_at_token(token, "A constant with this name already exists in this scope."),
-                    SymbolType::Function => self.error_at_token(token, "A function with this name already exists in this scope."),
-                    SymbolType::Class => self.error_at_token(token, "A class with this name already exists in this scope."),
-                    SymbolType::Enum => self.error_at_token(token, "An enum with this name already exists in this scope."),
-                    SymbolType::Parameter => self.error_at_token(token, "A parameter with this name already exists in this scope."),
+                    SymbolType::Variable => self.error_at_token(
+                        token,
+                        "A variable with this name already exists in this scope.",
+                    ),
+                    SymbolType::Constant => self.error_at_token(
+                        token,
+                        "A constant with this name already exists in this scope.",
+                    ),
+                    SymbolType::Function => self.error_at_token(
+                        token,
+                        "A function with this name already exists in this scope.",
+                    ),
+                    SymbolType::Class => self.error_at_token(
+                        token,
+                        "A class with this name already exists in this scope.",
+                    ),
+                    SymbolType::Enum => self.error_at_token(
+                        token,
+                        "An enum with this name already exists in this scope.",
+                    ),
+                    SymbolType::Parameter => self.error_at_token(
+                        token,
+                        "A parameter with this name already exists in this scope.",
+                    ),
                 }
 
                 return Err(());
@@ -111,7 +129,10 @@ impl Compiler {
     /// `Result<(), ()>` – Whether or not there was an error with the symbol declaration.
     fn emit_symbol(&mut self, name: Rc<Token>, symbol_type: SymbolType) -> Result<usize, ()> {
         if self.symbol_table.len() >= (u16::MAX as usize) {
-            self.error_at_token(name, "Too many variables in this program. Only 2^16 variables allowed.");
+            self.error_at_token(
+                name,
+                "Too many variables in this program. Only 2^16 variables allowed.",
+            );
             return Err(());
         }
 
@@ -160,7 +181,14 @@ impl Compiler {
         self.scope_depth -= 1;
 
         // When a scope ends, we remove all local symbols in the scope.
-        while self.symbol_table.len() > 0 && self.symbol_table.get(self.symbol_table.len() - 1).unwrap().symbol_depth > self.scope_depth {
+        while self.symbol_table.len() > 0
+            && self
+                .symbol_table
+                .get(self.symbol_table.len() - 1)
+                .unwrap()
+                .symbol_depth
+                > self.scope_depth
+        {
             // Because variables live in the stack, once we are done with
             // them for this scope, we take them out of the stack by emitting
             // the OP_POP_STACK instruction for each one of the variables.
@@ -190,7 +218,10 @@ impl Compiler {
             // to execute the correct branch of the if statement.
             self.compile_node(&stmt.condition);
             then_jump = self.emit_jump(OpCode::JumpIfFalse, Rc::clone(&stmt.then_token));
-            self.emit_op_code(OpCode::PopStack, (stmt.then_token.line_num, stmt.then_token.column_num));
+            self.emit_op_code(
+                OpCode::PopStack,
+                (stmt.then_token.line_num, stmt.then_token.column_num),
+            );
         }
 
         // If the condition is always false, the `then`
@@ -228,17 +259,17 @@ impl Compiler {
 
         if !condition_is_lit_false {
             self.patch_jump(then_jump, Rc::clone(&stmt.then_token));
-            self.emit_op_code(OpCode::PopStack, (stmt.then_token.line_num, stmt.then_token.column_num));
+            self.emit_op_code(
+                OpCode::PopStack,
+                (stmt.then_token.line_num, stmt.then_token.column_num),
+            );
         }
 
-        match stmt.else_branch.borrow() {
-            Some(else_branch) => {
-                self.compile_node(&else_branch);
-                // Because at this point we *do* have an 'else' branch, we know that for sure
-                // these is an `else_token`, so it is safe to unwrap without check.
-                self.patch_jump(else_jump, stmt.else_token.clone().unwrap());
-            }
-            None => {}
+        if let Some(else_branch) = stmt.else_branch.borrow() {
+            self.compile_node(&else_branch);
+            // Because at this point we *do* have an 'else' branch, we know that for sure
+            // these is an `else_token`, so it is safe to unwrap without check.
+            self.patch_jump(else_jump, stmt.else_token.clone().unwrap());
         }
     }
 
@@ -265,7 +296,10 @@ impl Compiler {
 
             // If the condition is not false, remove the condition value from the stack
             // and continue to execute the loop's body.
-            self.emit_op_code(OpCode::PopStack, (stmt.token.line_num, stmt.token.column_num));
+            self.emit_op_code(
+                OpCode::PopStack,
+                (stmt.token.line_num, stmt.token.column_num),
+            );
         }
 
         self.compile_node(&stmt.body);
@@ -291,7 +325,10 @@ impl Compiler {
         // If the condition is not a truthy literal, then we must patch the 'OP_JUMP_IF_FALSE' above
         if !condition_is_truthy_lit {
             self.patch_jump(exit_jump, Rc::clone(&stmt.token));
-            self.emit_op_code(OpCode::PopStack, (stmt.token.line_num, stmt.token.column_num));
+            self.emit_op_code(
+                OpCode::PopStack,
+                (stmt.token.line_num, stmt.token.column_num),
+            );
         }
 
         self.loops.pop(); // ends this loop's scope
@@ -310,7 +347,14 @@ impl Compiler {
         // remove the symbols from the symbol table since they must also be
         // removed when the loop's scope.
         let mut i = 1;
-        while self.symbol_table.len() > 0 && self.symbol_table.get(self.symbol_table.len() - i).unwrap().symbol_depth >= self.scope_depth {
+        while self.symbol_table.len() > 0
+            && self
+                .symbol_table
+                .get(self.symbol_table.len() - i)
+                .unwrap()
+                .symbol_depth
+                >= self.scope_depth
+        {
             let idx = self.symbol_table.len() - i;
             let symbol = &self.symbol_table[idx];
             let pos = symbol.pos;
@@ -358,7 +402,10 @@ impl Compiler {
                             }
                             None => {
                                 if param.is_optional {
-                                    self.emit_op_code(OpCode::LoadImmNull, (param.name.line_num, param.name.column_num));
+                                    self.emit_op_code(
+                                        OpCode::LoadImmNull,
+                                        (param.name.line_num, param.name.column_num),
+                                    );
                                 }
                             }
                         }
@@ -366,8 +413,14 @@ impl Compiler {
 
                     // Once all the named parameter expressions are compiled, we bind
                     // each of the named parameters to the function
-                    self.emit_op_code(OpCode::BindDefaults, (decl.name.line_num, decl.name.column_num));
-                    self.emit_raw_byte((decl.max_arity - decl.min_arity) as u8, (decl.name.line_num, decl.name.column_num));
+                    self.emit_op_code(
+                        OpCode::BindDefaults,
+                        (decl.name.line_num, decl.name.column_num),
+                    );
+                    self.emit_raw_byte(
+                        (decl.max_arity - decl.min_arity) as u8,
+                        (decl.name.line_num, decl.name.column_num),
+                    );
                 }
             }
 
@@ -404,13 +457,19 @@ impl Compiler {
                 self.compile_node(v);
             }
             None => {
-                self.emit_op_code(OpCode::LoadImmNull, (stmt.token.line_num, stmt.token.column_num));
+                self.emit_op_code(
+                    OpCode::LoadImmNull,
+                    (stmt.token.line_num, stmt.token.column_num),
+                );
             }
         }
 
         self.emit_op_code(OpCode::Return, (stmt.token.line_num, stmt.token.column_num));
         // The number of local symbols that need to be popped off the stack
         let num_of_symbols = self.symbol_table.len() - 1;
-        self.emit_raw_byte(num_of_symbols as u8, (stmt.token.line_num, stmt.token.column_num));
+        self.emit_raw_byte(
+            num_of_symbols as u8,
+            (stmt.token.line_num, stmt.token.column_num),
+        );
     }
 }

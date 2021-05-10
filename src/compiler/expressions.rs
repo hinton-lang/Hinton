@@ -95,14 +95,18 @@ impl Compiler {
             BinaryExprType::BitwiseXOR => OpCode::BitwiseXor,
             BinaryExprType::Division => OpCode::Divide,
             BinaryExprType::Expo => OpCode::Expo,
-            BinaryExprType::LogicAND => unreachable!("The 'AND' expression should have been compiled by now."),
+            BinaryExprType::LogicAND => {
+                unreachable!("The 'AND' expression should have been compiled by now.")
+            }
             BinaryExprType::LogicEQ => OpCode::Equals,
             BinaryExprType::LogicGreaterThan => OpCode::GreaterThan,
             BinaryExprType::LogicGreaterThanEQ => OpCode::GreaterThanEq,
             BinaryExprType::LogicLessThan => OpCode::LessThan,
             BinaryExprType::LogicLessThanEQ => OpCode::LessThanEq,
             BinaryExprType::LogicNotEQ => OpCode::NotEq,
-            BinaryExprType::LogicOR => unreachable!("The 'OR' expression should have been compiled by now."),
+            BinaryExprType::LogicOR => {
+                unreachable!("The 'OR' expression should have been compiled by now.")
+            }
             BinaryExprType::Minus => OpCode::Subtract,
             BinaryExprType::Modulus => OpCode::Modulus,
             BinaryExprType::Multiplication => OpCode::Multiply,
@@ -111,7 +115,10 @@ impl Compiler {
             BinaryExprType::Range => OpCode::MakeRange,
         };
 
-        self.emit_op_code(expression_op_code, (expr.opr_token.line_num, expr.opr_token.column_num));
+        self.emit_op_code(
+            expression_op_code,
+            (expr.opr_token.line_num, expr.opr_token.column_num),
+        );
     }
 
     /// Compiles a ternary conditional expression.
@@ -146,14 +153,19 @@ impl Compiler {
 
                 // If the lhs is not false, the we pop that value off the stack, and continue to execute the
                 // expressions in the rhs.
-                self.emit_op_code(OpCode::PopStack, (expr.opr_token.line_num, expr.opr_token.column_num));
+                self.emit_op_code(
+                    OpCode::PopStack,
+                    (expr.opr_token.line_num, expr.opr_token.column_num),
+                );
                 self.compile_node(&expr.right);
 
                 // Patches the `OP_JUMP_IF_FALSE` instruction above so that if the lhs is falsey, it knows
                 // where the end of the expression is.
                 self.patch_jump(end_jump, Rc::clone(&expr.opr_token));
             }
-            _ => unreachable!("the `compile_and_expr(...)` function can only compile logical 'AND' expressions."),
+            _ => unreachable!(
+                "the `compile_and_expr(...)` function can only compile logical 'AND' expressions."
+            ),
         }
     }
 
@@ -177,14 +189,19 @@ impl Compiler {
                 // Patches the 'else_jump' so that is the lhs is falsey, the `OP_JUMP_IF_FALSE` instruction
                 // above knows where the starts of the next expression is.
                 self.patch_jump(else_jump, Rc::clone(&expr.opr_token));
-                self.emit_op_code(OpCode::PopStack, (expr.opr_token.line_num, expr.opr_token.column_num));
+                self.emit_op_code(
+                    OpCode::PopStack,
+                    (expr.opr_token.line_num, expr.opr_token.column_num),
+                );
                 self.compile_node(&expr.right);
 
                 // Patches the 'end_jump' so that if the lhs is truthy, then the `OP_JUMP` instruction above
                 // knows where the end of the entire expression is.
                 self.patch_jump(end_jump, Rc::clone(&expr.opr_token));
             }
-            _ => unreachable!("the `compile_or_expr(...)` function can only compile logical 'AND' expressions."),
+            _ => unreachable!(
+                "the `compile_or_expr(...)` function can only compile logical 'OR' expressions."
+            ),
         }
     }
 
@@ -193,17 +210,17 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – An identifier expression node.
     pub(super) fn compile_identifier_expr(&mut self, expr: &IdentifierExprNode) {
-        match self.resolve_symbol(Rc::clone(&expr.token), false) {
-            Some(idx) => {
-                if idx < 256 {
-                    self.emit_op_code(OpCode::GetVar, (expr.token.line_num, expr.token.column_num));
-                    self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
-                } else {
-                    self.emit_op_code(OpCode::GetVarLong, (expr.token.line_num, expr.token.column_num));
-                    self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
-                }
+        if let Some(idx) = self.resolve_symbol(Rc::clone(&expr.token), false) {
+            if idx < 256 {
+                self.emit_op_code(OpCode::GetVar, (expr.token.line_num, expr.token.column_num));
+                self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
+            } else {
+                self.emit_op_code(
+                    OpCode::GetVarLong,
+                    (expr.token.line_num, expr.token.column_num),
+                );
+                self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
             }
-            None => {}
         }
     }
 
@@ -212,19 +229,44 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – A variable reassignment expression node.
     pub(super) fn compile_var_reassignment_expr(&mut self, expr: &VarReassignmentExprNode) {
-        self.compile_node(&expr.value);
+        if let Some(idx) = self.resolve_symbol(Rc::clone(&expr.target), true) {
+            let line_info = (expr.target.line_num, expr.target.column_num);
 
-        match self.resolve_symbol(Rc::clone(&expr.target), true) {
-            Some(idx) => {
+            if let ReassignmentType::None = expr.opr_type {
+                // Proceed to directly reassign the variable.
+                self.compile_node(&expr.value);
+            } else {
+                // The expression `a /= 2` expands to `a = a / 2`, so we
+                // must get the variable's value onto the stack first.
                 if idx < 256 {
-                    self.emit_op_code(OpCode::SetVar, (expr.target.line_num, expr.target.column_num));
-                    self.emit_raw_byte(idx as u8, (expr.target.line_num, expr.target.column_num));
+                    self.emit_op_code(OpCode::GetVar, line_info);
+                    self.emit_raw_byte(idx as u8, line_info);
                 } else {
-                    self.emit_op_code(OpCode::SetVarLong, (expr.target.line_num, expr.target.column_num));
-                    self.emit_short(idx, (expr.target.line_num, expr.target.column_num));
+                    self.emit_op_code(OpCode::GetVarLong, line_info);
+                    self.emit_short(idx, line_info);
                 }
+
+                self.compile_node(&expr.value);
+
+                match expr.opr_type {
+                    ReassignmentType::Plus => self.emit_op_code(OpCode::Add, line_info),
+                    ReassignmentType::Minus => self.emit_op_code(OpCode::Subtract, line_info),
+                    ReassignmentType::Div => self.emit_op_code(OpCode::Divide, line_info),
+                    ReassignmentType::Mul => self.emit_op_code(OpCode::Multiply, line_info),
+                    ReassignmentType::Expo => self.emit_op_code(OpCode::Expo, line_info),
+                    ReassignmentType::Mod => self.emit_op_code(OpCode::Modulus, line_info),
+                    ReassignmentType::None => 0,
+                };
             }
-            None => {}
+
+            // Sets the new value (which will be on top of the stack)
+            if idx < 256 {
+                self.emit_op_code(OpCode::SetVar, line_info);
+                self.emit_raw_byte(idx as u8, line_info);
+            } else {
+                self.emit_op_code(OpCode::SetVarLong, line_info);
+                self.emit_short(idx, line_info);
+            }
         }
     }
 
@@ -242,11 +284,23 @@ impl Compiler {
             }
 
             if expr.values.len() < 256 {
-                self.emit_op_code(OpCode::MakeArray, (expr.token.line_num, expr.token.column_num));
-                self.emit_raw_byte(expr.values.len() as u8, (expr.token.line_num, expr.token.column_num));
+                self.emit_op_code(
+                    OpCode::MakeArray,
+                    (expr.token.line_num, expr.token.column_num),
+                );
+                self.emit_raw_byte(
+                    expr.values.len() as u8,
+                    (expr.token.line_num, expr.token.column_num),
+                );
             } else {
-                self.emit_op_code(OpCode::MakeArrayLong, (expr.token.line_num, expr.token.column_num));
-                self.emit_short(expr.values.len() as u16, (expr.token.line_num, expr.token.column_num));
+                self.emit_op_code(
+                    OpCode::MakeArrayLong,
+                    (expr.token.line_num, expr.token.column_num),
+                );
+                self.emit_short(
+                    expr.values.len() as u16,
+                    (expr.token.line_num, expr.token.column_num),
+                );
             }
         } else {
             self.error_at_token(Rc::clone(&expr.token), "Too many values in the array.");
@@ -294,8 +348,14 @@ impl Compiler {
             if symbol.name == token.lexeme {
                 if !symbol.is_initialized {
                     match symbol.symbol_type {
-                        SymbolType::Variable => self.error_at_token(Rc::clone(&token), "Cannot read variable in its own initializer."),
-                        SymbolType::Constant => self.error_at_token(Rc::clone(&token), "Cannot read constant in its own initializer."),
+                        SymbolType::Variable => self.error_at_token(
+                            Rc::clone(&token),
+                            "Cannot read variable in its own initializer.",
+                        ),
+                        SymbolType::Constant => self.error_at_token(
+                            Rc::clone(&token),
+                            "Cannot read constant in its own initializer.",
+                        ),
                         // Functions, Classes, and Enums are initialized upon declaration. Hence, unreachable here.
                         _ => unreachable!("Symbol should have been initialized by now."),
                     }

@@ -40,31 +40,59 @@ impl<'a> Lexer {
             '^' => self.make_token(BITWISE_XOR),
             '~' => self.make_token(BITWISE_NOT),
             '/' => {
-                let tok = if self.matches('=') { SLASH_EQUALS } else { SLASH };
+                let tok = if self.matches('=') {
+                    SLASH_EQUALS
+                } else {
+                    SLASH
+                };
                 self.make_token(tok)
             }
             '%' => {
-                let tok = if self.matches('=') { MOD_EQUALS } else { MODULUS };
+                let tok = if self.matches('=') {
+                    MOD_EQUALS
+                } else {
+                    MODULUS
+                };
                 self.make_token(tok)
             }
             '!' => {
-                let tok = if self.matches('=') { LOGICAL_NOT_EQ } else { LOGICAL_NOT };
+                let tok = if self.matches('=') {
+                    LOGICAL_NOT_EQ
+                } else {
+                    LOGICAL_NOT
+                };
                 self.make_token(tok)
             }
             '=' => {
-                let tok = if self.matches('=') { LOGICAL_EQ } else { EQUALS_SIGN };
+                let tok = if self.matches('=') {
+                    LOGICAL_EQ
+                } else {
+                    EQUALS_SIGN
+                };
                 self.make_token(tok)
             }
             ':' => {
-                let tok = if self.matches('=') { COLON_EQUALS } else { COLON_SEPARATOR };
+                let tok = if self.matches('=') {
+                    COLON_EQUALS
+                } else {
+                    COLON_SEPARATOR
+                };
                 self.make_token(tok)
             }
             '&' => {
-                let tok = if self.matches('&') { LOGICAL_AND } else { BITWISE_AND };
+                let tok = if self.matches('&') {
+                    LOGICAL_AND
+                } else {
+                    BITWISE_AND
+                };
                 self.make_token(tok)
             }
             '|' => {
-                let tok = if self.matches('|') { LOGICAL_OR } else { BITWISE_OR };
+                let tok = if self.matches('|') {
+                    LOGICAL_OR
+                } else {
+                    BITWISE_OR
+                };
                 self.make_token(tok)
             }
             '?' => {
@@ -106,10 +134,12 @@ impl<'a> Lexer {
             '*' => {
                 if self.matches('=') {
                     self.make_token(STAR_EQUALS)
-                } else if self.matches('*') && !self.matches('=') {
-                    self.make_token(EXPO)
-                } else if self.matches('*') && self.matches('=') {
-                    self.make_token(EXPO_EQUALS)
+                } else if self.matches('*') {
+                    if self.matches('=') {
+                        self.make_token(EXPO_EQUALS)
+                    } else {
+                        self.make_token(EXPO)
+                    }
                 } else {
                     self.make_token(STAR)
                 }

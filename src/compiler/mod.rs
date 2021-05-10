@@ -33,7 +33,11 @@ struct Symbol {
 
 impl Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        let s = format!("(name: {}, scope: {})", self.name.as_str(), self.symbol_depth);
+        let s = format!(
+            "(name: {}, scope: {})",
+            self.name.as_str(),
+            self.symbol_depth
+        );
         fmt::Debug::fmt(s.as_str(), f)
     }
 }
@@ -78,7 +82,10 @@ impl Compiler {
     /// ## Returns
     /// `Result<chunk, InterpretResult>` – If the program had no compile-time errors, returns
     /// the main chunk for this module. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
-    pub fn compile_file(filepath: &str, program: &ASTNode) -> Result<FunctionObject, InterpretResult> {
+    pub fn compile_file(
+        filepath: &str,
+        program: &ASTNode,
+    ) -> Result<FunctionObject, InterpretResult> {
         let mut c = Compiler {
             compiler_type: CompilerType::Script,
             had_error: false,
@@ -176,7 +183,7 @@ impl Compiler {
         self.emit_raw_byte(num_of_symbols as u8, (0, 0));
 
         // Shows the chunk.
-        chunk::disassemble_chunk(&self.function.chunk, self.function.name.as_str());
+        // chunk::disassemble_chunk(&self.function.chunk, self.function.name.as_str());
         // chunk::print_raw(&self.function.chunk, self.function.name.as_str());
     }
 
@@ -341,7 +348,10 @@ impl Compiler {
             let jump = (offset + 2) as u8;
             self.emit_raw_byte(jump, (token.line_num, token.column_num));
         } else if offset < (u16::MAX - 3) as usize {
-            self.emit_op_code(chunk::OpCode::LoopJumpLong, (token.line_num, token.column_num));
+            self.emit_op_code(
+                chunk::OpCode::LoopJumpLong,
+                (token.line_num, token.column_num),
+            );
 
             // +3 to account for the 'OP_LOOP_JUMP_LONG' and its operands.
             let jump = (offset + 3) as u16;
@@ -363,7 +373,10 @@ impl Compiler {
 
         self.is_in_panic = true;
 
-        print!("\x1b[31;1mSyntaxError\x1b[0m [{}:{}]", tok.line_num, tok.column_num);
+        print!(
+            "\x1b[31;1mSyntaxError\x1b[0m [{}:{}]",
+            tok.line_num, tok.column_num
+        );
 
         if let TokenType::EOF = tok.token_type {
             println!(" – At the end of the program.");
