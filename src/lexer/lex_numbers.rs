@@ -37,17 +37,17 @@ impl<'a> Lexer {
         let started_with_dot = self.previous() == '.';
         self.advance_numeric_digit(10); // Consume digit character in base-10
 
-        // Look for a fractional part (floats that do not start with a dot).
+        // Look for a fractional part (only for floats that do not start with a dot).
         if !started_with_dot && self.get_current() == '.' && self.next().is_digit(10) {
             self.advance(); // Consume the ".".
             self.advance_numeric_digit(10); // Consume digit character in base-10
-            return self.make_token(NUMERIC_LITERAL);
+            return self.make_token(FLOAT_LITERAL);
         }
 
         if started_with_dot {
-            return self.make_token(NUMERIC_LITERAL);
+            return self.make_token(FLOAT_LITERAL);
         } else {
-            return self.make_token(NUMERIC_LITERAL);
+            return self.make_token(INTEGER_LITERAL);
         }
     }
 

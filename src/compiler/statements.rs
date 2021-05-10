@@ -254,7 +254,7 @@ impl Compiler {
 
         let condition_is_truthy_lit = stmt.condition.is_truthy_literal();
 
-        let loop_start = self.function.body.chunk.len();
+        let loop_start = self.function.chunk.len();
         self.loops.push(loop_start); // starts this loop's scope
 
         // Only compile the condition if it is not a truthy literal or equivalent.

@@ -28,8 +28,10 @@ pub enum OpCode {
     Indexing,
     LessThan,
     LessThanEq,
-    LoadImm0,
-    LoadImm1,
+    LoadImm0F,
+    LoadImm0I,
+    LoadImm1F,
+    LoadImm1I,
     LoadImmFalse,
     LoadImmNull,
     LoadImmTrue,
@@ -53,10 +55,6 @@ pub enum OpCode {
     LoadImm,
     LoopJump,
     MakeArray,
-    PostDecrement,
-    PostIncrement,
-    PreDecrement,
-    PreIncrement,
     Return,
     SetVar,
 
@@ -70,10 +68,6 @@ pub enum OpCode {
     LoadImmLong,
     LoopJumpLong,
     MakeArrayLong,
-    PostDecrementLong,
-    PostIncrementLong,
-    PreDecrementLong,
-    PreIncrementLong,
     SetVarLong,
 
     // Temporaries
@@ -316,8 +310,6 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                     OpCode::GetVar
                     | OpCode::SetVar
                     | OpCode::MakeArray
-                    | OpCode::PostIncrement
-                    | OpCode::PostDecrement
                     | OpCode::FuncCall
                     | OpCode::BindDefaults
                     | OpCode::Return
@@ -335,8 +327,6 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                     | OpCode::SetVarLong
                     | OpCode::LoopJumpLong
                     | OpCode::MakeArrayLong
-                    | OpCode::PostIncrementLong
-                    | OpCode::PostDecrementLong
                     | OpCode::LoadImmLong => {
                         idx += 2;
                         println!("\t{}", chunk.get_short(idx - 1).unwrap());

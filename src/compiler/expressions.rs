@@ -21,17 +21,23 @@ impl Compiler {
             Object::Null => {
                 self.emit_op_code(OpCode::LoadImmNull, opr_pos);
             }
-            Object::Number(x) if x == 0f64 => {
-                self.emit_op_code(OpCode::LoadImm0, opr_pos);
+            Object::Int(x) if x == 0i64 => {
+                self.emit_op_code(OpCode::LoadImm0I, opr_pos);
             }
-            Object::Number(x) if x == 1f64 => {
-                self.emit_op_code(OpCode::LoadImm1, opr_pos);
+            Object::Int(x) if x == 1i64 => {
+                self.emit_op_code(OpCode::LoadImm1I, opr_pos);
             }
-            Object::Number(x) if x > 1f64 && x.fract() == 0.0 => {
-                if x < 256 as f64 {
+            Object::Float(x) if x == 0f64 => {
+                self.emit_op_code(OpCode::LoadImm0F, opr_pos);
+            }
+            Object::Float(x) if x == 1f64 => {
+                self.emit_op_code(OpCode::LoadImm1F, opr_pos);
+            }
+            Object::Int(x) if x > 1i64 => {
+                if x < 256i64 {
                     self.emit_op_code(OpCode::LoadImm, opr_pos);
                     self.emit_raw_byte(x as u8, opr_pos);
-                } else if x < (u16::MAX as f64) {
+                } else if x < (u16::MAX as i64) {
                     self.emit_op_code(OpCode::LoadImmLong, opr_pos);
                     self.emit_short(x as u16, opr_pos);
                 } else {
@@ -222,81 +228,6 @@ impl Compiler {
         }
     }
 
-    /// Compiles a post-increment expression.
-    ///
-    /// # Arguments
-    /// * `expr` – A post-increment expression node.
-    pub(super) fn compile_post_increment_expr(&mut self, expr: &PostIncrementExprNode) {
-        match self.resolve_symbol(Rc::clone(&expr.target), false) {
-            Some(idx) => {
-                if idx < 256 {
-                    self.emit_op_code(OpCode::PostIncrement, (expr.token.line_num, expr.token.column_num));
-                    self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
-                } else {
-                    self.emit_op_code(OpCode::PostIncrementLong, (expr.token.line_num, expr.token.column_num));
-                    self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
-                }
-            }
-            None => {}
-        }
-    }
-
-    /// Compiles a post-decrement expression.
-    ///
-    /// # Arguments
-    /// * `expr` – A post-decrement expression node.
-    pub(super) fn compile_post_decrement_expr(&mut self, expr: &PostDecrementExprNode) {
-        match self.resolve_symbol(Rc::clone(&expr.target), false) {
-            Some(idx) => {
-                if idx < 256 {
-                    self.emit_op_code(OpCode::PostDecrement, (expr.token.line_num, expr.token.column_num));
-                    self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
-                } else {
-                    self.emit_op_code(OpCode::PostDecrementLong, (expr.token.line_num, expr.token.column_num));
-                    self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
-                }
-            }
-            None => {}
-        }
-    }
-    /// Compiles a post-decrement expression.
-    ///
-    /// # Arguments
-    /// * `expr` – A post-decrement expression node.
-    pub(super) fn compile_pre_increment_expr(&mut self, expr: &PreIncrementExprNode) {
-        match self.resolve_symbol(Rc::clone(&expr.target), false) {
-            Some(idx) => {
-                if idx < 256 {
-                    self.emit_op_code(OpCode::PreIncrement, (expr.token.line_num, expr.token.column_num));
-                    self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
-                } else {
-                    self.emit_op_code(OpCode::PreIncrementLong, (expr.token.line_num, expr.token.column_num));
-                    self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
-                }
-            }
-            None => {}
-        }
-    }
-
-    /// Compiles a post-decrement expression.
-    ///
-    /// # Arguments
-    /// * `expr` – A post-decrement expression node.
-    pub(super) fn compile_pre_decrement_expr(&mut self, expr: &PreDecrementExprNode) {
-        match self.resolve_symbol(Rc::clone(&expr.target), false) {
-            Some(idx) => {
-                if idx < 256 {
-                    self.emit_op_code(OpCode::PreDecrement, (expr.token.line_num, expr.token.column_num));
-                    self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
-                } else {
-                    self.emit_op_code(OpCode::PreDecrementLong, (expr.token.line_num, expr.token.column_num));
-                    self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
-                }
-            }
-            None => {}
-        }
-    }
-
     /// Compiles an array literal expression.
     ///
     /// # Arguments
@@ -413,7 +344,7 @@ impl Compiler {
     /// * `obj` – A reference to the literal object being added to the pool.
     /// * `token` – The object's original token.
     pub(super) fn add_literal_to_pool(&mut self, obj: Object, token: Rc<Token>) {
-        let constant_pos = self.function.body.chunk.add_constant(obj);
+        let constant_pos = self.function.chunk.add_constant(obj);
         let opr_pos = (token.line_num, token.column_num);
 
         match constant_pos {
