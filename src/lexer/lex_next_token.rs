@@ -1,10 +1,8 @@
-use std::rc::Rc;
-
 use super::{tokens::Token, tokens::TokenType::*, Lexer};
 
 impl<'a> Lexer {
     /// Scans the next token in the source file.
-    pub fn next_token(&mut self) -> Rc<Token> {
+    pub fn next_token(&mut self) -> Token {
         self.skip_whitespace();
 
         // If we are at the end, return the EOF token.
