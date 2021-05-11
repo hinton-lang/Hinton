@@ -12,7 +12,7 @@ This is an example of what Hinton's future syntax would look like. Hinton should
  * This is a multiline comment
  * The following is a recursive function
  */
-func factorial(n: Int = 0): Int { // default parameters
+func factorial(n: Int := 0): Int { // default parameters
     if (n <= 1) return 1;
     return n * factorial(n - 1);
 }
@@ -80,14 +80,12 @@ for (let item in theRange) {
 The project is still in the "pre-development" stages. This means that anything about the language can change as more experience is acquired.
 
 ## To-do List
-This to-do list only applies to the Rust implementation of the Hinton interpreter. For the Java implementation, which has more implemented features, visit the [Hinton - Java Implementation](https://github.com/hinton-lang/Hinton/) branch.
 - [ ] Parse & Execute Expressions.
     - [x] Arithmetic expressions.
     - [x] Array literals.
     - [x] Assignment expressions.
     - [x] Binary (0b), Hexadecimal (0x), and Octal (0o) numbers
-    - [ ] Elvis expressions.
-    - [ ] Function calls.
+    - [x] Function calls.
     - [ ] Lambda expressions.
     - [x] Logical expressions.
     - [ ] Member access expressions.
