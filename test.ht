@@ -14,7 +14,7 @@ let x = 0;
 
 while (x <= 10) {
     print("X equals " + x);
-    x = x + 1;
+    x += 1;
 }
 
 print(false ? "value 1" : true ? "value 2" : "value 3");
@@ -24,13 +24,7 @@ print(a);
 
 let b = 1;
 
-print(b--); // 1
-print(b);   // 0
-
-print(a[2][b]); // "a"
-
-print(++b); // 1
-print(b); // 1
+print(a[2][b]); // "b"
 
 let i = 0;
 
@@ -42,11 +36,11 @@ while (true) {
         print("\tinner Loop Count: " + x);
 
         if (x == 3) break;
-        x++;
+        x += 1;
     }
 
     if (i == 5) break;
-    i++;
+    i += 1;
 }
 
 func myFunction(a, b?, c := "named parameter") {
@@ -68,7 +62,8 @@ func fact(x) {
     return x * fact(x - 1);
 }
 
-print(fact(30));
+print(2..30 == 2..30);
+print(fact(20));
 print(fib(25));
 
 let a_b_c = "Identifier with underscores";

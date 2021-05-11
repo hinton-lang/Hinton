@@ -12,10 +12,6 @@ pub enum ASTNode {
     FunctionCallExpr(FunctionCallExprNode),
     Identifier(IdentifierExprNode),
     Literal(LiteralExprNode),
-    PostDecrement(PostDecrementExprNode),
-    PostIncrement(PostIncrementExprNode),
-    PreDecrement(PreDecrementExprNode),
-    PreIncrement(PreIncrementExprNode),
     TernaryConditional(TernaryConditionalNode),
     Unary(UnaryExprNode),
     VarReassignment(VarReassignmentExprNode),
@@ -133,30 +129,6 @@ pub struct IdentifierExprNode {
 }
 
 #[derive(Clone)]
-pub struct PreIncrementExprNode {
-    pub target: Rc<Token>,
-    pub token: Rc<Token>,
-}
-
-#[derive(Clone)]
-pub struct PreDecrementExprNode {
-    pub target: Rc<Token>,
-    pub token: Rc<Token>,
-}
-
-#[derive(Clone)]
-pub struct PostIncrementExprNode {
-    pub target: Rc<Token>,
-    pub token: Rc<Token>,
-}
-
-#[derive(Clone)]
-pub struct PostDecrementExprNode {
-    pub target: Rc<Token>,
-    pub token: Rc<Token>,
-}
-
-#[derive(Clone)]
 pub struct PrintStmtNode {
     pub child: Box<ASTNode>,
     pub pos: (usize, usize),
@@ -175,9 +147,26 @@ pub struct VariableDeclNode {
 }
 
 #[derive(Clone)]
+pub enum ReassignmentType {
+    Plus,   // a += b
+    Minus,  // a -= b
+    Mul,    // a *= b
+    Div,    // a /= b
+    Expo,   // a **= b
+    Mod,    // a %= b
+    ShiftL, // a <<= b
+    ShiftR, // a =>> b
+    BitAnd, // a &= b
+    Xor,    // a ^= b
+    BitOr,  // a |= b
+    None,   // a = b
+}
+
+#[derive(Clone)]
 pub struct VarReassignmentExprNode {
     pub target: Rc<Token>,
     pub value: Box<ASTNode>,
+    pub opr_type: ReassignmentType,
     pub pos: (usize, usize),
 }
 

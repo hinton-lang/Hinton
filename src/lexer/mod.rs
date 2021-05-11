@@ -179,7 +179,10 @@ impl<'a> Lexer {
 
         // Keep consuming characters until there is an unescaped quote or
         // the program reaches the end of the source file.
-        while (self.get_current() != quote || (self.get_current() == quote && self.previous() == '\\')) && !self.is_at_end() {
+        while (self.get_current() != quote
+            || (self.get_current() == quote && self.previous() == '\\'))
+            && !self.is_at_end()
+        {
             self.advance();
         }
 
@@ -208,7 +211,9 @@ impl<'a> Lexer {
             }
         }
 
-        let id: String = self.source[(self.token_start)..(self.current)].into_iter().collect();
+        let id: String = self.source[(self.token_start)..(self.current)]
+            .into_iter()
+            .collect();
         let tok_type = tokens::make_identifier_type(id.as_str());
         return self.make_token(tok_type);
     }
@@ -239,7 +244,9 @@ impl<'a> Lexer {
             // It is okay to use the null terminator for the EOF value because the EOF Token's
             // lexeme is never used for anything.
             lexeme: if tok_type as u8 != EOF as u8 {
-                self.source[(self.token_start)..(self.current)].into_iter().collect()
+                self.source[(self.token_start)..(self.current)]
+                    .into_iter()
+                    .collect()
             } else {
                 String::from("\0")
             },
