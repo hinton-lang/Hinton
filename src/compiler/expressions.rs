@@ -1,6 +1,5 @@
 use super::{Compiler, SymbolType};
 use crate::{ast::*, chunk::OpCode, lexer::tokens::Token, objects::Object};
-use std::rc::Rc;
 
 impl Compiler {
     /// Compiles a literal expression.
@@ -43,10 +42,10 @@ impl Compiler {
                 } else {
                     // If the number cannot be encoded within two bytes (as an unsigned short),
                     // the we add it to the constant pool.
-                    self.add_literal_to_pool(obj, Rc::clone(&expr.token))
+                    self.add_literal_to_pool(obj, &expr.token)
                 }
             }
-            _ => self.add_literal_to_pool(obj, Rc::clone(&expr.token)),
+            _ => self.add_literal_to_pool(obj, &expr.token),
         };
     }
 
@@ -129,10 +128,10 @@ impl Compiler {
     pub(super) fn compile_ternary_conditional_expr(&mut self, expr: &TernaryConditionalNode) {
         self.compile_if_stmt(&IfStmtNode {
             condition: expr.condition.clone(),
-            then_token: Rc::clone(&expr.true_branch_token),
+            then_token: expr.true_branch_token.clone(),
             then_branch: expr.branch_true.clone(),
             else_branch: Box::new(Some(*expr.branch_false.clone())),
-            else_token: Some(Rc::clone(&expr.false_branch_token)),
+            else_token: Some(expr.false_branch_token.clone()),
         });
     }
 
@@ -149,7 +148,7 @@ impl Compiler {
                 // For 'AND' expressions, if the lhs is false, then the entire expression must be false.
                 // We emit a `OP_JUMP_IF_FALSE` instruction to jump over the rest of this expression
                 // if the lhs is falsey.
-                let end_jump = self.emit_jump(OpCode::JumpIfFalse, Rc::clone(&expr.opr_token));
+                let end_jump = self.emit_jump(OpCode::JumpIfFalse, &expr.opr_token);
 
                 // If the lhs is not false, the we pop that value off the stack, and continue to execute the
                 // expressions in the rhs.
@@ -161,7 +160,7 @@ impl Compiler {
 
                 // Patches the `OP_JUMP_IF_FALSE` instruction above so that if the lhs is falsey, it knows
                 // where the end of the expression is.
-                self.patch_jump(end_jump, Rc::clone(&expr.opr_token));
+                self.patch_jump(end_jump, &expr.opr_token);
             }
             _ => unreachable!(
                 "the `compile_and_expr(...)` function can only compile logical 'AND' expressions."
@@ -181,14 +180,14 @@ impl Compiler {
 
                 // For 'OR' expressions, if the lhs is true, then the entire expression must be true.
                 // We emit a `OP_JUMP_IF_FALSE` instruction to jump over to the next expression if the lhs is falsey.
-                let else_jump = self.emit_jump(OpCode::JumpIfFalse, Rc::clone(&expr.opr_token));
+                let else_jump = self.emit_jump(OpCode::JumpIfFalse, &expr.opr_token);
 
                 // If the lhs is truthy, then we skip over the rest of this expression.
-                let end_jump = self.emit_jump(OpCode::Jump, Rc::clone(&expr.opr_token));
+                let end_jump = self.emit_jump(OpCode::Jump, &expr.opr_token);
 
                 // Patches the 'else_jump' so that is the lhs is falsey, the `OP_JUMP_IF_FALSE` instruction
                 // above knows where the starts of the next expression is.
-                self.patch_jump(else_jump, Rc::clone(&expr.opr_token));
+                self.patch_jump(else_jump, &expr.opr_token);
                 self.emit_op_code(
                     OpCode::PopStack,
                     (expr.opr_token.line_num, expr.opr_token.column_num),
@@ -197,7 +196,7 @@ impl Compiler {
 
                 // Patches the 'end_jump' so that if the lhs is truthy, then the `OP_JUMP` instruction above
                 // knows where the end of the entire expression is.
-                self.patch_jump(end_jump, Rc::clone(&expr.opr_token));
+                self.patch_jump(end_jump, &expr.opr_token);
             }
             _ => unreachable!(
                 "the `compile_or_expr(...)` function can only compile logical 'OR' expressions."
@@ -210,7 +209,7 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – An identifier expression node.
     pub(super) fn compile_identifier_expr(&mut self, expr: &IdentifierExprNode) {
-        if let Some(idx) = self.resolve_symbol(Rc::clone(&expr.token), false) {
+        if let Some(idx) = self.resolve_symbol(&expr.token, false) {
             if idx < 256 {
                 self.emit_op_code(OpCode::GetVar, (expr.token.line_num, expr.token.column_num));
                 self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
@@ -229,7 +228,7 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – A variable reassignment expression node.
     pub(super) fn compile_var_reassignment_expr(&mut self, expr: &VarReassignmentExprNode) {
-        if let Some(idx) = self.resolve_symbol(Rc::clone(&expr.target), true) {
+        if let Some(idx) = self.resolve_symbol(&expr.target, true) {
             let line_info = (expr.target.line_num, expr.target.column_num);
 
             if let ReassignmentType::None = expr.opr_type {
@@ -312,7 +311,7 @@ impl Compiler {
                 );
             }
         } else {
-            self.error_at_token(Rc::clone(&expr.token), "Too many values in the array.");
+            self.error_at_token(&expr.token, "Too many values in the array.");
         }
     }
 
@@ -349,7 +348,7 @@ impl Compiler {
     /// ## Returns
     /// * `Option<u16>` – If there were no errors with resolving the symbol, it returns the position
     /// of the symbol in the symbol table.
-    fn resolve_symbol(&mut self, token: Rc<Token>, for_reassign: bool) -> Option<u16> {
+    fn resolve_symbol(&mut self, token: &Token, for_reassign: bool) -> Option<u16> {
         // Look for the symbol in the symbol table starting from the back.
         // We loop backwards because we want to first check if the symbol
         // exists in the current scope, then in any of the parent scopes, etc..
@@ -358,11 +357,11 @@ impl Compiler {
                 if !symbol.is_initialized {
                     match symbol.symbol_type {
                         SymbolType::Variable => self.error_at_token(
-                            Rc::clone(&token),
+                            &token,
                             "Cannot read variable in its own initializer.",
                         ),
                         SymbolType::Constant => self.error_at_token(
-                            Rc::clone(&token),
+                            &token,
                             "Cannot read constant in its own initializer.",
                         ),
                         // Functions, Classes, and Enums are initialized upon declaration. Hence, unreachable here.
@@ -377,19 +376,19 @@ impl Compiler {
                 if for_reassign {
                     match symbol.symbol_type {
                         SymbolType::Constant => {
-                            self.error_at_token(token, "Cannot reassign to constant.");
+                            self.error_at_token(&token, "Cannot reassign to constant.");
                             return None;
                         }
                         SymbolType::Function => {
-                            self.error_at_token(token, "Cannot reassign to function.");
+                            self.error_at_token(&token, "Cannot reassign to function.");
                             return None;
                         }
                         SymbolType::Class => {
-                            self.error_at_token(token, "Cannot reassign to class.");
+                            self.error_at_token(&token, "Cannot reassign to class.");
                             return None;
                         }
                         SymbolType::Enum => {
-                            self.error_at_token(token, "Cannot reassign to enum.");
+                            self.error_at_token(&token, "Cannot reassign to enum.");
                             return None;
                         }
                         // Only variables & parameters are reassignable
@@ -403,7 +402,7 @@ impl Compiler {
         }
 
         // The symbol doesn't exist
-        self.error_at_token(token, "Use of undeclared identifier.");
+        self.error_at_token(&token, "Use of undeclared identifier.");
         None
     }
 
@@ -412,7 +411,7 @@ impl Compiler {
     /// # Arguments
     /// * `obj` – A reference to the literal object being added to the pool.
     /// * `token` – The object's original token.
-    pub(super) fn add_literal_to_pool(&mut self, obj: Object, token: Rc<Token>) {
+    pub(super) fn add_literal_to_pool(&mut self, obj: Object, token: &Token) {
         let constant_pos = self.function.chunk.add_constant(obj);
         let opr_pos = (token.line_num, token.column_num);
 
@@ -427,7 +426,7 @@ impl Compiler {
                 }
             }
             Err(_) => {
-                self.error_at_token(Rc::clone(&token), "Too many constants in one chunk.");
+                self.error_at_token(&token, "Too many constants in one chunk.");
             }
         }
     }

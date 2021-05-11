@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use self::tokens::{Token, TokenType, TokenType::*};
 
 // Tokens-specific module implementations
@@ -173,7 +171,7 @@ impl<'a> Lexer {
     ///
     /// ## Returns
     /// * `Token` – A string token.
-    pub(super) fn make_string_token(&mut self) -> Rc<Token> {
+    pub(super) fn make_string_token(&mut self) -> Token {
         // The opener single or double quote.
         let quote = self.previous();
 
@@ -200,7 +198,7 @@ impl<'a> Lexer {
     ///
     /// ## Returns
     /// * `Token` – An identifier token.
-    pub(super) fn make_identifier_token(&mut self) -> Rc<Token> {
+    pub(super) fn make_identifier_token(&mut self) -> Token {
         while !self.is_at_end() {
             let c = self.get_current();
 
@@ -215,6 +213,7 @@ impl<'a> Lexer {
             .into_iter()
             .collect();
         let tok_type = tokens::make_identifier_type(id.as_str());
+
         return self.make_token(tok_type);
     }
 
@@ -231,8 +230,8 @@ impl<'a> Lexer {
     /// // from the current state of the scanner.
     /// self.make_token(VAR_KEYWORD);
     /// ```
-    pub(super) fn make_token(&self, tok_type: TokenType) -> Rc<Token> {
-        return Rc::new(Token {
+    pub(super) fn make_token(&self, tok_type: TokenType) -> Token {
+        Token {
             line_num: self.line,
             column_num: if tok_type.clone() as u8 != EOF as u8 {
                 self.token_start - self.line_start
@@ -250,7 +249,7 @@ impl<'a> Lexer {
             } else {
                 String::from("\0")
             },
-        });
+        }
     }
 
     /// Generates an error token with the provided message as its lexeme.
@@ -261,12 +260,12 @@ impl<'a> Lexer {
     ///
     /// ## Returns
     /// * `Token` – The generated error token.
-    pub(super) fn make_error_token(&self, message: &'a str) -> Rc<Token> {
-        return Rc::new(Token {
+    pub(super) fn make_error_token(&self, message: &'a str) -> Token {
+        Token {
             line_num: self.line,
             column_num: self.token_start - self.line_start,
             token_type: ERROR,
             lexeme: String::from(message),
-        });
+        }
     }
 }

@@ -1,4 +1,5 @@
 // A token that represents a single unit of Hinton code.
+#[derive(Clone)]
 pub struct Token {
     /// The token's line number
     pub line_num: usize,

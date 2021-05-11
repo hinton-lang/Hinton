@@ -1,5 +1,4 @@
 use crate::{lexer::tokens::Token, objects::Object};
-use std::rc::Rc;
 
 #[derive(Clone)]
 pub enum ASTNode {
@@ -58,13 +57,13 @@ pub struct ModuleNode {
 #[derive(Clone)]
 pub struct LiteralExprNode {
     pub value: Object,
-    pub token: Rc<Token>,
+    pub token: Token,
 }
 
 #[derive(Clone)]
 pub struct ArrayExprNode {
     pub values: Vec<Box<ASTNode>>,
-    pub token: Rc<Token>,
+    pub token: Token,
 }
 
 #[derive(Clone)]
@@ -85,7 +84,7 @@ pub enum UnaryExprType {
 pub struct BinaryExprNode {
     pub left: Box<ASTNode>,
     pub right: Box<ASTNode>,
-    pub opr_token: Rc<Token>,
+    pub opr_token: Token,
     pub opr_type: BinaryExprType,
 }
 
@@ -117,15 +116,15 @@ pub enum BinaryExprType {
 #[derive(Clone)]
 pub struct TernaryConditionalNode {
     pub condition: Box<ASTNode>,
-    pub true_branch_token: Rc<Token>,
+    pub true_branch_token: Token,
     pub branch_true: Box<ASTNode>,
-    pub false_branch_token: Rc<Token>,
+    pub false_branch_token: Token,
     pub branch_false: Box<ASTNode>,
 }
 
 #[derive(Clone)]
 pub struct IdentifierExprNode {
-    pub token: Rc<Token>,
+    pub token: Token,
 }
 
 #[derive(Clone)]
@@ -142,7 +141,7 @@ pub struct ExpressionStmtNode {
 
 #[derive(Clone)]
 pub struct VariableDeclNode {
-    pub identifiers: Vec<Rc<Token>>,
+    pub identifiers: Vec<Token>,
     pub value: Box<ASTNode>,
 }
 
@@ -164,7 +163,7 @@ pub enum ReassignmentType {
 
 #[derive(Clone)]
 pub struct VarReassignmentExprNode {
-    pub target: Rc<Token>,
+    pub target: Token,
     pub value: Box<ASTNode>,
     pub opr_type: ReassignmentType,
     pub pos: (usize, usize),
@@ -179,7 +178,7 @@ pub struct ArrayIndexingExprNode {
 
 #[derive(Clone)]
 pub struct ConstantDeclNode {
-    pub name: Rc<Token>,
+    pub name: Token,
     pub value: Box<ASTNode>,
 }
 
@@ -191,27 +190,27 @@ pub struct BlockNode {
 #[derive(Clone)]
 pub struct IfStmtNode {
     pub condition: Box<ASTNode>,
-    pub then_token: Rc<Token>,
+    pub then_token: Token,
     pub then_branch: Box<ASTNode>,
     pub else_branch: Box<Option<ASTNode>>,
-    pub else_token: Option<Rc<Token>>,
+    pub else_token: Option<Token>,
 }
 
 #[derive(Clone)]
 pub struct WhileStmtNode {
-    pub token: Rc<Token>,
+    pub token: Token,
     pub condition: Box<ASTNode>,
     pub body: Box<ASTNode>,
 }
 
 #[derive(Clone)]
 pub struct BreakStmtNode {
-    pub token: Rc<Token>,
+    pub token: Token,
 }
 
 #[derive(Clone)]
 pub struct FunctionDeclNode {
-    pub name: Rc<Token>,
+    pub name: Token,
     pub params: Vec<Parameter>,
     pub min_arity: u8,
     pub max_arity: u8,
@@ -220,7 +219,7 @@ pub struct FunctionDeclNode {
 
 #[derive(Clone)]
 pub struct Parameter {
-    pub name: Rc<Token>,
+    pub name: Token,
     pub is_optional: bool,
     pub default: Option<Box<ASTNode>>,
 }
@@ -241,6 +240,6 @@ pub struct Argument {
 
 #[derive(Clone)]
 pub struct ReturnStmtNode {
-    pub token: Rc<Token>,
+    pub token: Token,
     pub value: Option<Box<ASTNode>>,
 }

@@ -5,7 +5,7 @@ use crate::{
     objects::FunctionObject,
     virtual_machine::InterpretResult,
 };
-use std::{convert::TryFrom, fmt, fmt::Display, rc::Rc, str};
+use std::{convert::TryFrom, fmt, fmt::Display, str};
 
 // Submodules
 mod expressions;
@@ -281,7 +281,7 @@ impl Compiler {
     /// `usize` – The position of the currently emitted jump instruction. This value
     /// should be used by the call to the `patch_jump(...)` function to patch the
     /// correct jump instruction's offset.
-    fn emit_jump(&mut self, instruction: chunk::OpCode, token: Rc<Token>) -> usize {
+    fn emit_jump(&mut self, instruction: chunk::OpCode, token: &Token) -> usize {
         self.emit_op_code(instruction, (token.line_num, token.column_num));
         // We emit a temporary short representing the jump that will be
         // made by the vm during runtime
@@ -293,7 +293,7 @@ impl Compiler {
     /// ## Arguments
     /// * `offset` – The position in the chunk of the jump instruction to be patched.
     /// * `token` – The token associated with this jump patch.
-    fn patch_jump(&mut self, offset: usize, token: Rc<Token>) {
+    fn patch_jump(&mut self, offset: usize, token: &Token) {
         // -2 to adjust for the bytecode for the jump offset itself.
         let jump = match u16::try_from((self.function.chunk.len() - offset) - 2) {
             Ok(x) => x,
@@ -312,7 +312,7 @@ impl Compiler {
     /// ## Arguments
     /// * `offset` – The position in the chunk of the break (OP_JUMP) instruction to be patched.
     /// * `token` – The token associated with this jump patch.
-    fn patch_break(&mut self, offset: usize, has_condition: bool, token: Rc<Token>) {
+    fn patch_break(&mut self, offset: usize, has_condition: bool, token: &Token) {
         // If the corresponding loop does not have a truthy literal condition, then that
         // condition MUST be popped off the stack after the loop ends. Because breaking the
         // loop with the `break` keyword ends the loop early, the break statement must take care
@@ -338,7 +338,7 @@ impl Compiler {
     /// ## Arguments
     /// * `loop_start` – The position in the chunk of the jump instruction to be patched.
     /// * `token` – The token associated with this jump patch.
-    fn emit_loop(&mut self, loop_start: usize, token: Rc<Token>) {
+    fn emit_loop(&mut self, loop_start: usize, token: &Token) {
         let offset = self.function.chunk.len() - loop_start;
 
         if offset < (u8::MAX - 2) as usize {
@@ -366,7 +366,7 @@ impl Compiler {
     /// ## Arguments
     /// *  `tok` – The token that caused the error.
     /// * `message` – The error message to display.
-    fn error_at_token(&mut self, tok: Rc<Token>, message: &str) {
+    fn error_at_token(&mut self, tok: &Token, message: &str) {
         if self.is_in_panic {
             return;
         }

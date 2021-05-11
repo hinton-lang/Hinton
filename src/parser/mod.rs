@@ -8,7 +8,6 @@ use crate::{
     objects::Object,
     virtual_machine::InterpretResult,
 };
-use std::rc::Rc;
 
 // Submodules
 mod statements;
@@ -17,8 +16,8 @@ mod statements;
 /// an Abstract Syntax Tree representation of the program.
 pub struct Parser {
     lexer: Lexer,
-    previous: Rc<Token>,
-    current: Rc<Token>,
+    previous: Token,
+    current: Token,
     had_error: bool,
     is_in_panic: bool,
 }
@@ -35,18 +34,18 @@ impl<'a> Parser {
         // Initialize the compiler
         let mut parser = Parser {
             lexer: Lexer::lex(src),
-            previous: Rc::new(Token {
+            previous: Token {
                 line_num: 0,
                 column_num: 0,
                 token_type: TokenType::__INIT_PARSER__,
                 lexeme: String::from(""),
-            }),
-            current: Rc::new(Token {
+            },
+            current: Token {
                 line_num: 0,
                 column_num: 0,
                 token_type: TokenType::__INIT_PARSER__,
                 lexeme: String::from(""),
-            }),
+            },
             had_error: false,
             is_in_panic: false,
         };
@@ -55,7 +54,7 @@ impl<'a> Parser {
 
         // Start compiling the chunk
         parser.advance();
-        while !parser.matches(TokenType::EOF) && !parser.had_error {
+        while !parser.matches(&TokenType::EOF) && !parser.had_error {
             match parser.parse_declaration() {
                 Some(val) => program.body.push(val),
                 // Report parse error if node has None value
@@ -78,12 +77,8 @@ impl<'a> Parser {
     /// # Results
     /// * `bool` – True if the current token matches the given token type
     /// false otherwise.
-    fn check(&mut self, tok_type: TokenType) -> bool {
-        if tok_type as u8 == self.get_current_tok_type() as u8 {
-            true
-        } else {
-            false
-        }
+    fn check(&mut self, tok_type: &TokenType) -> bool {
+        self.get_current_tok_type().type_match(tok_type)
     }
 
     /// Checks that the current token matches the tokenType provided.
@@ -96,7 +91,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `bool` – True if the tokens match, false otherwise.
-    fn matches(&mut self, tok_type: TokenType) -> bool {
+    fn matches(&mut self, tok_type: &TokenType) -> bool {
         if self.check(tok_type) {
             self.advance();
             return true;
@@ -107,14 +102,14 @@ impl<'a> Parser {
 
     /// Advances the compiler to the next token.
     fn advance(&mut self) {
-        self.previous = Rc::clone(&self.current);
+        self.previous = self.current.clone();
 
         // We need a loop so that if the current
         // token results in an error token, we can
         loop {
             self.current = self.lexer.next_token();
 
-            match Rc::clone(&self.current).token_type {
+            match self.current.token_type {
                 TokenType::ERROR => self.error_at_current("Unexpected token."),
                 _ => break,
             }
@@ -128,7 +123,7 @@ impl<'a> Parser {
     /// * `tok_type` – the expected type of the token to consume.
     /// * `message` – the error message to be displayed if the current token does
     /// not match the provided type.
-    fn consume(&mut self, tok_type: TokenType, message: &str) {
+    fn consume(&mut self, tok_type: &TokenType, message: &str) {
         if self.check(tok_type) {
             self.advance();
             return ();
@@ -141,8 +136,8 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `TokenType` – The type of the current token.
-    fn get_current_tok_type(&self) -> TokenType {
-        Rc::clone(&self.current).token_type.clone()
+    fn get_current_tok_type(&self) -> &TokenType {
+        &self.current.token_type
     }
 
     /// Gets the type of the previous token.
@@ -158,7 +153,7 @@ impl<'a> Parser {
     /// ## Arguments
     /// * `message` – The error message to display.
     fn error_at_current(&mut self, message: &str) {
-        self.error_at_token(Rc::clone(&self.previous), message);
+        self.error_at_token(&self.current.clone(), message);
     }
 
     /// Emits a compiler error from the previous token.
@@ -166,7 +161,7 @@ impl<'a> Parser {
     /// ## Arguments
     /// * `message` – The error message to display.
     fn error_at_previous(&mut self, message: &str) {
-        self.error_at_token(Rc::clone(&self.previous), message);
+        self.error_at_token(&self.previous.clone(), message);
     }
 
     /// Emits a compiler error from the given token.
@@ -174,7 +169,7 @@ impl<'a> Parser {
     /// ## Arguments
     /// *  `tok` – The token that caused the error.
     /// * `message` – The error message to display.
-    fn error_at_token(&mut self, tok: Rc<Token>, message: &str) {
+    fn error_at_token(&mut self, tok: &Token, message: &str) {
         if self.is_in_panic {
             return ();
         }
@@ -204,7 +199,7 @@ impl<'a> Parser {
     fn synchronize(&mut self) {
         self.is_in_panic = false;
 
-        while self.get_current_tok_type() as u8 != TokenType::EOF as u8 {
+        while self.get_current_tok_type().type_match(&TokenType::EOF) {
             if let TokenType::SEMICOLON_SEPARATOR = self.get_previous_tok_type() {
                 return ();
             }
@@ -242,22 +237,22 @@ impl<'a> Parser {
     /// `Option<ASTNode>` – The assignment expression's AST node.
     fn parse_assignment(&mut self) -> Option<ASTNode> {
         let expr = self.parse_ternary_conditional();
-        let expr_tok = Rc::clone(&self.previous);
+        let expr_tok = self.previous.clone();
 
-        if self.matches(TokenType::EQUALS_SIGN)
-            || self.matches(TokenType::PLUS_EQUALS)
-            || self.matches(TokenType::MINUS_EQUALS)
-            || self.matches(TokenType::STAR_EQUALS)
-            || self.matches(TokenType::SLASH_EQUALS)
-            || self.matches(TokenType::EXPO_EQUALS)
-            || self.matches(TokenType::MOD_EQUALS)
-            || self.matches(TokenType::BITWISE_LEFT_SHIFT_EQUALS)
-            || self.matches(TokenType::BITWISE_RIGHT_SHIFT_EQUALS)
-            || self.matches(TokenType::BITWISE_AND_EQUALS)
-            || self.matches(TokenType::BITWISE_XOR_EQUALS)
-            || self.matches(TokenType::BITWISE_OR_EQUALS)
+        if self.matches(&TokenType::EQUALS_SIGN)
+            || self.matches(&TokenType::PLUS_EQUALS)
+            || self.matches(&TokenType::MINUS_EQUALS)
+            || self.matches(&TokenType::STAR_EQUALS)
+            || self.matches(&TokenType::SLASH_EQUALS)
+            || self.matches(&TokenType::EXPO_EQUALS)
+            || self.matches(&TokenType::MOD_EQUALS)
+            || self.matches(&TokenType::BITWISE_LEFT_SHIFT_EQUALS)
+            || self.matches(&TokenType::BITWISE_RIGHT_SHIFT_EQUALS)
+            || self.matches(&TokenType::BITWISE_AND_EQUALS)
+            || self.matches(&TokenType::BITWISE_XOR_EQUALS)
+            || self.matches(&TokenType::BITWISE_OR_EQUALS)
         {
-            let opr = Rc::clone(&self.previous);
+            let opr = self.previous.clone();
 
             // Gets the type of reassignment
             let opr_type = match opr.token_type {
@@ -299,7 +294,7 @@ impl<'a> Parser {
 
                     // The assignment target is not valid
                     _ => {
-                        self.error_at_token(expr_tok, "Invalid assignment target.");
+                        self.error_at_token(&expr_tok, "Invalid assignment target.");
                         None
                     }
                 },
@@ -319,8 +314,8 @@ impl<'a> Parser {
     fn parse_ternary_conditional(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_nullish_coalescing();
 
-        if self.matches(TokenType::QUESTION_MARK) {
-            let true_branch_opr = Rc::clone(&self.previous);
+        if self.matches(&TokenType::QUESTION_MARK) {
+            let true_branch_opr = self.previous.clone();
 
             let branch_true = match self.parse_expression() {
                 Some(t) => t,
@@ -328,10 +323,10 @@ impl<'a> Parser {
             };
 
             self.consume(
-                TokenType::COLON_SEPARATOR,
+                &TokenType::COLON_SEPARATOR,
                 "Expected ':' in ternary operator.",
             );
-            let false_branch_opr = Rc::clone(&self.previous);
+            let false_branch_opr = self.previous.clone();
 
             let branch_false = match self.parse_expression() {
                 Some(t) => t,
@@ -360,8 +355,8 @@ impl<'a> Parser {
     fn parse_nullish_coalescing(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_logic_or();
 
-        while self.matches(TokenType::NULLISH_COALESCING) {
-            let opr = Rc::clone(&self.previous);
+        while self.matches(&TokenType::NULLISH_COALESCING) {
+            let opr = self.previous.clone();
 
             expr = Some(Binary(BinaryExprNode {
                 left: match expr {
@@ -387,8 +382,8 @@ impl<'a> Parser {
     fn parse_logic_or(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_logic_and();
 
-        while self.matches(TokenType::LOGICAL_OR) {
-            let opr = Rc::clone(&self.previous);
+        while self.matches(&TokenType::LOGICAL_OR) {
+            let opr = self.previous.clone();
 
             expr = Some(Binary(BinaryExprNode {
                 left: match expr {
@@ -414,8 +409,8 @@ impl<'a> Parser {
     fn parse_logic_and(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_bitwise_or();
 
-        while self.matches(TokenType::LOGICAL_AND) {
-            let opr = Rc::clone(&self.previous);
+        while self.matches(&TokenType::LOGICAL_AND) {
+            let opr = self.previous.clone();
 
             expr = Some(Binary(BinaryExprNode {
                 left: match expr {
@@ -441,8 +436,8 @@ impl<'a> Parser {
     fn parse_bitwise_or(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_bitwise_xor();
 
-        while self.matches(TokenType::BITWISE_OR) {
-            let opr = Rc::clone(&self.previous);
+        while self.matches(&TokenType::BITWISE_OR) {
+            let opr = self.previous.clone();
 
             expr = Some(Binary(BinaryExprNode {
                 left: match expr {
@@ -468,8 +463,8 @@ impl<'a> Parser {
     fn parse_bitwise_xor(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_bitwise_and();
 
-        while self.matches(TokenType::BITWISE_XOR) {
-            let opr = Rc::clone(&self.previous);
+        while self.matches(&TokenType::BITWISE_XOR) {
+            let opr = self.previous.clone();
 
             expr = Some(Binary(BinaryExprNode {
                 left: match expr {
@@ -495,8 +490,8 @@ impl<'a> Parser {
     fn parse_bitwise_and(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_equality();
 
-        while self.matches(TokenType::BITWISE_AND) {
-            let opr = Rc::clone(&self.previous);
+        while self.matches(&TokenType::BITWISE_AND) {
+            let opr = self.previous.clone();
 
             expr = Some(Binary(BinaryExprNode {
                 left: match expr {
@@ -522,8 +517,8 @@ impl<'a> Parser {
     fn parse_equality(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_comparison();
 
-        while self.matches(TokenType::LOGICAL_EQ) || self.matches(TokenType::LOGICAL_NOT_EQ) {
-            let opr = Rc::clone(&self.previous);
+        while self.matches(&TokenType::LOGICAL_EQ) || self.matches(&TokenType::LOGICAL_NOT_EQ) {
+            let opr = self.previous.clone();
 
             let opr_type = if let TokenType::LOGICAL_EQ = opr.token_type {
                 BinaryExprType::LogicEQ
@@ -555,12 +550,12 @@ impl<'a> Parser {
     fn parse_comparison(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_range();
 
-        while self.matches(TokenType::LESS_THAN)
-            || self.matches(TokenType::LESS_THAN_EQ)
-            || self.matches(TokenType::GREATER_THAN)
-            || self.matches(TokenType::GREATER_THAN_EQ)
+        while self.matches(&TokenType::LESS_THAN)
+            || self.matches(&TokenType::LESS_THAN_EQ)
+            || self.matches(&TokenType::GREATER_THAN)
+            || self.matches(&TokenType::GREATER_THAN_EQ)
         {
-            let opr = Rc::clone(&self.previous);
+            let opr = self.previous.clone();
 
             let opr_type = if let TokenType::LESS_THAN = opr.token_type {
                 BinaryExprType::LogicLessThan
@@ -596,8 +591,8 @@ impl<'a> Parser {
     fn parse_range(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_bitwise_shift();
 
-        if self.matches(TokenType::RANGE_OPERATOR) {
-            let opr = Rc::clone(&self.previous);
+        if self.matches(&TokenType::RANGE_OPERATOR) {
+            let opr = self.previous.clone();
 
             expr = Some(Binary(BinaryExprNode {
                 left: match expr {
@@ -623,10 +618,10 @@ impl<'a> Parser {
     fn parse_bitwise_shift(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_term();
 
-        while self.matches(TokenType::BITWISE_LEFT_SHIFT)
-            || self.matches(TokenType::BITWISE_RIGHT_SHIFT)
+        while self.matches(&TokenType::BITWISE_LEFT_SHIFT)
+            || self.matches(&TokenType::BITWISE_RIGHT_SHIFT)
         {
-            let opr = Rc::clone(&self.previous);
+            let opr = self.previous.clone();
 
             let opr_type = if let TokenType::BITWISE_LEFT_SHIFT = opr.token_type {
                 BinaryExprType::BitwiseShiftLeft
@@ -658,8 +653,8 @@ impl<'a> Parser {
     fn parse_term(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_factor();
 
-        while self.matches(TokenType::PLUS) || self.matches(TokenType::MINUS) {
-            let opr = Rc::clone(&self.previous);
+        while self.matches(&TokenType::PLUS) || self.matches(&TokenType::MINUS) {
+            let opr = self.previous.clone();
 
             let opr_type = if let TokenType::PLUS = opr.token_type {
                 BinaryExprType::Addition
@@ -691,11 +686,11 @@ impl<'a> Parser {
     fn parse_factor(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_expo();
 
-        while self.matches(TokenType::SLASH)
-            || self.matches(TokenType::STAR)
-            || self.matches(TokenType::MODULUS)
+        while self.matches(&TokenType::SLASH)
+            || self.matches(&TokenType::STAR)
+            || self.matches(&TokenType::MODULUS)
         {
-            let opr = Rc::clone(&self.previous);
+            let opr = self.previous.clone();
 
             let opr_type = if let TokenType::SLASH = opr.token_type {
                 BinaryExprType::Division
@@ -729,8 +724,8 @@ impl<'a> Parser {
     fn parse_expo(&mut self) -> Option<ASTNode> {
         let mut expr = self.parse_unary();
 
-        while self.matches(TokenType::EXPO) {
-            let opr = Rc::clone(&self.previous);
+        while self.matches(&TokenType::EXPO) {
+            let opr = self.previous.clone();
 
             expr = Some(Binary(BinaryExprNode {
                 left: match expr {
@@ -754,11 +749,11 @@ impl<'a> Parser {
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
     fn parse_unary(&mut self) -> Option<ASTNode> {
-        if self.matches(TokenType::LOGICAL_NOT)
-            || self.matches(TokenType::MINUS)
-            || self.matches(TokenType::BITWISE_NOT)
+        if self.matches(&TokenType::LOGICAL_NOT)
+            || self.matches(&TokenType::MINUS)
+            || self.matches(&TokenType::BITWISE_NOT)
         {
-            let opr = Rc::clone(&self.previous);
+            let opr = self.previous.clone();
             let expr = self.parse_primary();
 
             let opr_type = if let TokenType::LOGICAL_NOT = opr.token_type {
@@ -783,16 +778,16 @@ impl<'a> Parser {
                 None => return None,
             };
 
-            let expr_token = Rc::clone(&self.previous);
+            let expr_token = self.previous.clone();
 
             // Parse array indexing
-            if self.matches(TokenType::LEFT_SQUARE_BRACKET) {
+            if self.matches(&TokenType::LEFT_SQUARE_BRACKET) {
                 return self.array_indexing(expr);
             }
 
             // Parse function call
-            if self.matches(TokenType::LEFT_PARENTHESIS) {
-                return self.construct_function_call(expr, expr_token);
+            if self.matches(&TokenType::LEFT_PARENTHESIS) {
+                return self.construct_function_call(expr, &expr_token);
             }
 
             return Some(expr);
@@ -834,7 +829,7 @@ impl<'a> Parser {
             },
             TokenType::LEFT_PARENTHESIS => {
                 let expr = self.parse_expression();
-                self.consume(TokenType::RIGHT_PARENTHESIS, "Expected closing ')'.");
+                self.consume(&TokenType::RIGHT_PARENTHESIS, "Expected closing ')'.");
                 // For grouping expression, we don't wrap the inner expression inside a literal.
                 // Instead, we return the actual expression that was enclosed in the parenthesis.
                 return expr;
@@ -843,7 +838,7 @@ impl<'a> Parser {
                 // For identifier expressions, the only information we need is enclosed within the token.
                 // So we return the token wrapped inside an ASTNode::Identifier.
                 return Some(Identifier(IdentifierExprNode {
-                    token: Rc::clone(&self.previous),
+                    token: self.previous.clone(),
                 }));
             }
             _ => {
@@ -854,7 +849,7 @@ impl<'a> Parser {
 
         let node = LiteralExprNode {
             value: literal_value,
-            token: Rc::clone(&self.current),
+            token: self.current.clone(),
         };
 
         return Some(Literal(node));
@@ -962,19 +957,19 @@ impl<'a> Parser {
     fn construct_array(&mut self) -> Option<ASTNode> {
         let mut values: Vec<Box<ASTNode>> = vec![];
 
-        if !self.matches(TokenType::RIGHT_SQUARE_BRACKET) {
+        if !self.matches(&TokenType::RIGHT_SQUARE_BRACKET) {
             loop {
                 values.push(match self.parse_expression() {
                     Some(e) => Box::new(e),
                     None => return None,
                 });
 
-                if self.matches(TokenType::COMMA_SEPARATOR) {
+                if self.matches(&TokenType::COMMA_SEPARATOR) {
                     continue;
                 }
 
                 self.consume(
-                    TokenType::RIGHT_SQUARE_BRACKET,
+                    &TokenType::RIGHT_SQUARE_BRACKET,
                     "Expected ']' after array declaration.",
                 );
                 break;
@@ -983,7 +978,7 @@ impl<'a> Parser {
 
         return Some(Array(ArrayExprNode {
             values,
-            token: Rc::clone(&self.previous),
+            token: self.previous.clone(),
         }));
     }
 
@@ -1004,12 +999,12 @@ impl<'a> Parser {
         }));
 
         self.consume(
-            TokenType::RIGHT_SQUARE_BRACKET,
+            &TokenType::RIGHT_SQUARE_BRACKET,
             "Expected ']' after array index.",
         );
 
         // Keep matching chained array indexers
-        while self.matches(TokenType::LEFT_SQUARE_BRACKET) {
+        while self.matches(&TokenType::LEFT_SQUARE_BRACKET) {
             let pos = (self.previous.line_num, self.previous.column_num);
 
             expr = Some(ArrayIndexing(ArrayIndexingExprNode {
@@ -1025,7 +1020,7 @@ impl<'a> Parser {
             }));
 
             self.consume(
-                TokenType::RIGHT_SQUARE_BRACKET,
+                &TokenType::RIGHT_SQUARE_BRACKET,
                 "Expected ']' after array index.",
             );
         }
@@ -1033,10 +1028,10 @@ impl<'a> Parser {
         return expr;
     }
 
-    fn construct_function_call(&mut self, name: ASTNode, token: Rc<Token>) -> Option<ASTNode> {
+    fn construct_function_call(&mut self, name: ASTNode, token: &Token) -> Option<ASTNode> {
         let mut args: Vec<Argument> = vec![];
 
-        while !self.matches(TokenType::RIGHT_PARENTHESIS) {
+        while !self.matches(&TokenType::RIGHT_PARENTHESIS) {
             if args.len() >= 255 {
                 self.error_at_current("Can't have more than 255 arguments.");
                 return None;
@@ -1054,9 +1049,9 @@ impl<'a> Parser {
                 None => return None, // Could not parse the parameter
             }
 
-            if !self.matches(TokenType::RIGHT_PARENTHESIS) {
+            if !self.matches(&TokenType::RIGHT_PARENTHESIS) {
                 self.consume(
-                    TokenType::COMMA_SEPARATOR,
+                    &TokenType::COMMA_SEPARATOR,
                     "Expected comma after parameter.",
                 );
             } else {
@@ -1077,7 +1072,7 @@ impl<'a> Parser {
             None => return None, // could not parse argument expression
         };
 
-        if self.matches(TokenType::COLON_EQUALS) {
+        if self.matches(&TokenType::COLON_EQUALS) {
             return Some(Argument {
                 name: Some(expr),
                 is_named: true,
