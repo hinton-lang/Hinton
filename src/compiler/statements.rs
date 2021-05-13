@@ -4,15 +4,6 @@ use std::borrow::Borrow;
 use crate::{ast::*, chunk::OpCode, lexer::tokens::Token, objects::Object};
 
 impl Compiler {
-    /// Compiles a print statement.
-    ///
-    /// ## Arguments
-    /// * `expr` – A print statement node.
-    pub(super) fn compile_print_stmt(&mut self, stmt: &PrintStmtNode) {
-        self.compile_node(&stmt.child);
-        self.emit_op_code(OpCode::Print, stmt.pos);
-    }
-
     pub(super) fn compile_expression_stmt(&mut self, stmt: &ExpressionStmtNode) {
         self.compile_node(&stmt.child);
         self.emit_op_code(OpCode::PopStack, stmt.pos);
@@ -372,7 +363,7 @@ impl Compiler {
     pub(super) fn compile_function_decl(&mut self, decl: &FunctionDeclNode) {
         match self.declare_symbol(&decl.name, SymbolType::Function) {
             Ok(_) => {
-                let comp = match Compiler::compile_function(&decl) {
+                let comp = match Compiler::compile_function(&decl, self.natives.clone()) {
                     Ok(func) => func,
                     Err(_) => {
                         // We specify that there was an error inside the body

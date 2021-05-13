@@ -11,9 +11,17 @@ pub enum Object {
     String(String),
     Bool(bool),
     Function(FunctionObject),
+    NativeFunction(NativeFunctionObj),
     Array(Vec<Object>),
     Range(Rc<RangeObject>),
     Null,
+}
+
+/// Represents a Hinton range object.
+pub struct RangeObject {
+    pub min: isize,
+    pub max: isize,
+    pub step: isize,
 }
 
 /// Represents a Hinton function object.
@@ -26,12 +34,17 @@ pub struct FunctionObject {
     pub name: String,
 }
 
-/// Represents a Hinton range object.
-pub struct RangeObject {
-    pub min: isize,
-    pub max: isize,
-    pub step: isize,
+/// Represents a Hinton native function object.
+#[derive(Clone)]
+pub struct NativeFunctionObj {
+    pub name: String,
+    pub min_arity: u8,
+    pub max_arity: u8,
+    pub function: NativeFn,
 }
+
+/// Represents the body of a Hinton native function object.
+pub type NativeFn = fn(Vec<Object>) -> Result<Object, String>;
 
 impl Object {
     pub fn type_name(&self) -> &str {
@@ -43,7 +56,7 @@ impl Object {
             &Object::String(_) => "String",
             &Object::Array(_) => "Array",
             &Object::Range(_) => "Range",
-            &Object::Function(_) => "Function",
+            &Object::Function(_) | Object::NativeFunction(_) => "Function",
         };
     }
 
@@ -218,11 +231,10 @@ impl Object {
         // At this point, the operands have the same type, so we
         // proceed to check if they match in value.
         return match self {
-            Object::Null => true,
             Object::String(a) => (*a == right.as_string().unwrap()),
             Object::Array(a) => {
                 let b = right.as_array().unwrap();
-                // If arrays differ in size, then must differ in value. However, if they
+                // If arrays differ in size, they must differ in value. However, if they
                 // are equal in size, then we must check that each item match.
                 if a.len() != b.len() {
                     false
@@ -310,12 +322,16 @@ impl<'a> fmt::Display for Object {
 
                 fmt::Display::fmt(&str, f)
             }
+            Object::NativeFunction(ref inner) => {
+                let str = format!("<NativeFn '{}'>", inner.name);
+                fmt::Display::fmt(&str, f)
+            }
             Object::Null => f.write_str("\x1b[37;1mnull\x1b[0m"),
         }
     }
 }
 
-/// Defines addition of Hinton objects.
+/// Defines negation of Hinton objects.
 impl std::ops::Neg for Object {
     type Output = Result<Object, String>;
 
@@ -547,7 +563,7 @@ impl std::ops::Rem<Object> for Object {
             || rhs.is_float() && rhs.as_float().unwrap() == 0f64
             || rhs.is_bool() && !rhs.as_bool().unwrap()
         {
-            return Err(String::from("Right-hand-size of modulus cannot be zero."));
+            return Err(String::from("Right-hand-side of modulus cannot be zero."));
         }
 
         match self {
@@ -729,9 +745,9 @@ impl std::ops::Shr<Object> for Object {
 /// Defines the bitwise-not operation of Hinton objects.
 /// NOTE: Rust does not have a special bitwise-not (~)
 /// operator, instead Rust uses the '!' for both logical-not
-// and bitwise-not. Using the '!' operator on a Hinton
-// object only applies the bitwise-not operation. For the
-// logic-not operation use the `Object.is_falsey()` method.
+/// and bitwise-not. Using the '!' operator on a Hinton
+/// object only applies the bitwise-not operation. For the
+/// logic-not operation use the `Object.is_falsey()` method.
 impl std::ops::Not for Object {
     type Output = Result<Object, String>;
 
@@ -741,7 +757,7 @@ impl std::ops::Not for Object {
             Object::Bool(opr) => Ok(Object::Int(!(opr as i64))),
             _ => {
                 return Err(format!(
-                    "Operation not defined for object of type '{}'.",
+                    "Operation '~' not defined for object of type '{}'.",
                     self.type_name()
                 ))
             }

@@ -64,7 +64,10 @@ func fact(x) {
 
 print(2..30 == 2..30);
 print(fact(20));
+
+let start = clock();
 print(fib(25));
+print("Time to complete Fib(25): " + (clock() - start) + " milliseconds.");
 
 let a_b_c = "Identifier with underscores";
 print(a_b_c);

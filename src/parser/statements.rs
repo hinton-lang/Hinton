@@ -57,41 +57,9 @@ impl Parser {
             todo!("Implement continue")
         } else if self.matches(&TokenType::RETURN_KEYWORD) {
             self.parse_return_stmt()
-        } else if self.matches(&TokenType::PRINT) {
-            self.parse_print_statement()
         } else {
             self.parse_expression_statement()
         }
-    }
-
-    /// Parses a print statement.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The print statement's AST node.
-    fn parse_print_statement(&mut self) -> Option<ASTNode> {
-        let opr = self.previous.clone();
-
-        self.consume(
-            &TokenType::LEFT_PARENTHESIS,
-            "Expected '(' before expression.",
-        );
-        let expr = self.parse_expression();
-        self.consume(
-            &TokenType::RIGHT_PARENTHESIS,
-            "Expected ')' after expression.",
-        );
-        self.consume(
-            &TokenType::SEMICOLON_SEPARATOR,
-            "Expected ';' after expression.",
-        );
-
-        return Some(PrintStmt(PrintStmtNode {
-            child: match expr {
-                Some(t) => Box::new(t),
-                None => return None, // Could not create expression to print
-            },
-            pos: (opr.line_num, opr.column_num),
-        }));
     }
 
     /// Parses an expression statement as specified in the grammar.cfg file.

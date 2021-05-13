@@ -356,14 +356,10 @@ impl Compiler {
             if symbol.name == token.lexeme {
                 if !symbol.is_initialized {
                     match symbol.symbol_type {
-                        SymbolType::Variable => self.error_at_token(
-                            &token,
-                            "Cannot read variable in its own initializer.",
-                        ),
-                        SymbolType::Constant => self.error_at_token(
-                            &token,
-                            "Cannot read constant in its own initializer.",
-                        ),
+                        SymbolType::Variable => self
+                            .error_at_token(&token, "Cannot read variable in its own initializer."),
+                        SymbolType::Constant => self
+                            .error_at_token(&token, "Cannot read constant in its own initializer."),
                         // Functions, Classes, and Enums are initialized upon declaration. Hence, unreachable here.
                         _ => unreachable!("Symbol should have been initialized by now."),
                     }
@@ -399,6 +395,18 @@ impl Compiler {
                 symbol.is_used = true;
                 return Some(index as u16);
             }
+        }
+
+        // Look for the identifier in the natives
+        if self.natives.contains(&token.lexeme) {
+            if for_reassign {
+                self.error_at_token(&token, "Cannot reassign to native function.");
+            } else {
+                self.add_literal_to_pool(Object::String(token.lexeme.clone()), token);
+                self.emit_op_code(OpCode::LoadNative, (token.line_num, token.column_num));
+            }
+
+            return None;
         }
 
         // The symbol doesn't exist

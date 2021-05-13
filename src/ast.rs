@@ -25,7 +25,6 @@ pub enum ASTNode {
     BreakStmt(BreakStmtNode),
     ExpressionStmt(ExpressionStmtNode),
     IfStmt(IfStmtNode),
-    PrintStmt(PrintStmtNode),
     ReturnStmt(ReturnStmtNode),
     WhileStmt(WhileStmtNode),
 }
@@ -125,12 +124,6 @@ pub struct TernaryConditionalNode {
 #[derive(Clone)]
 pub struct IdentifierExprNode {
     pub token: Token,
-}
-
-#[derive(Clone)]
-pub struct PrintStmtNode {
-    pub child: Box<ASTNode>,
-    pub pos: (usize, usize),
 }
 
 #[derive(Clone)]

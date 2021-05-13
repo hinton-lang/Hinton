@@ -44,6 +44,7 @@ pub enum OpCode {
     NullishCoalescing,
     PopStack,
     Subtract,
+    LoadNative,
 
     // Instructions with one chunk operands.
     // These instructions use the next byte
@@ -69,9 +70,6 @@ pub enum OpCode {
     LoopJumpLong,
     MakeArrayLong,
     SetVarLong,
-
-    // Temporaries
-    Print,
 }
 
 /// Contains all the necessary information about

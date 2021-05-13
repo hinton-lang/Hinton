@@ -6,7 +6,7 @@ impl<'a> Lexer {
     ///
     /// ## Returns
     /// * `Token` – A numeric token (integer, float, binary, octal, and hex).
-    pub fn make_numeric_token(&mut self) -> Token {
+    pub(super) fn make_numeric_token(&mut self) -> Token {
         // Support for hexadecimal integers
         // Hexadecimal literals are converted to integer literals during compilation
         if self.previous() == '0' && (self.get_current() == 'x' || self.get_current() == 'X') {
@@ -53,7 +53,7 @@ impl<'a> Lexer {
     ///
     /// # Arguments
     /// * `radix` – The base of the expected digit.
-    pub(self) fn advance_numeric_digit(&mut self, radix: u32) {
+    fn advance_numeric_digit(&mut self, radix: u32) {
         while !self.is_at_end() && self.get_current().is_digit(radix)
             || (self.get_current() == '_' && self.previous() != '_')
         {

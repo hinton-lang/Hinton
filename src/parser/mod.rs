@@ -211,7 +211,6 @@ impl<'a> Parser {
                 | TokenType::FOR_KEYWORD
                 | TokenType::IF_KEYWORD
                 | TokenType::WHILE_KEYWORD
-                | TokenType::PRINT
                 | TokenType::RETURN_KEYWORD => {
                     return ();
                 }
