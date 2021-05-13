@@ -14,6 +14,7 @@ mod ast;
 mod chunk;
 mod compiler;
 mod lexer;
+mod natives;
 mod objects;
 mod parser;
 mod virtual_machine;

@@ -27,10 +27,13 @@ impl<'a> Lexer {
     /// let mut l = Lexer::lex("let x = 22;");
     /// ```
     pub fn lex(src: &'a str) -> Self {
+        let chars: Vec<char> = src.chars().collect();
+        let len = chars.len();
+
         Self {
-            source: src.chars().collect(),
+            source: chars,
             current: 0,
-            size: src.chars().count(), // TODO: This generates the Vec<char> twice. Can we do better?
+            size: len,
             line: 1,
             line_start: 0,
             token_start: 0,
@@ -41,7 +44,7 @@ impl<'a> Lexer {
     ///
     /// ## Returns
     /// * `char` – The next character.
-    pub(super) fn previous(&self) -> char {
+    pub fn previous(&self) -> char {
         self.source[self.current - 1]
     }
 
@@ -49,7 +52,7 @@ impl<'a> Lexer {
     ///
     /// ## Returns
     /// * `char` – The current character.
-    pub(super) fn get_current(&self) -> char {
+    pub fn get_current(&self) -> char {
         // TODO: What can you do so that this check is no longer needed?
         // NOTE: At the moment, if this check is removed, Rust will panic
         // because at some point in the program (I am not sure where), the
@@ -66,7 +69,7 @@ impl<'a> Lexer {
     ///
     /// ## Returns
     /// * `char` – The previous character.
-    pub(super) fn next(&self) -> char {
+    pub fn next(&self) -> char {
         if self.is_at_end() {
             return '\0';
         }
@@ -78,7 +81,7 @@ impl<'a> Lexer {
     ///
     /// ## Returns
     /// * `bool` – True if the scanner is at the end of the source, false otherwise.
-    pub(super) fn is_at_end(&self) -> bool {
+    pub fn is_at_end(&self) -> bool {
         return self.current >= self.size;
     }
 
@@ -87,7 +90,7 @@ impl<'a> Lexer {
     /// ## Returns
     /// * `bool` – True if the current character matched the provided
     /// character, false otherwise.
-    pub(super) fn matches(&mut self, expected: char) -> bool {
+    pub fn matches(&mut self, expected: char) -> bool {
         if self.is_at_end() || self.get_current() != expected {
             return false;
         }
@@ -99,14 +102,14 @@ impl<'a> Lexer {
     ///
     /// ## Returns
     /// * `char` – The consumed character.
-    pub(super) fn advance(&mut self) -> char {
+    pub fn advance(&mut self) -> char {
         let c = self.get_current();
         self.current += 1;
         return c;
     }
 
     /// Skips whitespace-like characters from the source code.
-    pub(super) fn skip_whitespace(&mut self) {
+    pub fn skip_whitespace(&mut self) {
         loop {
             let c = self.get_current();
 
@@ -126,7 +129,7 @@ impl<'a> Lexer {
 
     /// Skips single-line and block comments from from the source code.
     /// ### TODO Allow nesting block comments
-    pub(self) fn skip_comments(&mut self) {
+    pub fn skip_comments(&mut self) {
         // single-line comments
         if self.get_current() == '/' && self.next() == '/' {
             while self.get_current() != '\n' && !self.is_at_end() {
@@ -171,7 +174,7 @@ impl<'a> Lexer {
     ///
     /// ## Returns
     /// * `Token` – A string token.
-    pub(super) fn make_string_token(&mut self) -> Token {
+    pub fn make_string_token(&mut self) -> Token {
         // The opener single or double quote.
         let quote = self.previous();
 
@@ -198,7 +201,7 @@ impl<'a> Lexer {
     ///
     /// ## Returns
     /// * `Token` – An identifier token.
-    pub(super) fn make_identifier_token(&mut self) -> Token {
+    pub fn make_identifier_token(&mut self) -> Token {
         while !self.is_at_end() {
             let c = self.get_current();
 
@@ -230,7 +233,7 @@ impl<'a> Lexer {
     /// // from the current state of the scanner.
     /// self.make_token(VAR_KEYWORD);
     /// ```
-    pub(super) fn make_token(&self, tok_type: TokenType) -> Token {
+    pub fn make_token(&self, tok_type: TokenType) -> Token {
         Token {
             line_num: self.line,
             column_num: if tok_type.clone() as u8 != EOF as u8 {
@@ -260,7 +263,7 @@ impl<'a> Lexer {
     ///
     /// ## Returns
     /// * `Token` – The generated error token.
-    pub(super) fn make_error_token(&self, message: &'a str) -> Token {
+    pub fn make_error_token(&self, message: &'a str) -> Token {
         Token {
             line_num: self.line,
             column_num: self.token_start - self.line_start,

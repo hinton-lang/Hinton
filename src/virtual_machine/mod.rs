@@ -5,6 +5,7 @@ use crate::{
     chunk::OpCode,
     compiler::Compiler,
     exec_time,
+    natives::NativeFunctions,
     objects::{self, FunctionObject, Object},
     parser::Parser,
 };
@@ -56,6 +57,7 @@ impl CallFrame {
 pub struct VirtualMachine {
     stack: Vec<objects::Object>,
     frames: Vec<CallFrame>,
+    natives: NativeFunctions,
 }
 
 impl<'a> VirtualMachine {
@@ -67,6 +69,7 @@ impl<'a> VirtualMachine {
         Self {
             stack: vec![],
             frames: vec![],
+            natives: Default::default(),
         }
     }
 
@@ -84,7 +87,8 @@ impl<'a> VirtualMachine {
         };
 
         // Compiles the program into bytecode and calculates the compiler's execution time
-        let compiling = exec_time(|| Compiler::compile_file(filepath, &ast));
+        let compiling =
+            exec_time(|| Compiler::compile_file(filepath, &ast, self.natives.names.clone()));
 
         // Executes the program
         return match compiling.0 {
@@ -96,7 +100,7 @@ impl<'a> VirtualMachine {
                         #[cfg(feature = "bench_time")]
                         let start = Instant::now();
 
-                        // Rus the program.
+                        // Runs the program.
                         let runtime_result = self.run();
 
                         #[cfg(feature = "bench_time")]
@@ -168,6 +172,28 @@ impl<'a> VirtualMachine {
     fn call_value(&mut self, callee: Object, arg_count: u8) -> Result<(), ()> {
         return match callee {
             Object::Function(obj) => self.call(obj, arg_count),
+            Object::NativeFunction(obj) => {
+                let mut args: Vec<Object> = vec![];
+                for _ in 0..arg_count {
+                    let val = self.pop_stack();
+                    args.push(val);
+                }
+                args.reverse();
+
+                match self.natives.call_native(&obj.name, args) {
+                    Ok(x) => {
+                        // Pop the native function call off the stack
+                        self.pop_stack();
+                        // Place the result of the call on top of the stack
+                        self.push_stack(x);
+                        Ok(())
+                    }
+                    Err(e) => {
+                        self.report_runtime_error(e.as_str());
+                        Err(())
+                    }
+                }
+            }
             _ => {
                 self.report_runtime_error(&format!(
                     "Cannot call object of type '{}'.",

@@ -18,8 +18,6 @@ impl<'a> VirtualMachine {
     pub(crate) fn run(&mut self) -> InterpretResult {
         while let Some(instruction) = self.get_next_op_code() {
             match instruction {
-                OpCode::Print => println!("{}", self.pop_stack()),
-
                 OpCode::PopStack => {
                     self.pop_stack();
                 }
@@ -420,6 +418,24 @@ impl<'a> VirtualMachine {
                     };
 
                     self.current_frame_mut().ip -= offset;
+                }
+
+                OpCode::LoadNative => {
+                    let name = match self.pop_stack() {
+                        Object::String(x) => x,
+                        _ => {
+                            self.report_runtime_error("Expected native function name.");
+                            return InterpretResult::RuntimeError;
+                        }
+                    };
+
+                    match self.natives.get_native_fn_object(&name) {
+                        Ok(f) => self.push_stack(Object::NativeFunction(f)),
+                        Err(e) => {
+                            self.report_runtime_error(e.as_str());
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
                 }
 
                 OpCode::FuncCall => {

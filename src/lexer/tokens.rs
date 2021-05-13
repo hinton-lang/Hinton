@@ -97,8 +97,6 @@ pub enum TokenType {
     TRUE_LITERAL,
     WHILE_KEYWORD,
 
-    // TEMPORARY
-    PRINT,
     // ***** To be implemented/considered
     // ABSTRACT_KEYWORD,
     // ASYNC_KEYWORD,
@@ -170,7 +168,6 @@ pub fn make_identifier_type(id: &str) -> TokenType {
         "not" => TokenType::LOGICAL_NOT,
         "null" => TokenType::NULL_LITERAL,
         "or" => TokenType::LOGICAL_OR,
-        "print" => TokenType::PRINT,
         "private" => TokenType::PRIVATE_KEYWORD,
         "public" => TokenType::PUBLIC_KEYWORD,
         "return" => TokenType::RETURN_KEYWORD,

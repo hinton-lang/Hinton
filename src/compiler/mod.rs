@@ -62,6 +62,8 @@ pub struct Compiler {
     // patch the break (OP_JUMP) offsets.
     loops: Vec<usize>,
     breaks: Vec<BreakScope>,
+    // Native functions
+    natives: Vec<String>,
 }
 
 /// Types of compilers we can create
@@ -85,6 +87,7 @@ impl Compiler {
     pub fn compile_file(
         filepath: &str,
         program: &ASTNode,
+        natives: Vec<String>,
     ) -> Result<FunctionObject, InterpretResult> {
         let mut c = Compiler {
             compiler_type: CompilerType::Script,
@@ -108,6 +111,7 @@ impl Compiler {
             scope_depth: 0,
             loops: vec![],
             breaks: vec![],
+            natives,
         };
 
         // Compile the function body
@@ -132,7 +136,10 @@ impl Compiler {
     /// ## Returns
     /// `Result<chunk, InterpretResult>` – If the program had no compile-time errors, returns
     /// the main chunk for this module. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
-    pub fn compile_function(func: &FunctionDeclNode) -> Result<FunctionObject, InterpretResult> {
+    pub fn compile_function(
+        func: &FunctionDeclNode,
+        natives: Vec<String>,
+    ) -> Result<FunctionObject, InterpretResult> {
         let mut c = Compiler {
             compiler_type: CompilerType::Function,
             had_error: false,
@@ -155,6 +162,7 @@ impl Compiler {
             scope_depth: 0,
             loops: vec![],
             breaks: vec![],
+            natives,
         };
 
         // compiles the parameter declarations so that the compiler
@@ -206,7 +214,6 @@ impl Compiler {
             ASTNode::IfStmt(x) => self.compile_if_stmt(x),
             ASTNode::Literal(x) => self.compile_literal_expr(x),
             ASTNode::Module(x) => self.compile_module_node(x),
-            ASTNode::PrintStmt(x) => self.compile_print_stmt(x),
             ASTNode::ReturnStmt(x) => self.compile_return_stmt(x),
             ASTNode::TernaryConditional(x) => self.compile_ternary_conditional_expr(x),
             ASTNode::Unary(x) => self.compile_unary_expr(x),
