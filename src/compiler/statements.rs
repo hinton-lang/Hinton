@@ -127,7 +127,7 @@ impl Compiler {
             name: name.lexeme.clone(),
             symbol_depth: self.scope_depth,
             is_initialized: match symbol_type {
-                SymbolType::Variable | SymbolType::Constant => false,
+                SymbolType::Variable | SymbolType::Constant | SymbolType::Function => false,
                 _ => true,
             },
             symbol_type,
@@ -362,7 +362,7 @@ impl Compiler {
 
     pub(super) fn compile_function_decl(&mut self, decl: &FunctionDeclNode) {
         match self.declare_symbol(&decl.name, SymbolType::Function) {
-            Ok(_) => {
+            Ok(symbol_pos) => {
                 let comp = match Compiler::compile_function(&decl, self.natives.clone()) {
                     Ok(func) => func,
                     Err(_) => {
@@ -409,6 +409,9 @@ impl Compiler {
                         (decl.name.line_num, decl.name.column_num),
                     );
                 }
+
+                // Mark the function as initialized for the parent scope.
+                self.symbol_table[symbol_pos].is_initialized = true;
             }
 
             // We do nothing if there was an error because the `declare_symbol()`
@@ -421,10 +424,10 @@ impl Compiler {
     pub(super) fn compile_parameters(&mut self, params: &Vec<Parameter>) {
         for param in params.iter() {
             match self.declare_symbol(&param.name, SymbolType::Parameter) {
-                Ok(symbol_pos) => {
-                    self.symbol_table[symbol_pos].is_initialized = true;
+                Ok(_) => {
+                    // Do nothing after parameter has been declared. Default
+                    // values will be compiled by the function's parent scope.
                 }
-
                 // We do nothing if there was an error because the `declare_symbol()`
                 // function takes care of reporting the appropriate error for us.
                 // Explicit `return` to stop the loop.
