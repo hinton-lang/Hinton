@@ -360,7 +360,9 @@ impl Compiler {
                             .error_at_token(&token, "Cannot read variable in its own initializer."),
                         SymbolType::Constant => self
                             .error_at_token(&token, "Cannot read constant in its own initializer."),
-                        // Functions, Classes, and Enums are initialized upon declaration. Hence, unreachable here.
+                        SymbolType::Function => self
+                            .error_at_token(&token, "Cannot read function in its own initializer."),
+                        // Classes, Parameters, and Enums are initialized upon declaration. Hence, unreachable here.
                         _ => unreachable!("Symbol should have been initialized by now."),
                     }
 
