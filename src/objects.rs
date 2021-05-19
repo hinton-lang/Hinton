@@ -954,6 +954,16 @@ impl Object {
 
                     return Err(String::from("Array index out of bounds."));
                 }
+                // Indexing type: Array[Bool]
+                Object::Bool(val) => {
+                    let pos = (if *val { 1 } else { 0 }) as usize;
+
+                    if let Some(val) = arr.get(pos) {
+                        return Ok(val.clone());
+                    }
+
+                    return Err(String::from("String index out of bounds."));
+                }
                 // Indexing type: Array[Range]
                 Object::Range(_) => {
                     unimplemented!("Array indexing with ranges.")
@@ -978,6 +988,17 @@ impl Object {
 
                     return Err(String::from("String index out of bounds."));
                 }
+                // Indexing type: String[Bool]
+                Object::Bool(val) => {
+                    let chars: Vec<char> = str.chars().collect();
+                    let pos = (if *val { 1 } else { 0 }) as usize;
+
+                    if let Some(val) = chars.get(pos) {
+                        return Ok(Object::String(val.to_string()));
+                    }
+
+                    return Err(String::from("String index out of bounds."));
+                }
                 // Indexing type: String[Range]
                 Object::Range(_) => {
                     unimplemented!("String indexing with ranges.")
@@ -996,6 +1017,22 @@ impl Object {
                     let max = range.max;
 
                     if let Some(pos) = to_bounded_index(idx, i64::abs(max - min) as usize) {
+                        return if max - min > 0 {
+                            Ok(Object::Int(min + pos as i64))
+                        } else {
+                            Ok(Object::Int(min - pos as i64))
+                        };
+                    }
+
+                    return Err(String::from("Range index out of bounds."));
+                }
+                // Indexing type: Range[Bool]
+                Object::Bool(val) => {
+                    let idx = (if *val { 1 } else { 0 }) as i64;
+                    let min = range.min;
+                    let max = range.max;
+
+                    if let Some(pos) = to_bounded_index(&idx, i64::abs(max - min) as usize) {
                         return if max - min > 0 {
                             Ok(Object::Int(min + pos as i64))
                         } else {
