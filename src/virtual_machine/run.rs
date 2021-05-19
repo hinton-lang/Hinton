@@ -1,5 +1,3 @@
-use std::rc::Rc;
-
 use super::VirtualMachine;
 use super::{CallFrame, InterpretResult};
 use crate::{chunk::OpCode, objects::RangeObject};
@@ -347,7 +345,7 @@ impl<'a> VirtualMachine {
                     if self.check_integer_operands(&left, &right, "..") {
                         let a = left.as_int().unwrap();
                         let b = right.as_int().unwrap();
-                        self.push_stack(Object::Range(Rc::new(RangeObject { min: a, max: b })));
+                        self.push_stack(Object::Range(RangeObject { min: a, max: b }));
                     } else {
                         return InterpretResult::RuntimeError;
                     }

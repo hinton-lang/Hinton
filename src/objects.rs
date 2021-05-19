@@ -1,7 +1,5 @@
-use crate::chunk::Chunk;
-use std::fmt;
-use std::rc::Rc;
-use std::result;
+use crate::{chunk::Chunk, natives::NativeFn};
+use std::{cell::RefCell, fmt, rc::Rc};
 
 /// All types of objects in Hinton
 #[derive(Clone)]
@@ -13,14 +11,22 @@ pub enum Object {
     Function(FunctionObject),
     NativeFunction(NativeFunctionObj),
     Array(Vec<Object>),
-    Range(Rc<RangeObject>),
+    Range(RangeObject),
+    Iterable(Rc<RefCell<IterObject>>),
     Null,
 }
 
 /// Represents a Hinton range object.
+#[derive(Clone)]
 pub struct RangeObject {
     pub min: i64,
     pub max: i64,
+}
+
+/// Represents a Hinton iterator object.
+pub struct IterObject {
+    pub iter: Box<Object>,
+    pub index: usize,
 }
 
 /// Represents a Hinton function object.
@@ -42,9 +48,6 @@ pub struct NativeFunctionObj {
     pub function: NativeFn,
 }
 
-/// Represents the body of a Hinton native function object.
-pub type NativeFn = fn(Vec<Object>) -> Result<Object, String>;
-
 impl Object {
     pub fn type_name(&self) -> &str {
         return match self {
@@ -55,6 +58,7 @@ impl Object {
             &Object::String(_) => "String",
             &Object::Array(_) => "Array",
             &Object::Range(_) => "Range",
+            &Object::Iterable(_) => "Iter",
             &Object::Function(_) | Object::NativeFunction(_) => "Function",
         };
     }
@@ -169,9 +173,9 @@ impl Object {
         }
     }
 
-    pub fn as_range(&self) -> Option<Rc<RangeObject>> {
+    pub fn as_range(&self) -> Option<&RangeObject> {
         match self {
-            Object::Range(v) => Some(Rc::clone(v)),
+            Object::Range(v) => Some(v),
             _ => None,
         }
     }
@@ -266,7 +270,7 @@ impl Object {
 
 /// Implements the `Display` trait so that objects can be printed in a console-friendly way.
 impl<'a> fmt::Display for Object {
-    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
         match *self {
             Object::Int(ref inner) => {
                 let str = String::from("\x1b[38;5;81m")
@@ -312,6 +316,10 @@ impl<'a> fmt::Display for Object {
                 "[\x1b[38;5;81m{}\x1b[0m..\x1b[38;5;81m{}\x1b[0m]",
                 inner.min, inner.max
             ),
+            Object::Iterable(ref inner) => {
+                let str = format!("<Iterable '{}'>", inner.borrow_mut().iter.type_name());
+                fmt::Display::fmt(&str, f)
+            }
             Object::Function(ref inner) => {
                 let str = if inner.name == "" {
                     String::from("<script>")

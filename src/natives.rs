@@ -1,5 +1,8 @@
-use crate::objects::{NativeFn, NativeFunctionObj, Object};
-use std::{collections::HashMap, time::SystemTime};
+use crate::objects::{IterObject, NativeFunctionObj, Object};
+use std::{borrow::Borrow, cell::RefCell, collections::HashMap, rc::Rc, time::SystemTime};
+
+/// Represents the body of a Hinton native function object.
+pub type NativeFn = fn(Vec<Object>) -> Result<Object, String>;
 
 /// Represents the list of native functions available through a Hinton program.
 pub struct NativeFunctions {
@@ -80,6 +83,8 @@ impl Default for NativeFunctions {
         // >>>>>>>>>>>>>>>> Native functions to be added after this line
         natives.add_native_function("print", 1, 1, native_print as NativeFn);
         natives.add_native_function("clock", 0, 0, native_clock as NativeFn);
+        natives.add_native_function("iter", 1, 1, native_iter as NativeFn);
+        natives.add_native_function("next", 1, 1, native_next as NativeFn);
         // <<<<<<<<<<<<<<<< Native functions to be added before this line
 
         return natives;
@@ -104,5 +109,57 @@ fn native_clock(_: Vec<Object>) -> Result<Object, String> {
             Ok(Object::Int(time as i64))
         }
         Err(_) => Err(String::from("System's time before UNIX EPOCH.")),
+    }
+}
+
+/// Implements the `iter(...)` native function for Hinton, which
+/// converts the give object to an iterable.
+fn native_iter(args: Vec<Object>) -> Result<Object, String> {
+    let arg = args[0].clone();
+
+    // Check that the object can be iterable.
+    match arg {
+        Object::String(_) => {}
+        Object::Array(_) => {}
+        Object::Range(_) => {}
+        _ => {
+            return Err(format!(
+                "Cannot create iterable from object of type '{}'.",
+                args[0].type_name()
+            ))
+        }
+    };
+
+    return Ok(Object::Iterable(Rc::new(RefCell::new(IterObject {
+        iter: Box::new(arg),
+        index: 0,
+    }))));
+}
+
+/// Implements the `next(...)` native function for Hinton, which
+/// retrieves the next item in an iterable object.
+fn native_next(args: Vec<Object>) -> Result<Object, String> {
+    match args[0].borrow() {
+        Object::Iterable(iter) => {
+            let mut iter = iter.borrow_mut();
+            let current_index = Object::Int(iter.index as i64);
+
+            // Since we are passing an integer into the `Object.get(...)` method,
+            // the only error that can occur is an `IndexOutOfBounds` error, which
+            // in terms of iterators means there are no more items left to iterate.
+            let obj = match iter.iter.get(&current_index) {
+                Ok(o) => o,
+                Err(_) => return Err(String::from("End of Iterator.")),
+            };
+
+            // Increment to the next position of the iterator.
+            iter.index += 1;
+
+            return Ok(obj);
+        }
+        _ => Err(format!(
+            "Object of type '{}' is not iterable.",
+            args[0].type_name()
+        )),
     }
 }
