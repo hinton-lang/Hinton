@@ -74,3 +74,21 @@ print(a_b_c);
 
 let greetings = ["hello", "hola", "ciao"];
 print(greetings[-2][1]); // ["hello", "hola", "ciao"][-2][1] ==> "hola"[1] ==> "o"
+
+let array_iter = iter(greetings);
+let city = "New York";
+let string_iter = iter(city);
+
+// Getting items inside of an array iterator.
+print(next(array_iter));
+print(next(array_iter));
+print(next(array_iter));
+
+// Getting items inside of a string iterator.
+print(next(string_iter));
+print(next(string_iter));
+print(next(string_iter));
+print(next(string_iter));
+print(next(string_iter));
+print(next(string_iter));
+print(next(string_iter));
