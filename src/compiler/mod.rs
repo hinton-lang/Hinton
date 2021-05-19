@@ -89,25 +89,29 @@ impl Compiler {
         program: &ASTNode,
         natives: Vec<String>,
     ) -> Result<FunctionObject, InterpretResult> {
+        let base_fn = FunctionObject {
+            defaults: vec![],
+            min_arity: 0,
+            max_arity: 0,
+            chunk: chunk::Chunk::new(),
+            name: format!("Script: '{}'", filepath),
+        };
+
+        let symbols = vec![Symbol {
+            name: format!("Script: '{}'", filepath),
+            symbol_depth: 0,
+            symbol_type: SymbolType::Function,
+            is_initialized: true,
+            is_used: true,
+            pos: (0, 0),
+        }];
+
         let mut c = Compiler {
             compiler_type: CompilerType::Script,
             had_error: false,
             is_in_panic: false,
-            function: FunctionObject {
-                defaults: vec![],
-                min_arity: 0,
-                max_arity: 0,
-                chunk: chunk::Chunk::new(),
-                name: format!("Script: '{}'", filepath),
-            },
-            symbol_table: vec![Symbol {
-                name: format!("Script: '{}'", filepath),
-                symbol_depth: 0,
-                symbol_type: SymbolType::Function,
-                is_initialized: true,
-                is_used: true,
-                pos: (0, 0),
-            }],
+            function: base_fn,
+            symbol_table: symbols,
             scope_depth: 0,
             loops: vec![],
             breaks: vec![],
@@ -140,25 +144,29 @@ impl Compiler {
         func: &FunctionDeclNode,
         natives: Vec<String>,
     ) -> Result<FunctionObject, InterpretResult> {
+        let base_fn = FunctionObject {
+            defaults: vec![],
+            min_arity: func.min_arity,
+            max_arity: func.max_arity,
+            chunk: chunk::Chunk::new(),
+            name: func.name.lexeme.clone(),
+        };
+
+        let symbols = vec![Symbol {
+            name: func.name.lexeme.clone(),
+            symbol_depth: 0,
+            symbol_type: SymbolType::Function,
+            is_initialized: true,
+            is_used: true,
+            pos: (func.name.line_num, func.name.column_num),
+        }];
+
         let mut c = Compiler {
             compiler_type: CompilerType::Function,
             had_error: false,
             is_in_panic: false,
-            function: FunctionObject {
-                defaults: vec![],
-                min_arity: func.min_arity,
-                max_arity: func.max_arity,
-                chunk: chunk::Chunk::new(),
-                name: func.name.lexeme.clone(),
-            },
-            symbol_table: vec![Symbol {
-                name: func.name.lexeme.clone(),
-                symbol_depth: 0,
-                symbol_type: SymbolType::Function,
-                is_initialized: true,
-                is_used: true,
-                pos: (0, 0),
-            }],
+            function: base_fn,
+            symbol_table: symbols,
             scope_depth: 0,
             loops: vec![],
             breaks: vec![],
