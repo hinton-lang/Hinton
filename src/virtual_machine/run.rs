@@ -76,34 +76,10 @@ impl<'a> VirtualMachine {
                     let index = self.pop_stack();
                     let target = self.pop_stack();
 
-                    if !index.is_int() {
-                        self.report_runtime_error("Array index must be an integer.");
-                        return InterpretResult::RuntimeError;
-                    }
-
-                    if !target.is_array() {
-                        self.report_runtime_error(&format!(
-                            "Cannot index object of type '{}'.",
-                            target.type_name()
-                        ));
-                        return InterpretResult::RuntimeError;
-                    }
-
-                    let array = target.as_array().unwrap();
-                    let idx = index.as_int().unwrap();
-                    let idx = if idx >= 0i64 {
-                        idx as usize
-                    } else {
-                        self.report_runtime_error("Array index out of bounds.");
-                        return InterpretResult::RuntimeError;
-                    };
-
-                    match array.get(idx) {
-                        Some(val) => {
-                            self.push_stack(val.clone());
-                        }
-                        None => {
-                            self.report_runtime_error("Array index out of bounds.");
+                    match target.get(&index) {
+                        Ok(r) => self.push_stack(r),
+                        Err(e) => {
+                            self.report_runtime_error(e.as_str());
                             return InterpretResult::RuntimeError;
                         }
                     }
@@ -369,14 +345,9 @@ impl<'a> VirtualMachine {
                     let left = self.pop_stack();
 
                     if self.check_integer_operands(&left, &right, "..") {
-                        let a = left.as_int().unwrap() as isize;
-                        let b = right.as_int().unwrap() as isize;
-
-                        self.push_stack(Object::Range(Rc::new(RangeObject {
-                            min: a,
-                            max: b,
-                            step: 1,
-                        })));
+                        let a = left.as_int().unwrap();
+                        let b = right.as_int().unwrap();
+                        self.push_stack(Object::Range(Rc::new(RangeObject { min: a, max: b })));
                     } else {
                         return InterpretResult::RuntimeError;
                     }

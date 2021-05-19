@@ -71,3 +71,6 @@ print("Time to complete Fib(25): " + (clock() - start) + " milliseconds.");
 
 let a_b_c = "Identifier with underscores";
 print(a_b_c);
+
+let greetings = ["hello", "hola", "ciao"];
+print(greetings[-2][1]); // ["hello", "hola", "ciao"][-2][1] ==> "hola"[1] ==> "o"

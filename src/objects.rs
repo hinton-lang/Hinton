@@ -19,9 +19,8 @@ pub enum Object {
 
 /// Represents a Hinton range object.
 pub struct RangeObject {
-    pub min: isize,
-    pub max: isize,
-    pub step: isize,
+    pub min: i64,
+    pub max: i64,
 }
 
 /// Represents a Hinton function object.
@@ -928,6 +927,101 @@ impl Object {
                 _ => return error_msg,
             },
             _ => return error_msg,
+        }
+    }
+
+    /// Defines the indexing operation of Hinton objects.
+    pub fn get(&self, index: &Object) -> Result<Object, String> {
+        let to_bounded_index = |x: &i64, len: usize| -> Option<usize> {
+            if x >= &0 && (*x as usize) < len {
+                Some(*x as usize)
+            } else if x < &0 && (i64::abs(*x) as usize <= len) {
+                Some(len - i64::abs(*x) as usize)
+            } else {
+                None
+            }
+        };
+
+        match self {
+            Object::Array(arr) => match index {
+                // Indexing type: Array[Int]
+                Object::Int(idx) => {
+                    if let Some(pos) = to_bounded_index(idx, arr.len()) {
+                        if let Some(val) = arr.get(pos) {
+                            return Ok(val.clone());
+                        }
+                    }
+
+                    return Err(String::from("Array index out of bounds."));
+                }
+                // Indexing type: Array[Range]
+                Object::Range(_) => {
+                    unimplemented!("Array indexing with ranges.")
+                }
+                _ => {
+                    return Err(format!(
+                        "Array index must be an Int or a Range. Found '{}' instead.",
+                        index.type_name()
+                    ))
+                }
+            },
+            Object::String(str) => match index {
+                // Indexing type: String[Int]
+                Object::Int(idx) => {
+                    let chars: Vec<char> = str.chars().collect();
+
+                    if let Some(pos) = to_bounded_index(idx, chars.len()) {
+                        if let Some(val) = chars.get(pos) {
+                            return Ok(Object::String(val.to_string()));
+                        }
+                    }
+
+                    return Err(String::from("String index out of bounds."));
+                }
+                // Indexing type: String[Range]
+                Object::Range(_) => {
+                    unimplemented!("String indexing with ranges.")
+                }
+                _ => {
+                    return Err(format!(
+                        "String index must be an Int or a Range. Found '{}' instead.",
+                        index.type_name()
+                    ))
+                }
+            },
+            Object::Range(range) => match index {
+                // Indexing type: Range[Int]
+                Object::Int(idx) => {
+                    let min = range.min;
+                    let max = range.max;
+
+                    if let Some(pos) = to_bounded_index(idx, i64::abs(max - min) as usize) {
+                        return if max - min > 0 {
+                            Ok(Object::Int(min + pos as i64))
+                        } else {
+                            Ok(Object::Int(min - pos as i64))
+                        };
+                    }
+
+                    return Err(String::from("Range index out of bounds."));
+                }
+                // Indexing type: Range[Range]
+                Object::Range(_) => {
+                    unimplemented!("Range indexing with ranges.")
+                }
+                _ => {
+                    return Err(format!(
+                        "Range index must be an Int or a Range. Found '{}' instead.",
+                        index.type_name()
+                    ))
+                }
+            },
+            _ => {
+                return Err(format!(
+                    "Cannot index object of type '{}'.",
+                    self.type_name()
+                ))
+            }
         }
     }
 }
