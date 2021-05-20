@@ -124,7 +124,9 @@ pub fn make_iter(o: Object) -> Result<Object, String> {
         Object::String(_) => {}
         Object::Array(_) => {}
         Object::Range(_) => {}
+        // If the object is already an iterable, return that same object.
         Object::Iterable(_) => return Ok(o),
+        // Object cannot be iterable.
         _ => return Err(format!("Cannot create iterable from '{}'.", o.type_name())),
     };
 
@@ -171,7 +173,6 @@ pub fn iter_has_next(o: &Rc<RefCell<IterObject>>) -> bool {
         Object::String(ref x) => x.len(),
         Object::Array(ref x) => x.len(),
         Object::Range(ref x) => i64::abs(x.max - x.min) as usize,
-        // Object::Iterable(x) => {}
         _ => unreachable!("Object is not iterable."),
     };
 

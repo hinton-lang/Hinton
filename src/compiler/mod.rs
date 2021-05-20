@@ -329,30 +329,12 @@ impl Compiler {
     /// * `token` – The token associated with this jump patch.
     fn patch_jump(&mut self, offset: usize, token: &Token) {
         // -2 to adjust for the bytecode for the jump offset itself.
-        let jump = match u16::try_from(self.function.chunk.len()) {
-            Ok(x) => x,
-            Err(_) => {
-                return self.error_at_token(token, "Too much code to jump over.");
-            }
-        };
+        match u16::try_from(self.function.chunk.len() - offset - 2) {
+            Ok(forward) => {
+                let jump = forward.to_be_bytes();
 
-        let j = jump.to_be_bytes();
-        self.function.chunk.modify_byte(offset, j[0]);
-        self.function.chunk.modify_byte(offset + 1, j[1]);
-    }
-
-    /// Patches the offset of a break (OP_JUMP) instruction.
-    ///
-    /// ## Arguments
-    /// * `offset` – The position in the chunk of the break (OP_JUMP) instruction to be patched.
-    /// * `token` – The token associated with this jump patch.
-    fn patch_break(&mut self, placeholder: usize, token: &Token) {
-        match u16::try_from(self.function.chunk.len()) {
-            Ok(end_of_loop) => {
-                let jump = end_of_loop.to_be_bytes();
-
-                self.function.chunk.modify_byte(placeholder, jump[0]);
-                self.function.chunk.modify_byte(placeholder + 1, jump[1]);
+                self.function.chunk.modify_byte(offset, jump[0]);
+                self.function.chunk.modify_byte(offset + 1, jump[1]);
             }
             Err(_) => {
                 return self.error_at_token(token, "Too much code to jump over.");

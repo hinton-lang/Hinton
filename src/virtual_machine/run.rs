@@ -20,8 +20,20 @@ impl<'a> VirtualMachine {
     pub(crate) fn run(&mut self) -> InterpretResult {
         while let Some(instruction) = self.get_next_op_code() {
             match instruction {
-                OpCode::PopStack => {
+                OpCode::PopStack1 => {
                     self.pop_stack();
+                }
+
+                OpCode::PopStackN | OpCode::PopStackNLong => {
+                    let n = if let OpCode::PopStackN = instruction {
+                        self.get_next_byte().unwrap() as i64
+                    } else {
+                        self.get_next_short().unwrap() as i64
+                    };
+
+                    for _ in 0..n {
+                        self.pop_stack();
+                    }
                 }
 
                 OpCode::LoadImmNull => self.push_stack(Object::Null),
@@ -32,8 +44,8 @@ impl<'a> VirtualMachine {
                 OpCode::LoadImm1F => self.push_stack(Object::Float(1f64)),
                 OpCode::LoadImm1I => self.push_stack(Object::Int(1i64)),
 
-                OpCode::LoadImm | OpCode::LoadImmLong => {
-                    let imm = if let OpCode::LoadImm = instruction {
+                OpCode::LoadImmN | OpCode::LoadImmNLong => {
+                    let imm = if let OpCode::LoadImmN = instruction {
                         self.get_next_byte().unwrap() as i64
                     } else {
                         self.get_next_short().unwrap() as i64
@@ -69,7 +81,7 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                OpCode::ForLoop => {
+                OpCode::ForLoopIterNext => {
                     let tos = self.peek_stack(self.stack.len() - 1);
 
                     match tos {
@@ -81,10 +93,10 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                OpCode::JumpIfNextOrPop | OpCode::JumpIfNextOrPopLong => {
+                OpCode::JumpHasNextOrPop | OpCode::JumpHasNextOrPopLong => {
                     self.pop_stack(); // pop the current iterator item off the stack
 
-                    let jump = if let OpCode::JumpIfNextOrPop = instruction {
+                    let jump = if let OpCode::JumpHasNextOrPop = instruction {
                         self.get_next_byte().unwrap() as usize
                     } else {
                         self.get_next_short().unwrap() as usize
@@ -93,7 +105,7 @@ impl<'a> VirtualMachine {
                     match self.peek_stack(self.stack.len() - 1) {
                         Object::Iterable(o) => {
                             if iter_has_next(o) {
-                                self.current_frame_mut().ip = jump;
+                                self.current_frame_mut().ip -= jump;
                             } else {
                                 self.pop_stack();
                             }
@@ -416,7 +428,7 @@ impl<'a> VirtualMachine {
                     let offset = self.get_next_short().unwrap() as usize;
 
                     if self.pop_stack().is_falsey() {
-                        self.current_frame_mut().ip = offset;
+                        self.current_frame_mut().ip += offset;
                     }
                 }
 
@@ -425,7 +437,7 @@ impl<'a> VirtualMachine {
                     let offset = self.get_next_short().unwrap() as usize;
 
                     if self.peek_stack(self.stack.len() - 1).is_falsey() {
-                        self.current_frame_mut().ip = offset;
+                        self.current_frame_mut().ip += offset;
                     } else {
                         self.pop_stack();
                     }
@@ -436,16 +448,16 @@ impl<'a> VirtualMachine {
                     let offset = self.get_next_short().unwrap() as usize;
 
                     if !self.peek_stack(self.stack.len() - 1).is_falsey() {
-                        self.current_frame_mut().ip = offset;
+                        self.current_frame_mut().ip += offset;
                     } else {
                         self.pop_stack();
                     }
                 }
 
-                OpCode::JumpAbsolute => {
+                OpCode::JumpForward => {
                     // The OP_JUMP instruction always has a short as its operand.
                     let offset = self.get_next_short().unwrap() as usize;
-                    self.current_frame_mut().ip = offset;
+                    self.current_frame_mut().ip += offset;
                 }
 
                 OpCode::LoopJump | OpCode::LoopJumpLong => {
