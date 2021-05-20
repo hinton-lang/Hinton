@@ -1,5 +1,5 @@
 use crate::objects::{IterObject, NativeFunctionObj, Object};
-use std::{borrow::Borrow, cell::RefCell, collections::HashMap, rc::Rc, time::SystemTime};
+use std::{borrow::Borrow, cell::RefCell, collections::HashMap, io, rc::Rc, time::SystemTime};
 
 /// Represents the body of a Hinton native function object.
 pub type NativeFn = fn(Vec<Object>) -> Result<Object, String>;
@@ -85,6 +85,7 @@ impl Default for NativeFunctions {
         natives.add_native_function("clock", 0, 0, native_clock as NativeFn);
         natives.add_native_function("iter", 1, 1, native_iter as NativeFn);
         natives.add_native_function("next", 1, 1, native_next as NativeFn);
+        natives.add_native_function("input", 1, 1, native_input as NativeFn);
         // <<<<<<<<<<<<<<<< Native functions to be added before this line
 
         return natives;
@@ -177,4 +178,25 @@ pub fn iter_has_next(o: &Rc<RefCell<IterObject>>) -> bool {
     };
 
     o.borrow_mut().index < len
+}
+
+/// Implements the `input(...)` native function for Hinton, which
+/// gets user input from the console.
+fn native_input(args: Vec<Object>) -> Result<Object, String> {
+    print!("{}", args[0]);
+
+    // Print the programmer-provided
+    match io::Write::flush(&mut io::stdout()) {
+        Ok(_) => {}
+        Err(e) => return Err(format!("Failed to read input. IO failed to flush. {}", e)),
+    }
+
+    let mut input = String::new();
+    match io::stdin().read_line(&mut input) {
+        Ok(_) => {
+            input.pop(); // remove added newline
+            return Ok(Object::String(input));
+        },
+        Err(e) => return Err(format!("Failed to read input. IO failed read line. {}", e)),
+    }
 }

@@ -102,3 +102,13 @@ for (x in ["fausto ", "Ginny ", "Ron"]) {
         print(letter);
     }
 }
+
+// Testing the `input(...)` native function.
+while(true) {
+    let name = input("Who are we greeting? ");
+    print("Hello there, " + name + "!\n");
+
+    if (input("Greet again? (y/n): ") != "y") {
+        break;
+    }
+}
