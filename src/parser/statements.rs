@@ -44,7 +44,7 @@ impl Parser {
         } else if self.matches(&TokenType::WHILE_KEYWORD) {
             self.parse_while_statement()
         } else if self.matches(&TokenType::FOR_KEYWORD) {
-            todo!("Implement for loops")
+            self.parse_for_statement()
         } else if self.matches(&TokenType::BREAK_KEYWORD) {
             let tok = self.previous.clone();
 
@@ -272,6 +272,46 @@ impl Parser {
         return Some(WhileStmt(WhileStmtNode {
             token: tok,
             condition: Box::new(condition),
+            body: Box::new(body),
+        }));
+    }
+
+    fn parse_for_statement(&mut self) -> Option<ASTNode> {
+        let tok = self.previous.clone();
+        self.consume(&TokenType::LEFT_PARENTHESIS, "Expected '(' after 'for'.");
+
+        let id = match self.parse_primary() {
+            Some(val) => match val {
+                ASTNode::Identifier(i) => i,
+                _ => {
+                    self.error_at_current("Expected an identifier name.");
+                    return None;
+                }
+            },
+            None => return None, // Could not parse an identifier for loop
+        };
+
+        self.consume(&TokenType::IN_OPERATOR, "Expected 'in' after identifier.");
+
+        let iter = match self.parse_expression() {
+            Some(expr) => expr,
+            None => return None, // Could not parse an iterator expression
+        };
+
+        self.consume(
+            &TokenType::RIGHT_PARENTHESIS,
+            "Expected ')' after 'for' iterator.",
+        );
+
+        let body = match self.parse_statement() {
+            Some(val) => val,
+            None => return None, // Could not create then branch
+        };
+
+        return Some(ForStmt(ForStmtNode {
+            token: tok,
+            id,
+            iterator: Box::new(iter),
             body: Box::new(body),
         }));
     }

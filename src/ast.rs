@@ -24,6 +24,7 @@ pub enum ASTNode {
     BlockStmt(BlockNode),
     BreakStmt(BreakStmtNode),
     ExpressionStmt(ExpressionStmtNode),
+    ForStmt(ForStmtNode),
     IfStmt(IfStmtNode),
     ReturnStmt(ReturnStmtNode),
     WhileStmt(WhileStmtNode),
@@ -193,6 +194,14 @@ pub struct IfStmtNode {
 pub struct WhileStmtNode {
     pub token: Token,
     pub condition: Box<ASTNode>,
+    pub body: Box<ASTNode>,
+}
+
+#[derive(Clone)]
+pub struct ForStmtNode {
+    pub token: Token,
+    pub id: IdentifierExprNode,
+    pub iterator: Box<ASTNode>,
     pub body: Box<ASTNode>,
 }
 

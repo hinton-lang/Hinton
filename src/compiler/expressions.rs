@@ -146,19 +146,13 @@ impl Compiler {
                 self.compile_node(&expr.left);
 
                 // For 'AND' expressions, if the lhs is false, then the entire expression must be false.
-                // We emit a `OP_JUMP_IF_FALSE` instruction to jump over the rest of this expression
+                // We emit a `JUMP_IF_FALSE_OR_POP` instruction to jump over the rest of this expression
                 // if the lhs is falsey.
-                let end_jump = self.emit_jump(OpCode::JumpIfFalse, &expr.opr_token);
+                let end_jump = self.emit_jump(OpCode::JumpIfFalseOrPop, &expr.opr_token);
 
-                // If the lhs is not false, the we pop that value off the stack, and continue to execute the
-                // expressions in the rhs.
-                self.emit_op_code(
-                    OpCode::PopStack,
-                    (expr.opr_token.line_num, expr.opr_token.column_num),
-                );
                 self.compile_node(&expr.right);
 
-                // Patches the `OP_JUMP_IF_FALSE` instruction above so that if the lhs is falsey, it knows
+                // Patches the `JUMP_IF_FALSE_OR_POP` instruction above so that if the lhs is falsey, it knows
                 // where the end of the expression is.
                 self.patch_jump(end_jump, &expr.opr_token);
             }
@@ -179,23 +173,14 @@ impl Compiler {
                 self.compile_node(&expr.left);
 
                 // For 'OR' expressions, if the lhs is true, then the entire expression must be true.
-                // We emit a `OP_JUMP_IF_FALSE` instruction to jump over to the next expression if the lhs is falsey.
-                let else_jump = self.emit_jump(OpCode::JumpIfFalse, &expr.opr_token);
+                // We emit a `JUMP_IF_TRUE_OR_POP` instruction to jump over to the next expression
+                // if the lhs is falsey.
+                let end_jump = self.emit_jump(OpCode::JumpIfTrueOrPop, &expr.opr_token);
 
-                // If the lhs is truthy, then we skip over the rest of this expression.
-                let end_jump = self.emit_jump(OpCode::Jump, &expr.opr_token);
-
-                // Patches the 'else_jump' so that is the lhs is falsey, the `OP_JUMP_IF_FALSE` instruction
-                // above knows where the starts of the next expression is.
-                self.patch_jump(else_jump, &expr.opr_token);
-                self.emit_op_code(
-                    OpCode::PopStack,
-                    (expr.opr_token.line_num, expr.opr_token.column_num),
-                );
                 self.compile_node(&expr.right);
 
-                // Patches the 'end_jump' so that if the lhs is truthy, then the `OP_JUMP` instruction above
-                // knows where the end of the entire expression is.
+                // Patches the `JUMP_IF_TRUE_OR_POP` instruction above so that if the lhs is truthy, it knows
+                // where the end of the expression is.
                 self.patch_jump(end_jump, &expr.opr_token);
             }
             _ => unreachable!(
