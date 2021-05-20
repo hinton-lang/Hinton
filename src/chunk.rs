@@ -5,7 +5,7 @@ use num_traits::FromPrimitive;
 ///
 /// **NOTE:** Changing the order in which members are declared creates
 /// incompatibilities between different versions of the interpreter.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 #[repr(u8)]
 #[derive(FromPrimitive)]
 pub enum OpCode {
@@ -23,7 +23,7 @@ pub enum OpCode {
     Divide,
     Equals,
     Expo,
-    ForLoop,
+    ForLoopIterNext,
     GreaterThan,
     GreaterThanEq,
     Indexing,
@@ -45,7 +45,7 @@ pub enum OpCode {
     Negate,
     NotEq,
     NullishCoalescing,
-    PopStack,
+    PopStack1,
     Subtract,
 
     // Instructions with one chunk operands.
@@ -54,11 +54,12 @@ pub enum OpCode {
     BindDefaults,
     FuncCall,
     GetVar,
-    JumpIfNextOrPop,
+    JumpHasNextOrPop,
     LoadConstant,
-    LoadImm,
+    LoadImmN,
     LoopJump,
     MakeArray,
+    PopStackN,
     Return,
     SetVar,
 
@@ -66,15 +67,16 @@ pub enum OpCode {
     // These instructions use the next two
     // bytes (a short) as their operands.
     GetVarLong,
-    JumpAbsolute,
+    JumpForward,
+    JumpHasNextOrPopLong,
     JumpIfFalseOrPop,
-    JumpIfNextOrPopLong,
     JumpIfTrueOrPop,
     LoadConstantLong,
-    LoadImmLong,
+    LoadImmNLong,
     LoopJumpLong,
     MakeArrayLong,
     PopJumpIfFalse,
+    PopStackNLong,
     SetVarLong,
 }
 
@@ -248,125 +250,6 @@ impl<'a> Chunk {
     }
 }
 
-/// Disassembles the chunk, printing the each instruction and
-/// their related information.
-///
-/// ## Arguments
-/// * `name` – the name to print for the current chunk
-pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
-    // prints this chunk's name
-    println!("==== {} ====", name);
-
-    let mut current_line = 0;
-
-    let mut idx = 0;
-    while idx < chunk.len() {
-        let code = chunk.get_op_code(idx);
-        let line_info = chunk.get_line_info(idx);
-
-        // Prints a line number or a vertical bar indicating that the
-        // current instruction is in the same line as the previous one.
-        match line_info {
-            Some(location) => {
-                if location.0 != current_line {
-                    print!("{:>03}\t", location.0);
-                    current_line = location.0;
-                } else {
-                    print!(" |\t")
-                }
-            }
-            _ => print!("??? "),
-        }
-
-        // Prints the index of the current instruction
-
-        print!("{:>04} ", idx);
-        // Prints the instruction name
-        match code {
-            Some(instr) => {
-                // Prints the instruction with a teal color
-                print!(
-                    "\x1b[32m{:#04X}\x1b[0m – \x1b[36m{:?}\x1b[0m ",
-                    instr.clone() as u8,
-                    instr
-                );
-
-                // Reads two bytes as the index of a constant
-                let mut const_val = |is_long: bool| -> &Object {
-                    idx += 1;
-
-                    let pos;
-                    if is_long {
-                        pos = match chunk.get_short(idx) {
-                            Some(short) => short as usize,
-                            None => unreachable!("Could not get short."),
-                        };
-                        idx += 1; // increment `i` again for the second byte in the short
-                    } else {
-                        pos = match chunk.get_byte(idx) {
-                            Some(byte) => byte as usize,
-                            None => unreachable!("Could not get byte."),
-                        };
-                    }
-
-                    chunk.get_constant(pos).unwrap()
-                };
-
-                match instr {
-                    // Prints the value associated with an OP_CONSTANT instruction
-                    OpCode::LoadConstant => println!("\t---> {}", const_val(false)),
-                    OpCode::LoadConstantLong => println!("\t---> {}", const_val(true)),
-                    OpCode::GetVar
-                    | OpCode::SetVar
-                    | OpCode::MakeArray
-                    | OpCode::FuncCall
-                    | OpCode::BindDefaults
-                    | OpCode::Return
-                    | OpCode::LoadImm => {
-                        idx += 1;
-                        println!("\t{}", chunk.get_byte(idx).unwrap());
-                    }
-
-                    OpCode::LoopJump => {
-                        idx += 1;
-                        println!("\t{}", (idx + 1) - (chunk.get_byte(idx).unwrap() as usize));
-                    }
-
-                    OpCode::JumpIfNextOrPop => {
-                        idx += 1;
-                        println!("\t{}", chunk.get_byte(idx).unwrap() as usize);
-                    }
-
-                    OpCode::GetVarLong
-                    | OpCode::SetVarLong
-                    | OpCode::LoopJumpLong
-                    | OpCode::MakeArrayLong
-                    | OpCode::LoadImmLong => {
-                        idx += 2;
-                        println!("\t{}", chunk.get_short(idx - 1).unwrap());
-                    }
-
-                    OpCode::JumpAbsolute
-                    | OpCode::PopJumpIfFalse
-                    | OpCode::JumpIfTrueOrPop
-                    | OpCode::JumpIfFalseOrPop => {
-                        println!("\t{}", chunk.get_short(idx + 1).unwrap() as usize);
-                        idx += 2;
-                    }
-
-                    // If the instruction does not use the next to bytes, then print nothing
-                    _ => println!(),
-                }
-            }
-            None => println!("No Instruction Found..."),
-        }
-
-        idx += 1;
-    }
-
-    println!();
-}
-
 /// Disassembles the chunk into its raw bytes, and prints the each instruction byte.
 /// This is useful when comparing the chunk generated by a program vs another program.
 ///
@@ -394,4 +277,237 @@ pub fn print_raw(chunk: &Chunk, name: &str) {
 
     println!("\n\nChunk Size: {}", i);
     println!("================\n");
+}
+
+/// Disassembles the chunk, printing the each instruction and
+/// their related information.
+///
+/// ## Arguments
+/// * `name` – the name to print for the current chunk
+pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
+    // prints this chunk's name
+    println!("==== {} ====", name);
+
+    let mut current_line = 0;
+
+    let mut idx = 0;
+    while idx < chunk.len() {
+        let code = chunk.get_byte(idx);
+        let line_info = chunk.get_line_info(idx);
+
+        // Prints a line number or a vertical bar indicating that the
+        // current instruction is in the same line as the previous one.
+        if let Some(location) = line_info {
+            if location.0 != current_line {
+                print!("{:>03}\t", location.0);
+                current_line = location.0;
+            } else {
+                print!(" |\t")
+            }
+        }
+
+        // Prints the index of the current instruction
+        print!("{:>04} ", idx);
+
+        // Prints the instruction name
+        if let Some(instr) = code {
+            let op_code_name;
+            let mut operand_val = String::from("");
+
+            // Reads two bytes as the index of a constant
+            let const_val = |idx: usize, is_long: bool| -> &Object {
+                let pos;
+                if is_long {
+                    pos = match chunk.get_short(idx) {
+                        Some(short) => short as usize,
+                        None => unreachable!("Could not get short."),
+                    };
+                } else {
+                    pos = match chunk.get_byte(idx) {
+                        Some(byte) => byte as usize,
+                        None => unreachable!("Could not get byte."),
+                    };
+                }
+
+                chunk.get_constant(pos).unwrap()
+            };
+
+            // Gets the operand value
+            let mut get_operand = |operand_count: usize| {
+                idx += operand_count;
+                if operand_count == 1 {
+                    operand_val = format!("{}", chunk.get_byte(idx - (operand_count - 1)).unwrap());
+                } else {
+                    operand_val =
+                        format!("{}", chunk.get_short(idx - (operand_count - 1)).unwrap());
+                }
+            };
+
+            match FromPrimitive::from_u8(instr).unwrap() {
+                OpCode::Add => op_code_name = "ADD",
+                OpCode::BitwiseAnd => op_code_name = "BIT_AND",
+                OpCode::BitwiseNot => op_code_name = "BIT_NOT",
+                OpCode::BitwiseOr => op_code_name = "BIT_OR",
+                OpCode::BitwiseShiftLeft => op_code_name = "BIT_SHIFT_L",
+                OpCode::BitwiseShiftRight => op_code_name = "BIT_SHIFT_R",
+                OpCode::BitwiseXor => op_code_name = "BIT_XOR",
+                OpCode::Divide => op_code_name = "DIVIDE",
+                OpCode::Equals => op_code_name = "EQUALS",
+                OpCode::Expo => op_code_name = "EXPO",
+                OpCode::ForLoopIterNext => op_code_name = "FOR_LOOP_ITER_NEXT",
+                OpCode::GreaterThan => op_code_name = "GREATER_THAN",
+                OpCode::GreaterThanEq => op_code_name = "GREATER_THAN_EQ",
+                OpCode::Indexing => op_code_name = "INDEXING",
+                OpCode::LessThan => op_code_name = "LESS_THAN",
+                OpCode::LessThanEq => op_code_name = "LESS_THAN_EQ",
+                OpCode::LoadImm0F => op_code_name = "LOAD_IMM_0F",
+                OpCode::LoadImm0I => op_code_name = "LOAD_IMM_0I",
+                OpCode::LoadImm1F => op_code_name = "LOAD_IMM_1F",
+                OpCode::LoadImm1I => op_code_name = "LOAD_IMM_1I",
+                OpCode::LoadImmFalse => op_code_name = "LOAD_IMM_FALSE",
+                OpCode::LoadImmNull => op_code_name = "LOAD_IMM_NULL",
+                OpCode::LoadImmTrue => op_code_name = "LOAD_IMM_TRUE",
+                OpCode::LoadNative => op_code_name = "LOAD_NATIVE",
+                OpCode::LogicNot => op_code_name = "LOGIC_NOT",
+                OpCode::MakeIter => op_code_name = "MAKE_ITER",
+                OpCode::MakeRange => op_code_name = "MAKE_RANGE",
+                OpCode::Modulus => op_code_name = "MODULUS",
+                OpCode::Multiply => op_code_name = "MULTIPLY",
+                OpCode::Negate => op_code_name = "NEGATE",
+                OpCode::NotEq => op_code_name = "NOT_EQ",
+                OpCode::NullishCoalescing => op_code_name = "NULLISH",
+                OpCode::PopStack1 => op_code_name = "POP_STACK_1",
+                OpCode::Subtract => op_code_name = "SUBTRACT",
+
+                // OpCodes with 1 operand
+                OpCode::BindDefaults => {
+                    op_code_name = "BIND_DEFAULTS";
+                    get_operand(1);
+                }
+                OpCode::FuncCall => {
+                    op_code_name = "FUNC_CALL";
+                    get_operand(1);
+                }
+                OpCode::GetVar => {
+                    op_code_name = "GET_VAR";
+                    get_operand(1);
+                }
+                OpCode::JumpHasNextOrPop => {
+                    op_code_name = "JUMP_HAS_NEXT_OR_POP";
+                    idx += 1;
+                    // `idx + 1` because at runtime, the IP points to the next instruction
+                    operand_val = format!("{}", (idx + 1) - chunk.get_byte(idx).unwrap() as usize);
+                    operand_val += &format!(" (sub {} from IP)", chunk.get_byte(idx).unwrap());
+                }
+                OpCode::LoadConstant => {
+                    op_code_name = "LOAD_CONSTANT";
+                    get_operand(1);
+                    operand_val += &format!(" -> {}", const_val(idx, false));
+                }
+                OpCode::LoadImmN => {
+                    op_code_name = "LOAD_IMM_N";
+                    get_operand(1);
+                }
+                OpCode::LoopJump => {
+                    op_code_name = "LOOP_JUMP";
+                    idx += 1;
+                    // `idx + 1` because at runtime, the IP points to the next instruction
+                    operand_val = format!("{}", (idx + 1) - chunk.get_byte(idx).unwrap() as usize);
+                    operand_val += &format!(" (sub {} from IP)", chunk.get_byte(idx).unwrap());
+                }
+                OpCode::MakeArray => {
+                    op_code_name = "MAKE_ARRAY";
+                    get_operand(1);
+                }
+                OpCode::PopStackN => {
+                    op_code_name = "POP_STACK_N";
+                    get_operand(1);
+                }
+                OpCode::Return => {
+                    op_code_name = "RETURN";
+                    get_operand(1);
+                }
+                OpCode::SetVar => {
+                    op_code_name = "SET_VAR";
+                    get_operand(1);
+                }
+
+                // OpCode with 2 operands
+                OpCode::GetVarLong => {
+                    op_code_name = "GET_VAR_LONG";
+                    get_operand(2);
+                }
+                OpCode::JumpForward => {
+                    op_code_name = "JUMP_FORWARD";
+                    idx += 2;
+                    let offset = chunk.get_short(idx - 1).unwrap() as usize;
+                    // `idx + 1` because at runtime, the IP points to the next instruction
+                    operand_val = format!("{} (add {} from IP)", (idx + 1) + offset, offset);
+                }
+                OpCode::JumpIfFalseOrPop => {
+                    op_code_name = "JUMP_IF_FALSE_OR_POP";
+                    get_operand(2);
+                }
+                OpCode::JumpHasNextOrPopLong => {
+                    op_code_name = "JUMP_HAS_NEXT_OR_POP_LONG";
+                    idx += 2;
+                    let offset = chunk.get_short(idx - 1).unwrap() as usize;
+                    // `idx + 1` because at runtime, the IP points to the next instruction
+                    operand_val = format!("{} (sub {} from IP)", (idx + 1) - offset, offset);
+                }
+                OpCode::JumpIfTrueOrPop => {
+                    op_code_name = "JUMP_IF_TRUE_OR_POP";
+                    get_operand(2);
+                }
+                OpCode::LoadConstantLong => {
+                    op_code_name = "LOAD_CONSTANT_LONG";
+                    get_operand(2);
+                    operand_val += &format!(" -> {}", const_val(idx - 1, false));
+                }
+                OpCode::LoadImmNLong => {
+                    op_code_name = "LOAD_IMM_N_LONG";
+                    get_operand(2);
+                }
+                OpCode::LoopJumpLong => {
+                    op_code_name = "LOOP_JUMP_LONG";
+                    idx += 2;
+                    let offset = chunk.get_short(idx - 1).unwrap() as usize;
+                    // `idx + 1` because at runtime, the IP points to the next instruction
+                    operand_val = format!("{} (sub {} from IP)", (idx + 1) - offset, offset);
+                }
+                OpCode::MakeArrayLong => {
+                    op_code_name = "MAKE_ARRAY_LONG";
+                    get_operand(2);
+                }
+                OpCode::PopJumpIfFalse => {
+                    op_code_name = "POP_JUMP_IF_FALSE";
+                    idx += 2;
+                    let offset = chunk.get_short(idx - 1).unwrap() as usize;
+                    // `idx + 1` because at runtime, the IP points to the next instruction
+                    operand_val = format!("{} (add {} from IP)", (idx + 1) + offset, offset);
+                }
+                OpCode::PopStackNLong => {
+                    op_code_name = "POP_STACK_N_LONG";
+                    get_operand(2);
+                }
+                OpCode::SetVarLong => {
+                    op_code_name = "SET_VAR_LONG";
+                    get_operand(2);
+                }
+            }
+
+            // Prints the instruction code and instruction name
+            print!(
+                "\x1b[32m{:#04X}\x1b[0m – \x1b[36m{:<26}\x1b[0m ",
+                instr, op_code_name
+            );
+            println!("{}", operand_val);
+        } else {
+            println!("No Instruction Found...");
+        }
+
+        idx += 1;
+    }
+
+    println!();
 }

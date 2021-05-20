@@ -285,10 +285,7 @@ impl<'a> fmt::Display for Object {
                     + String::from("\x1b[0m").as_str();
                 fmt::Display::fmt(&str, f)
             }
-            Object::String(ref inner) => {
-                let inner = format!("\"{}\"", inner);
-                fmt::Display::fmt(&inner, f)
-            }
+            Object::String(ref inner) => fmt::Display::fmt(&inner, f),
             Object::Bool(inner) => {
                 let str = if inner {
                     String::from("\x1b[38;5;3mtrue\x1b[0m")

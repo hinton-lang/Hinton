@@ -9,7 +9,7 @@ impl Compiler {
     /// * `stmt` – The expression statement node being compiled.
     pub(super) fn compile_expression_stmt(&mut self, stmt: &ExpressionStmtNode) {
         self.compile_node(&stmt.child);
-        self.emit_op_code(OpCode::PopStack, stmt.pos);
+        self.emit_op_code(OpCode::PopStack1, stmt.pos);
     }
 
     /// Compiles a variable declaration.
@@ -181,6 +181,9 @@ impl Compiler {
     pub(super) fn end_scope(&mut self) {
         self.scope_depth -= 1;
 
+        let mut pop_count = 0usize;
+        let mut last_symbol_pos = (0, 0);
+
         // When a scope ends, we remove all local symbols in the scope.
         while self.symbol_table.len() > 0
             && self
@@ -194,12 +197,24 @@ impl Compiler {
             // them for this scope, we take them out of the stack by emitting
             // the OP_POP_STACK instruction for each one of the variables.
             let symbol = self.symbol_table.pop().unwrap();
-            self.emit_op_code(OpCode::PopStack, symbol.pos);
+            pop_count += 1;
+            last_symbol_pos = symbol.pos;
+
             if !symbol.is_used {
                 println!(
                     "\x1b[33;1mCompilerWarning\x1b[0m at [{}:{}] – Variable '\x1b[37;1m{}\x1b[0m' is never used.",
                     symbol.pos.0, symbol.pos.1, symbol.name
                 );
+            }
+        }
+
+        if pop_count > 0 {
+            if pop_count < 256 {
+                self.emit_op_code(OpCode::PopStackN, last_symbol_pos);
+                self.emit_raw_byte(pop_count as u8, last_symbol_pos);
+            } else {
+                self.emit_op_code(OpCode::PopStackNLong, last_symbol_pos);
+                self.emit_short(pop_count as u16, last_symbol_pos);
             }
         }
     }
@@ -246,7 +261,7 @@ impl Compiler {
         }
 
         let else_jump = match stmt.else_token.borrow() {
-            Some(token) => self.emit_jump(OpCode::JumpAbsolute, &token),
+            Some(token) => self.emit_jump(OpCode::JumpForward, &token),
             // We are okay to return a dummy value because the only way `else_jump` can
             // be used is if there was an `else` branch in the first place. If there is
             // no `else` token, then there is no `else` branch, which means that the bellow

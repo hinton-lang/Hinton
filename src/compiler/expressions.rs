@@ -34,10 +34,10 @@ impl Compiler {
             }
             Object::Int(x) if x > 1i64 => {
                 if x < 256i64 {
-                    self.emit_op_code(OpCode::LoadImm, opr_pos);
+                    self.emit_op_code(OpCode::LoadImmN, opr_pos);
                     self.emit_raw_byte(x as u8, opr_pos);
                 } else if x < (u16::MAX as i64) {
-                    self.emit_op_code(OpCode::LoadImmLong, opr_pos);
+                    self.emit_op_code(OpCode::LoadImmNLong, opr_pos);
                     self.emit_short(x as u16, opr_pos);
                 } else {
                     // If the number cannot be encoded within two bytes (as an unsigned short),

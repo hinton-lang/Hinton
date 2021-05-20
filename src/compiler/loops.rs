@@ -63,8 +63,8 @@ impl Compiler {
         self.emit_op_code(OpCode::MakeIter, loop_line_info);
 
         // Begin the loop
-        self.emit_op_code(OpCode::ForLoop, loop_line_info);
-        let loop_start = self.function.chunk.len();
+        self.emit_op_code(OpCode::ForLoopIterNext, loop_line_info);
+        let loop_start = self.function.chunk.len() - 1;
         // Starts this loop's break scope
         self.loops.push(LoopScope {
             position: loop_start,
@@ -107,17 +107,25 @@ impl Compiler {
             return;
         }
 
+        // +2 to count the jump instruction and its one operand
+        let offset = (self.function.chunk.len() + 2) - loop_start;
+
         // Jump back to the start of the loop if we haven't reached the end of the
         // iterator. This instruction takes care of popping the loop's  variable.
-        if loop_start < 256 {
-            self.emit_op_code(OpCode::JumpIfNextOrPop, loop_line_info);
-            self.emit_raw_byte((loop_start - 1) as u8, loop_line_info);
-        } else if loop_start < u16::MAX as usize {
-            self.emit_op_code(OpCode::JumpIfNextOrPopLong, loop_line_info);
-            self.emit_short((loop_start - 1) as u16, loop_line_info);
+        if offset < 256 {
+            self.emit_op_code(OpCode::JumpHasNextOrPop, loop_line_info);
+            self.emit_raw_byte(offset as u8, loop_line_info);
         } else {
-            self.error_at_token(&stmt.token, "Loop body too large.");
-            return;
+            // +3 to count the Jump instruction and its two operands
+            let offset = (self.function.chunk.len() + 3) - loop_start;
+
+            if offset < u16::MAX as usize {
+                self.emit_op_code(OpCode::JumpHasNextOrPopLong, loop_line_info);
+                self.emit_short(offset as u16, loop_line_info);
+            } else {
+                self.error_at_token(&stmt.token, "Loop body too large.");
+                return;
+            }
         }
 
         // Closes & patches all breaks associated with this loop
@@ -146,7 +154,7 @@ impl Compiler {
 
         // Patches all the breaks associated with this loop
         for b in breaks {
-            self.patch_break(b, token);
+            self.patch_jump(b, token);
         }
     }
 
@@ -160,6 +168,8 @@ impl Compiler {
         }
 
         let current_loop = *self.loops.last().unwrap();
+        let mut pop_count = 0usize;
+        let mut last_symbol_pos = (0, 0);
 
         // Pop all local symbols off the stack when the loop ends, but do not
         // remove the symbols from the symbol table since they must also be
@@ -175,27 +185,30 @@ impl Compiler {
         {
             let idx = self.symbol_table.len() - i;
             let symbol = &self.symbol_table[idx];
-            let pos = symbol.pos;
+            pop_count += 1;
+            last_symbol_pos = symbol.pos;
 
-            self.emit_op_code(OpCode::PopStack, pos);
             i += 1;
         }
 
         // If we are breaking inside a for-in loop, also pop the loop's variable
         // and the iterator off the stack before exiting the loop.
         if let super::LoopType::ForIn = current_loop.loop_type {
-            self.emit_op_code(
-                OpCode::PopStack,
-                (stmt.token.line_num, stmt.token.column_num),
-            );
-            self.emit_op_code(
-                OpCode::PopStack,
-                (stmt.token.line_num, stmt.token.column_num),
-            );
+            pop_count += 2;
+        }
+
+        if pop_count > 0 {
+            if pop_count < 256 {
+                self.emit_op_code(OpCode::PopStackN, last_symbol_pos);
+                self.emit_raw_byte(pop_count as u8, last_symbol_pos);
+            } else {
+                self.emit_op_code(OpCode::PopStackNLong, last_symbol_pos);
+                self.emit_short(pop_count as u16, last_symbol_pos);
+            }
         }
 
         // Jump out of the loop
-        let break_pos = self.emit_jump(OpCode::JumpAbsolute, &stmt.token);
+        let break_pos = self.emit_jump(OpCode::JumpForward, &stmt.token);
 
         // Add to the breaks list to breaks associated with the current loop
         self.breaks.push(BreakScope {
