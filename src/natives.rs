@@ -81,11 +81,11 @@ impl Default for NativeFunctions {
         };
 
         // >>>>>>>>>>>>>>>> Native functions to be added after this line
-        natives.add_native_function("print", 1, 1, native_print as NativeFn);
         natives.add_native_function("clock", 0, 0, native_clock as NativeFn);
+        natives.add_native_function("input", 1, 1, native_input as NativeFn);
         natives.add_native_function("iter", 1, 1, native_iter as NativeFn);
         natives.add_native_function("next", 1, 1, native_next as NativeFn);
-        natives.add_native_function("input", 1, 1, native_input as NativeFn);
+        natives.add_native_function("print", 1, 1, native_print as NativeFn);
         // <<<<<<<<<<<<<<<< Native functions to be added before this line
 
         return natives;
@@ -185,7 +185,7 @@ pub fn iter_has_next(o: &Rc<RefCell<IterObject>>) -> bool {
 fn native_input(args: Vec<Object>) -> Result<Object, String> {
     print!("{}", args[0]);
 
-    // Print the programmer-provided
+    // Print the programmer-provided message
     match io::Write::flush(&mut io::stdout()) {
         Ok(_) => {}
         Err(e) => return Err(format!("Failed to read input. IO failed to flush. {}", e)),
@@ -196,7 +196,7 @@ fn native_input(args: Vec<Object>) -> Result<Object, String> {
         Ok(_) => {
             input.pop(); // remove added newline
             return Ok(Object::String(input));
-        },
+        }
         Err(e) => return Err(format!("Failed to read input. IO failed read line. {}", e)),
     }
 }
