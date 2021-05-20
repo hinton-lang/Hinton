@@ -213,22 +213,29 @@ impl Parser {
     /// * `Option<ASTNode>` – An if statement AST node.
     fn parse_if_statement(&mut self) -> Option<ASTNode> {
         let then_tok = self.previous.clone();
-        self.consume(&TokenType::LEFT_PARENTHESIS, "Expected '(' after 'if'.");
 
         let condition = match self.parse_expression() {
             Some(val) => val,
             None => return None, // Could not create condition for if-statement
         };
 
-        self.consume(
-            &TokenType::RIGHT_PARENTHESIS,
-            "Expected ')' after 'if' condition.",
-        );
+        let then_branch;
+        if let TokenType::RIGHT_PARENTHESIS = self.previous.token_type {
+            then_branch = match self.parse_statement() {
+                Some(val) => val,
+                None => return None, // Could not create then branch
+            };
+        } else {
+            self.consume(
+                &TokenType::LEFT_CURLY_BRACES,
+                "Expected '{' after 'if' condition.",
+            );
 
-        let then_branch = match self.parse_statement() {
-            Some(val) => val,
-            None => return None, // Could not create then branch
-        };
+            then_branch = match self.parse_block() {
+                Some(val) => val,
+                None => return None, // Could not create then branch
+            };
+        }
 
         let mut else_branch = None;
         let mut else_tok = None;
@@ -252,22 +259,29 @@ impl Parser {
 
     fn parse_while_statement(&mut self) -> Option<ASTNode> {
         let tok = self.previous.clone();
-        self.consume(&TokenType::LEFT_PARENTHESIS, "Expected '(' after 'while'.");
 
         let condition = match self.parse_expression() {
             Some(val) => val,
             None => return None, // Could not create condition for while-loop
         };
 
-        self.consume(
-            &TokenType::RIGHT_PARENTHESIS,
-            "Expected ')' after 'while' condition.",
-        );
+        let body;
+        if let TokenType::RIGHT_PARENTHESIS = self.previous.token_type {
+            body = match self.parse_statement() {
+                Some(val) => val,
+                None => return None, // Could not create then branch
+            };
+        } else {
+            self.consume(
+                &TokenType::LEFT_CURLY_BRACES,
+                "Expected '{' after 'while' condition.",
+            );
 
-        let body = match self.parse_statement() {
-            Some(val) => val,
-            None => return None, // Could not create then branch
-        };
+            body = match self.parse_block() {
+                Some(val) => val,
+                None => return None, // Could not create then branch
+            };
+        }
 
         return Some(WhileStmt(WhileStmtNode {
             token: tok,
@@ -278,7 +292,19 @@ impl Parser {
 
     fn parse_for_statement(&mut self) -> Option<ASTNode> {
         let tok = self.previous.clone();
-        self.consume(&TokenType::LEFT_PARENTHESIS, "Expected '(' after 'for'.");
+
+        let mut has_parenthesis = false;
+        if self.matches(&TokenType::LEFT_PARENTHESIS) {
+            has_parenthesis = true;
+        }
+
+        // For-loops must have either the `let` or `await` keyword before the loop's variable,
+        // but not both. Here, in the future, we would check which keyword it is and define
+        // the type of for-loop we are parsing based on which keyword is present.
+        self.consume(
+            &TokenType::LET_KEYWORD,
+            "Expected 'let' before for-loop variable.",
+        );
 
         let id = match self.parse_primary() {
             Some(val) => match val {
@@ -298,15 +324,28 @@ impl Parser {
             None => return None, // Could not parse an iterator expression
         };
 
-        self.consume(
-            &TokenType::RIGHT_PARENTHESIS,
-            "Expected ')' after 'for' iterator.",
-        );
+        let body;
+        if has_parenthesis {
+            self.consume(
+                &TokenType::RIGHT_PARENTHESIS,
+                "Expected ')' after 'for' iterator.",
+            );
 
-        let body = match self.parse_statement() {
-            Some(val) => val,
-            None => return None, // Could not create then branch
-        };
+            body = match self.parse_statement() {
+                Some(val) => val,
+                None => return None, // Could not create then branch
+            };
+        } else {
+            self.consume(
+                &TokenType::LEFT_CURLY_BRACES,
+                "Expected '{' after 'for' iterator.",
+            );
+
+            body = match self.parse_block() {
+                Some(val) => val,
+                None => return None, // Could not create then branch
+            };
+        }
 
         return Some(ForStmt(ForStmtNode {
             token: tok,

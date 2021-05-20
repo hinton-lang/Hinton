@@ -1,10 +1,10 @@
 let initial = 3;
 
-if (initial == 1 and true) {
+if initial == 1 and true {
     print("Initial equals one!");
-} else if (initial == 2) {
+} else if initial == 2 {
     print("Initial equals two!!");
-} else if (initial == 3) {
+} else if initial == 3 {
     print("Initial equals three!!");
 } else {
     print("Initial equals this value: '" + initial + "'.");
@@ -12,7 +12,7 @@ if (initial == 1 and true) {
 
 let x = 0;
 
-while (x <= 10) {
+while x <= 10 {
     print("X equals " + x);
     x += 1;
 }
@@ -28,11 +28,11 @@ print(a[2][b]); // "b"
 
 let i = 0;
 
-while (true) {
+while true {
     print("Outer Loop Count: " + i);
     let x = 0;
 
-    while (true) {
+    while true {
         print("\tinner Loop Count: " + x);
 
         if (x == 3) break;
@@ -97,18 +97,16 @@ print(next(string_iter));
 print("\nNow for-in loops:");
 
 // For-in loops
-for (x in ["fausto ", "Ginny ", "Ron"]) {
-    for (letter in x) {
-        print(letter);
-    }
+for let name in ["fausto ", "Ginny ", "Ron"] {
+    for (let letter in name) print(letter);
 }
 
 // Testing the `input(...)` native function.
-while(true) {
+while true {
     let name = input("Who are we greeting? ");
     print("Hello there, " + name + "!\n");
 
-    if (input("Greet again? (y/n): ") != "y") {
+    if input("Greet again? (y/n): ") != "y" {
         break;
     }
 }
