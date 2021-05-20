@@ -23,6 +23,7 @@ pub enum OpCode {
     Divide,
     Equals,
     Expo,
+    ForLoop,
     GreaterThan,
     GreaterThanEq,
     Indexing,
@@ -35,7 +36,9 @@ pub enum OpCode {
     LoadImmFalse,
     LoadImmNull,
     LoadImmTrue,
+    LoadNative,
     LogicNot,
+    MakeIter,
     MakeRange,
     Modulus,
     Multiply,
@@ -44,7 +47,6 @@ pub enum OpCode {
     NullishCoalescing,
     PopStack,
     Subtract,
-    LoadNative,
 
     // Instructions with one chunk operands.
     // These instructions use the next byte
@@ -52,6 +54,7 @@ pub enum OpCode {
     BindDefaults,
     FuncCall,
     GetVar,
+    JumpIfNextOrPop,
     LoadConstant,
     LoadImm,
     LoopJump,
@@ -63,12 +66,15 @@ pub enum OpCode {
     // These instructions use the next two
     // bytes (a short) as their operands.
     GetVarLong,
-    Jump,
-    JumpIfFalse,
+    JumpAbsolute,
+    JumpIfFalseOrPop,
+    JumpIfNextOrPopLong,
+    JumpIfTrueOrPop,
     LoadConstantLong,
     LoadImmLong,
     LoopJumpLong,
     MakeArrayLong,
+    PopJumpIfFalse,
     SetVarLong,
 }
 
@@ -326,6 +332,11 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                         println!("\t{}", (idx + 1) - (chunk.get_byte(idx).unwrap() as usize));
                     }
 
+                    OpCode::JumpIfNextOrPop => {
+                        idx += 1;
+                        println!("\t{}", chunk.get_byte(idx).unwrap() as usize);
+                    }
+
                     OpCode::GetVarLong
                     | OpCode::SetVarLong
                     | OpCode::LoopJumpLong
@@ -335,12 +346,12 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                         println!("\t{}", chunk.get_short(idx - 1).unwrap());
                     }
 
-                    OpCode::Jump | OpCode::JumpIfFalse => {
+                    OpCode::JumpAbsolute
+                    | OpCode::PopJumpIfFalse
+                    | OpCode::JumpIfTrueOrPop
+                    | OpCode::JumpIfFalseOrPop => {
+                        println!("\t{}", chunk.get_short(idx + 1).unwrap() as usize);
                         idx += 2;
-                        println!(
-                            "\t{}",
-                            (chunk.get_short(idx - 1).unwrap() as usize) + idx + 2
-                        );
                     }
 
                     // If the instruction does not use the next to bytes, then print nothing

@@ -9,6 +9,7 @@ use std::{convert::TryFrom, fmt, fmt::Display, str};
 
 // Submodules
 mod expressions;
+mod loops;
 mod statements;
 
 /// Types of symbols available in Hinton.
@@ -44,8 +45,25 @@ impl Display for Symbol {
 
 /// Represents a break statement, which is associated with a loop.
 struct BreakScope {
-    loop_start: usize,
+    parent_loop: LoopScope,
     loop_position: usize,
+}
+
+/// Represents a loop statement at compile time. Used primarily by
+/// break statements to know which loops to break.
+#[derive(Clone, Copy)]
+struct LoopScope {
+    position: usize,
+    loop_type: LoopType,
+}
+
+/// The types of loops available in Hinton. This is useful when \
+/// compiling break statements to emit extra `POP` operations \
+/// based on the loop type.
+#[derive(Clone, Copy)]
+enum LoopType {
+    ForIn,
+    While,
 }
 
 /// Represents a compiler and its internal state.
@@ -60,7 +78,7 @@ pub struct Compiler {
     // Used to match the break statements with the correct
     // loop (specially useful with nested loops), and to
     // patch the break (OP_JUMP) offsets.
-    loops: Vec<usize>,
+    loops: Vec<LoopScope>,
     breaks: Vec<BreakScope>,
     // Native functions
     natives: Vec<String>,
@@ -216,6 +234,7 @@ impl Compiler {
             ASTNode::BreakStmt(x) => self.compile_break_stmt(x),
             ASTNode::ConstantDecl(x) => self.compile_constant_decl(x),
             ASTNode::ExpressionStmt(x) => self.compile_expression_stmt(x),
+            ASTNode::ForStmt(x) => self.compile_for_stmt(x),
             ASTNode::FunctionCallExpr(x) => self.compile_function_call_expr(x),
             ASTNode::FunctionDecl(x) => self.compile_function_decl(x),
             ASTNode::Identifier(x) => self.compile_identifier_expr(x),
@@ -310,7 +329,7 @@ impl Compiler {
     /// * `token` – The token associated with this jump patch.
     fn patch_jump(&mut self, offset: usize, token: &Token) {
         // -2 to adjust for the bytecode for the jump offset itself.
-        let jump = match u16::try_from((self.function.chunk.len() - offset) - 2) {
+        let jump = match u16::try_from(self.function.chunk.len()) {
             Ok(x) => x,
             Err(_) => {
                 return self.error_at_token(token, "Too much code to jump over.");
@@ -327,25 +346,18 @@ impl Compiler {
     /// ## Arguments
     /// * `offset` – The position in the chunk of the break (OP_JUMP) instruction to be patched.
     /// * `token` – The token associated with this jump patch.
-    fn patch_break(&mut self, offset: usize, has_condition: bool, token: &Token) {
-        // If the corresponding loop does not have a truthy literal condition, then that
-        // condition MUST be popped off the stack after the loop ends. Because breaking the
-        // loop with the `break` keyword ends the loop early, the break statement must take care
-        // of popping the condition off the stack. That is why we add one to the jump offset,
-        // so that the condition is popped off correctly. However, if there is no condition
-        // to pop off, then we leave the stack untouched when we break the loop.
-        let with_condition = if has_condition { 1 } else { 0 };
+    fn patch_break(&mut self, placeholder: usize, token: &Token) {
+        match u16::try_from(self.function.chunk.len()) {
+            Ok(end_of_loop) => {
+                let jump = end_of_loop.to_be_bytes();
 
-        let jump = match u16::try_from(self.function.chunk.len() - offset + with_condition) {
-            Ok(x) => x,
+                self.function.chunk.modify_byte(placeholder, jump[0]);
+                self.function.chunk.modify_byte(placeholder + 1, jump[1]);
+            }
             Err(_) => {
                 return self.error_at_token(token, "Too much code to jump over.");
             }
-        };
-
-        let j = jump.to_be_bytes();
-        self.function.chunk.modify_byte(offset, j[0]);
-        self.function.chunk.modify_byte(offset + 1, j[1]);
+        }
     }
 
     /// Patches the offset of a jump instruction.

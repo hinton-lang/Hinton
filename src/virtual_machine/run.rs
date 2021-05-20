@@ -1,6 +1,10 @@
 use super::VirtualMachine;
 use super::{CallFrame, InterpretResult};
-use crate::{chunk::OpCode, objects::RangeObject};
+use crate::{
+    chunk::OpCode,
+    natives::{get_next_in_iter, iter_has_next, make_iter},
+    objects::RangeObject,
+};
 use crate::{
     objects::{FunctionObject, Object},
     FRAMES_MAX,
@@ -51,6 +55,51 @@ impl<'a> VirtualMachine {
                     // Gets the value from the pool and places it on top of the stack
                     let val = self.read_constant(pos).clone();
                     self.push_stack(val)
+                }
+
+                OpCode::MakeIter => {
+                    let tos = self.pop_stack();
+
+                    match make_iter(tos) {
+                        Ok(iter) => self.push_stack(iter),
+                        Err(e) => {
+                            self.report_runtime_error(&e);
+                            return InterpretResult::RuntimeError;
+                        }
+                    }
+                }
+
+                OpCode::ForLoop => {
+                    let tos = self.peek_stack(self.stack.len() - 1);
+
+                    match tos {
+                        Object::Iterable(iter) => match get_next_in_iter(iter) {
+                            Ok(o) => self.stack.push(o),
+                            Err(_) => unreachable!("No more items to iterate in for-loop"),
+                        },
+                        _ => unreachable!("Cannot iterate object of type '{}'.", tos.type_name()),
+                    }
+                }
+
+                OpCode::JumpIfNextOrPop | OpCode::JumpIfNextOrPopLong => {
+                    self.pop_stack(); // pop the current iterator item off the stack
+
+                    let jump = if let OpCode::JumpIfNextOrPop = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    match self.peek_stack(self.stack.len() - 1) {
+                        Object::Iterable(o) => {
+                            if iter_has_next(o) {
+                                self.current_frame_mut().ip = jump;
+                            } else {
+                                self.pop_stack();
+                            }
+                        }
+                        _ => unreachable!("Expected iterable object on TOS."),
+                    };
                 }
 
                 OpCode::MakeArray | OpCode::MakeArrayLong => {
@@ -362,21 +411,41 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                OpCode::JumpIfFalse => {
+                OpCode::PopJumpIfFalse => {
                     // The OP_JUMP_IF_FALSE instruction always has a short as its operand.
                     let offset = self.get_next_short().unwrap() as usize;
 
-                    let top = self.stack.last().unwrap();
-
-                    if top.is_falsey() {
-                        self.current_frame_mut().ip += offset;
+                    if self.pop_stack().is_falsey() {
+                        self.current_frame_mut().ip = offset;
                     }
                 }
 
-                OpCode::Jump => {
-                    // The OP_JUM instruction always has a short as its operand.
+                OpCode::JumpIfFalseOrPop => {
+                    // The OP_JUMP_IF_FALSE instruction always has a short as its operand.
                     let offset = self.get_next_short().unwrap() as usize;
-                    self.current_frame_mut().ip += offset;
+
+                    if self.peek_stack(self.stack.len() - 1).is_falsey() {
+                        self.current_frame_mut().ip = offset;
+                    } else {
+                        self.pop_stack();
+                    }
+                }
+
+                OpCode::JumpIfTrueOrPop => {
+                    // The OP_JUMP_IF_FALSE instruction always has a short as its operand.
+                    let offset = self.get_next_short().unwrap() as usize;
+
+                    if !self.peek_stack(self.stack.len() - 1).is_falsey() {
+                        self.current_frame_mut().ip = offset;
+                    } else {
+                        self.pop_stack();
+                    }
+                }
+
+                OpCode::JumpAbsolute => {
+                    // The OP_JUMP instruction always has a short as its operand.
+                    let offset = self.get_next_short().unwrap() as usize;
+                    self.current_frame_mut().ip = offset;
                 }
 
                 OpCode::LoopJump | OpCode::LoopJumpLong => {
@@ -461,7 +530,7 @@ impl<'a> VirtualMachine {
             }
 
             // Prints the execution of the program.
-            // self.print_execution(&instruction);
+            // self.print_execution(instruction);
         }
 
         // If the compiler reaches this point, that means there were no errors

@@ -1,9 +1,12 @@
-use super::{BreakScope, Compiler, CompilerType, Symbol, SymbolType};
+use super::{Compiler, CompilerType, Symbol, SymbolType};
 use std::borrow::Borrow;
 
 use crate::{ast::*, chunk::OpCode, lexer::tokens::Token, objects::Object};
 
 impl Compiler {
+    /// Compiles an expression statement.
+    ///
+    /// * `stmt` – The expression statement node being compiled.
     pub(super) fn compile_expression_stmt(&mut self, stmt: &ExpressionStmtNode) {
         self.compile_node(&stmt.child);
         self.emit_op_code(OpCode::PopStack, stmt.pos);
@@ -13,7 +16,7 @@ impl Compiler {
     ///
     /// ## Arguments
     /// * `expr` – A variable declaration node.
-    pub fn compile_variable_decl(&mut self, decl: &VariableDeclNode) {
+    pub(super) fn compile_variable_decl(&mut self, decl: &VariableDeclNode) {
         // Declares the variables
         for id in decl.identifiers.iter() {
             match self.declare_symbol(id, SymbolType::Variable) {
@@ -38,7 +41,7 @@ impl Compiler {
     ///
     /// ## Arguments
     /// * `expr` – A constant declaration node.
-    pub fn compile_constant_decl(&mut self, decl: &ConstantDeclNode) {
+    pub(super) fn compile_constant_decl(&mut self, decl: &ConstantDeclNode) {
         // Declares the constant
         match self.declare_symbol(&decl.name, SymbolType::Constant) {
             Ok(symbol_pos) => {
@@ -63,7 +66,11 @@ impl Compiler {
     ///
     /// ## Returns
     /// `Result<(), ()>` – Whether or not there was an error with the variable declaration.
-    fn declare_symbol(&mut self, token: &Token, symbol_type: SymbolType) -> Result<usize, ()> {
+    pub(super) fn declare_symbol(
+        &mut self,
+        token: &Token,
+        symbol_type: SymbolType,
+    ) -> Result<usize, ()> {
         // Look for the symbols declared in this scope to see if
         // there is a symbol with the same name already declared.
         for symbol in self.symbol_table.iter().rev() {
@@ -118,22 +125,29 @@ impl Compiler {
     /// ## Returns
     /// `Result<(), ()>` – Whether or not there was an error with the symbol declaration.
     fn emit_symbol(&mut self, name: &Token, symbol_type: SymbolType) -> Result<usize, ()> {
+        self.push_symbol(
+            name,
+            Symbol {
+                name: name.lexeme.clone(),
+                symbol_depth: self.scope_depth,
+                is_initialized: match symbol_type {
+                    SymbolType::Variable | SymbolType::Constant | SymbolType::Function => false,
+                    _ => true,
+                },
+                symbol_type,
+                is_used: false,
+                pos: (name.line_num, name.column_num),
+            },
+        )
+    }
+
+    pub(super) fn push_symbol(&mut self, token: &Token, symbol: Symbol) -> Result<usize, ()> {
         if self.symbol_table.len() >= (u16::MAX as usize) {
-            self.error_at_token(name, "Too many variables in this scope.");
+            self.error_at_token(token, "Too many variables in this scope.");
             return Err(());
         }
 
-        self.symbol_table.push(Symbol {
-            name: name.lexeme.clone(),
-            symbol_depth: self.scope_depth,
-            is_initialized: match symbol_type {
-                SymbolType::Variable | SymbolType::Constant | SymbolType::Function => false,
-                _ => true,
-            },
-            symbol_type,
-            is_used: false,
-            pos: (name.line_num, name.column_num),
-        });
+        self.symbol_table.push(symbol);
 
         // Variable was successfully declared
         Ok(self.symbol_table.len() - 1)
@@ -204,11 +218,7 @@ impl Compiler {
             // stack during runtime. This value is then checked for truthiness
             // to execute the correct branch of the if statement.
             self.compile_node(&stmt.condition);
-            then_jump = self.emit_jump(OpCode::JumpIfFalse, &stmt.then_token);
-            self.emit_op_code(
-                OpCode::PopStack,
-                (stmt.then_token.line_num, stmt.then_token.column_num),
-            );
+            then_jump = self.emit_jump(OpCode::PopJumpIfFalse, &stmt.then_token);
         }
 
         // If the condition is always false, the `then`
@@ -236,7 +246,7 @@ impl Compiler {
         }
 
         let else_jump = match stmt.else_token.borrow() {
-            Some(token) => self.emit_jump(OpCode::Jump, &token),
+            Some(token) => self.emit_jump(OpCode::JumpAbsolute, &token),
             // We are okay to return a dummy value because the only way `else_jump` can
             // be used is if there was an `else` branch in the first place. If there is
             // no `else` token, then there is no `else` branch, which means that the bellow
@@ -246,10 +256,6 @@ impl Compiler {
 
         if !condition_is_lit_false {
             self.patch_jump(then_jump, &stmt.then_token);
-            self.emit_op_code(
-                OpCode::PopStack,
-                (stmt.then_token.line_num, stmt.then_token.column_num),
-            );
         }
 
         if let Some(else_branch) = stmt.else_branch.borrow() {
@@ -258,106 +264,6 @@ impl Compiler {
             // these is an `else_token`, so it is safe to unwrap without check.
             self.patch_jump(else_jump, &stmt.else_token.clone().unwrap());
         }
-    }
-
-    /// Compiles a while statement.
-    ///
-    /// * `stmt` – The while statement node being compiled.
-    pub(super) fn compile_while_stmt(&mut self, stmt: &WhileStmtNode) {
-        // We don't need to compile the loop if the condition is a
-        // `false` literal because it will never execute.
-        if stmt.condition.is_false_literal() {
-            return;
-        }
-
-        let condition_is_truthy_lit = stmt.condition.is_truthy_literal();
-
-        let loop_start = self.function.chunk.len();
-        self.loops.push(loop_start); // starts this loop's scope
-
-        // Only compile the condition if it is not a truthy literal or equivalent.
-        let mut exit_jump = 0;
-        if !condition_is_truthy_lit {
-            self.compile_node(&stmt.condition);
-            exit_jump = self.emit_jump(OpCode::JumpIfFalse, &stmt.token);
-
-            // If the condition is not false, remove the condition value from the stack
-            // and continue to execute the loop's body.
-            self.emit_op_code(
-                OpCode::PopStack,
-                (stmt.token.line_num, stmt.token.column_num),
-            );
-        }
-
-        self.compile_node(&stmt.body);
-        // Stop compiling if there was an error compiling the loop's body.
-        if self.had_error {
-            return;
-        }
-
-        // Looks for any break statements associated with this loop
-        let mut breaks: Vec<usize> = vec![];
-        for b in self.breaks.iter().filter(|br| br.loop_start == loop_start) {
-            breaks.push(b.loop_position);
-        }
-
-        // Patches all the breaks associated with this loop
-        for b in breaks {
-            self.patch_break(b, !condition_is_truthy_lit, &stmt.token);
-        }
-
-        // Jump back to the start of the loop (including the re-execution of the condition)
-        self.emit_loop(loop_start, &stmt.token);
-
-        // If the condition is not a truthy literal, then we must patch the 'OP_JUMP_IF_FALSE' above
-        if !condition_is_truthy_lit {
-            self.patch_jump(exit_jump, &stmt.token);
-            self.emit_op_code(
-                OpCode::PopStack,
-                (stmt.token.line_num, stmt.token.column_num),
-            );
-        }
-
-        self.loops.pop(); // ends this loop's scope
-    }
-
-    /// Compiles a break statement.
-    ///
-    /// * `stmt` – The break statement node being compiled.
-    pub(super) fn compile_break_stmt(&mut self, stmt: &BreakStmtNode) {
-        if self.loops.len() == 0 {
-            self.error_at_token(&stmt.token, "Cannot break outside of loop.");
-            return;
-        }
-
-        // Pop all local symbols off the stack when the loop ends, but do not
-        // remove the symbols from the symbol table since they must also be
-        // removed when the loop's scope.
-        let mut i = 1;
-        while self.symbol_table.len() > 0
-            && self
-                .symbol_table
-                .get(self.symbol_table.len() - i)
-                .unwrap()
-                .symbol_depth
-                >= self.scope_depth
-        {
-            let idx = self.symbol_table.len() - i;
-            let symbol = &self.symbol_table[idx];
-            let pos = symbol.pos;
-
-            self.emit_op_code(OpCode::PopStack, pos);
-            i += 1;
-        }
-
-        // Jump out of the loop
-        let break_pos = self.emit_jump(OpCode::Jump, &stmt.token);
-
-        // Add to the breaks list to breaks associated with the current loop
-        self.breaks.push(BreakScope {
-            loop_start: *self.loops.last().unwrap(),
-            loop_position: break_pos,
-        })
     }
 
     pub(super) fn compile_function_decl(&mut self, decl: &FunctionDeclNode) {

@@ -66,7 +66,7 @@ impl NativeFunctions {
     /// Obtains the NativeFunctionObj associated with a native function name.
     pub fn get_native_fn_object(&self, name: &String) -> Result<NativeFunctionObj, String> {
         match self.functions_list.get(name) {
-            Some(f) => Ok(f.clone().to_owned()),
+            Some(f) => Ok(f.to_owned()),
             None => Err(format!("No native function named '{}'.", name)),
         }
     }
@@ -115,23 +115,21 @@ fn native_clock(_: Vec<Object>) -> Result<Object, String> {
 /// Implements the `iter(...)` native function for Hinton, which
 /// converts the give object to an iterable.
 fn native_iter(args: Vec<Object>) -> Result<Object, String> {
-    let arg = args[0].clone();
+    make_iter(args[0].clone())
+}
 
-    // Check that the object can be iterable.
-    match arg {
+/// Converts a Hinton object into an Iterable.
+pub fn make_iter(o: Object) -> Result<Object, String> {
+    match o {
         Object::String(_) => {}
         Object::Array(_) => {}
         Object::Range(_) => {}
-        _ => {
-            return Err(format!(
-                "Cannot create iterable from object of type '{}'.",
-                args[0].type_name()
-            ))
-        }
+        Object::Iterable(_) => return Ok(o),
+        _ => return Err(format!("Cannot create iterable from '{}'.", o.type_name())),
     };
 
     return Ok(Object::Iterable(Rc::new(RefCell::new(IterObject {
-        iter: Box::new(arg),
+        iter: Box::new(o),
         index: 0,
     }))));
 }
@@ -140,26 +138,42 @@ fn native_iter(args: Vec<Object>) -> Result<Object, String> {
 /// retrieves the next item in an iterable object.
 fn native_next(args: Vec<Object>) -> Result<Object, String> {
     match args[0].borrow() {
-        Object::Iterable(iter) => {
-            let mut iter = iter.borrow_mut();
-            let current_index = Object::Int(iter.index as i64);
-
-            // Since we are passing an integer into the `Object.get(...)` method,
-            // the only error that can occur is an `IndexOutOfBounds` error, which
-            // in terms of iterators means there are no more items left to iterate.
-            let obj = match iter.iter.get(&current_index) {
-                Ok(o) => o,
-                Err(_) => return Err(String::from("End of Iterator.")),
-            };
-
-            // Increment to the next position of the iterator.
-            iter.index += 1;
-
-            return Ok(obj);
-        }
+        Object::Iterable(iter) => get_next_in_iter(iter),
         _ => Err(format!(
             "Object of type '{}' is not iterable.",
             args[0].type_name()
         )),
     }
+}
+
+/// Gets the next item in a Hinton iterator.
+pub fn get_next_in_iter(o: &Rc<RefCell<IterObject>>) -> Result<Object, String> {
+    let mut iter = o.borrow_mut();
+    let current_index = Object::Int(iter.index as i64);
+
+    // Since we are passing an integer into the `Object.get(...)` method,
+    // the only error that can occur is an `IndexOutOfBounds` error, which
+    // in terms of iterators means there are no more items left to iterate.
+    let obj = match iter.iter.get(&current_index) {
+        Ok(o) => o,
+        Err(_) => return Err(String::from("End of Iterator.")),
+    };
+
+    // Increment to the next position of the iterator.
+    iter.index += 1;
+
+    return Ok(obj);
+}
+
+/// Checks if a Hinton iterator has a next item.
+pub fn iter_has_next(o: &Rc<RefCell<IterObject>>) -> bool {
+    let len = match *o.borrow_mut().iter {
+        Object::String(ref x) => x.len(),
+        Object::Array(ref x) => x.len(),
+        Object::Range(ref x) => i64::abs(x.max - x.min) as usize,
+        // Object::Iterable(x) => {}
+        _ => unreachable!("Object is not iterable."),
+    };
+
+    o.borrow_mut().index < len
 }

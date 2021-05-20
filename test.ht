@@ -92,3 +92,13 @@ print(next(string_iter));
 print(next(string_iter));
 print(next(string_iter));
 print(next(string_iter));
+print(next(string_iter));
+
+print("\nNow for-in loops:");
+
+// For-in loops
+for (x in ["fausto ", "Ginny ", "Ron"]) {
+    for (letter in x) {
+        print(letter);
+    }
+}
