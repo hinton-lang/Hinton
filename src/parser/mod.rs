@@ -222,7 +222,7 @@ impl<'a> Parser {
         }
     }
 
-    /// Parses an expression as specified in the grammar.cfg file.
+    /// Parses an expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -230,7 +230,7 @@ impl<'a> Parser {
         self.parse_assignment()
     }
 
-    /// Parses an assignment expression as specified in the grammar.cfg file.
+    /// Parses an assignment expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The assignment expression's AST node.
@@ -306,7 +306,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses a ternary conditional expression as specified in the grammar.cfg file.
+    /// Parses a ternary conditional expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The assignment expression's AST node.
@@ -347,7 +347,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses an '??' (nullish coalescing) expression as specified in the grammar.cfg file.
+    /// Parses an '??' (nullish coalescing) expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -374,7 +374,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses an 'OR' expression as specified in the grammar.cfg file.
+    /// Parses an 'OR' expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -401,7 +401,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses an 'AND' expression as specified in the grammar.cfg file.
+    /// Parses an 'AND' expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -428,7 +428,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses a 'BITWISE OR' expression as specified in the grammar.cfg file.
+    /// Parses a 'BITWISE OR' expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -455,7 +455,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses a 'BITWISE XOR' expression as specified in the grammar.cfg file.
+    /// Parses a 'BITWISE XOR' expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -482,7 +482,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses a 'BITWISE AND' expression as specified in the grammar.cfg file.
+    /// Parses a 'BITWISE AND' expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -509,7 +509,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses an equality expression as specified in the grammar.cfg file.
+    /// Parses an equality expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -542,7 +542,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses a comparison expression as specified in the grammar.cfg file.
+    /// Parses a comparison expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -583,7 +583,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses a range expression as specified in the grammar.cfg file.
+    /// Parses a range expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -610,7 +610,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses a 'BITWISE SHIFT' expression as specified in the grammar.cfg file.
+    /// Parses a 'BITWISE SHIFT' expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -645,7 +645,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses a term expression as specified in the grammar.cfg file.
+    /// Parses a term expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -678,7 +678,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses a factor expression as specified in the grammar.cfg file.
+    /// Parses a factor expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -716,7 +716,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses an exponentiation expression as specified in the grammar.cfg file.
+    /// Parses an exponentiation expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -743,7 +743,7 @@ impl<'a> Parser {
         return expr;
     }
 
-    /// Parses a unary expression as specified in the grammar.cfg file.
+    /// Parses a unary expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -793,7 +793,7 @@ impl<'a> Parser {
         }
     }
 
-    /// Parses a primary (literal) expression as specified in the grammar.cfg file.
+    /// Parses a primary (literal) expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
@@ -827,11 +827,27 @@ impl<'a> Parser {
                 Err(_) => return None,
             },
             TokenType::LEFT_PARENTHESIS => {
-                let expr = self.parse_expression();
-                self.consume(&TokenType::RIGHT_PARENTHESIS, "Expected closing ')'.");
-                // For grouping expression, we don't wrap the inner expression inside a literal.
-                // Instead, we return the actual expression that was enclosed in the parenthesis.
-                return expr;
+                let start_token = self.previous.clone();
+
+                // If the parenthesis are empty, then we parse this as an empty tuple.
+                if self.matches(&TokenType::RIGHT_PARENTHESIS) {
+                    return Some(Tuple(TupleExprNode {
+                        values: vec![],
+                        token: start_token,
+                    }));
+                } else {
+                    let expr = self.parse_expression();
+
+                    // If there is a comma after the first expression, then this becomes a tuple.
+                    return if self.matches(&TokenType::COMMA_SEPARATOR) {
+                        self.construct_tuple(start_token, expr)
+                    } else {
+                        self.consume(&TokenType::RIGHT_PARENTHESIS, "Expected closing ')'.");
+                        // For grouping expression, we don't wrap the inner expression inside an extra node.
+                        // Instead, we return the actual expression that was enclosed in the parenthesis.
+                        expr
+                    };
+                }
             }
             TokenType::IDENTIFIER => {
                 // For identifier expressions, the only information we need is enclosed within the token.
@@ -949,11 +965,12 @@ impl<'a> Parser {
         };
     }
 
-    /// Parses an array expression as specified in the grammar.cfg file.
+    /// Parses an array expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.
     fn construct_array(&mut self) -> Option<ASTNode> {
+        let start_token = self.previous.clone();
         let mut values: Vec<Box<ASTNode>> = vec![];
 
         if !self.matches(&TokenType::RIGHT_SQUARE_BRACKET) {
@@ -977,11 +994,49 @@ impl<'a> Parser {
 
         return Some(Array(ArrayExprNode {
             values,
-            token: self.previous.clone(),
+            token: start_token,
         }));
     }
 
-    /// Parses an array indexing expression as specified in the grammar.cfg file.
+    /// Parses a tuple expression as specified in the grammar.bnf file.
+    ///
+    /// ## Returns
+    /// `Option<ASTNode>` – The expression's AST node.
+    fn construct_tuple(&mut self, start_token: Token, first: Option<ASTNode>) -> Option<ASTNode> {
+        let first = match first {
+            Some(node) => Box::new(node),
+            None => return None, // The first expression is invalid.
+        };
+
+        // Initialize the vector
+        let mut values: Vec<Box<ASTNode>> = vec![first];
+
+        if !self.matches(&TokenType::RIGHT_PARENTHESIS) {
+            loop {
+                values.push(match self.parse_expression() {
+                    Some(e) => Box::new(e),
+                    None => return None,
+                });
+
+                if self.matches(&TokenType::COMMA_SEPARATOR) {
+                    continue;
+                }
+
+                self.consume(
+                    &TokenType::RIGHT_PARENTHESIS,
+                    "Expected ')' after tuple declaration.",
+                );
+                break;
+            }
+        }
+
+        return Some(Tuple(TupleExprNode {
+            values,
+            token: start_token,
+        }));
+    }
+
+    /// Parses an array indexing expression as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression's AST node.

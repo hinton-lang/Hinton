@@ -86,7 +86,7 @@ impl<'a> VirtualMachine {
 
                     match tos {
                         Object::Iterable(iter) => match get_next_in_iter(iter) {
-                            Ok(o) => self.stack.push(o),
+                            Ok(o) => self.push_stack(o),
                             Err(_) => unreachable!("No more items to iterate in for-loop"),
                         },
                         _ => unreachable!("Cannot iterate object of type '{}'.", tos.type_name()),
@@ -129,6 +129,23 @@ impl<'a> VirtualMachine {
                     }
 
                     self.push_stack(Object::Array(arr_values));
+                }
+
+                OpCode::MakeTuple | OpCode::MakeTupleLong => {
+                    // The number of values to pop from the stack. Essentially the size of the array.
+                    let size = if let OpCode::MakeTuple = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    let mut tuple_values: Vec<Object> = Vec::with_capacity(size);
+
+                    for _ in 0..size {
+                        tuple_values.push(self.pop_stack());
+                    }
+
+                    self.push_stack(Object::Tuple(tuple_values));
                 }
 
                 OpCode::Indexing => {
@@ -180,8 +197,8 @@ impl<'a> VirtualMachine {
                 },
 
                 OpCode::Add => {
-                    let val2 = self.stack.pop().unwrap();
-                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
 
                     match val1 + val2 {
                         Ok(r) => self.push_stack(r),
@@ -193,8 +210,8 @@ impl<'a> VirtualMachine {
                 }
 
                 OpCode::Subtract => {
-                    let val2 = self.stack.pop().unwrap();
-                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
 
                     match val1 - val2 {
                         Ok(r) => self.push_stack(r),
@@ -206,8 +223,8 @@ impl<'a> VirtualMachine {
                 }
 
                 OpCode::Multiply => {
-                    let val2 = self.stack.pop().unwrap();
-                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
 
                     match val1 * val2 {
                         Ok(r) => self.push_stack(r),
@@ -219,8 +236,8 @@ impl<'a> VirtualMachine {
                 }
 
                 OpCode::Divide => {
-                    let val2 = self.stack.pop().unwrap();
-                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
 
                     match val1 / val2 {
                         Ok(r) => self.push_stack(r),
@@ -232,8 +249,8 @@ impl<'a> VirtualMachine {
                 }
 
                 OpCode::Modulus => {
-                    let val2 = self.stack.pop().unwrap();
-                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
 
                     match val1 % val2 {
                         Ok(r) => self.push_stack(r),
@@ -245,8 +262,8 @@ impl<'a> VirtualMachine {
                 }
 
                 OpCode::Expo => {
-                    let val2 = self.stack.pop().unwrap();
-                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
 
                     match val1.pow(val2) {
                         Ok(r) => self.push_stack(r),

@@ -9,7 +9,7 @@ use crate::{
 };
 
 impl Parser {
-    /// Parses a declaration as specified in the grammar.cfg file.
+    /// Parses a declaration as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The declaration's AST node.
@@ -21,7 +21,6 @@ impl Parser {
         } else if self.matches(&TokenType::FUNC_KEYWORD) {
             return self.parse_func_declaration();
         } else if self.matches(&TokenType::ENUM_KEYWORD) {
-            // statements.add(enumDeclaration());
             todo!("Implement enum declarations")
         } else {
             return self.parse_statement();
@@ -32,7 +31,7 @@ impl Parser {
         // }
     }
 
-    /// Parses a statement as specified in the grammar.cfg file.
+    /// Parses a statement as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The statement's AST node.
@@ -62,7 +61,7 @@ impl Parser {
         }
     }
 
-    /// Parses an expression statement as specified in the grammar.cfg file.
+    /// Parses an expression statement as specified in the grammar.bnf file.
     ///
     /// ## Returns
     /// `Option<ASTNode>` – The expression statement's AST node.
@@ -103,7 +102,7 @@ impl Parser {
         return Some(BlockStmt(statements));
     }
 
-    /// Parses a variable declaration as specified in the grammar.cfg file.
+    /// Parses a variable declaration as specified in the grammar.bnf file.
     ///
     /// Returns
     /// * `Option<ASTNode>` – A variable declaration AST node.
@@ -163,7 +162,7 @@ impl Parser {
         }));
     }
 
-    /// Parses a variable declaration as specified in the grammar.cfg file.
+    /// Parses a variable declaration as specified in the grammar.bnf file.
     ///
     /// Returns
     /// * `Option<ASTNode>` – A variable declaration AST node.
@@ -207,7 +206,7 @@ impl Parser {
         }));
     }
 
-    /// Parses an if statement as specified in the grammar.cfg file.
+    /// Parses an if statement as specified in the grammar.bnf file.
     ///
     /// Returns
     /// * `Option<ASTNode>` – An if statement AST node.
@@ -257,6 +256,10 @@ impl Parser {
         }));
     }
 
+    /// Parses a while statement as specified in the grammar.bnf file.
+    ///
+    /// Returns
+    /// * `Option<ASTNode>` – A while statement AST node.
     fn parse_while_statement(&mut self) -> Option<ASTNode> {
         let tok = self.previous.clone();
 
@@ -290,6 +293,10 @@ impl Parser {
         }));
     }
 
+    /// Parses a for statement as specified in the grammar.bnf file.
+    ///
+    /// Returns
+    /// * `Option<ASTNode>` – A for statement AST node.
     fn parse_for_statement(&mut self) -> Option<ASTNode> {
         let tok = self.previous.clone();
 
@@ -355,6 +362,10 @@ impl Parser {
         }));
     }
 
+    /// Parses a function declaration as specified in the grammar.bnf file.
+    ///
+    /// Returns
+    /// * `Option<ASTNode>` – A function declaration AST node.
     fn parse_func_declaration(&mut self) -> Option<ASTNode> {
         self.consume(&TokenType::IDENTIFIER, "Expected a function name.");
         let name = self.previous.clone();
@@ -423,6 +434,10 @@ impl Parser {
         }));
     }
 
+    /// Parses a parameter declaration as specified in the grammar.bnf file.
+    ///
+    /// Returns
+    /// * `Option<ASTNode>` – A parameter declaration AST node.
     fn parse_parameter(&mut self) -> Option<Parameter> {
         self.consume(&TokenType::IDENTIFIER, "Expected a parameter name.");
         let name = self.previous.clone();
@@ -453,6 +468,10 @@ impl Parser {
         })
     }
 
+    /// Parses a return statement as specified in the grammar.bnf file.
+    ///
+    /// Returns
+    /// * `Option<ASTNode>` – A return statement AST node.
     fn parse_return_stmt(&mut self) -> Option<ASTNode> {
         let tok = self.previous.clone();
 

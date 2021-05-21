@@ -24,7 +24,7 @@ use virtual_machine::InterpretResult;
 use virtual_machine::VirtualMachine;
 
 // Static things
-static FRAMES_MAX: u16 = 1000;
+static FRAMES_MAX: usize = 1000;
 
 /// The main function
 fn main() {

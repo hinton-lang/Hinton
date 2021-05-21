@@ -4,16 +4,17 @@ use std::{cell::RefCell, fmt, rc::Rc};
 /// All types of objects in Hinton
 #[derive(Clone)]
 pub enum Object {
-    Int(i64),
-    Float(f64),
-    String(String),
-    Bool(bool),
-    Function(FunctionObject),
-    NativeFunction(NativeFunctionObj),
     Array(Vec<Object>),
-    Range(RangeObject),
+    Bool(bool),
+    Float(f64),
+    Function(FunctionObject),
+    Int(i64),
     Iterable(Rc<RefCell<IterObject>>),
+    NativeFunction(NativeFunctionObj),
     Null,
+    Range(RangeObject),
+    String(String),
+    Tuple(Vec<Object>),
 }
 
 /// Represents a Hinton range object.
@@ -51,15 +52,16 @@ pub struct NativeFunctionObj {
 impl Object {
     pub fn type_name(&self) -> &str {
         return match self {
-            &Object::Bool(_) => "Bool",
-            &Object::Null => "Null",
-            &Object::Int(_) => "Int",
-            &Object::Float(_) => "Float",
-            &Object::String(_) => "String",
-            &Object::Array(_) => "Array",
-            &Object::Range(_) => "Range",
-            &Object::Iterable(_) => "Iter",
-            &Object::Function(_) | Object::NativeFunction(_) => "Function",
+            &Self::Array(_) => "Array",
+            &Self::Bool(_) => "Bool",
+            &Self::Float(_) => "Float",
+            &Self::Function(_) | Self::NativeFunction(_) => "Function",
+            &Self::Int(_) => "Int",
+            &Self::Iterable(_) => "Iter",
+            &Self::Null => "Null",
+            &Self::Range(_) => "Range",
+            &Self::String(_) => "String",
+            &Self::Tuple(_) => "Tuple",
         };
     }
 
@@ -187,6 +189,13 @@ impl Object {
         }
     }
 
+    pub fn as_tuple(&self) -> Option<&Vec<Object>> {
+        match self {
+            Object::Tuple(v) => Some(v),
+            _ => None,
+        }
+    }
+
     pub fn as_function(&self) -> Option<&FunctionObject> {
         match self {
             Object::Function(f) => Some(f),
@@ -237,18 +246,33 @@ impl Object {
             Object::String(a) => (*a == right.as_string().unwrap()),
             Object::Array(a) => {
                 let b = right.as_array().unwrap();
-                // If arrays differ in size, they must differ in value. However, if they
+                // If the arrays differ in size, they must differ in value. However, if they
                 // are equal in size, then we must check that each item match.
                 if a.len() != b.len() {
                     false
                 } else {
                     for i in 0..a.len() {
-                        let a_ith = &a[i];
-                        let b_ith = &b[i];
-
                         // If at least one of the items differ in value,
                         // then the arrays are not equals.
-                        if !a_ith.equals(&b_ith) {
+                        if !&a[i].equals(&b[i]) {
+                            return false;
+                        }
+                    }
+
+                    true
+                }
+            }
+            Object::Tuple(a) => {
+                let b = right.as_tuple().unwrap();
+                // If the tuples differ in size, they must differ in value. However, if they
+                // are equal in size, then we must check that each item match.
+                if a.len() != b.len() {
+                    false
+                } else {
+                    for i in 0..a.len() {
+                        // If at least one of the items differ in value,
+                        // then the arrays are not equals.
+                        if !&a[i].equals(&b[i]) {
                             return false;
                         }
                     }
@@ -305,6 +329,19 @@ impl<'a> fmt::Display for Object {
                     }
                 }
                 arr_str += "]";
+
+                write!(f, "{}", arr_str)
+            }
+            Object::Tuple(ref inner) => {
+                let mut arr_str = String::from("(");
+                for (idx, obj) in inner.iter().enumerate() {
+                    if idx == inner.len() - 1 {
+                        arr_str += &(format!("{}", obj))[..]
+                    } else {
+                        arr_str += &(format!("{}, ", obj))[..];
+                    }
+                }
+                arr_str += ")";
 
                 write!(f, "{}", arr_str)
             }
@@ -967,7 +1004,7 @@ impl Object {
                         return Ok(val.clone());
                     }
 
-                    return Err(String::from("String index out of bounds."));
+                    return Err(String::from("Array index out of bounds."));
                 }
                 // Indexing type: Array[Range]
                 Object::Range(_) => {
@@ -976,6 +1013,38 @@ impl Object {
                 _ => {
                     return Err(format!(
                         "Array index must be an Int or a Range. Found '{}' instead.",
+                        index.type_name()
+                    ))
+                }
+            },
+            Object::Tuple(tup) => match index {
+                // Indexing type: Tuple[Int]
+                Object::Int(idx) => {
+                    if let Some(pos) = to_bounded_index(idx, tup.len()) {
+                        if let Some(val) = tup.get(pos) {
+                            return Ok(val.clone());
+                        }
+                    }
+
+                    return Err(String::from("Tuple index out of bounds."));
+                }
+                // Indexing type: Tuple[Bool]
+                Object::Bool(val) => {
+                    let pos = (if *val { 1 } else { 0 }) as usize;
+
+                    if let Some(val) = tup.get(pos) {
+                        return Ok(val.clone());
+                    }
+
+                    return Err(String::from("Tuple index out of bounds."));
+                }
+                // Indexing type: Tuple[Range]
+                Object::Range(_) => {
+                    unimplemented!("Tuple indexing with ranges.")
+                }
+                _ => {
+                    return Err(format!(
+                        "Tuple index must be an Int or a Range. Found '{}' instead.",
                         index.type_name()
                     ))
                 }
