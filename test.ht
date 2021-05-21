@@ -101,6 +101,17 @@ for let name in ["fausto ", "Ginny ", "Ron"] {
     for (let letter in name) print(letter);
 }
 
+let one_tuple = ("hello",);
+print(one_tuple);
+
+// Tuples are not Arrays
+print(("A", "B", "C") == ["A", "B", "C"]); // false
+
+// Tuples are iterable
+for let item in (1, 2, 3) {
+    print(item);
+}
+
 // Testing the `input(...)` native function.
 while true {
     let name = input("Who are we greeting? ");

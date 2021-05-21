@@ -300,6 +300,43 @@ impl Compiler {
         }
     }
 
+    /// Compiles a tuple literal expression.
+    ///
+    /// # Arguments
+    /// * `expr` – A tuple expression node.
+    pub(super) fn compile_tuple_expr(&mut self, expr: &TupleExprNode) {
+        if expr.values.len() <= (u16::MAX as usize) {
+            // We reverse the list here because at runtime, we pop each value of the stack in the
+            // opposite order (because it *is* a stack). Instead of performing that operation during
+            // runtime, we execute it once during compile time.
+            for node in expr.values.iter().rev() {
+                self.compile_node(&node);
+            }
+
+            if expr.values.len() < 256 {
+                self.emit_op_code(
+                    OpCode::MakeTuple,
+                    (expr.token.line_num, expr.token.column_num),
+                );
+                self.emit_raw_byte(
+                    expr.values.len() as u8,
+                    (expr.token.line_num, expr.token.column_num),
+                );
+            } else {
+                self.emit_op_code(
+                    OpCode::MakeTupleLong,
+                    (expr.token.line_num, expr.token.column_num),
+                );
+                self.emit_short(
+                    expr.values.len() as u16,
+                    (expr.token.line_num, expr.token.column_num),
+                );
+            }
+        } else {
+            self.error_at_token(&expr.token, "Too many values in the tuple.");
+        }
+    }
+
     /// Compiles an array indexing expression.
     ///
     /// # Arguments

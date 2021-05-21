@@ -6,6 +6,7 @@ pub enum ASTNode {
 
     // Expressions
     Array(ArrayExprNode),
+    Tuple(TupleExprNode),
     ArrayIndexing(ArrayIndexingExprNode),
     Binary(BinaryExprNode),
     FunctionCallExpr(FunctionCallExprNode),
@@ -62,6 +63,12 @@ pub struct LiteralExprNode {
 
 #[derive(Clone)]
 pub struct ArrayExprNode {
+    pub values: Vec<Box<ASTNode>>,
+    pub token: Token,
+}
+
+#[derive(Clone)]
+pub struct TupleExprNode {
     pub values: Vec<Box<ASTNode>>,
     pub token: Token,
 }

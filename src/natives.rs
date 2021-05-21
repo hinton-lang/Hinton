@@ -125,6 +125,7 @@ pub fn make_iter(o: Object) -> Result<Object, String> {
         Object::String(_) => {}
         Object::Array(_) => {}
         Object::Range(_) => {}
+        Object::Tuple(_) => {}
         // If the object is already an iterable, return that same object.
         Object::Iterable(_) => return Ok(o),
         // Object cannot be iterable.
@@ -173,6 +174,7 @@ pub fn iter_has_next(o: &Rc<RefCell<IterObject>>) -> bool {
     let len = match *o.borrow_mut().iter {
         Object::String(ref x) => x.len(),
         Object::Array(ref x) => x.len(),
+        Object::Tuple(ref x) => x.len(),
         Object::Range(ref x) => i64::abs(x.max - x.min) as usize,
         _ => unreachable!("Object is not iterable."),
     };

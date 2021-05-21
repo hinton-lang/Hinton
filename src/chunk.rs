@@ -59,6 +59,7 @@ pub enum OpCode {
     LoadImmN,
     LoopJump,
     MakeArray,
+    MakeTuple,
     PopStackN,
     Return,
     SetVar,
@@ -75,6 +76,7 @@ pub enum OpCode {
     LoadImmNLong,
     LoopJumpLong,
     MakeArrayLong,
+    MakeTupleLong,
     PopJumpIfFalse,
     PopStackNLong,
     SetVarLong,
@@ -419,6 +421,10 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                     op_code_name = "MAKE_ARRAY";
                     get_operand(1);
                 }
+                OpCode::MakeTuple => {
+                    op_code_name = "MAKE_TUPLE";
+                    get_operand(1);
+                }
                 OpCode::PopStackN => {
                     op_code_name = "POP_STACK_N";
                     get_operand(1);
@@ -477,6 +483,10 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                 }
                 OpCode::MakeArrayLong => {
                     op_code_name = "MAKE_ARRAY_LONG";
+                    get_operand(2);
+                }
+                OpCode::MakeTupleLong => {
+                    op_code_name = "MAKE_TUPLE_LONG";
                     get_operand(2);
                 }
                 OpCode::PopJumpIfFalse => {

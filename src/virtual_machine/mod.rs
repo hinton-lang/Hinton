@@ -7,7 +7,7 @@ use crate::{
     exec_time,
     natives::NativeFunctions,
     objects::{self, FunctionObject, Object},
-    parser::Parser,
+    parser::Parser
 };
 use std::rc::Rc;
 
@@ -67,8 +67,8 @@ impl<'a> VirtualMachine {
     /// * `VirtualMachine` – a new instance of the virtual machine.
     pub fn new() -> Self {
         Self {
-            stack: vec![],
-            frames: vec![],
+            stack: Vec::with_capacity(256),
+            frames: Vec::with_capacity(256),
             natives: Default::default(),
         }
     }
