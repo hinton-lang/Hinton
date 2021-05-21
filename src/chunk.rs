@@ -448,7 +448,7 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                     idx += 2;
                     let offset = chunk.get_short(idx - 1).unwrap() as usize;
                     // `idx + 1` because at runtime, the IP points to the next instruction
-                    operand_val = format!("{} (add {} from IP)", (idx + 1) + offset, offset);
+                    operand_val = format!("{} (add {} to IP)", (idx + 1) + offset, offset);
                 }
                 OpCode::JumpIfFalseOrPop => {
                     op_code_name = "JUMP_IF_FALSE_OR_POP";
@@ -494,7 +494,7 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                     idx += 2;
                     let offset = chunk.get_short(idx - 1).unwrap() as usize;
                     // `idx + 1` because at runtime, the IP points to the next instruction
-                    operand_val = format!("{} (add {} from IP)", (idx + 1) + offset, offset);
+                    operand_val = format!("{} (add {} to IP)", (idx + 1) + offset, offset);
                 }
                 OpCode::PopStackNLong => {
                     op_code_name = "POP_STACK_N_LONG";

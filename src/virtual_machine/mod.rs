@@ -7,7 +7,7 @@ use crate::{
     exec_time,
     natives::NativeFunctions,
     objects::{self, FunctionObject, Object},
-    parser::Parser
+    parser::Parser,
 };
 use std::rc::Rc;
 
@@ -77,7 +77,7 @@ impl<'a> VirtualMachine {
     ///
     /// ## Returns
     /// * `InterpretResult` – The result of the source interpretation.
-    pub(crate) fn interpret(&mut self, filepath: &str, source: &'a str) -> InterpretResult {
+    pub(crate) fn interpret(&mut self, filepath: &String, source: &'a str) -> InterpretResult {
         // Parses the program into an AST and calculates the parser's execution time
         let parsing = exec_time(|| Parser::parse(source));
 
@@ -88,7 +88,7 @@ impl<'a> VirtualMachine {
 
         // Compiles the program into bytecode and calculates the compiler's execution time
         let compiling =
-            exec_time(|| Compiler::compile_file(filepath, &ast, self.natives.names.clone()));
+            exec_time(|| Compiler::compile_file(&filepath, &ast, self.natives.names.clone()));
 
         // Executes the program
         return match compiling.0 {
