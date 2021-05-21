@@ -404,7 +404,7 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                 OpCode::LoadConstant => {
                     op_code_name = "LOAD_CONSTANT";
                     get_operand(1);
-                    operand_val += &format!(" -> {}", const_val(idx, false));
+                    operand_val += &format!(" -> ({})", const_val(idx, false));
                 }
                 OpCode::LoadImmN => {
                     op_code_name = "LOAD_IMM_N";
@@ -468,7 +468,7 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                 OpCode::LoadConstantLong => {
                     op_code_name = "LOAD_CONSTANT_LONG";
                     get_operand(2);
-                    operand_val += &format!(" -> {}", const_val(idx - 1, false));
+                    operand_val += &format!(" -> ({})", const_val(idx - 1, false));
                 }
                 OpCode::LoadImmNLong => {
                     op_code_name = "LOAD_IMM_N_LONG";
