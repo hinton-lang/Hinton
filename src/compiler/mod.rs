@@ -217,8 +217,10 @@ impl Compiler {
         self.emit_raw_byte(num_of_symbols as u8, (0, 0));
 
         // Shows the chunk.
-        // chunk::disassemble_chunk(&self.function.chunk, self.function.name.as_str());
-        // chunk::print_raw(&self.function.chunk, self.function.name.as_str());
+        #[cfg(feature = "show_bytecode")]
+        chunk::disassemble_chunk(&self.function.chunk, self.function.name.as_str());
+        #[cfg(feature = "show_raw_bytecode")]
+        chunk::print_raw(&self.function.chunk, self.function.name.as_str());
     }
 
     /// Compiles an AST node.
