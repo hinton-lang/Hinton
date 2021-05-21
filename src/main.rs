@@ -7,7 +7,7 @@ extern crate num_derive;
 use std::time::Instant;
 
 // Using other modules
-use std::{fs, time::Duration};
+use std::{env, fs, time::Duration};
 
 // Declaring crate-level Modules
 mod ast;
@@ -23,17 +23,71 @@ mod virtual_machine;
 use virtual_machine::InterpretResult;
 use virtual_machine::VirtualMachine;
 
+/// Represents the arguments passed to the Hinton CLI.
+struct CLI {
+    flags: Vec<String>,
+    args: Vec<String>,
+}
+
 // Static things
 static FRAMES_MAX: usize = 1000;
 
 /// The main function
 fn main() {
-    let filename = "./test.ht";
-    run_file(filename);
+    // structure: hinton <flags?> <filename> <program args?>
+    let args: Vec<String> = env::args().collect();
+
+    // new CLI
+    let mut _self = CLI {
+        flags: vec![],
+        args: vec![],
+    };
+
+    // If no arguments are provided, run the REPL
+    if args.len() <= 1 {
+        todo!("We need a REPL!!!")
+    }
+
+    // Where in the args list do we specify the filename
+    let mut file_name_idx = 1;
+
+    // Get program flags
+    for arg_pos in 1..(args.len() + 1) {
+        let arg = &args[arg_pos];
+
+        if arg.to_string().starts_with("--") {
+            _self.flags.push(arg.to_lowercase());
+            file_name_idx += 1;
+        } else {
+            break;
+        }
+    }
+
+    // Get the name of the file to run
+    let file_name = &args[file_name_idx];
+
+    // Get the program args
+    _self.args = args[(file_name_idx + 1)..].to_vec();
+
+    // Run the appropriate command
+    match file_name.as_str() {
+        "compile" => todo!("Compile command is not yet supported."),
+        _ => run_file(file_name),
+    }
 }
 
-fn run_file(filename: &str) {
-    let contents = fs::read_to_string(filename).expect("Something went wrong reading the file.");
+/// Parses, compiles, and interprets a Hinton source file.
+///
+/// ## Arguments
+/// * `filename` – The path to the file to run.
+fn run_file(filename: &String) {
+    let contents = match fs::read_to_string(filename) {
+        Ok(src) => src,
+        Err(_) => {
+            eprintln!("File not found: '{}'.", filename);
+            std::process::exit(70);
+        }
+    };
 
     // Creates a virtual machine with the given source contents
     let mut vm = VirtualMachine::new();

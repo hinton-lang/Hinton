@@ -171,7 +171,9 @@ pub fn get_next_in_iter(o: &Rc<RefCell<IterObject>>) -> Result<Object, String> {
 
 /// Checks if a Hinton iterator has a next item.
 pub fn iter_has_next(o: &Rc<RefCell<IterObject>>) -> bool {
-    let len = match *o.borrow_mut().iter {
+    let o = o.borrow_mut();
+
+    let len = match o.iter.borrow() {
         Object::String(ref x) => x.len(),
         Object::Array(ref x) => x.len(),
         Object::Tuple(ref x) => x.len(),
@@ -179,7 +181,7 @@ pub fn iter_has_next(o: &Rc<RefCell<IterObject>>) -> bool {
         _ => unreachable!("Object is not iterable."),
     };
 
-    o.borrow_mut().index < len
+    o.index < len
 }
 
 /// Implements the `input(...)` native function for Hinton, which
@@ -189,16 +191,17 @@ fn native_input(args: Vec<Object>) -> Result<Object, String> {
 
     // Print the programmer-provided message
     match io::Write::flush(&mut io::stdout()) {
-        Ok(_) => {}
-        Err(e) => return Err(format!("Failed to read input. IO failed to flush. {}", e)),
-    }
-
-    let mut input = String::new();
-    match io::stdin().read_line(&mut input) {
         Ok(_) => {
-            input.pop(); // remove added newline
-            return Ok(Object::String(input));
+            let mut input = String::new();
+            // Get the user's input
+            match io::stdin().read_line(&mut input) {
+                Ok(_) => {
+                    input.pop(); // remove added newline
+                    Ok(Object::String(input))
+                }
+                Err(e) => Err(format!("Failed to read input. IO failed read line. {}", e)),
+            }
         }
-        Err(e) => return Err(format!("Failed to read input. IO failed read line. {}", e)),
+        Err(e) => Err(format!("Failed to read input. IO failed to flush. {}", e)),
     }
 }

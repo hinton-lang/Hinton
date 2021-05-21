@@ -103,7 +103,7 @@ impl Compiler {
     /// `Result<chunk, InterpretResult>` – If the program had no compile-time errors, returns
     /// the main chunk for this module. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
     pub fn compile_file(
-        filepath: &str,
+        filepath: &String,
         program: &ASTNode,
         natives: Vec<String>,
     ) -> Result<FunctionObject, InterpretResult> {
