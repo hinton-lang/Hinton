@@ -27,106 +27,94 @@ impl<'a> Lexer {
         // Generate symbol-like token tokens
         return match c {
             '"' | '\'' => self.make_string_token(),
-            '(' => self.make_token(LEFT_PARENTHESIS),
-            ')' => self.make_token(RIGHT_PARENTHESIS),
-            '{' => self.make_token(LEFT_CURLY_BRACES),
-            '}' => self.make_token(RIGHT_CURLY_BRACES),
-            '[' => self.make_token(LEFT_SQUARE_BRACKET),
-            ']' => self.make_token(RIGHT_SQUARE_BRACKET),
-            ';' => self.make_token(SEMICOLON_SEPARATOR),
-            ',' => self.make_token(COMMA_SEPARATOR),
-            '~' => self.make_token(BITWISE_NOT),
+            '(' => self.make_token(L_PAREN),
+            ')' => self.make_token(R_PARENTHESIS),
+            '{' => self.make_token(L_CURLY),
+            '}' => self.make_token(R_CURLY),
+            '[' => self.make_token(L_BRACKET),
+            ']' => self.make_token(R_BRACKET),
+            ';' => self.make_token(SEMICOLON),
+            ',' => self.make_token(COMMA),
+            '~' => self.make_token(BIT_NOT),
             '/' => {
-                let tok = if self.matches('=') {
-                    SLASH_EQUALS
-                } else {
-                    SLASH
-                };
+                let tok = if self.matches('=') { SLASH_EQ } else { SLASH };
                 self.make_token(tok)
             }
             '%' => {
-                let tok = if self.matches('=') {
-                    MOD_EQUALS
-                } else {
-                    MODULUS
-                };
+                let tok = if self.matches('=') { MOD_EQ } else { MODULUS };
                 self.make_token(tok)
             }
             '!' => {
                 let tok = if self.matches('=') {
-                    LOGICAL_NOT_EQ
+                    LOGIC_NOT_EQ
                 } else {
-                    LOGICAL_NOT
+                    LOGIC_NOT
                 };
                 self.make_token(tok)
             }
             '=' => {
-                let tok = if self.matches('=') {
-                    LOGICAL_EQ
-                } else {
-                    EQUALS_SIGN
-                };
+                let tok = if self.matches('=') { LOGIC_EQ } else { EQUALS };
                 self.make_token(tok)
             }
             ':' => {
                 let tok = if self.matches('=') {
                     COLON_EQUALS
                 } else {
-                    COLON_SEPARATOR
+                    COLON
                 };
                 self.make_token(tok)
             }
             '^' => {
                 let tok = if self.matches('=') {
-                    BITWISE_XOR_EQUALS
+                    BIT_XOR_EQ
                 } else {
-                    BITWISE_XOR
+                    BIT_XOR
                 };
                 self.make_token(tok)
             }
             '&' => {
                 let tok = if self.matches('&') {
-                    LOGICAL_AND
+                    LOGIC_AND
                 } else if self.matches('=') {
-                    BITWISE_AND_EQUALS
+                    BIT_AND_EQ
                 } else {
-                    BITWISE_AND
+                    BIT_AND
                 };
                 self.make_token(tok)
             }
             '|' => {
                 let tok = if self.matches('|') {
-                    LOGICAL_OR
+                    LOGIC_OR
                 } else if self.matches('=') {
-                    BITWISE_OR_EQUALS
+                    BIT_OR_EQ
                 } else {
-                    BITWISE_OR
+                    BIT_OR
                 };
                 self.make_token(tok)
             }
             '?' => {
                 if self.matches('?') {
-                    self.make_token(NULLISH_COALESCING)
+                    self.make_token(NULLISH)
                 }
                 // else if self.matches(':') {
                 //     self.make_token(ELVIS_OPERATOR)
                 // }
                 else {
-                    self.make_token(QUESTION_MARK)
+                    self.make_token(QUESTION)
                 }
             }
             '.' => {
                 if self.get_current().is_digit(10) {
                     self.make_numeric_token()
                 } else if self.matches('.') {
-                    self.make_token(RANGE_OPERATOR)
+                    self.make_token(RANGE_OPR)
                 } else {
-                    self.make_token(DOT_SEPARATOR)
+                    self.make_token(DOT)
                 }
             }
             '-' => {
                 if self.matches('=') {
-                    self.make_token(MINUS_EQUALS)
+                    self.make_token(MINUS_EQ)
                 } else if self.matches('>') {
                     self.make_token(THIN_ARROW)
                 } else {
@@ -135,14 +123,14 @@ impl<'a> Lexer {
             }
             '+' => {
                 if self.matches('=') {
-                    self.make_token(PLUS_EQUALS)
+                    self.make_token(PLUS_EQ)
                 } else {
                     self.make_token(PLUS)
                 }
             }
             '*' => {
                 if self.matches('=') {
-                    self.make_token(STAR_EQUALS)
+                    self.make_token(STAR_EQ)
                 } else if self.matches('*') {
                     if self.matches('=') {
                         self.make_token(EXPO_EQUALS)
@@ -158,9 +146,9 @@ impl<'a> Lexer {
                     self.make_token(LESS_THAN_EQ)
                 } else if self.matches('<') {
                     if self.matches('=') {
-                        self.make_token(BITWISE_LEFT_SHIFT_EQUALS)
+                        self.make_token(BIT_L_SHIFT_EQ)
                     } else {
-                        self.make_token(BITWISE_LEFT_SHIFT)
+                        self.make_token(BIT_L_SHIFT)
                     }
                 } else {
                     self.make_token(LESS_THAN)
@@ -171,9 +159,9 @@ impl<'a> Lexer {
                     self.make_token(GREATER_THAN_EQ)
                 } else if self.matches('>') {
                     if self.matches('=') {
-                        self.make_token(BITWISE_RIGHT_SHIFT_EQUALS)
+                        self.make_token(BIT_R_SHIFT_EQ)
                     } else {
-                        self.make_token(BITWISE_RIGHT_SHIFT)
+                        self.make_token(BIT_R_SHIFT)
                     }
                 } else {
                     self.make_token(GREATER_THAN)

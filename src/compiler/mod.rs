@@ -1,16 +1,17 @@
 use crate::{
     ast::*,
     chunk,
-    lexer::tokens::{Token, TokenType},
+    lexer::tokens::Token,
     objects::FunctionObject,
-    virtual_machine::InterpretResult,
+    virtual_machine::{ErrorList, ErrorReport},
 };
-use std::{convert::TryFrom, fmt, fmt::Display, str};
+use std::{convert::TryFrom, fmt, fmt::Display, str, vec};
 
 // Submodules
 mod expressions;
 mod loops;
 mod statements;
+mod functions;
 
 /// Types of symbols available in Hinton.
 enum SymbolType {
@@ -69,9 +70,8 @@ enum LoopType {
 /// Represents a compiler and its internal state.
 pub struct Compiler {
     compiler_type: CompilerType,
-    had_error: bool,
-    is_in_panic: bool,
     function: FunctionObject,
+    filepath: String,
     // Lexical scoping of declarations
     symbol_table: Vec<Symbol>,
     scope_depth: usize,
@@ -82,12 +82,23 @@ pub struct Compiler {
     breaks: Vec<BreakScope>,
     // Native functions
     natives: Vec<String>,
+    errors: ErrorList,
 }
 
 /// Types of compilers we can create
 enum CompilerType {
     Function,
     Script,
+}
+
+/// Represents the types of errors that can occur during compilation
+/// of the abstract syntax tree into bytecode.
+enum CompilerError {
+    MaxCapacity,
+    Reassignment,
+    Reference,
+    Syntax,
+    Duplication,
 }
 
 impl Compiler {
@@ -97,26 +108,27 @@ impl Compiler {
     ///
     /// ## Arguments
     /// * `filepath` – The program's filepath.
+    /// * `natives` – The native functions.
     /// * `program` – The root node of the AST for a particular program.
     ///
     /// ## Returns
     /// `Result<chunk, InterpretResult>` – If the program had no compile-time errors, returns
     /// the main chunk for this module. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
     pub fn compile_file(
-        filepath: &String,
-        program: &ASTNode,
+        filepath: &str,
         natives: Vec<String>,
-    ) -> Result<FunctionObject, InterpretResult> {
+        program: &ASTNode,
+    ) -> Result<FunctionObject, ErrorList> {
         let base_fn = FunctionObject {
             defaults: vec![],
             min_arity: 0,
             max_arity: 0,
             chunk: chunk::Chunk::new(),
-            name: format!("Script: '{}'", filepath),
+            name: format!("<File '{}'>", filepath),
         };
 
         let symbols = vec![Symbol {
-            name: format!("Script: '{}'", filepath),
+            name: format!("<File '{}'>", filepath),
             symbol_depth: 0,
             symbol_type: SymbolType::Function,
             is_initialized: true,
@@ -124,27 +136,27 @@ impl Compiler {
             pos: (0, 0),
         }];
 
-        let mut c = Compiler {
+        let mut _self = Compiler {
             compiler_type: CompilerType::Script,
-            had_error: false,
-            is_in_panic: false,
             function: base_fn,
             symbol_table: symbols,
             scope_depth: 0,
             loops: vec![],
             breaks: vec![],
             natives,
+            filepath: String::from(filepath),
+            errors: ErrorList(vec![]),
         };
 
         // Compile the function body
-        c.compile_node(&program);
+        _self.compile_node(&program);
         // ends the compiler.
-        c.end_compiler();
+        _self.end_compiler();
 
-        if !c.had_error && !c.is_in_panic {
-            Ok(c.function)
+        if _self.errors.0.len() == 0 {
+            Ok(_self.function)
         } else {
-            return Err(InterpretResult::CompileError);
+            return Err(_self.errors);
         }
     }
 
@@ -159,9 +171,10 @@ impl Compiler {
     /// `Result<chunk, InterpretResult>` – If the program had no compile-time errors, returns
     /// the main chunk for this module. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
     pub fn compile_function(
-        func: &FunctionDeclNode,
+        filepath: String,
         natives: Vec<String>,
-    ) -> Result<FunctionObject, InterpretResult> {
+        func: &FunctionDeclNode,
+    ) -> Result<FunctionObject, ErrorList> {
         let base_fn = FunctionObject {
             defaults: vec![],
             min_arity: func.min_arity,
@@ -179,31 +192,31 @@ impl Compiler {
             pos: (func.name.line_num, func.name.column_num),
         }];
 
-        let mut c = Compiler {
+        let mut _self = Compiler {
             compiler_type: CompilerType::Function,
-            had_error: false,
-            is_in_panic: false,
             function: base_fn,
             symbol_table: symbols,
             scope_depth: 0,
             loops: vec![],
             breaks: vec![],
             natives,
+            filepath,
+            errors: ErrorList(vec![]),
         };
 
         // compiles the parameter declarations so that the compiler
         // knows about their their lexical scoping (their stack position),
         // but does not compile the default value for named parameters.
-        c.compile_parameters(&func.params);
+        _self.compile_parameters(&func.params);
         // Compile the function body
-        c.compile_node(&func.body);
+        _self.compile_node(&func.body);
         // ends the compiler.
-        c.end_compiler();
+        _self.end_compiler();
 
-        if !c.had_error && !c.is_in_panic {
-            Ok(c.function)
+        if _self.errors.0.len() == 0 {
+            Ok(_self.function)
         } else {
-            return Err(InterpretResult::CompileError);
+            return Err(_self.errors);
         }
     }
 
@@ -256,10 +269,6 @@ impl Compiler {
     fn compile_module_node(&mut self, module: &ModuleNode) {
         for node in module.body.iter() {
             self.compile_node(node);
-
-            if self.had_error {
-                break;
-            }
         }
     }
 
@@ -340,7 +349,11 @@ impl Compiler {
                 self.function.chunk.modify_byte(offset + 1, jump[1]);
             }
             Err(_) => {
-                return self.error_at_token(token, "Too much code to jump over.");
+                return self.error_at_token(
+                    token,
+                    CompilerError::MaxCapacity,
+                    "Too much code to jump over.",
+                );
             }
         }
     }
@@ -369,7 +382,7 @@ impl Compiler {
             let jump = (offset + 3) as u16;
             self.emit_short(jump, (token.line_num, token.column_num));
         } else {
-            return self.error_at_token(token, "Loop body too large.");
+            return self.error_at_token(token, CompilerError::MaxCapacity, "Loop body too large.");
         }
     }
 
@@ -378,27 +391,25 @@ impl Compiler {
     /// ## Arguments
     /// *  `tok` – The token that caused the error.
     /// * `message` – The error message to display.
-    fn error_at_token(&mut self, tok: &Token, message: &str) {
-        if self.is_in_panic {
-            return;
-        }
+    fn error_at_token(&mut self, token: &Token, err_type: CompilerError, message: &str) {
+        let err_name = match err_type {
+            CompilerError::MaxCapacity => "MaxCapacityError",
+            CompilerError::Reassignment => "ReassignmentError",
+            CompilerError::Reference => "ReferenceError",
+            CompilerError::Syntax => "SyntaxError",
+            CompilerError::Duplication => "DuplicationError",
+        };
 
-        self.is_in_panic = true;
-
-        print!(
-            "\x1b[31;1mSyntaxError\x1b[0m [{}:{}]",
-            tok.line_num, tok.column_num
+        let msg = format!(
+            "\x1b[31;1m{}\x1b[0m\x1b[1m at [{}:{}]: {}\x1b[0m",
+            err_name, token.line_num, token.column_num, message
         );
 
-        if let TokenType::EOF = tok.token_type {
-            println!(" – At the end of the program.");
-        } else if let TokenType::ERROR = tok.token_type {
-            // Nothing...
-        } else {
-            print!(" at '\x1b[37;1m{}\x1b[0m' – ", tok.lexeme);
-        }
-
-        println!("{}", message);
-        self.had_error = true;
+        self.errors.0.push(ErrorReport {
+            line: token.line_num,
+            column: token.column_num,
+            lexeme_len: token.lexeme.len(),
+            message: msg,
+        });
     }
 }

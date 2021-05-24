@@ -1,4 +1,4 @@
-use super::{Compiler, SymbolType};
+use super::{Compiler, CompilerError, SymbolType};
 use crate::{ast::*, chunk::OpCode, lexer::tokens::Token, objects::Object};
 
 impl Compiler {
@@ -296,7 +296,11 @@ impl Compiler {
                 );
             }
         } else {
-            self.error_at_token(&expr.token, "Too many values in the array.");
+            self.error_at_token(
+                &expr.token,
+                CompilerError::MaxCapacity,
+                "Too many values in the array.",
+            );
         }
     }
 
@@ -333,7 +337,11 @@ impl Compiler {
                 );
             }
         } else {
-            self.error_at_token(&expr.token, "Too many values in the tuple.");
+            self.error_at_token(
+                &expr.token,
+                CompilerError::MaxCapacity,
+                "Too many values in the tuple.",
+            );
         }
     }
 
@@ -378,12 +386,30 @@ impl Compiler {
             if symbol.name == token.lexeme {
                 if !symbol.is_initialized {
                     match symbol.symbol_type {
-                        SymbolType::Variable => self
-                            .error_at_token(&token, "Cannot read variable in its own initializer."),
-                        SymbolType::Constant => self
-                            .error_at_token(&token, "Cannot read constant in its own initializer."),
-                        SymbolType::Function => self
-                            .error_at_token(&token, "Cannot read function in its own initializer."),
+                        SymbolType::Variable => self.error_at_token(
+                            &token,
+                            CompilerError::Reference,
+                            &format!(
+                                "Cannot reference variable '{}' before it has been defined.",
+                                token.lexeme
+                            ),
+                        ),
+                        SymbolType::Constant => self.error_at_token(
+                            &token,
+                            CompilerError::Reference,
+                            &format!(
+                                "Cannot reference constant '{}' before it has been defined. ",
+                                token.lexeme
+                            ),
+                        ),
+                        SymbolType::Function => self.error_at_token(
+                            &token,
+                            CompilerError::Reference,
+                            &format!(
+                                "Cannot reference function '{}' before it has been defined.",
+                                token.lexeme
+                            ),
+                        ),
                         // Classes, Parameters, and Enums are initialized upon declaration. Hence, unreachable here.
                         _ => unreachable!("Symbol should have been initialized by now."),
                     }
@@ -394,21 +420,37 @@ impl Compiler {
                 }
 
                 if for_reassign {
-                    match symbol.symbol_type {
+                    match &symbol.symbol_type {
                         SymbolType::Constant => {
-                            self.error_at_token(&token, "Cannot reassign to constant.");
+                            self.error_at_token(
+                                token,
+                                CompilerError::Reassignment,
+                                "Constants are immutable.",
+                            );
                             return None;
                         }
                         SymbolType::Function => {
-                            self.error_at_token(&token, "Cannot reassign to function.");
+                            self.error_at_token(
+                                token,
+                                CompilerError::Reassignment,
+                                "Functions are immutable.",
+                            );
                             return None;
                         }
                         SymbolType::Class => {
-                            self.error_at_token(&token, "Cannot reassign to class.");
+                            self.error_at_token(
+                                token,
+                                CompilerError::Reassignment,
+                                "Classes are immutable.",
+                            );
                             return None;
                         }
                         SymbolType::Enum => {
-                            self.error_at_token(&token, "Cannot reassign to enum.");
+                            self.error_at_token(
+                                token,
+                                CompilerError::Reassignment,
+                                "Enums are immutable.",
+                            );
                             return None;
                         }
                         // Only variables & parameters are reassignable
@@ -424,7 +466,11 @@ impl Compiler {
         // Look for the identifier in the natives
         if self.natives.contains(&token.lexeme) {
             if for_reassign {
-                self.error_at_token(&token, "Cannot reassign to native function.");
+                self.error_at_token(
+                    token,
+                    CompilerError::Reassignment,
+                    &format!("Cannot modify native function '{}'.", token.lexeme),
+                );
             } else {
                 self.add_literal_to_pool(Object::String(token.lexeme.clone()), token);
                 self.emit_op_code(OpCode::LoadNative, (token.line_num, token.column_num));
@@ -434,7 +480,11 @@ impl Compiler {
         }
 
         // The symbol doesn't exist
-        self.error_at_token(&token, "Use of undeclared identifier.");
+        self.error_at_token(
+            token,
+            CompilerError::Reference,
+            &format!("Use of undeclared identifier '{}'.", token.lexeme),
+        );
         None
     }
 
@@ -458,7 +508,11 @@ impl Compiler {
                 }
             }
             Err(_) => {
-                self.error_at_token(&token, "Too many constants in one chunk.");
+                self.error_at_token(
+                    token,
+                    CompilerError::MaxCapacity,
+                    "Too many constants in one chunk.",
+                );
             }
         }
     }

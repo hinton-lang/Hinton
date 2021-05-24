@@ -81,18 +81,24 @@ fn main() {
 /// ## Arguments
 /// * `filename` – The path to the file to run.
 fn run_file(filename: &String) {
-    let contents = match fs::read_to_string(filename) {
-        Ok(src) => src,
+    let filepath = match fs::canonicalize(filename) {
+        Ok(path) => path,
         Err(_) => {
             eprintln!("File not found: '{}'.", filename);
             std::process::exit(70);
         }
     };
 
-    // Creates a virtual machine with the given source contents
-    let mut vm = VirtualMachine::new();
+    let contents = match fs::read_to_string(filepath.clone()) {
+        Ok(src) => src,
+        Err(_) => {
+            eprintln!("File not found: '{:?}'.", filepath);
+            std::process::exit(70);
+        }
+    };
+
     // Interprets the source contents in the VM
-    let result = vm.interpret(filename, &contents);
+    let result = VirtualMachine::interpret(filepath.to_str().unwrap(), &contents);
 
     // Exit the interpreter with the appropriate code
     match result {

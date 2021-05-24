@@ -4,7 +4,7 @@ use std::vec;
 use crate::{
     ast::ASTNode::*,
     ast::*,
-    lexer::tokens::{Token, TokenType},
+    lexer::tokens::{Token, TokenType::*},
     objects::Object,
 };
 
@@ -14,21 +14,23 @@ impl Parser {
     /// ## Returns
     /// `Option<ASTNode>` – The declaration's AST node.
     pub(super) fn parse_declaration(&mut self) -> Option<ASTNode> {
-        if self.matches(&TokenType::LET_KEYWORD) {
-            return self.parse_var_declaration();
-        } else if self.matches(&TokenType::CONST_KEYWORD) {
-            return self.parse_const_declaration();
-        } else if self.matches(&TokenType::FUNC_KEYWORD) {
-            return self.parse_func_declaration();
-        } else if self.matches(&TokenType::ENUM_KEYWORD) {
+        let decl = if self.matches(&LET_KW) {
+            self.parse_var_declaration()
+        } else if self.matches(&CONST_KW) {
+            self.parse_const_declaration()
+        } else if self.matches(&FUNC_KW) {
+            self.parse_func_declaration()
+        } else if self.matches(&ENUM_KW) {
             todo!("Implement enum declarations")
         } else {
-            return self.parse_statement();
+            self.parse_statement()
+        };
+
+        if self.is_in_panic {
+            self.synchronize();
         }
 
-        // if self.is_in_panic {
-        //     self.synchronize();
-        // }
+        decl
     }
 
     /// Parses a statement as specified in the grammar.bnf file.
@@ -36,25 +38,23 @@ impl Parser {
     /// ## Returns
     /// `Option<ASTNode>` – The statement's AST node.
     fn parse_statement(&mut self) -> Option<ASTNode> {
-        if self.matches(&TokenType::LEFT_CURLY_BRACES) {
+        if self.matches(&L_CURLY) {
             self.parse_block()
-        } else if self.matches(&TokenType::IF_KEYWORD) {
+        } else if self.matches(&IF_KW) {
             self.parse_if_statement()
-        } else if self.matches(&TokenType::WHILE_KEYWORD) {
+        } else if self.matches(&WHILE_KW) {
             self.parse_while_statement()
-        } else if self.matches(&TokenType::FOR_KEYWORD) {
+        } else if self.matches(&FOR_KW) {
             self.parse_for_statement()
-        } else if self.matches(&TokenType::BREAK_KEYWORD) {
+        } else if self.matches(&BREAK_KW) {
             let tok = self.previous.clone();
 
-            self.consume(
-                &TokenType::SEMICOLON_SEPARATOR,
-                "Expected ';' after break keyword.",
-            );
+            self.consume(&SEMICOLON, "Expected ';' after break keyword.");
+
             return Some(BreakStmt(BreakStmtNode { token: tok.clone() }));
-        } else if self.matches(&TokenType::CONTINUE_KEYWORD) {
+        } else if self.matches(&CONTINUE_KW) {
             todo!("Implement continue")
-        } else if self.matches(&TokenType::RETURN_KEYWORD) {
+        } else if self.matches(&RETURN_KW) {
             self.parse_return_stmt()
         } else {
             self.parse_expression_statement()
@@ -69,10 +69,7 @@ impl Parser {
         let opr = self.previous.clone();
         let expr = self.parse_expression();
 
-        self.consume(
-            &TokenType::SEMICOLON_SEPARATOR,
-            "Expected ';' after expression.",
-        );
+        self.consume(&SEMICOLON, "Expected ';' after expression.");
 
         return Some(ExpressionStmt(ExpressionStmtNode {
             child: match expr {
@@ -90,7 +87,7 @@ impl Parser {
     fn parse_block(&mut self) -> Option<ASTNode> {
         let mut statements = BlockNode { body: vec![] };
 
-        while !self.check(&TokenType::RIGHT_CURLY_BRACES) && !self.check(&TokenType::EOF) {
+        while !self.check(&R_CURLY) && !self.check(&EOF) {
             match self.parse_declaration() {
                 Some(val) => statements.body.push(val),
                 // Report parse error if node has None value
@@ -98,7 +95,8 @@ impl Parser {
             }
         }
 
-        self.consume(&TokenType::RIGHT_CURLY_BRACES, "Expect '}' after block.");
+        self.consume(&R_CURLY, "Expect '}' after block.");
+
         return Some(BlockStmt(statements));
     }
 
@@ -111,16 +109,18 @@ impl Parser {
 
         // Gets at least one variable name, or a list of
         // names separated by a comma
-        self.consume(&TokenType::IDENTIFIER, "Expected variable name.");
+        self.consume(&IDENTIFIER, "Expected variable name.");
+
         declarations.push(self.previous.clone());
 
-        while self.matches(&TokenType::COMMA_SEPARATOR) {
-            self.consume(&TokenType::IDENTIFIER, "Expected variable name.");
+        while self.matches(&COMMA) {
+            self.consume(&IDENTIFIER, "Expected variable name.");
+
             declarations.push(self.previous.clone());
         }
 
         // Gets the variable's value.
-        let initializer = if self.matches(&TokenType::EQUALS_SIGN) {
+        let initializer = if self.matches(&EQUALS) {
             match self.parse_expression() {
                 Some(val) => val,
                 None => return None, // Could not create value for variable
@@ -134,25 +134,12 @@ impl Parser {
 
         // Requires a semicolon at the end of the declaration if the declaration
         // was not a block (e.g., when assigning a lambda function to a variable).
-        // if self.previous.token_type.clone() as u8 != TokenType::RIGHT_CURLY_BRACES as u8 {
-        if !self
-            .previous
-            .token_type
-            .type_match(&TokenType::RIGHT_CURLY_BRACES)
-        {
-            self.consume(
-                &TokenType::SEMICOLON_SEPARATOR,
-                "Expected ';' after variable declaration.",
-            );
+        if !self.previous.token_type.type_match(&R_CURLY) {
+            self.consume(&SEMICOLON, "Expected ';' after variable declaration.");
         }
 
         // But if there is a semicolon after a curly brace, then we consume it
-        if self
-            .previous
-            .token_type
-            .type_match(&TokenType::RIGHT_CURLY_BRACES)
-            && self.check(&TokenType::SEMICOLON_SEPARATOR)
-        {
+        if self.previous.token_type.type_match(&R_CURLY) && self.check(&SEMICOLON) {
             self.advance();
         }
 
@@ -167,10 +154,11 @@ impl Parser {
     /// Returns
     /// * `Option<ASTNode>` – A variable declaration AST node.
     fn parse_const_declaration(&mut self) -> Option<ASTNode> {
-        self.consume(&TokenType::IDENTIFIER, "Expected variable name.");
+        self.consume(&IDENTIFIER, "Expected variable name.");
+
         let name = self.previous.clone();
 
-        self.consume(&TokenType::EQUALS_SIGN, "Constants must have a value.");
+        self.consume(&EQUALS, "Constants must have a value.");
 
         let initializer = match self.parse_expression() {
             Some(val) => val,
@@ -179,24 +167,12 @@ impl Parser {
 
         // Requires a semicolon at the end of the declaration if the declaration
         // was not a block (e.g., when assigning a lambda function to a constant).
-        if !self
-            .previous
-            .token_type
-            .type_match(&TokenType::RIGHT_CURLY_BRACES)
-        {
-            self.consume(
-                &TokenType::SEMICOLON_SEPARATOR,
-                "Expected ';' after constant declaration.",
-            );
+        if !self.previous.token_type.type_match(&R_CURLY) {
+            self.consume(&SEMICOLON, "Expected ';' after constant declaration.");
         }
 
         // But if there is a semicolon after a curly brace, then we consume it
-        if self
-            .previous
-            .token_type
-            .type_match(&TokenType::RIGHT_CURLY_BRACES)
-            && self.check(&TokenType::SEMICOLON_SEPARATOR)
-        {
+        if self.previous.token_type.type_match(&R_CURLY) && self.check(&SEMICOLON) {
             self.advance();
         }
 
@@ -219,16 +195,13 @@ impl Parser {
         };
 
         let then_branch;
-        if let TokenType::RIGHT_PARENTHESIS = self.previous.token_type {
+        if let R_PARENTHESIS = self.previous.token_type {
             then_branch = match self.parse_statement() {
                 Some(val) => val,
                 None => return None, // Could not create then branch
             };
         } else {
-            self.consume(
-                &TokenType::LEFT_CURLY_BRACES,
-                "Expected '{' after 'if' condition.",
-            );
+            self.consume(&L_CURLY, "Expected '{' after 'if' condition.");
 
             then_branch = match self.parse_block() {
                 Some(val) => val,
@@ -238,7 +211,7 @@ impl Parser {
 
         let mut else_branch = None;
         let mut else_tok = None;
-        if self.matches(&TokenType::ELSE_KEYWORD) {
+        if self.matches(&ELSE_KW) {
             else_tok = Some(self.previous.clone());
 
             else_branch = match self.parse_statement() {
@@ -269,16 +242,13 @@ impl Parser {
         };
 
         let body;
-        if let TokenType::RIGHT_PARENTHESIS = self.previous.token_type {
+        if let R_PARENTHESIS = self.previous.token_type {
             body = match self.parse_statement() {
                 Some(val) => val,
                 None => return None, // Could not create then branch
             };
         } else {
-            self.consume(
-                &TokenType::LEFT_CURLY_BRACES,
-                "Expected '{' after 'while' condition.",
-            );
+            self.consume(&L_CURLY, "Expected '{' after 'while' condition.");
 
             body = match self.parse_block() {
                 Some(val) => val,
@@ -301,17 +271,14 @@ impl Parser {
         let tok = self.previous.clone();
 
         let mut has_parenthesis = false;
-        if self.matches(&TokenType::LEFT_PARENTHESIS) {
+        if self.matches(&L_PAREN) {
             has_parenthesis = true;
         }
 
         // For-loops must have either the `let` or `await` keyword before the loop's variable,
         // but not both. Here, in the future, we would check which keyword it is and define
         // the type of for-loop we are parsing based on which keyword is present.
-        self.consume(
-            &TokenType::LET_KEYWORD,
-            "Expected 'let' before for-loop variable.",
-        );
+        self.consume(&LET_KW, "Expected 'let' before for-loop variable.");
 
         let id = match self.parse_primary() {
             Some(val) => match val {
@@ -324,7 +291,7 @@ impl Parser {
             None => return None, // Could not parse an identifier for loop
         };
 
-        self.consume(&TokenType::IN_OPERATOR, "Expected 'in' after identifier.");
+        self.consume(&IN_KW, "Expected 'in' after identifier.");
 
         let iter = match self.parse_expression() {
             Some(expr) => expr,
@@ -333,20 +300,14 @@ impl Parser {
 
         let body;
         if has_parenthesis {
-            self.consume(
-                &TokenType::RIGHT_PARENTHESIS,
-                "Expected ')' after 'for' iterator.",
-            );
+            self.consume(&R_PARENTHESIS, "Expected ')' after 'for' iterator.");
 
             body = match self.parse_statement() {
                 Some(val) => val,
                 None => return None, // Could not create then branch
             };
         } else {
-            self.consume(
-                &TokenType::LEFT_CURLY_BRACES,
-                "Expected '{' after 'for' iterator.",
-            );
+            self.consume(&L_CURLY, "Expected '{' after 'for' iterator.");
 
             body = match self.parse_block() {
                 Some(val) => val,
@@ -367,19 +328,17 @@ impl Parser {
     /// Returns
     /// * `Option<ASTNode>` – A function declaration AST node.
     fn parse_func_declaration(&mut self) -> Option<ASTNode> {
-        self.consume(&TokenType::IDENTIFIER, "Expected a function name.");
+        self.consume(&IDENTIFIER, "Expected a function name.");
+
         let name = self.previous.clone();
-        self.consume(
-            &TokenType::LEFT_PARENTHESIS,
-            "Expected opening parenthesis after function name.",
-        );
+        self.consume(&L_PAREN, "Expected '(' after function name.");
 
         let mut params: Vec<Parameter> = vec![];
         let mut min_arity: u8 = 0;
         let mut max_arity: u8 = 0;
 
-        while !self.matches(&TokenType::RIGHT_PARENTHESIS) {
-            if params.len() > 255 {
+        while !self.matches(&R_PARENTHESIS) {
+            if params.len() >= 255 {
                 self.error_at_current("Can't have more than 255 parameters.");
                 return None;
             }
@@ -405,20 +364,14 @@ impl Parser {
                 None => return None, // Could not parse the parameter
             }
 
-            if !self.matches(&TokenType::RIGHT_PARENTHESIS) {
-                self.consume(
-                    &TokenType::COMMA_SEPARATOR,
-                    "Expected comma after parameter.",
-                );
+            if !self.matches(&R_PARENTHESIS) {
+                self.consume(&COMMA, "Expected ',' after parameter.");
             } else {
                 break;
             }
         }
 
-        self.consume(
-            &TokenType::LEFT_CURLY_BRACES,
-            "Expected opening curly braces before function body.",
-        );
+        self.consume(&L_CURLY, "Expected '{' braces before function body.");
 
         let body = match self.parse_block() {
             Some(b) => b,
@@ -439,10 +392,11 @@ impl Parser {
     /// Returns
     /// * `Option<ASTNode>` – A parameter declaration AST node.
     fn parse_parameter(&mut self) -> Option<Parameter> {
-        self.consume(&TokenType::IDENTIFIER, "Expected a parameter name.");
+        self.consume(&IDENTIFIER, "Expected a parameter name.");
+
         let name = self.previous.clone();
 
-        if self.matches(&TokenType::QUESTION_MARK) {
+        if self.matches(&QUESTION) {
             return Some(Parameter {
                 name,
                 is_optional: true,
@@ -450,7 +404,7 @@ impl Parser {
             });
         }
 
-        if self.matches(&TokenType::COLON_EQUALS) {
+        if self.matches(&COLON_EQUALS) {
             return Some(Parameter {
                 name,
                 is_optional: true,
@@ -476,17 +430,15 @@ impl Parser {
         let tok = self.previous.clone();
 
         // Compiles the return expression
-        if !self.matches(&TokenType::SEMICOLON_SEPARATOR) {
+        if !self.matches(&SEMICOLON) {
             let expr = match self.parse_expression() {
                 Some(val) => val,
                 // Report parse error if node has None value
                 None => return None,
             };
 
-            self.consume(
-                &TokenType::SEMICOLON_SEPARATOR,
-                "Expected ';' after break keyword.",
-            );
+            self.consume(&SEMICOLON, "Expected ';' after break keyword.");
+
             return Some(ReturnStmt(ReturnStmtNode {
                 token: tok,
                 value: Some(Box::new(expr)),

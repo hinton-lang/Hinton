@@ -53,73 +53,85 @@ impl CallFrame {
     }
 }
 
-/// Represents a virtual machine
-pub struct VirtualMachine {
-    stack: Vec<objects::Object>,
-    frames: Vec<CallFrame>,
-    natives: NativeFunctions,
+pub struct ErrorReport {
+    pub column: usize,
+    pub lexeme_len: usize,
+    pub line: usize,
+    pub message: String,
 }
 
-impl<'a> VirtualMachine {
-    /// Creates a new instance of the virtual machine.
-    ///
-    /// ## Returns
-    /// * `VirtualMachine` – a new instance of the virtual machine.
-    pub fn new() -> Self {
-        Self {
-            stack: Vec::with_capacity(256),
-            frames: Vec::with_capacity(256),
-            natives: Default::default(),
-        }
-    }
+pub struct ErrorList(pub Vec<ErrorReport>);
 
+/// Represents a virtual machine
+pub struct VirtualMachine {
+    filepath: String,
+    frames: Vec<CallFrame>,
+    natives: NativeFunctions,
+    stack: Vec<objects::Object>,
+}
+
+impl VirtualMachine {
     /// Interprets a chuck of code.
     ///
     /// ## Returns
     /// * `InterpretResult` – The result of the source interpretation.
-    pub(crate) fn interpret(&mut self, filepath: &String, source: &'a str) -> InterpretResult {
+    pub(crate) fn interpret(filepath: &str, source: &str) -> InterpretResult {
+        // Creates a new virtual machine
+        let mut _self = VirtualMachine {
+            stack: Vec::with_capacity(256),
+            frames: Vec::with_capacity(256),
+            natives: Default::default(),
+            filepath: String::from(filepath),
+        };
+
         // Parses the program into an AST and calculates the parser's execution time
         let parsing = exec_time(|| Parser::parse(source));
 
+        // Aborts if there are any parsing errors
         let ast = match parsing.0 {
             Ok(x) => Rc::new(x),
-            Err(e) => return e,
+            Err(e) => {
+                _self.report_errors_list(e, source);
+                return InterpretResult::ParseError;
+            }
         };
 
         // Compiles the program into bytecode and calculates the compiler's execution time
         let compiling =
-            exec_time(|| Compiler::compile_file(&filepath, &ast, self.natives.names.clone()));
+            exec_time(|| Compiler::compile_file(filepath, _self.natives.names.clone(), &ast));
+        let module = match compiling.0 {
+            Ok(x) => x,
+            Err(e) => {
+                _self.report_errors_list(e, source);
+                return InterpretResult::ParseError;
+            }
+        };
 
         // Executes the program
-        return match compiling.0 {
-            Ok(main_func) => {
-                self.stack.push(Object::Function(main_func.clone()));
+        _self.stack.push(Object::Function(module.clone()));
 
-                match self.call(main_func, 0) {
-                    Ok(_) => {
-                        #[cfg(feature = "bench_time")]
-                        let start = Instant::now();
+        return match _self.call(module, 0) {
+            Ok(_) => {
+                #[cfg(feature = "bench_time")]
+                let start = Instant::now();
 
-                        // Runs the program.
-                        let runtime_result = self.run();
+                // Runs the program.
+                let runtime_result = _self.run();
 
-                        #[cfg(feature = "bench_time")]
-                        {
-                            let run_time = start.elapsed();
+                #[cfg(feature = "bench_time")]
+                {
+                    let run_time = start.elapsed();
 
-                            println!("\n======= ⚠️  Execution Results ⚠️  =======");
-                            println!("Parse Time:\t{:?}", parsing.1);
-                            println!("Compile Time:\t{:?}", compiling.1);
-                            println!("Run Time:\t{:?}", run_time);
-                            println!("=======================================");
-                        }
-
-                        return runtime_result;
-                    }
-                    Err(_) => return InterpretResult::RuntimeError,
+                    println!("\n======= ⚠️  Execution Results ⚠️  =======");
+                    println!("Parse Time:\t{:?}", parsing.1);
+                    println!("Compile Time:\t{:?}", compiling.1);
+                    println!("Run Time:\t{:?}", run_time);
+                    println!("=======================================");
                 }
+
+                runtime_result
             }
-            Err(e) => e,
+            Err(_) => InterpretResult::RuntimeError,
         };
     }
 
@@ -205,7 +217,7 @@ impl<'a> VirtualMachine {
     }
 
     /// Throws a runtime error to the console
-    pub fn report_runtime_error(&self, message: &'a str) {
+    pub fn report_runtime_error(&self, message: &str) {
         let frame = self.current_frame();
         let line = frame.function.chunk.get_line_info(frame.ip).unwrap();
         eprintln!(
@@ -225,6 +237,43 @@ impl<'a> VirtualMachine {
                 );
             }
         }
+    }
+
+    fn report_errors_list(&self, errors: ErrorList, source: &str) {
+        let source_lines: Vec<&str> = source.split("\n").collect();
+
+        for error in errors.0.iter() {
+            eprintln!("{}", error.message);
+            self.print_error_line(error.line, error.column, error.lexeme_len, &source_lines);
+        }
+
+        eprintln!("Aborted execution due to previous errors.");
+    }
+
+    fn print_error_line(&self, line_num: usize, col: usize, len: usize, lines: &Vec<&str>) {
+        let front_pad = (f64::log10(line_num as f64).floor() + 1f64) as usize;
+        // +2 for one extra space at the front and one at the back
+        let whitespace_pad_size = " ".repeat(front_pad + 2);
+        let line = lines.get(line_num - 1).unwrap();
+
+        // Compute the line colum of the error with
+        // timed whitespaces from the source line.
+        let mut removed_whitespace = 0;
+        for c in line.chars() {
+            if c == ' ' {
+                removed_whitespace += 1;
+            } else {
+                break;
+            }
+        }
+        let col = col - removed_whitespace;
+
+        eprintln!(" {}---> File '{}'.", "-".repeat(front_pad), self.filepath);
+        eprintln!("{}|", whitespace_pad_size);
+        eprint!(" {} | ", line_num);
+        eprintln!("{}", line.trim());
+        eprint!("{}|", whitespace_pad_size);
+        eprintln!(" {}\x1b[31;1m{}\x1b[0m\n", " ".repeat(col), "^".repeat(len));
     }
 
     /// Checks that both operands of a binary operand are numeric.
