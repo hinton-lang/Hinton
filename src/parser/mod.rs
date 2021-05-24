@@ -1,16 +1,15 @@
 use crate::{
-    ast::ASTNode::*,
     ast::*,
     lexer::{
-        tokens::{Token, TokenType},
+        tokens::{Token, TokenType, TokenType::*},
         Lexer,
     },
-    objects::Object,
-    virtual_machine::InterpretResult,
+    virtual_machine::{ErrorList, ErrorReport},
 };
 
 // Submodules
 mod statements;
+mod expressions;
 
 /// Represents Hinton's parser, which converts source text into
 /// an Abstract Syntax Tree representation of the program.
@@ -18,8 +17,8 @@ pub struct Parser {
     lexer: Lexer,
     previous: Token,
     current: Token,
-    had_error: bool,
     is_in_panic: bool,
+    errors: ErrorList,
 }
 
 impl<'a> Parser {
@@ -30,40 +29,43 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Vec<ASTNode>` – A list of nodes in the AST
-    pub fn parse(src: &'a str) -> Result<ASTNode, InterpretResult> {
+    pub fn parse(src: &'a str) -> Result<ASTNode, ErrorList> {
         // Initialize the compiler
         let mut parser = Parser {
             lexer: Lexer::lex(src),
             previous: Token {
                 line_num: 0,
                 column_num: 0,
-                token_type: TokenType::__INIT_PARSER__,
+                token_type: __INIT_PARSER__,
                 lexeme: String::from(""),
             },
             current: Token {
                 line_num: 0,
                 column_num: 0,
-                token_type: TokenType::__INIT_PARSER__,
+                token_type: __INIT_PARSER__,
                 lexeme: String::from(""),
             },
-            had_error: false,
             is_in_panic: false,
+            errors: ErrorList(vec![]),
         };
 
         let mut program = ModuleNode { body: vec![] };
 
         // Start compiling the chunk
         parser.advance();
-        while !parser.matches(&TokenType::EOF) && !parser.had_error {
+        while !parser.matches(&EOF) {
             match parser.parse_declaration() {
                 Some(val) => program.body.push(val),
-                // Report parse error if node has None value
-                None => return Err(InterpretResult::ParseError),
+                None => {
+                    // If there was an error, continue parsing
+                    // to catch other errors in the program, but
+                    // the AST will (of course) not be usable.
+                }
             }
         }
 
-        return if parser.had_error {
-            Err(InterpretResult::ParseError)
+        return if parser.errors.0.len() > 0 {
+            Err(parser.errors)
         } else {
             Ok(ASTNode::Module(program))
         };
@@ -110,7 +112,7 @@ impl<'a> Parser {
             self.current = self.lexer.next_token();
 
             match self.current.token_type {
-                TokenType::ERROR => self.error_at_current("Unexpected token."),
+                ERROR => self.error_at_current("Unexpected token."),
                 _ => break,
             }
         }
@@ -126,10 +128,14 @@ impl<'a> Parser {
     fn consume(&mut self, tok_type: &TokenType, message: &str) {
         if self.check(tok_type) {
             self.advance();
-            return ();
+            return;
         }
 
-        self.error_at_current(message);
+        if let SEMICOLON = tok_type {
+            self.error_at_previous(message);
+        } else {
+            self.error_at_current(message);
+        }
     }
 
     /// Gets the type of the current token.
@@ -167,7 +173,7 @@ impl<'a> Parser {
     /// Emits a compiler error from the given token.
     ///
     /// ## Arguments
-    /// *  `tok` – The token that caused the error.
+    /// * `tok` – The token that caused the error.
     /// * `message` – The error message to display.
     fn error_at_token(&mut self, tok: &Token, message: &str) {
         if self.is_in_panic {
@@ -175,21 +181,19 @@ impl<'a> Parser {
         }
         self.is_in_panic = true;
 
-        print!(
-            "\x1b[31;1mSyntaxError\x1b[0m [{}:{}]",
-            tok.line_num, tok.column_num
+        // Construct the error message.
+        let msg = format!(
+            "\x1b[31;1mSyntaxError\x1b[0m\x1b[1m at [{}:{}]: {}\x1b[0m",
+            tok.line_num, tok.column_num, message
         );
 
-        if let TokenType::EOF = tok.token_type {
-            println!(" – At the end of the program.");
-        } else if let TokenType::ERROR = tok.token_type {
-            // Nothing...
-        } else {
-            print!(" at '{}' – ", tok.lexeme);
-        }
-
-        println!("{}", message);
-        self.had_error = true;
+        // Push the error to the list
+        self.errors.0.push(ErrorReport {
+            line: tok.line_num,
+            column: tok.column_num,
+            lexeme_len: tok.lexeme.len(),
+            message: msg,
+        });
     }
 
     /// Synchronizes the compiler when it has found an error.
@@ -199,20 +203,14 @@ impl<'a> Parser {
     fn synchronize(&mut self) {
         self.is_in_panic = false;
 
-        while self.get_current_tok_type().type_match(&TokenType::EOF) {
-            if let TokenType::SEMICOLON_SEPARATOR = self.get_previous_tok_type() {
-                return ();
+        while !self.get_current_tok_type().type_match(&EOF) {
+            if let SEMICOLON = self.get_previous_tok_type() {
+                return;
             }
 
             match self.get_current_tok_type() {
-                TokenType::CLASS_KEYWORD
-                | TokenType::FUNC_KEYWORD
-                | TokenType::LET_KEYWORD
-                | TokenType::FOR_KEYWORD
-                | TokenType::IF_KEYWORD
-                | TokenType::WHILE_KEYWORD
-                | TokenType::RETURN_KEYWORD => {
-                    return ();
+                CLASS_KW | FUNC_KW | LET_KW | FOR_KW | IF_KW | WHILE_KW | RETURN_KW => {
+                    return;
                 }
 
                 _ => {}
@@ -220,927 +218,5 @@ impl<'a> Parser {
 
             self.advance();
         }
-    }
-
-    /// Parses an expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_expression(&mut self) -> Option<ASTNode> {
-        self.parse_assignment()
-    }
-
-    /// Parses an assignment expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The assignment expression's AST node.
-    fn parse_assignment(&mut self) -> Option<ASTNode> {
-        let expr = self.parse_ternary_conditional();
-        let expr_tok = self.previous.clone();
-
-        if self.matches(&TokenType::EQUALS_SIGN)
-            || self.matches(&TokenType::PLUS_EQUALS)
-            || self.matches(&TokenType::MINUS_EQUALS)
-            || self.matches(&TokenType::STAR_EQUALS)
-            || self.matches(&TokenType::SLASH_EQUALS)
-            || self.matches(&TokenType::EXPO_EQUALS)
-            || self.matches(&TokenType::MOD_EQUALS)
-            || self.matches(&TokenType::BITWISE_LEFT_SHIFT_EQUALS)
-            || self.matches(&TokenType::BITWISE_RIGHT_SHIFT_EQUALS)
-            || self.matches(&TokenType::BITWISE_AND_EQUALS)
-            || self.matches(&TokenType::BITWISE_XOR_EQUALS)
-            || self.matches(&TokenType::BITWISE_OR_EQUALS)
-        {
-            let opr = self.previous.clone();
-
-            // Gets the type of reassignment
-            let opr_type = match opr.token_type {
-                TokenType::PLUS_EQUALS => ReassignmentType::Plus,
-                TokenType::MINUS_EQUALS => ReassignmentType::Minus,
-                TokenType::STAR_EQUALS => ReassignmentType::Mul,
-                TokenType::SLASH_EQUALS => ReassignmentType::Div,
-                TokenType::EXPO_EQUALS => ReassignmentType::Expo,
-                TokenType::MOD_EQUALS => ReassignmentType::Mod,
-                TokenType::BITWISE_LEFT_SHIFT_EQUALS => ReassignmentType::ShiftL,
-                TokenType::BITWISE_RIGHT_SHIFT_EQUALS => ReassignmentType::ShiftR,
-                TokenType::BITWISE_AND_EQUALS => ReassignmentType::BitAnd,
-                TokenType::BITWISE_XOR_EQUALS => ReassignmentType::Xor,
-                TokenType::BITWISE_OR_EQUALS => ReassignmentType::BitOr,
-                // Regular re-assignment
-                _ => ReassignmentType::None,
-            };
-
-            // Gets the value for assignment
-            let rhs = match self.parse_expression() {
-                Some(t) => t,
-                None => return None, // Could not create expression value for assignment
-            };
-
-            // Returns the assignment expression of the corresponding type
-            return match expr {
-                Some(node) => match node {
-                    // Variable re-assignment
-                    Identifier(id) => Some(VarReassignment(VarReassignmentExprNode {
-                        target: id.token,
-                        opr_type,
-                        value: Box::new(rhs),
-                        pos: (opr.line_num, opr.column_num),
-                    })),
-
-                    // Reassignment of collection item (`a[1] *= 3`),
-                    // and reassignment of member access (`a.member += "hello"`)
-                    // should be handled here.
-
-                    // The assignment target is not valid
-                    _ => {
-                        self.error_at_token(&expr_tok, "Invalid assignment target.");
-                        None
-                    }
-                },
-
-                // Could not parse lhs of expression
-                None => None,
-            };
-        }
-
-        return expr;
-    }
-
-    /// Parses a ternary conditional expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The assignment expression's AST node.
-    fn parse_ternary_conditional(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_nullish_coalescing();
-
-        if self.matches(&TokenType::QUESTION_MARK) {
-            let true_branch_opr = self.previous.clone();
-
-            let branch_true = match self.parse_expression() {
-                Some(t) => t,
-                None => return None, // Could not create expression for branch_true
-            };
-
-            self.consume(
-                &TokenType::COLON_SEPARATOR,
-                "Expected ':' in ternary operator.",
-            );
-            let false_branch_opr = self.previous.clone();
-
-            let branch_false = match self.parse_expression() {
-                Some(t) => t,
-                None => return None, // Could not create expression for branch_false
-            };
-
-            expr = Some(TernaryConditional(TernaryConditionalNode {
-                condition: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create conditional expression
-                },
-                true_branch_token: true_branch_opr,
-                branch_true: Box::new(branch_true),
-                branch_false: Box::new(branch_false),
-                false_branch_token: false_branch_opr,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses an '??' (nullish coalescing) expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_nullish_coalescing(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_logic_or();
-
-        while self.matches(&TokenType::NULLISH_COALESCING) {
-            let opr = self.previous.clone();
-
-            expr = Some(Binary(BinaryExprNode {
-                left: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create lhs of expression
-                },
-                right: match self.parse_logic_or() {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                opr_token: opr,
-                opr_type: BinaryExprType::Nullish,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses an 'OR' expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_logic_or(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_logic_and();
-
-        while self.matches(&TokenType::LOGICAL_OR) {
-            let opr = self.previous.clone();
-
-            expr = Some(Binary(BinaryExprNode {
-                left: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create lhs of expression
-                },
-                right: match self.parse_logic_and() {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                opr_token: opr,
-                opr_type: BinaryExprType::LogicOR,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses an 'AND' expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_logic_and(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_bitwise_or();
-
-        while self.matches(&TokenType::LOGICAL_AND) {
-            let opr = self.previous.clone();
-
-            expr = Some(Binary(BinaryExprNode {
-                left: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create lhs of expression
-                },
-                right: match self.parse_bitwise_or() {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                opr_token: opr,
-                opr_type: BinaryExprType::LogicAND,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses a 'BITWISE OR' expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_bitwise_or(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_bitwise_xor();
-
-        while self.matches(&TokenType::BITWISE_OR) {
-            let opr = self.previous.clone();
-
-            expr = Some(Binary(BinaryExprNode {
-                left: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create lhs of expression
-                },
-                right: match self.parse_bitwise_xor() {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                opr_token: opr,
-                opr_type: BinaryExprType::BitwiseOR,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses a 'BITWISE XOR' expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_bitwise_xor(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_bitwise_and();
-
-        while self.matches(&TokenType::BITWISE_XOR) {
-            let opr = self.previous.clone();
-
-            expr = Some(Binary(BinaryExprNode {
-                left: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create lhs of expression
-                },
-                right: match self.parse_bitwise_and() {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                opr_token: opr,
-                opr_type: BinaryExprType::BitwiseXOR,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses a 'BITWISE AND' expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_bitwise_and(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_equality();
-
-        while self.matches(&TokenType::BITWISE_AND) {
-            let opr = self.previous.clone();
-
-            expr = Some(Binary(BinaryExprNode {
-                left: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create lhs of expression
-                },
-                right: match self.parse_equality() {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                opr_token: opr,
-                opr_type: BinaryExprType::BitwiseAND,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses an equality expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_equality(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_comparison();
-
-        while self.matches(&TokenType::LOGICAL_EQ) || self.matches(&TokenType::LOGICAL_NOT_EQ) {
-            let opr = self.previous.clone();
-
-            let opr_type = if let TokenType::LOGICAL_EQ = opr.token_type {
-                BinaryExprType::LogicEQ
-            } else {
-                BinaryExprType::LogicNotEQ
-            };
-
-            expr = Some(Binary(BinaryExprNode {
-                left: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create lhs of expression
-                },
-                right: match self.parse_comparison() {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                opr_token: opr,
-                opr_type,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses a comparison expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_comparison(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_range();
-
-        while self.matches(&TokenType::LESS_THAN)
-            || self.matches(&TokenType::LESS_THAN_EQ)
-            || self.matches(&TokenType::GREATER_THAN)
-            || self.matches(&TokenType::GREATER_THAN_EQ)
-        {
-            let opr = self.previous.clone();
-
-            let opr_type = if let TokenType::LESS_THAN = opr.token_type {
-                BinaryExprType::LogicLessThan
-            } else if let TokenType::LESS_THAN_EQ = opr.token_type {
-                BinaryExprType::LogicLessThanEQ
-            } else if let TokenType::GREATER_THAN = opr.token_type {
-                BinaryExprType::LogicGreaterThan
-            } else {
-                BinaryExprType::LogicGreaterThanEQ
-            };
-
-            expr = Some(Binary(BinaryExprNode {
-                left: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create lhs of expression
-                },
-                right: match self.parse_range() {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                opr_token: opr,
-                opr_type,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses a range expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_range(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_bitwise_shift();
-
-        if self.matches(&TokenType::RANGE_OPERATOR) {
-            let opr = self.previous.clone();
-
-            expr = Some(Binary(BinaryExprNode {
-                left: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create lhs of expression
-                },
-                right: match self.parse_bitwise_shift() {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                opr_token: opr,
-                opr_type: BinaryExprType::Range,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses a 'BITWISE SHIFT' expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_bitwise_shift(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_term();
-
-        while self.matches(&TokenType::BITWISE_LEFT_SHIFT)
-            || self.matches(&TokenType::BITWISE_RIGHT_SHIFT)
-        {
-            let opr = self.previous.clone();
-
-            let opr_type = if let TokenType::BITWISE_LEFT_SHIFT = opr.token_type {
-                BinaryExprType::BitwiseShiftLeft
-            } else {
-                BinaryExprType::BitwiseShiftRight
-            };
-
-            expr = Some(Binary(BinaryExprNode {
-                left: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create lhs of expression
-                },
-                right: match self.parse_term() {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                opr_token: opr,
-                opr_type: opr_type,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses a term expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_term(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_factor();
-
-        while self.matches(&TokenType::PLUS) || self.matches(&TokenType::MINUS) {
-            let opr = self.previous.clone();
-
-            let opr_type = if let TokenType::PLUS = opr.token_type {
-                BinaryExprType::Addition
-            } else {
-                BinaryExprType::Minus
-            };
-
-            expr = Some(Binary(BinaryExprNode {
-                left: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create lhs of expression
-                },
-                right: match self.parse_factor() {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                opr_token: opr,
-                opr_type,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses a factor expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_factor(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_expo();
-
-        while self.matches(&TokenType::SLASH)
-            || self.matches(&TokenType::STAR)
-            || self.matches(&TokenType::MODULUS)
-        {
-            let opr = self.previous.clone();
-
-            let opr_type = if let TokenType::SLASH = opr.token_type {
-                BinaryExprType::Division
-            } else if let TokenType::STAR = opr.token_type {
-                BinaryExprType::Multiplication
-            } else {
-                BinaryExprType::Modulus
-            };
-
-            expr = Some(Binary(BinaryExprNode {
-                left: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create lhs of expression
-                },
-                right: match self.parse_expo() {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                opr_token: opr,
-                opr_type,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses an exponentiation expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_expo(&mut self) -> Option<ASTNode> {
-        let mut expr = self.parse_unary();
-
-        while self.matches(&TokenType::EXPO) {
-            let opr = self.previous.clone();
-
-            expr = Some(Binary(BinaryExprNode {
-                left: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create lhs of expression
-                },
-                right: match self.parse_unary() {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                opr_token: opr,
-                opr_type: BinaryExprType::Expo,
-            }));
-        }
-
-        return expr;
-    }
-
-    /// Parses a unary expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_unary(&mut self) -> Option<ASTNode> {
-        if self.matches(&TokenType::LOGICAL_NOT)
-            || self.matches(&TokenType::MINUS)
-            || self.matches(&TokenType::BITWISE_NOT)
-        {
-            let opr = self.previous.clone();
-            let expr = self.parse_primary();
-
-            let opr_type = if let TokenType::LOGICAL_NOT = opr.token_type {
-                UnaryExprType::LogicNeg
-            } else if let TokenType::BITWISE_NOT = opr.token_type {
-                UnaryExprType::BitwiseNeg
-            } else {
-                UnaryExprType::ArithmeticNeg
-            };
-
-            return Some(Unary(UnaryExprNode {
-                operand: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None, // Could not create rhs of expression
-                },
-                pos: (opr.line_num, opr.column_num),
-                opr_type,
-            }));
-        } else {
-            let expr = match self.parse_primary() {
-                Some(e) => e,
-                None => return None,
-            };
-
-            let expr_token = self.previous.clone();
-
-            // Parse array indexing
-            if self.matches(&TokenType::LEFT_SQUARE_BRACKET) {
-                return self.array_indexing(expr);
-            }
-
-            // Parse function call
-            if self.matches(&TokenType::LEFT_PARENTHESIS) {
-                return self.construct_function_call(expr, &expr_token);
-            }
-
-            return Some(expr);
-        }
-    }
-
-    /// Parses a primary (literal) expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn parse_primary(&mut self) -> Option<ASTNode> {
-        self.advance();
-
-        let literal_value = match self.get_previous_tok_type() {
-            TokenType::STRING_LITERAL => self.compile_string(),
-            TokenType::TRUE_LITERAL => Object::Bool(true),
-            TokenType::FALSE_LITERAL => Object::Bool(false),
-            TokenType::NULL_LITERAL => Object::Null,
-            TokenType::LEFT_SQUARE_BRACKET => return self.construct_array(),
-            TokenType::INTEGER_LITERAL => match self.compile_integer() {
-                Ok(x) => x,
-                Err(_) => return None,
-            },
-            TokenType::FLOAT_LITERAL => match self.compile_float() {
-                Ok(x) => x,
-                Err(_) => return None,
-            },
-            TokenType::BINARY_LITERAL => match self.compile_int_from_base(2) {
-                Ok(x) => x,
-                Err(_) => return None,
-            },
-            TokenType::OCTAL_LITERAL => match self.compile_int_from_base(8) {
-                Ok(x) => x,
-                Err(_) => return None,
-            },
-            TokenType::HEXADECIMAL_LITERAL => match self.compile_int_from_base(16) {
-                Ok(x) => x,
-                Err(_) => return None,
-            },
-            TokenType::LEFT_PARENTHESIS => {
-                let start_token = self.previous.clone();
-
-                // If the parenthesis are empty, then we parse this as an empty tuple.
-                if self.matches(&TokenType::RIGHT_PARENTHESIS) {
-                    return Some(Tuple(TupleExprNode {
-                        values: vec![],
-                        token: start_token,
-                    }));
-                } else {
-                    let expr = self.parse_expression();
-
-                    // If there is a comma after the first expression, then this becomes a tuple.
-                    return if self.matches(&TokenType::COMMA_SEPARATOR) {
-                        self.construct_tuple(start_token, expr)
-                    } else {
-                        self.consume(&TokenType::RIGHT_PARENTHESIS, "Expected closing ')'.");
-                        // For grouping expression, we don't wrap the inner expression inside an extra node.
-                        // Instead, we return the actual expression that was enclosed in the parenthesis.
-                        expr
-                    };
-                }
-            }
-            TokenType::IDENTIFIER => {
-                // For identifier expressions, the only information we need is enclosed within the token.
-                // So we return the token wrapped inside an ASTNode::Identifier.
-                return Some(Identifier(IdentifierExprNode {
-                    token: self.previous.clone(),
-                }));
-            }
-            _ => {
-                self.error_at_previous("Unexpected token.");
-                return None;
-            }
-        };
-
-        let node = LiteralExprNode {
-            value: literal_value,
-            token: self.current.clone(),
-        };
-
-        return Some(Literal(node));
-    }
-
-    /// Compiles a string token to a Hinton String.
-    ///
-    /// ## Returns
-    /// `Rc<Object>` – The Hinton string object.
-    fn compile_string(&mut self) -> Object {
-        let lexeme = self.previous.lexeme.clone();
-
-        // Remove outer quotes from the source string
-        let lexeme = &lexeme[1..(lexeme.len() - 1)];
-
-        // Replace escaped characters with the actual representations
-        let lexeme = lexeme
-            .replace("\\n", "\n")
-            .replace("\\t", "\t")
-            .replace("\\r", "\r")
-            .replace("\\\\", "\\")
-            .replace("\\\"", "\"");
-
-        // Emits the constant instruction
-        return Object::String(lexeme);
-    }
-
-    /// Compiles an integer token to a Hinton Int.
-    ///
-    /// ## Returns
-    /// `Rc<Object>` – The Hinton number object.
-    fn compile_integer(&mut self) -> Result<Object, ()> {
-        let lexeme = self.previous.lexeme.clone();
-        // Removes the underscores from the lexeme
-        let lexeme = lexeme.replace('_', "");
-        // Parses the lexeme into a float
-        let num = lexeme.parse::<i64>();
-
-        // If the lexeme could successfully be converted to `isize` integer
-        // then we proceed to save it in the constant pool and emit the
-        // instruction. Otherwise, we indicate that there was a compilation error.
-        return match num {
-            Ok(x) => Ok(Object::Int(x)),
-            Err(_) => {
-                // This should almost never happen.
-                self.error_at_previous("Unexpected token.");
-                Err(())
-            }
-        };
-    }
-
-    /// Compiles a float token to a Hinton Float.
-    ///
-    /// ## Returns
-    /// `Rc<Object>` – The Hinton number object.
-    fn compile_float(&mut self) -> Result<Object, ()> {
-        let lexeme = self.previous.lexeme.clone();
-        // Removes the underscores from the lexeme
-        let lexeme = lexeme.replace('_', "");
-        // Parses the lexeme into a float
-        let num = lexeme.parse::<f64>();
-
-        // If the lexeme could successfully be converted to `isize` integer
-        // then we proceed to save it in the constant pool and emit the
-        // instruction. Otherwise, we indicate that there was a compilation error.
-        return match num {
-            Ok(x) => Ok(Object::Float(x)),
-            Err(_) => {
-                // This should almost never happen.
-                self.error_at_previous("Unexpected token.");
-                Err(())
-            }
-        };
-    }
-
-    /// Compiles a binary, octal, or hexadecimal number token to a Hinton Number.
-    ///
-    /// ## Returns
-    /// `Result<Object, ()>` – If there was no error converting the lexeme to an integer
-    /// of the specified base, returns the Hinton number object. Otherwise, returns an empty error.
-    fn compile_int_from_base(&mut self, radix: u32) -> Result<Object, ()> {
-        let lexeme = self.previous.lexeme.clone();
-        // Removes the underscores from the lexeme
-        let lexeme = lexeme.replace('_', "");
-        // Parses the lexeme into an integer
-        let num = isize::from_str_radix(&lexeme[2..], radix);
-
-        // If the lexeme could successfully be converted to `isize` integer
-        // then we proceed to save it in the constant pool and emit the
-        // instruction. Otherwise, we indicate that there was a compilation error.
-        return match num {
-            Ok(x) => Ok(Object::Int(x as i64)),
-            Err(_) => {
-                // This should almost never happen.
-                self.error_at_previous("Unexpected token.");
-                Err(())
-            }
-        };
-    }
-
-    /// Parses an array expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn construct_array(&mut self) -> Option<ASTNode> {
-        let start_token = self.previous.clone();
-        let mut values: Vec<Box<ASTNode>> = vec![];
-
-        if !self.matches(&TokenType::RIGHT_SQUARE_BRACKET) {
-            loop {
-                values.push(match self.parse_expression() {
-                    Some(e) => Box::new(e),
-                    None => return None,
-                });
-
-                if self.matches(&TokenType::COMMA_SEPARATOR) {
-                    continue;
-                }
-
-                self.consume(
-                    &TokenType::RIGHT_SQUARE_BRACKET,
-                    "Expected ']' after array declaration.",
-                );
-                break;
-            }
-        }
-
-        return Some(Array(ArrayExprNode {
-            values,
-            token: start_token,
-        }));
-    }
-
-    /// Parses a tuple expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn construct_tuple(&mut self, start_token: Token, first: Option<ASTNode>) -> Option<ASTNode> {
-        let first = match first {
-            Some(node) => Box::new(node),
-            None => return None, // The first expression is invalid.
-        };
-
-        // Initialize the vector
-        let mut values: Vec<Box<ASTNode>> = vec![first];
-
-        if !self.matches(&TokenType::RIGHT_PARENTHESIS) {
-            loop {
-                values.push(match self.parse_expression() {
-                    Some(e) => Box::new(e),
-                    None => return None,
-                });
-
-                if self.matches(&TokenType::COMMA_SEPARATOR) {
-                    continue;
-                }
-
-                self.consume(
-                    &TokenType::RIGHT_PARENTHESIS,
-                    "Expected ')' after tuple declaration.",
-                );
-                break;
-            }
-        }
-
-        return Some(Tuple(TupleExprNode {
-            values,
-            token: start_token,
-        }));
-    }
-
-    /// Parses an array indexing expression as specified in the grammar.bnf file.
-    ///
-    /// ## Returns
-    /// `Option<ASTNode>` – The expression's AST node.
-    fn array_indexing(&mut self, expr: ASTNode) -> Option<ASTNode> {
-        let pos = (self.previous.line_num, self.previous.column_num);
-
-        let mut expr = Some(ArrayIndexing(ArrayIndexingExprNode {
-            target: Box::new(expr),
-            index: match self.parse_expression() {
-                Some(e) => Box::new(e),
-                None => return None,
-            },
-            pos,
-        }));
-
-        self.consume(
-            &TokenType::RIGHT_SQUARE_BRACKET,
-            "Expected ']' after array index.",
-        );
-
-        // Keep matching chained array indexers
-        while self.matches(&TokenType::LEFT_SQUARE_BRACKET) {
-            let pos = (self.previous.line_num, self.previous.column_num);
-
-            expr = Some(ArrayIndexing(ArrayIndexingExprNode {
-                target: match expr {
-                    Some(e) => Box::new(e),
-                    None => return None,
-                },
-                index: match self.parse_expression() {
-                    Some(e) => Box::new(e),
-                    None => return None,
-                },
-                pos,
-            }));
-
-            self.consume(
-                &TokenType::RIGHT_SQUARE_BRACKET,
-                "Expected ']' after array index.",
-            );
-        }
-
-        return expr;
-    }
-
-    fn construct_function_call(&mut self, name: ASTNode, token: &Token) -> Option<ASTNode> {
-        let mut args: Vec<Argument> = vec![];
-
-        while !self.matches(&TokenType::RIGHT_PARENTHESIS) {
-            if args.len() >= 255 {
-                self.error_at_current("Can't have more than 255 arguments.");
-                return None;
-            }
-
-            match self.parse_argument() {
-                Some(a) => {
-                    if args.len() > 0 && !a.is_named && args.last().unwrap().is_named {
-                        self.error_at_previous("Optional and named parameters must be declared after all required parameters.");
-                        return None;
-                    }
-
-                    args.push(a);
-                }
-                None => return None, // Could not parse the parameter
-            }
-
-            if !self.matches(&TokenType::RIGHT_PARENTHESIS) {
-                self.consume(
-                    &TokenType::COMMA_SEPARATOR,
-                    "Expected comma after parameter.",
-                );
-            } else {
-                break;
-            }
-        }
-
-        return Some(FunctionCallExpr(FunctionCallExprNode {
-            target: Box::new(name),
-            args,
-            pos: (token.line_num, token.column_num),
-        }));
-    }
-
-    fn parse_argument(&mut self) -> Option<Argument> {
-        let expr = match self.parse_expression() {
-            Some(e) => e,
-            None => return None, // could not parse argument expression
-        };
-
-        if self.matches(&TokenType::COLON_EQUALS) {
-            return Some(Argument {
-                name: Some(expr),
-                is_named: true,
-                value: match self.parse_expression() {
-                    Some(x) => Box::new(x),
-                    None => return None, // Could not compile default value for parameter
-                },
-            });
-        }
-
-        Some(Argument {
-            name: None,
-            is_named: false,
-            value: Box::new(expr),
-        })
     }
 }

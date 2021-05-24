@@ -194,7 +194,7 @@ impl<'a> Lexer {
         // The closing quote.
         self.advance();
 
-        return self.make_token(STRING_LITERAL);
+        return self.make_token(STRING);
     }
 
     /// Generates an identifier token with the current state of the scanner.

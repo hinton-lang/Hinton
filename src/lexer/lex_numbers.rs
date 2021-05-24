@@ -12,7 +12,7 @@ impl<'a> Lexer {
         if self.previous() == '0' && (self.get_current() == 'x' || self.get_current() == 'X') {
             self.advance(); // consumes the "x"
             self.advance_numeric_digit(16); // Consume digit character in base-16
-            return self.make_token(HEXADECIMAL_LITERAL);
+            return self.make_token(HEXADECIMAL);
         }
 
         // Support for octal integers
@@ -20,7 +20,7 @@ impl<'a> Lexer {
         if self.previous() == '0' && (self.get_current() == 'o' || self.get_current() == 'O') {
             self.advance(); // consumes the 'o'
             self.advance_numeric_digit(8); // Consume digit character in base-8
-            return self.make_token(OCTAL_LITERAL);
+            return self.make_token(OCTAL);
         }
 
         // Support for binary integers
@@ -28,7 +28,7 @@ impl<'a> Lexer {
         if self.previous() == '0' && (self.get_current() == 'b' || self.get_current() == 'B') {
             self.advance(); // consumes the 'b'
             self.advance_numeric_digit(2); // Consume digit character in base-2
-            return self.make_token(BINARY_LITERAL);
+            return self.make_token(BINARY);
         }
 
         // Checks whether the numeric token started with a dot (to correctly mark it as a float).
@@ -39,13 +39,13 @@ impl<'a> Lexer {
         if !started_with_dot && self.get_current() == '.' && self.next().is_digit(10) {
             self.advance(); // Consume the ".".
             self.advance_numeric_digit(10); // Consume digit character in base-10
-            return self.make_token(FLOAT_LITERAL);
+            return self.make_token(FLOAT);
         }
 
         if started_with_dot {
-            return self.make_token(FLOAT_LITERAL);
+            return self.make_token(FLOAT);
         } else {
-            return self.make_token(INTEGER_LITERAL);
+            return self.make_token(INTEGER);
         }
     }
 

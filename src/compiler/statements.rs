@@ -1,7 +1,6 @@
-use super::{Compiler, CompilerType, Symbol, SymbolType};
+use super::{Compiler, CompilerError, Symbol, SymbolType};
+use crate::{ast::*, chunk::OpCode, lexer::tokens::Token};
 use std::borrow::Borrow;
-
-use crate::{ast::*, chunk::OpCode, lexer::tokens::Token, objects::Object};
 
 impl Compiler {
     /// Compiles an expression statement.
@@ -81,29 +80,19 @@ impl Compiler {
 
             if symbol.name == token.lexeme {
                 match symbol.symbol_type {
-                    SymbolType::Variable => self.error_at_token(
-                        token,
-                        "A variable with this name already exists in this scope.",
-                    ),
-                    SymbolType::Constant => self.error_at_token(
-                        token,
-                        "A constant with this name already exists in this scope.",
-                    ),
-                    SymbolType::Function => self.error_at_token(
-                        token,
-                        "A function with this name already exists in this scope.",
-                    ),
-                    SymbolType::Class => self.error_at_token(
-                        token,
-                        "A class with this name already exists in this scope.",
-                    ),
-                    SymbolType::Enum => self.error_at_token(
-                        token,
-                        "An enum with this name already exists in this scope.",
+                    SymbolType::Variable
+                    | SymbolType::Constant
+                    | SymbolType::Function
+                    | SymbolType::Class
+                    | SymbolType::Enum => self.error_at_token(
+                        &token,
+                        CompilerError::Duplication,
+                        &format!("Duplicate definition for identifier '{}'", token.lexeme),
                     ),
                     SymbolType::Parameter => self.error_at_token(
-                        token,
-                        "A parameter with this name already exists in this scope.",
+                        &token,
+                        CompilerError::Duplication,
+                        &format!("Duplicate definition for parameter '{}'", token.lexeme),
                     ),
                 }
 
@@ -143,7 +132,11 @@ impl Compiler {
 
     pub(super) fn push_symbol(&mut self, token: &Token, symbol: Symbol) -> Result<usize, ()> {
         if self.symbol_table.len() >= (u16::MAX as usize) {
-            self.error_at_token(token, "Too many variables in this scope.");
+            self.error_at_token(
+                &token,
+                CompilerError::MaxCapacity,
+                "Too many variables in this scope.",
+            );
             return Err(());
         }
 
@@ -161,12 +154,6 @@ impl Compiler {
 
         for node in block.body.iter() {
             self.compile_node(&node.clone());
-
-            // If after compiling the node there was an error, stop
-            // the loop and return out of the function.
-            if self.had_error {
-                return;
-            }
         }
 
         self.end_scope();
@@ -202,7 +189,7 @@ impl Compiler {
 
             if !symbol.is_used {
                 println!(
-                    "\x1b[33;1mCompilerWarning\x1b[0m at [{}:{}] – Variable '\x1b[37;1m{}\x1b[0m' is never used.",
+                    "\x1b[33;1mWarning\x1b[0m at [{}:{}] – Variable '\x1b[1m{}\x1b[0m' is never used.",
                     symbol.pos.0, symbol.pos.1, symbol.name
                 );
             }
@@ -279,108 +266,5 @@ impl Compiler {
             // these is an `else_token`, so it is safe to unwrap without check.
             self.patch_jump(else_jump, &stmt.else_token.clone().unwrap());
         }
-    }
-
-    pub(super) fn compile_function_decl(&mut self, decl: &FunctionDeclNode) {
-        match self.declare_symbol(&decl.name, SymbolType::Function) {
-            Ok(symbol_pos) => {
-                let comp = match Compiler::compile_function(&decl, self.natives.clone()) {
-                    Ok(func) => func,
-                    Err(_) => {
-                        // We specify that there was an error inside the body
-                        // of the function so that we can stop compiling the
-                        // program all together.
-                        self.had_error = true;
-                        return;
-                    }
-                };
-
-                // Defines the function so that it can be loaded onto the stack.
-                // When the function is first loaded onto the stack, it has no
-                // default parameters initialized.
-                self.add_literal_to_pool(Object::Function(comp), &decl.name);
-
-                if decl.min_arity != decl.max_arity {
-                    // Compiles the named parameters so that they can be on top
-                    // of the stack when the function gets composed at runtime.
-                    for param in &decl.params {
-                        match &param.default {
-                            Some(expr) => {
-                                self.compile_node(&expr);
-                            }
-                            None => {
-                                if param.is_optional {
-                                    self.emit_op_code(
-                                        OpCode::LoadImmNull,
-                                        (param.name.line_num, param.name.column_num),
-                                    );
-                                }
-                            }
-                        }
-                    }
-
-                    // Once all the named parameter expressions are compiled, we bind
-                    // each of the named parameters to the function
-                    self.emit_op_code(
-                        OpCode::BindDefaults,
-                        (decl.name.line_num, decl.name.column_num),
-                    );
-                    self.emit_raw_byte(
-                        (decl.max_arity - decl.min_arity) as u8,
-                        (decl.name.line_num, decl.name.column_num),
-                    );
-                }
-
-                // Mark the function as initialized for the parent scope.
-                self.symbol_table[symbol_pos].is_initialized = true;
-            }
-
-            // We do nothing if there was an error because the `declare_symbol()`
-            // function takes care of reporting the appropriate error for us.
-            // Explicit `return` to stop the loop.
-            Err(_) => return,
-        }
-    }
-
-    pub(super) fn compile_parameters(&mut self, params: &Vec<Parameter>) {
-        for param in params.iter() {
-            match self.declare_symbol(&param.name, SymbolType::Parameter) {
-                Ok(_) => {
-                    // Do nothing after parameter has been declared. Default
-                    // values will be compiled by the function's parent scope.
-                }
-                // We do nothing if there was an error because the `declare_symbol()`
-                // function takes care of reporting the appropriate error for us.
-                // Explicit `return` to stop the loop.
-                Err(_) => return,
-            }
-        }
-    }
-
-    pub(super) fn compile_return_stmt(&mut self, stmt: &ReturnStmtNode) {
-        if let CompilerType::Script = self.compiler_type {
-            self.error_at_token(&stmt.token, "Cannot return outside of function.");
-            return;
-        }
-
-        match &stmt.value {
-            Some(v) => {
-                self.compile_node(v);
-            }
-            None => {
-                self.emit_op_code(
-                    OpCode::LoadImmNull,
-                    (stmt.token.line_num, stmt.token.column_num),
-                );
-            }
-        }
-
-        self.emit_op_code(OpCode::Return, (stmt.token.line_num, stmt.token.column_num));
-        // The number of local symbols that need to be popped off the stack
-        let num_of_symbols = self.symbol_table.len() - 1;
-        self.emit_raw_byte(
-            num_of_symbols as u8,
-            (stmt.token.line_num, stmt.token.column_num),
-        );
     }
 }

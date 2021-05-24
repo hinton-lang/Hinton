@@ -1,7 +1,7 @@
 use crate::{
     ast::{BreakStmtNode, ForStmtNode, WhileStmtNode},
     chunk::OpCode,
-    compiler::{Symbol, SymbolType},
+    compiler::{CompilerError, Symbol, SymbolType},
     lexer::tokens::Token,
 };
 
@@ -35,10 +35,6 @@ impl Compiler {
         }
 
         self.compile_node(&stmt.body);
-        // Stop compiling if there was an error compiling the loop's body.
-        if self.had_error {
-            return;
-        }
 
         // Jump back to the start of the loop (including the re-execution of the condition)
         self.emit_loop(loop_start, &stmt.token);
@@ -102,11 +98,6 @@ impl Compiler {
         // Compiles the loop's body
         self.compile_node(&stmt.body);
 
-        // Stop compiling if there was an error compiling the loop's body.
-        if self.had_error {
-            return;
-        }
-
         // +2 to count the jump instruction and its one operand
         let offset = (self.function.chunk.len() + 2) - loop_start;
 
@@ -123,7 +114,11 @@ impl Compiler {
                 self.emit_op_code(OpCode::JumpHasNextOrPopLong, loop_line_info);
                 self.emit_short(offset as u16, loop_line_info);
             } else {
-                self.error_at_token(&stmt.token, "Loop body too large.");
+                self.error_at_token(
+                    &stmt.token,
+                    CompilerError::MaxCapacity,
+                    "Loop body too large.",
+                );
                 return;
             }
         }
@@ -163,7 +158,11 @@ impl Compiler {
     /// * `stmt` – The `break` statement node being compiled.
     pub(super) fn compile_break_stmt(&mut self, stmt: &BreakStmtNode) {
         if self.loops.len() == 0 {
-            self.error_at_token(&stmt.token, "Cannot break outside of loop.");
+            self.error_at_token(
+                &stmt.token,
+                CompilerError::Syntax,
+                "Cannot break outside of loop.",
+            );
             return;
         }
 
