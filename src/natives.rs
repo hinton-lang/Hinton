@@ -1,8 +1,11 @@
-use crate::objects::{IterObject, NativeFunctionObj, Object};
+use crate::{
+    objects::{IterObject, NativeFunctionObj, Object},
+    virtual_machine::{RuntimeErrorType, RuntimeResult},
+};
 use std::{borrow::Borrow, cell::RefCell, collections::HashMap, io, rc::Rc, time::SystemTime};
 
 /// Represents the body of a Hinton native function object.
-pub type NativeFn = fn(Vec<Object>) -> Result<Object, String>;
+pub type NativeFn = fn(Vec<Object>) -> Result<Object, RuntimeResult>;
 
 /// Represents the list of native functions available through a Hinton program.
 pub struct NativeFunctions {
@@ -33,7 +36,7 @@ impl NativeFunctions {
     }
 
     /// Finds and executes a native function by name.
-    pub fn call_native(&mut self, name: &str, args: Vec<Object>) -> Result<Object, String> {
+    pub fn call_native(&mut self, name: &str, args: Vec<Object>) -> Result<Object, RuntimeResult> {
         match self.functions_list.get(name) {
             Some(f) => {
                 let args_len = args.len() as u8;
@@ -41,15 +44,21 @@ impl NativeFunctions {
                 // Checks the argument arity for the function call.
                 if args_len < f.min_arity || args_len > f.max_arity {
                     if f.min_arity == f.max_arity {
-                        return Err(format!(
-                            "Expected {} arguments but got {} instead.",
-                            f.min_arity, args_len
-                        ));
+                        return Err(RuntimeResult::Error {
+                            error: RuntimeErrorType::ArgumentError,
+                            message: format!(
+                                "Expected {} arguments but got {} instead.",
+                                f.min_arity, args_len
+                            ),
+                        });
                     } else {
-                        return Err(format!(
-                            "Expected {} to {} arguments but got {} instead.",
-                            f.min_arity, f.max_arity, args_len
-                        ));
+                        return Err(RuntimeResult::Error {
+                            error: RuntimeErrorType::ArgumentError,
+                            message: format!(
+                                "Expected {} to {} arguments but got {} instead.",
+                                f.min_arity, f.max_arity, args_len
+                            ),
+                        });
                     }
                 }
 
@@ -59,7 +68,10 @@ impl NativeFunctions {
                 // Returns the result of the call
                 return call_result;
             }
-            None => Err(format!("No native function named '{}'.", name)),
+            None => Err(RuntimeResult::Error {
+                error: RuntimeErrorType::ReferenceError,
+                message: format!("No native function named '{}'.", name),
+            }),
         }
     }
 
@@ -94,14 +106,14 @@ impl Default for NativeFunctions {
 
 /// Implements the `print(...)` native function for Hinton,
 /// which prints a value to the console.
-fn native_print(args: Vec<Object>) -> Result<Object, String> {
+fn native_print(args: Vec<Object>) -> Result<Object, RuntimeResult> {
     println!("{}", args[0]);
     Ok(Object::Null)
 }
 
 /// Implements the `clock()` native function for Hinton, which
 /// retrieves the current time from the Unix Epoch time.
-fn native_clock(_: Vec<Object>) -> Result<Object, String> {
+fn native_clock(_: Vec<Object>) -> Result<Object, RuntimeResult> {
     let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
 
     match now {
@@ -109,18 +121,21 @@ fn native_clock(_: Vec<Object>) -> Result<Object, String> {
             let time = t.as_millis();
             Ok(Object::Int(time as i64))
         }
-        Err(_) => Err(String::from("System's time before UNIX EPOCH.")),
+        Err(_) => Err(RuntimeResult::Error {
+            error: RuntimeErrorType::Internal,
+            message: String::from("System's time before UNIX EPOCH."),
+        }),
     }
 }
 
 /// Implements the `iter(...)` native function for Hinton, which
 /// converts the give object to an iterable.
-fn native_iter(args: Vec<Object>) -> Result<Object, String> {
+fn native_iter(args: Vec<Object>) -> Result<Object, RuntimeResult> {
     make_iter(args[0].clone())
 }
 
 /// Converts a Hinton object into an Iterable.
-pub fn make_iter(o: Object) -> Result<Object, String> {
+pub fn make_iter(o: Object) -> Result<Object, RuntimeResult> {
     match o {
         Object::String(_) => {}
         Object::Array(_) => {}
@@ -129,7 +144,12 @@ pub fn make_iter(o: Object) -> Result<Object, String> {
         // If the object is already an iterable, return that same object.
         Object::Iterable(_) => return Ok(o),
         // Object cannot be iterable.
-        _ => return Err(format!("Cannot create iterable from '{}'.", o.type_name())),
+        _ => {
+            return Err(RuntimeResult::Error {
+                error: RuntimeErrorType::TypeError,
+                message: format!("Cannot create iterable from '{}'.", o.type_name()),
+            })
+        }
     };
 
     return Ok(Object::Iterable(Rc::new(RefCell::new(IterObject {
@@ -140,27 +160,32 @@ pub fn make_iter(o: Object) -> Result<Object, String> {
 
 /// Implements the `next(...)` native function for Hinton, which
 /// retrieves the next item in an iterable object.
-fn native_next(args: Vec<Object>) -> Result<Object, String> {
+fn native_next(args: Vec<Object>) -> Result<Object, RuntimeResult> {
     match args[0].borrow() {
         Object::Iterable(iter) => get_next_in_iter(iter),
-        _ => Err(format!(
-            "Object of type '{}' is not iterable.",
-            args[0].type_name()
-        )),
+        _ => Err(RuntimeResult::Error {
+            error: RuntimeErrorType::TypeError,
+            message: format!("Object of type '{}' is not iterable.", args[0].type_name()),
+        }),
     }
 }
 
 /// Gets the next item in a Hinton iterator.
-pub fn get_next_in_iter(o: &Rc<RefCell<IterObject>>) -> Result<Object, String> {
+pub fn get_next_in_iter(o: &Rc<RefCell<IterObject>>) -> Result<Object, RuntimeResult> {
     let mut iter = o.borrow_mut();
     let current_index = Object::Int(iter.index as i64);
 
     // Since we are passing an integer into the `Object.get(...)` method,
     // the only error that can occur is an `IndexOutOfBounds` error, which
     // in terms of iterators means there are no more items left to iterate.
-    let obj = match iter.iter.get(&current_index) {
+    let obj = match iter.iter.get_at_index(&current_index) {
         Ok(o) => o,
-        Err(_) => return Err(String::from("End of Iterator.")),
+        Err(_) => {
+            return Err(RuntimeResult::Error {
+                error: RuntimeErrorType::StopIteration,
+                message: String::from("End of Iterator."),
+            })
+        }
     };
 
     // Increment to the next position of the iterator.
@@ -186,7 +211,7 @@ pub fn iter_has_next(o: &Rc<RefCell<IterObject>>) -> bool {
 
 /// Implements the `input(...)` native function for Hinton, which
 /// gets user input from the console.
-fn native_input(args: Vec<Object>) -> Result<Object, String> {
+fn native_input(args: Vec<Object>) -> Result<Object, RuntimeResult> {
     print!("{}", args[0]);
 
     // Print the programmer-provided message
@@ -199,9 +224,15 @@ fn native_input(args: Vec<Object>) -> Result<Object, String> {
                     input.pop(); // remove added newline
                     Ok(Object::String(input))
                 }
-                Err(e) => Err(format!("Failed to read input. IO failed read line. {}", e)),
+                Err(e) => Err(RuntimeResult::Error {
+                    error: RuntimeErrorType::Internal,
+                    message: format!("Failed to read input. IO failed read line. {}", e),
+                }),
             }
         }
-        Err(e) => Err(format!("Failed to read input. IO failed to flush. {}", e)),
+        Err(e) => Err(RuntimeResult::Error {
+            error: RuntimeErrorType::Internal,
+            message: format!("Failed to read input. IO failed flush. {}", e),
+        }),
     }
 }

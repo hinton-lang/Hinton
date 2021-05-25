@@ -8,8 +8,8 @@ use crate::{
 };
 
 // Submodules
-mod statements;
 mod expressions;
+mod statements;
 
 /// Represents Hinton's parser, which converts source text into
 /// an Abstract Syntax Tree representation of the program.

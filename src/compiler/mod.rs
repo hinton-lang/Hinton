@@ -9,9 +9,9 @@ use std::{convert::TryFrom, fmt, fmt::Display, str, vec};
 
 // Submodules
 mod expressions;
+mod functions;
 mod loops;
 mod statements;
-mod functions;
 
 /// Types of symbols available in Hinton.
 enum SymbolType {

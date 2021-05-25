@@ -1,12 +1,8 @@
-use super::VirtualMachine;
-use super::{CallFrame, InterpretResult};
+use super::{CallFrame, RuntimeErrorType, RuntimeResult, VirtualMachine};
 use crate::{
     chunk::OpCode,
     natives::{get_next_in_iter, iter_has_next, make_iter},
-    objects::RangeObject,
-};
-use crate::{
-    objects::{FunctionObject, Object},
+    objects::{FunctionObject, Object, RangeObject},
     FRAMES_MAX,
 };
 
@@ -17,7 +13,7 @@ impl<'a> VirtualMachine {
     ///
     /// ## Returns
     /// `InterpretResult` – The result of the execution.
-    pub(crate) fn run(&mut self) -> InterpretResult {
+    pub(crate) fn run(&mut self) -> RuntimeResult {
         while let Some(instruction) = self.get_next_op_code() {
             match instruction {
                 OpCode::PopStack1 => {
@@ -74,10 +70,7 @@ impl<'a> VirtualMachine {
 
                     match make_iter(tos) {
                         Ok(iter) => self.push_stack(iter),
-                        Err(e) => {
-                            self.report_runtime_error(&e);
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e,
                     }
                 }
 
@@ -152,12 +145,9 @@ impl<'a> VirtualMachine {
                     let index = self.pop_stack();
                     let target = self.pop_stack();
 
-                    match target.get(&index) {
+                    match target.get_at_index(&index) {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -190,10 +180,7 @@ impl<'a> VirtualMachine {
 
                 OpCode::Negate => match -self.pop_stack() {
                     Ok(r) => self.push_stack(r),
-                    Err(e) => {
-                        self.report_runtime_error(e.as_str());
-                        return InterpretResult::RuntimeError;
-                    }
+                    Err(e) => return e.to_runtime_error(),
                 },
 
                 OpCode::Add => {
@@ -202,10 +189,7 @@ impl<'a> VirtualMachine {
 
                     match val1 + val2 {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -215,10 +199,7 @@ impl<'a> VirtualMachine {
 
                     match val1 - val2 {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -228,10 +209,7 @@ impl<'a> VirtualMachine {
 
                     match val1 * val2 {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -241,10 +219,7 @@ impl<'a> VirtualMachine {
 
                     match val1 / val2 {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -254,10 +229,7 @@ impl<'a> VirtualMachine {
 
                     match val1 % val2 {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -267,10 +239,7 @@ impl<'a> VirtualMachine {
 
                     match val1.pow(val2) {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -297,10 +266,7 @@ impl<'a> VirtualMachine {
 
                     match val1.lt(val2) {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -310,10 +276,7 @@ impl<'a> VirtualMachine {
 
                     match val1.lteq(val2) {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -323,10 +286,7 @@ impl<'a> VirtualMachine {
 
                     match val1.gt(val2) {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -336,10 +296,7 @@ impl<'a> VirtualMachine {
 
                     match val1.gteq(val2) {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -349,10 +306,7 @@ impl<'a> VirtualMachine {
 
                     match left | right {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -362,10 +316,7 @@ impl<'a> VirtualMachine {
 
                     match left ^ right {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -375,19 +326,13 @@ impl<'a> VirtualMachine {
 
                     match left & right {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
                 OpCode::BitwiseNot => match !self.pop_stack() {
                     Ok(r) => self.push_stack(r),
-                    Err(e) => {
-                        self.report_runtime_error(e.as_str());
-                        return InterpretResult::RuntimeError;
-                    }
+                    Err(e) => return e.to_runtime_error(),
                 },
 
                 OpCode::BitwiseShiftLeft => {
@@ -396,10 +341,7 @@ impl<'a> VirtualMachine {
 
                     match left << right {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -409,10 +351,7 @@ impl<'a> VirtualMachine {
 
                     match left >> right {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -420,12 +359,18 @@ impl<'a> VirtualMachine {
                     let right = self.pop_stack();
                     let left = self.pop_stack();
 
-                    if self.check_integer_operands(&left, &right, "..") {
-                        let a = left.as_int().unwrap();
-                        let b = right.as_int().unwrap();
-                        self.push_stack(Object::Range(RangeObject { min: a, max: b }));
-                    } else {
-                        return InterpretResult::RuntimeError;
+                    match self.check_integer_operands(&left, &right, "..") {
+                        Ok(_) => {
+                            let a = left.as_int().unwrap();
+                            let b = right.as_int().unwrap();
+                            self.push_stack(Object::Range(RangeObject { min: a, max: b }));
+                        }
+                        Err(e) => {
+                            return RuntimeResult::Error {
+                                error: RuntimeErrorType::TypeError,
+                                message: e,
+                            }
+                        }
                     }
                 }
 
@@ -491,16 +436,17 @@ impl<'a> VirtualMachine {
                     let name = match self.pop_stack() {
                         Object::String(x) => x,
                         _ => {
-                            self.report_runtime_error("Expected native function name.");
-                            return InterpretResult::RuntimeError;
+                            unreachable!("Expected a native function name on TOS.");
                         }
                     };
 
                     match self.natives.get_native_fn_object(&name) {
                         Ok(f) => self.push_stack(Object::NativeFunction(f)),
                         Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
+                            return RuntimeResult::Error {
+                                error: RuntimeErrorType::ReferenceError,
+                                message: e,
+                            }
                         }
                     }
                 }
@@ -513,9 +459,9 @@ impl<'a> VirtualMachine {
                         .clone();
 
                     match self.call_value(maybe_function, arg_count) {
-                        Ok(_) => {}
-                        Err(_) => {
-                            return InterpretResult::RuntimeError;
+                        RuntimeResult::Ok => {}
+                        RuntimeResult::Error { error, message } => {
+                            return RuntimeResult::Error { error, message }
                         }
                     }
                 }
@@ -534,7 +480,7 @@ impl<'a> VirtualMachine {
                         Object::Function(m) => {
                             m.defaults = defaults;
                         }
-                        _ => unreachable!("Expected a function object on stack top."),
+                        _ => unreachable!("Expected a function object on TOS."),
                     }
                 }
 
@@ -551,7 +497,7 @@ impl<'a> VirtualMachine {
                     self.frames.pop();
 
                     if self.frames.len() == 0 {
-                        return InterpretResult::Ok;
+                        return RuntimeResult::Ok;
                     }
 
                     self.push_stack(result);
@@ -565,28 +511,33 @@ impl<'a> VirtualMachine {
         // If the compiler reaches this point, that means there were no errors
         // to return (because errors are returned by the match rules), so we can
         // safely return an `INTERPRET_OK` result.
-        return InterpretResult::Ok;
+        return RuntimeResult::Ok;
     }
 
-    pub(super) fn call(&mut self, callee: FunctionObject, arg_count: u8) -> Result<(), ()> {
+    pub(super) fn call(&mut self, callee: FunctionObject, arg_count: u8) -> RuntimeResult {
         let max_arity = callee.max_arity;
         let min_arity = callee.min_arity;
 
         // Check that the correct number of arguments is passed to the function
         if arg_count < min_arity || arg_count > max_arity {
+            let msg;
+
             if min_arity == max_arity {
-                self.report_runtime_error(&format!(
+                msg = format!(
                     "Expected {} arguments but got {} instead.",
                     min_arity, arg_count
-                ))
+                );
             } else {
-                self.report_runtime_error(&format!(
+                msg = format!(
                     "Expected {} to {} arguments but got {} instead.",
                     min_arity, max_arity, arg_count
-                ))
-            }
+                );
+            };
 
-            return Err(());
+            return RuntimeResult::Error {
+                error: RuntimeErrorType::ArgumentError,
+                message: msg,
+            };
         }
 
         // Pushes the default values onto the stack
@@ -602,8 +553,10 @@ impl<'a> VirtualMachine {
 
         // Check we are not overflowing the stack of frames
         if self.frames.len() >= (FRAMES_MAX as usize) {
-            self.report_runtime_error("Stack overflow.");
-            return Err(());
+            return RuntimeResult::Error {
+                error: RuntimeErrorType::RecursionError,
+                message: String::from("Max recursion depth exceeded."),
+            };
         }
 
         self.frames.push(CallFrame {
@@ -612,7 +565,7 @@ impl<'a> VirtualMachine {
             base_pointer: self.stack.len() - (max_arity as usize) - 1,
         });
 
-        Ok(())
+        RuntimeResult::Ok
     }
 
     /// Prints the execution trace for the program. Useful for debugging the VM.
