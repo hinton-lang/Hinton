@@ -4,10 +4,12 @@ use std::time::Instant;
 use crate::{
     chunk::OpCode,
     compiler::Compiler,
+    errors::{report_errors_list, report_runtime_error, RuntimeErrorType},
     exec_time,
     natives::NativeFunctions,
     objects::{self, FunctionObject, Object},
     parser::Parser,
+    FRAMES_MAX,
 };
 use std::rc::Rc;
 
@@ -24,9 +26,9 @@ pub enum InterpretResult {
 
 /// Represents a single ongoing function call.
 pub struct CallFrame {
-    function: FunctionObject,
-    ip: usize,
-    base_pointer: usize,
+    pub function: FunctionObject,
+    pub ip: usize,
+    pub base_pointer: usize,
 }
 
 impl CallFrame {
@@ -53,34 +55,12 @@ impl CallFrame {
     }
 }
 
-pub struct ErrorReport {
-    pub column: usize,
-    pub lexeme_len: usize,
-    pub line: usize,
-    pub message: String,
-}
-
-pub struct ErrorList(pub Vec<ErrorReport>);
-
 /// Represents a virtual machine
 pub struct VirtualMachine {
     filepath: String,
     frames: Vec<CallFrame>,
     natives: NativeFunctions,
     stack: Vec<objects::Object>,
-}
-
-/// Represents the types of errors that can occur during
-/// execution of the compiled bytecode.
-pub enum RuntimeErrorType {
-    IndexError,
-    StopIteration,
-    Internal,
-    TypeError,
-    ZeroDivision,
-    ArgumentError,
-    RecursionError,
-    ReferenceError,
 }
 
 pub enum RuntimeResult {
@@ -112,7 +92,7 @@ impl VirtualMachine {
         let ast = match parsing.0 {
             Ok(x) => Rc::new(x),
             Err(e) => {
-                _self.report_errors_list(e, source);
+                report_errors_list(&_self.filepath, e, source);
                 return InterpretResult::ParseError;
             }
         };
@@ -123,14 +103,14 @@ impl VirtualMachine {
         let module = match compiling.0 {
             Ok(x) => x,
             Err(e) => {
-                _self.report_errors_list(e, source);
+                report_errors_list(&_self.filepath, e, source);
                 return InterpretResult::CompileError;
             }
         };
 
         // Executes the program
         _self.stack.push(Object::Function(module.clone()));
-        return match _self.call(module, 0) {
+        return match _self.call_fn(module, 0) {
             RuntimeResult::Ok => {
                 #[cfg(feature = "bench_time")]
                 let start = Instant::now();
@@ -152,20 +132,24 @@ impl VirtualMachine {
                 match runtime_result {
                     RuntimeResult::Ok => InterpretResult::Ok,
                     RuntimeResult::Error { error, message } => {
-                        _self.report_runtime_error(error, message, source);
+                        report_runtime_error(&_self, error, message, source);
                         InterpretResult::RuntimeError
                     }
                 }
             }
             RuntimeResult::Error { error, message } => {
-                _self.report_runtime_error(error, message, source);
+                report_runtime_error(&_self, error, message, source);
                 InterpretResult::RuntimeError
             }
         };
     }
 
-    fn current_frame(&self) -> &CallFrame {
+    pub fn current_frame(&self) -> &CallFrame {
         self.frames.last().unwrap()
+    }
+
+    pub fn frames_list(&self) -> &Vec<CallFrame> {
+        &self.frames
     }
 
     fn current_frame_mut(&mut self) -> &mut CallFrame {
@@ -212,7 +196,7 @@ impl VirtualMachine {
 
     fn call_value(&mut self, callee: Object, arg_count: u8) -> RuntimeResult {
         return match callee {
-            Object::Function(obj) => self.call(obj, arg_count),
+            Object::Function(obj) => self.call_fn(obj, arg_count),
             Object::NativeFunction(obj) => {
                 let mut args: Vec<Object> = vec![];
                 for _ in 0..arg_count {
@@ -239,163 +223,81 @@ impl VirtualMachine {
         };
     }
 
-    /// Throws a runtime error to the console
-    pub fn report_runtime_error(&self, error: RuntimeErrorType, message: String, source: &str) {
-        let source_lines: Vec<&str> = source.split("\n").collect();
+    pub(super) fn call_fn(&mut self, callee: FunctionObject, arg_count: u8) -> RuntimeResult {
+        let max_arity = callee.max_arity;
+        let min_arity = callee.min_arity;
 
-        let frame = self.current_frame();
-        let line = frame.function.chunk.get_line_info(frame.ip - 1).unwrap();
+        // Check that the correct number of arguments is passed to the function
+        if arg_count < min_arity || arg_count > max_arity {
+            let msg;
 
-        let error_name = match error {
-            RuntimeErrorType::IndexError => "IndexError",
-            RuntimeErrorType::StopIteration => "EndOfIterationError",
-            RuntimeErrorType::Internal => "InternalError",
-            RuntimeErrorType::TypeError => "TypeError",
-            RuntimeErrorType::ZeroDivision => "ZeroDivisionError",
-            RuntimeErrorType::ArgumentError => "ArgumentError",
-            RuntimeErrorType::RecursionError => "RecursionError",
-            RuntimeErrorType::ReferenceError => "ReferenceError",
-        };
-
-        eprintln!("\x1b[31;1m{}:\x1b[0m\x1b[1m {}\x1b[0m", error_name, message);
-
-        let src_line = source_lines.get(line.0 - 1).unwrap();
-        self.print_error_snippet(line.0, line.1, 1, src_line);
-
-        // Print stack trace
-        println!("Traceback (most recent call last):");
-        let mut prev_err = String::new();
-        let mut repeated_line_count = 0;
-        for (i, frame) in self.frames.iter().enumerate() {
-            let func = &frame.function;
-            let line = frame.function.chunk.get_line_info(frame.ip).unwrap();
-
-            let new_err;
-            if func.name.starts_with('<') {
-                new_err = format!("{:4}at [{}:{}] in {}", "", line.0, line.1, func.name);
+            if min_arity == max_arity {
+                msg = format!(
+                    "Expected {} arguments but got {} instead.",
+                    min_arity, arg_count
+                );
             } else {
-                new_err = format!("{:4}at [{}:{}] in '{}()'", "", line.0, line.1, func.name);
-            }
+                msg = format!(
+                    "Expected {} to {} arguments but got {} instead.",
+                    min_arity, max_arity, arg_count
+                );
+            };
 
-            if prev_err == new_err {
-                repeated_line_count += 1;
+            return RuntimeResult::Error {
+                error: RuntimeErrorType::ArgumentError,
+                message: msg,
+            };
+        }
 
-                if repeated_line_count < 3 {
-                    eprintln!("{}", new_err);
-                } else {
-                    if i == self.frames.len() - 1 {
-                        eprintln!(
-                            "{:7}\x1b[1mPrevious line repeated {} more times.\x1b[0m",
-                            "",
-                            repeated_line_count - 2
-                        );
-                    }
+        // Pushes the default values onto the stack
+        // if they were not passed into the func call
+        if arg_count != max_arity {
+            let missing_args = max_arity - arg_count;
 
-                    continue;
-                }
-            } else {
-                if repeated_line_count > 0 {
-                    eprintln!(
-                        "{:7}\x1b[1mPrevious line repeated {} more times.\x1b[0m",
-                        "",
-                        repeated_line_count - 2
-                    );
-                    repeated_line_count = 0;
-                }
-                eprintln!("{}", new_err);
-                prev_err = new_err;
+            for i in (max_arity - 1 - missing_args)..(max_arity - 1) {
+                let val = callee.defaults[i as usize].clone();
+                self.push_stack(val);
             }
         }
 
-        eprintln!("\nAborted execution due to previous errors.");
-    }
-
-    /// Reports an error list coming from the parser or compiler.
-    ///
-    /// ## Arguments
-    /// * `errors` – An `ErrorList` containing the errors.
-    /// * `source` – A reference to the source contents.
-    fn report_errors_list(&self, errors: ErrorList, source: &str) {
-        let source_lines: Vec<&str> = source.split("\n").collect();
-
-        for error in errors.0.iter() {
-            eprintln!("{}", error.message);
-            self.print_error_source(error.line, error.column, error.lexeme_len, &source_lines);
+        // Check we are not overflowing the stack of frames
+        if self.frames.len() >= (FRAMES_MAX as usize) {
+            return RuntimeResult::Error {
+                error: RuntimeErrorType::RecursionError,
+                message: String::from("Max recursion depth exceeded."),
+            };
         }
 
-        eprintln!("Aborted execution due to previous errors.");
+        self.frames.push(CallFrame {
+            function: callee,
+            ip: 0,
+            base_pointer: self.stack.len() - (max_arity as usize) - 1,
+        });
+
+        RuntimeResult::Ok
     }
 
-    /// Prints the filepath and a snippet of the source line associated with a parser or compiler error.
+    /// Prints the execution trace for the program. Useful for debugging the VM.
     ///
     /// ## Arguments
-    /// * `line_num` – The source line number of the error.
-    /// * `col` – The source column number of the error.
-    /// * `len` – The length of the token that produced the error.
-    /// * `lines` – A reference to a vector with the source lines.
-    fn print_error_source(&self, line_num: usize, col: usize, len: usize, lines: &Vec<&str>) {
-        let front_pad = (f64::log10(line_num as f64).floor() + 1f64) as usize;
-        let line = lines.get(line_num - 1).unwrap();
+    /// * `instr` – The current OpCode to be executed.
+    fn print_execution(&mut self, instr: OpCode) {
+        println!("\n==========================");
 
-        eprintln!(" {}---> File '{}'.", "-".repeat(front_pad), self.filepath);
-        self.print_error_snippet(line_num, col, len, line);
-    }
+        // Prints the next instruction to be executed
+        println!("OpCode:\t\x1b[36m{:?}\x1b[0m ", instr);
+        println!("Byte:\t{:#04X} ", instr as u8);
 
-    /// Prints a snippet of the source line associated with an error.
-    ///
-    /// ## Arguments
-    /// * `line_num` – The source line number of the error.
-    /// * `col` – The source column number of the error.
-    /// * `len` – The length of the token that produced the error.
-    /// * `src` – A reference to a the source error line.
-    fn print_error_snippet(&self, line_num: usize, col: usize, len: usize, src: &str) {
-        let front_pad = (f64::log10(line_num as f64).floor() + 1f64) as usize;
-        // +2 for one extra space at the front and one at the back
-        let whitespace_pad_size = " ".repeat(front_pad + 2);
+        // Prints the index of the current instruction
+        println!("IP:\t{:>04} ", self.current_frame().ip);
 
-        // Compute the line colum of the error with
-        // timed whitespaces from the source line.
-        let mut removed_whitespace = 0;
-        for c in src.chars() {
-            if c == ' ' {
-                removed_whitespace += 1;
-            } else {
-                break;
-            }
+        // Prints the current state of the values stack
+        print!("stack\t[");
+        for val in self.stack.iter() {
+            print!("{}; ", val);
         }
-        let col = col - removed_whitespace;
+        println!("]");
 
-        eprintln!("{}|", whitespace_pad_size);
-        eprint!(" {} | ", line_num);
-        eprintln!("{}", src.trim());
-        eprint!("{}|", whitespace_pad_size);
-        eprintln!(" {}\x1b[31;1m{}\x1b[0m\n", " ".repeat(col), "^".repeat(len));
-    }
-
-    /// Checks that both operands of a binary operand are numeric.
-    ///
-    /// ## Arguments
-    /// * `left` – The left operand.
-    /// * `right` – The right operand.
-    /// * `operator` – A string representation of the operator (for error reporting)
-    ///
-    /// ## Returns
-    /// `bool` – True if both operands are numeric, false otherwise.
-    pub fn check_integer_operands(
-        &self,
-        left: &Object,
-        right: &Object,
-        opr: &str,
-    ) -> Result<(), String> {
-        return if !left.is_int() || !right.is_int() {
-            Err(format!(
-                "Operation '{}' not defined for operands of type '{}' and '{}'.",
-                opr.to_string(),
-                left.type_name(),
-                right.type_name()
-            ))
-        } else {
-            Ok(())
-        };
+        print!("Output:\t");
     }
 }

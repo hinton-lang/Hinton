@@ -1,23 +1,35 @@
-use super::{Object, ObjectOperationError, ObjectOprErrType, RangeObject};
+use crate::errors::ObjectOprErrType;
+
+use super::{Object, RangeObject};
 
 impl Object {
     /// Defines the indexing operation of Hinton objects.
-    pub fn get_at_index(&self, index: &Object) -> Result<Object, ObjectOperationError> {
+    pub fn get_at_index(&self, index: &Object) -> Result<Object, ObjectOprErrType> {
         match self {
             Object::Array(arr) => index_array(arr, index),
             Object::Tuple(tup) => index_tuple(tup, index),
             Object::String(str) => index_string(str, index),
             Object::Range(range) => index_range(range, index),
             _ => {
-                return Err(ObjectOperationError(
-                    ObjectOprErrType::TypeError,
-                    format!("Cannot index object of type '{}'.", self.type_name()),
-                ))
+                return Err(ObjectOprErrType::TypeError(format!(
+                    "Cannot index object of type '{}'.",
+                    self.type_name()
+                )))
             }
         }
     }
 }
 
+/// Takes an i64 positive or negative integer and converts it into
+/// an object index. This allows indexing objects with negative integers.
+///
+/// ## Arguments
+/// * `x` – The positive or negative index.
+/// * `len` – The length of the object.
+///
+/// ## Returns
+/// * `Option<usize>` – Return Some(usize) if the index is within the bounds of the
+/// the object's length, or `None` otherwise.
 fn to_bounded_index(x: &i64, len: usize) -> Option<usize> {
     if x >= &0 && (*x as usize) < len {
         Some(*x as usize)
@@ -28,7 +40,18 @@ fn to_bounded_index(x: &i64, len: usize) -> Option<usize> {
     }
 }
 
-fn index_array(arr: &Vec<Object>, index: &Object) -> Result<Object, ObjectOperationError> {
+/// Get the ith object in a Hinton array.
+///
+/// ## Arguments
+/// * `arr` – A reference to the underlying `Vec<Object>` in a Hinton Array.
+/// * `index` – A Hinton object that will serve as the index of the array. \
+/// For example, this object could be a Hinton integer, or a Hinton range.
+///
+/// ## Returns
+/// * `Result<Object, ObjectOprErrType>` – Returns `Ok(Object)` with a Hinton Object \
+/// if the index is within bounds. Returns `Err(ObjectOprErrType)` if there was an \
+/// error while indexing the array.
+fn index_array(arr: &Vec<Object>, index: &Object) -> Result<Object, ObjectOprErrType> {
     match index {
         // Indexing type: Array[Int]
         Object::Int(idx) => {
@@ -50,22 +73,29 @@ fn index_array(arr: &Vec<Object>, index: &Object) -> Result<Object, ObjectOperat
             unimplemented!("Array indexing with ranges.")
         }
         _ => {
-            return Err(ObjectOperationError(
-                ObjectOprErrType::TypeError,
-                format!(
-                    "Array index must be an Int or a Range. Found '{}' instead.",
-                    index.type_name()
-                ),
-            ))
+            return Err(ObjectOprErrType::TypeError(format!(
+                "Array index must be an Int or a Range. Found '{}' instead.",
+                index.type_name()
+            )))
         }
     }
-    return Err(ObjectOperationError(
-        ObjectOprErrType::IndexError,
-        String::from("Array index out of bounds."),
-    ));
+    return Err(ObjectOprErrType::IndexError(String::from(
+        "Array index out of bounds.",
+    )));
 }
 
-fn index_tuple(tup: &Vec<Object>, index: &Object) -> Result<Object, ObjectOperationError> {
+/// Get the ith object in a Hinton tuple.
+///
+/// ## Arguments
+/// * `tup` – A reference to the underlying `Vec<Object>` in a Hinton tuple.
+/// * `index` – A Hinton object that will serve as the index of the tuple. \
+/// For example, this object could be a Hinton integer, or a Hinton range.
+///
+/// ## Returns
+/// * `Result<Object, ObjectOprErrType>` – Returns `Ok(Object)` with a Hinton Object \
+/// if the index is within bounds. Returns `Err(ObjectOprErrType)` if there was an \
+/// error while indexing the tuple.
+fn index_tuple(tup: &Vec<Object>, index: &Object) -> Result<Object, ObjectOprErrType> {
     match index {
         // Indexing type: Tuple[Int]
         Object::Int(idx) => {
@@ -88,23 +118,30 @@ fn index_tuple(tup: &Vec<Object>, index: &Object) -> Result<Object, ObjectOperat
             unimplemented!("Tuple indexing with ranges.")
         }
         _ => {
-            return Err(ObjectOperationError(
-                ObjectOprErrType::TypeError,
-                format!(
-                    "Tuple index must be an Int or a Range. Found '{}' instead.",
-                    index.type_name()
-                ),
-            ))
+            return Err(ObjectOprErrType::TypeError(format!(
+                "Tuple index must be an Int or a Range. Found '{}' instead.",
+                index.type_name()
+            )))
         }
     }
 
-    return Err(ObjectOperationError(
-        ObjectOprErrType::IndexError,
-        String::from("Tuple index out of bounds."),
-    ));
+    return Err(ObjectOprErrType::IndexError(String::from(
+        "Tuple index out of bounds.",
+    )));
 }
 
-fn index_string(str: &String, index: &Object) -> Result<Object, ObjectOperationError> {
+/// Get the ith character in a Hinton string.
+///
+/// ## Arguments
+/// * `str` – A reference to the underlying `String` in a Hinton string.
+/// * `index` – A Hinton object that will serve as the index of the string. \
+/// For example, this object could be a Hinton integer, or a Hinton range.
+///
+/// ## Returns
+/// * `Result<Object, ObjectOprErrType>` – Returns `Ok(Object)` with a Hinton Object \
+/// if the index is within bounds. Returns `Err(ObjectOprErrType)` if there was an \
+/// error while indexing the string.
+fn index_string(str: &String, index: &Object) -> Result<Object, ObjectOprErrType> {
     match index {
         // Indexing type: String[Int]
         Object::Int(idx) => {
@@ -130,23 +167,30 @@ fn index_string(str: &String, index: &Object) -> Result<Object, ObjectOperationE
             unimplemented!("String indexing with ranges.")
         }
         _ => {
-            return Err(ObjectOperationError(
-                ObjectOprErrType::TypeError,
-                format!(
-                    "String index must be an Int or a Range. Found '{}' instead.",
-                    index.type_name()
-                ),
-            ))
+            return Err(ObjectOprErrType::TypeError(format!(
+                "String index must be an Int or a Range. Found '{}' instead.",
+                index.type_name()
+            )))
         }
     }
 
-    return Err(ObjectOperationError(
-        ObjectOprErrType::IndexError,
-        String::from("String index out of bounds."),
-    ));
+    return Err(ObjectOprErrType::IndexError(String::from(
+        "String index out of bounds.",
+    )));
 }
 
-fn index_range(range: &RangeObject, index: &Object) -> Result<Object, ObjectOperationError> {
+/// Get the ith object in a Hinton range.
+///
+/// ## Arguments
+/// * `range` – A reference to the underlying `RangeObject` in a Hinton range.
+/// * `index` – A Hinton object that will serve as the index of the range. \
+/// For example, this object could be a Hinton integer, or a Hinton range.
+///
+/// ## Returns
+/// * `Result<Object, ObjectOprErrType>` – Returns `Ok(Object)` with a Hinton Object \
+/// if the index is within bounds. Returns `Err(ObjectOprErrType)` if there was an \
+/// error while indexing the range.
+fn index_range(range: &RangeObject, index: &Object) -> Result<Object, ObjectOprErrType> {
     match index {
         // Indexing type: Range[Int]
         Object::Int(idx) => {
@@ -180,18 +224,14 @@ fn index_range(range: &RangeObject, index: &Object) -> Result<Object, ObjectOper
             unimplemented!("Range indexing with ranges.")
         }
         _ => {
-            return Err(ObjectOperationError(
-                ObjectOprErrType::TypeError,
-                format!(
-                    "Range index must be an Int or a Range. Found '{}' instead.",
-                    index.type_name()
-                ),
-            ))
+            return Err(ObjectOprErrType::TypeError(format!(
+                "Range index must be an Int or a Range. Found '{}' instead.",
+                index.type_name()
+            )))
         }
     }
 
-    return Err(ObjectOperationError(
-        ObjectOprErrType::IndexError,
-        String::from("Range index out of bounds."),
-    ));
+    return Err(ObjectOprErrType::IndexError(String::from(
+        "Range index out of bounds.",
+    )));
 }

@@ -1,9 +1,6 @@
 use crate::{
-    ast::*,
-    chunk,
-    lexer::tokens::Token,
+    ast::*, chunk, errors::CompilerErrorType, errors::ErrorReport, lexer::tokens::Token,
     objects::FunctionObject,
-    virtual_machine::{ErrorList, ErrorReport},
 };
 use std::{convert::TryFrom, fmt, fmt::Display, str, vec};
 
@@ -82,23 +79,13 @@ pub struct Compiler {
     breaks: Vec<BreakScope>,
     // Native functions
     natives: Vec<String>,
-    errors: ErrorList,
+    errors: Vec<ErrorReport>,
 }
 
 /// Types of compilers we can create
 enum CompilerType {
     Function,
     Script,
-}
-
-/// Represents the types of errors that can occur during compilation
-/// of the abstract syntax tree into bytecode.
-enum CompilerError {
-    MaxCapacity,
-    Reassignment,
-    Reference,
-    Syntax,
-    Duplication,
 }
 
 impl Compiler {
@@ -118,7 +105,7 @@ impl Compiler {
         filepath: &str,
         natives: Vec<String>,
         program: &ASTNode,
-    ) -> Result<FunctionObject, ErrorList> {
+    ) -> Result<FunctionObject, Vec<ErrorReport>> {
         let base_fn = FunctionObject {
             defaults: vec![],
             min_arity: 0,
@@ -145,7 +132,7 @@ impl Compiler {
             breaks: vec![],
             natives,
             filepath: String::from(filepath),
-            errors: ErrorList(vec![]),
+            errors: vec![],
         };
 
         // Compile the function body
@@ -153,7 +140,7 @@ impl Compiler {
         // ends the compiler.
         _self.end_compiler();
 
-        if _self.errors.0.len() == 0 {
+        if _self.errors.len() == 0 {
             Ok(_self.function)
         } else {
             return Err(_self.errors);
@@ -174,7 +161,7 @@ impl Compiler {
         filepath: String,
         natives: Vec<String>,
         func: &FunctionDeclNode,
-    ) -> Result<FunctionObject, ErrorList> {
+    ) -> Result<FunctionObject, Vec<ErrorReport>> {
         let base_fn = FunctionObject {
             defaults: vec![],
             min_arity: func.min_arity,
@@ -201,7 +188,7 @@ impl Compiler {
             breaks: vec![],
             natives,
             filepath,
-            errors: ErrorList(vec![]),
+            errors: vec![],
         };
 
         // compiles the parameter declarations so that the compiler
@@ -213,7 +200,7 @@ impl Compiler {
         // ends the compiler.
         _self.end_compiler();
 
-        if _self.errors.0.len() == 0 {
+        if _self.errors.len() == 0 {
             Ok(_self.function)
         } else {
             return Err(_self.errors);
@@ -351,7 +338,7 @@ impl Compiler {
             Err(_) => {
                 return self.error_at_token(
                     token,
-                    CompilerError::MaxCapacity,
+                    CompilerErrorType::MaxCapacity,
                     "Too much code to jump over.",
                 );
             }
@@ -382,7 +369,11 @@ impl Compiler {
             let jump = (offset + 3) as u16;
             self.emit_short(jump, (token.line_num, token.column_num));
         } else {
-            return self.error_at_token(token, CompilerError::MaxCapacity, "Loop body too large.");
+            return self.error_at_token(
+                token,
+                CompilerErrorType::MaxCapacity,
+                "Loop body too large.",
+            );
         }
     }
 
@@ -391,13 +382,13 @@ impl Compiler {
     /// ## Arguments
     /// *  `tok` – The token that caused the error.
     /// * `message` – The error message to display.
-    fn error_at_token(&mut self, token: &Token, err_type: CompilerError, message: &str) {
+    fn error_at_token(&mut self, token: &Token, err_type: CompilerErrorType, message: &str) {
         let err_name = match err_type {
-            CompilerError::MaxCapacity => "MaxCapacityError",
-            CompilerError::Reassignment => "ReassignmentError",
-            CompilerError::Reference => "ReferenceError",
-            CompilerError::Syntax => "SyntaxError",
-            CompilerError::Duplication => "DuplicationError",
+            CompilerErrorType::MaxCapacity => "MaxCapacityError",
+            CompilerErrorType::Reassignment => "ReassignmentError",
+            CompilerErrorType::Reference => "ReferenceError",
+            CompilerErrorType::Syntax => "SyntaxError",
+            CompilerErrorType::Duplication => "DuplicationError",
         };
 
         let msg = format!(
@@ -405,7 +396,7 @@ impl Compiler {
             err_name, token.line_num, token.column_num, message
         );
 
-        self.errors.0.push(ErrorReport {
+        self.errors.push(ErrorReport {
             line: token.line_num,
             column: token.column_num,
             lexeme_len: token.lexeme.len(),

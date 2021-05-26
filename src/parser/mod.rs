@@ -1,10 +1,10 @@
 use crate::{
     ast::*,
+    errors::ErrorReport,
     lexer::{
         tokens::{Token, TokenType, TokenType::*},
         Lexer,
     },
-    virtual_machine::{ErrorList, ErrorReport},
 };
 
 // Submodules
@@ -18,7 +18,7 @@ pub struct Parser {
     previous: Token,
     current: Token,
     is_in_panic: bool,
-    errors: ErrorList,
+    errors: Vec<ErrorReport>,
 }
 
 impl<'a> Parser {
@@ -29,7 +29,7 @@ impl<'a> Parser {
     ///
     /// ## Returns
     /// `Vec<ASTNode>` – A list of nodes in the AST
-    pub fn parse(src: &'a str) -> Result<ASTNode, ErrorList> {
+    pub fn parse(src: &'a str) -> Result<ASTNode, Vec<ErrorReport>> {
         // Initialize the compiler
         let mut parser = Parser {
             lexer: Lexer::lex(src),
@@ -46,7 +46,7 @@ impl<'a> Parser {
                 lexeme: String::from(""),
             },
             is_in_panic: false,
-            errors: ErrorList(vec![]),
+            errors: vec![],
         };
 
         let mut program = ModuleNode { body: vec![] };
@@ -64,7 +64,7 @@ impl<'a> Parser {
             }
         }
 
-        return if parser.errors.0.len() > 0 {
+        return if parser.errors.len() > 0 {
             Err(parser.errors)
         } else {
             Ok(ASTNode::Module(program))
@@ -188,7 +188,7 @@ impl<'a> Parser {
         );
 
         // Push the error to the list
-        self.errors.0.push(ErrorReport {
+        self.errors.push(ErrorReport {
             line: tok.line_num,
             column: tok.column_num,
             lexeme_len: tok.lexeme.len(),

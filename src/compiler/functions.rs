@@ -1,4 +1,4 @@
-use super::{Compiler, CompilerError, CompilerType, SymbolType};
+use super::{Compiler, CompilerErrorType, CompilerType, SymbolType};
 use crate::{ast::*, chunk::OpCode, objects::Object};
 use std::borrow::BorrowMut;
 
@@ -13,7 +13,7 @@ impl Compiler {
                 ) {
                     Ok(func) => func,
                     Err(mut e) => {
-                        self.errors.0.append(e.0.borrow_mut());
+                        self.errors.append(e.borrow_mut());
 
                         // If there is an error in the body of the function, then
                         // the program will not run, but we still try to compile
@@ -97,7 +97,7 @@ impl Compiler {
         if let CompilerType::Script = self.compiler_type {
             self.error_at_token(
                 &stmt.token,
-                CompilerError::Syntax,
+                CompilerErrorType::Syntax,
                 "Cannot return outside of function.",
             );
             return;

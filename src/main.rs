@@ -13,6 +13,7 @@ use std::{env, fs, time::Duration};
 mod ast;
 mod chunk;
 mod compiler;
+mod errors;
 mod lexer;
 mod natives;
 mod objects;

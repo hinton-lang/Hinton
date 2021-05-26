@@ -1,5 +1,5 @@
-use super::{Compiler, CompilerError, Symbol, SymbolType};
-use crate::{ast::*, chunk::OpCode, lexer::tokens::Token};
+use super::{Compiler, Symbol, SymbolType};
+use crate::{ast::*, chunk::OpCode, errors::CompilerErrorType, lexer::tokens::Token};
 use std::borrow::Borrow;
 
 impl Compiler {
@@ -86,12 +86,12 @@ impl Compiler {
                     | SymbolType::Class
                     | SymbolType::Enum => self.error_at_token(
                         &token,
-                        CompilerError::Duplication,
+                        CompilerErrorType::Duplication,
                         &format!("Duplicate definition for identifier '{}'", token.lexeme),
                     ),
                     SymbolType::Parameter => self.error_at_token(
                         &token,
-                        CompilerError::Duplication,
+                        CompilerErrorType::Duplication,
                         &format!("Duplicate definition for parameter '{}'", token.lexeme),
                     ),
                 }
@@ -134,7 +134,7 @@ impl Compiler {
         if self.symbol_table.len() >= (u16::MAX as usize) {
             self.error_at_token(
                 &token,
-                CompilerError::MaxCapacity,
+                CompilerErrorType::MaxCapacity,
                 "Too many variables in this scope.",
             );
             return Err(());
