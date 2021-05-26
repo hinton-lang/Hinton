@@ -1,8 +1,10 @@
-use super::{Object, ObjectOperationError, ObjectOprErrType};
+use crate::errors::ObjectOprErrType;
+
+use super::Object;
 
 /// Defines negation of Hinton objects.
 impl std::ops::Neg for Object {
-    type Output = Result<Object, ObjectOperationError>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn neg(self) -> Self::Output {
         match self {
@@ -11,10 +13,10 @@ impl std::ops::Neg for Object {
             Object::Bool(lhs) if lhs => Ok(Object::Int(-1)),
             Object::Bool(lhs) if !lhs => Ok(Object::Int(0)),
             _ => {
-                return Err(ObjectOperationError(
-                    ObjectOprErrType::TypeError,
-                    format!("Cannot negate operand of type '{}'.", self.type_name()),
-                ))
+                return Err(ObjectOprErrType::TypeError(format!(
+                    "Cannot negate operand of type '{}'.",
+                    self.type_name()
+                )))
             }
         }
     }
@@ -22,17 +24,14 @@ impl std::ops::Neg for Object {
 
 /// Defines addition of Hinton objects.
 impl std::ops::Add<Object> for Object {
-    type Output = Result<Object, ObjectOperationError>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn add(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '+' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '+' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -84,17 +83,14 @@ impl std::ops::Add<Object> for Object {
 
 /// Defines subtraction of Hinton objects.
 impl std::ops::Sub<Object> for Object {
-    type Output = Result<Object, ObjectOperationError>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn sub(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '-' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '-' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -128,17 +124,14 @@ impl std::ops::Sub<Object> for Object {
 
 /// Defines multiplication of Hinton objects.
 impl std::ops::Mul<Object> for Object {
-    type Output = Result<Object, ObjectOperationError>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn mul(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '*' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '*' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -177,27 +170,23 @@ impl std::ops::Mul<Object> for Object {
 
 /// Defines division of Hinton objects.
 impl std::ops::Div<Object> for Object {
-    type Output = Result<Object, ObjectOperationError>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn div(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '/' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '/' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         // Divide-by-zero errors
         if rhs.is_int() && rhs.as_int().unwrap() == 0
             || rhs.is_float() && rhs.as_float().unwrap() == 0f64
             || rhs.is_bool() && !rhs.as_bool().unwrap()
         {
-            return Err(ObjectOperationError(
-                ObjectOprErrType::ZeroDivisionError,
-                String::from("Cannot divide by zero."),
-            ));
+            return Err(ObjectOprErrType::ZeroDivisionError(String::from(
+                "Cannot divide by zero.",
+            )));
         }
 
         match self {
@@ -233,27 +222,23 @@ impl std::ops::Div<Object> for Object {
 
 /// Defines modulo of Hinton objects.
 impl std::ops::Rem<Object> for Object {
-    type Output = Result<Object, ObjectOperationError>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn rem(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '%' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '%' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         // zero-modulo errors
         if rhs.is_int() && rhs.as_int().unwrap() == 0
             || rhs.is_float() && rhs.as_float().unwrap() == 0f64
             || rhs.is_bool() && !rhs.as_bool().unwrap()
         {
-            return Err(ObjectOperationError(
-                ObjectOprErrType::ZeroDivisionError,
-                String::from("Right-hand-side of modulus cannot be zero."),
-            ));
+            return Err(ObjectOprErrType::ZeroDivisionError(String::from(
+                "Right-hand-side of modulus cannot be zero.",
+            )));
         }
 
         match self {
@@ -289,17 +274,14 @@ impl std::ops::Rem<Object> for Object {
 
 /// Defines the bitwise-and operation of Hinton objects.
 impl std::ops::BitAnd<Object> for Object {
-    type Output = Result<Object, ObjectOperationError>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn bitand(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '&' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '&' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -321,17 +303,14 @@ impl std::ops::BitAnd<Object> for Object {
 
 /// Defines the bitwise-or operation of Hinton objects.
 impl std::ops::BitOr<Object> for Object {
-    type Output = Result<Object, ObjectOperationError>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn bitor(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '|' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '|' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -353,17 +332,14 @@ impl std::ops::BitOr<Object> for Object {
 
 /// Defines the bitwise-xor operation of Hinton objects.
 impl std::ops::BitXor<Object> for Object {
-    type Output = Result<Object, ObjectOperationError>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn bitxor(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '^' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '^' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -385,17 +361,14 @@ impl std::ops::BitXor<Object> for Object {
 
 /// Defines the bitwise-shift-left operation of Hinton objects.
 impl std::ops::Shl<Object> for Object {
-    type Output = Result<Object, ObjectOperationError>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn shl(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '<<' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '<<' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -417,17 +390,14 @@ impl std::ops::Shl<Object> for Object {
 
 /// Defines the bitwise-shift-right operation of Hinton objects.
 impl std::ops::Shr<Object> for Object {
-    type Output = Result<Object, ObjectOperationError>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn shr(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '>>' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '>>' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -454,20 +424,17 @@ impl std::ops::Shr<Object> for Object {
 /// object only applies the bitwise-not operation. For the
 /// logic-not operation use the `Object.is_falsey()` method.
 impl std::ops::Not for Object {
-    type Output = Result<Object, ObjectOperationError>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn not(self) -> Self::Output {
         match self {
             Object::Int(opr) => Ok(Object::Int(!opr)),
             Object::Bool(opr) => Ok(Object::Int(!(opr as i64))),
             _ => {
-                return Err(ObjectOperationError(
-                    ObjectOprErrType::TypeError,
-                    format!(
-                        "Operation '~' not defined for object of type '{}'.",
-                        self.type_name()
-                    ),
-                ))
+                return Err(ObjectOprErrType::TypeError(format!(
+                    "Operation '~' not defined for object of type '{}'.",
+                    self.type_name()
+                )))
             }
         }
     }
@@ -475,15 +442,12 @@ impl std::ops::Not for Object {
 
 impl Object {
     /// Defines exponentiation of Hinton objects.
-    pub fn pow(self, rhs: Object) -> Result<Object, ObjectOperationError> {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '**' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+    pub fn pow(self, rhs: Object) -> Result<Object, ObjectOprErrType> {
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '**' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         match self {
             // TODO: These conversions seem error-prone...
@@ -519,15 +483,12 @@ impl Object {
     }
 
     /// Defines the greater-than operation of Hinton objects.
-    pub fn gt(self, rhs: Object) -> Result<Object, ObjectOperationError> {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '>' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+    pub fn gt(self, rhs: Object) -> Result<Object, ObjectOprErrType> {
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '>' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -553,15 +514,12 @@ impl Object {
     }
 
     /// Defines the greater-than-equals operation of Hinton objects.
-    pub fn gteq(self, rhs: Object) -> Result<Object, ObjectOperationError> {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '>=' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+    pub fn gteq(self, rhs: Object) -> Result<Object, ObjectOprErrType> {
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '>=' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -587,15 +545,12 @@ impl Object {
     }
 
     /// Defines the less-than operation of Hinton objects.
-    pub fn lt(self, rhs: Object) -> Result<Object, ObjectOperationError> {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '<' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+    pub fn lt(self, rhs: Object) -> Result<Object, ObjectOprErrType> {
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '<' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -621,15 +576,12 @@ impl Object {
     }
 
     /// Defines the less-than-equal operation of Hinton objects.
-    pub fn lteq(self, rhs: Object) -> Result<Object, ObjectOperationError> {
-        let error_msg = Err(ObjectOperationError(
-            ObjectOprErrType::TypeError,
-            format!(
-                "Operation '<=' not defined for objects of type '{}' and '{}'.",
-                self.type_name(),
-                rhs.type_name()
-            ),
-        ));
+    pub fn lteq(self, rhs: Object) -> Result<Object, ObjectOprErrType> {
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
+            "Operation '<=' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {

@@ -1,7 +1,7 @@
 use crate::{
     ast::{BreakStmtNode, ForStmtNode, WhileStmtNode},
     chunk::OpCode,
-    compiler::{CompilerError, Symbol, SymbolType},
+    compiler::{CompilerErrorType, Symbol, SymbolType},
     lexer::tokens::Token,
 };
 
@@ -116,7 +116,7 @@ impl Compiler {
             } else {
                 self.error_at_token(
                     &stmt.token,
-                    CompilerError::MaxCapacity,
+                    CompilerErrorType::MaxCapacity,
                     "Loop body too large.",
                 );
                 return;
@@ -160,7 +160,7 @@ impl Compiler {
         if self.loops.len() == 0 {
             self.error_at_token(
                 &stmt.token,
-                CompilerError::Syntax,
+                CompilerErrorType::Syntax,
                 "Cannot break outside of loop.",
             );
             return;

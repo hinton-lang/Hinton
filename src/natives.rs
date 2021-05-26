@@ -1,6 +1,7 @@
 use crate::{
+    errors::RuntimeErrorType,
     objects::{IterObject, NativeFunctionObj, Object},
-    virtual_machine::{RuntimeErrorType, RuntimeResult},
+    virtual_machine::RuntimeResult,
 };
 use std::{borrow::Borrow, cell::RefCell, collections::HashMap, io, rc::Rc, time::SystemTime};
 

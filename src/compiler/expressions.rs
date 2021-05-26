@@ -1,4 +1,4 @@
-use super::{Compiler, CompilerError, SymbolType};
+use super::{Compiler, CompilerErrorType, SymbolType};
 use crate::{ast::*, chunk::OpCode, lexer::tokens::Token, objects::Object};
 
 impl Compiler {
@@ -298,7 +298,7 @@ impl Compiler {
         } else {
             self.error_at_token(
                 &expr.token,
-                CompilerError::MaxCapacity,
+                CompilerErrorType::MaxCapacity,
                 "Too many values in the array.",
             );
         }
@@ -339,7 +339,7 @@ impl Compiler {
         } else {
             self.error_at_token(
                 &expr.token,
-                CompilerError::MaxCapacity,
+                CompilerErrorType::MaxCapacity,
                 "Too many values in the tuple.",
             );
         }
@@ -388,7 +388,7 @@ impl Compiler {
                     match symbol.symbol_type {
                         SymbolType::Variable => self.error_at_token(
                             &token,
-                            CompilerError::Reference,
+                            CompilerErrorType::Reference,
                             &format!(
                                 "Cannot reference variable '{}' before it has been defined.",
                                 token.lexeme
@@ -396,7 +396,7 @@ impl Compiler {
                         ),
                         SymbolType::Constant => self.error_at_token(
                             &token,
-                            CompilerError::Reference,
+                            CompilerErrorType::Reference,
                             &format!(
                                 "Cannot reference constant '{}' before it has been defined. ",
                                 token.lexeme
@@ -404,7 +404,7 @@ impl Compiler {
                         ),
                         SymbolType::Function => self.error_at_token(
                             &token,
-                            CompilerError::Reference,
+                            CompilerErrorType::Reference,
                             &format!(
                                 "Cannot reference function '{}' before it has been defined.",
                                 token.lexeme
@@ -424,7 +424,7 @@ impl Compiler {
                         SymbolType::Constant => {
                             self.error_at_token(
                                 token,
-                                CompilerError::Reassignment,
+                                CompilerErrorType::Reassignment,
                                 "Constants are immutable.",
                             );
                             return None;
@@ -432,7 +432,7 @@ impl Compiler {
                         SymbolType::Function => {
                             self.error_at_token(
                                 token,
-                                CompilerError::Reassignment,
+                                CompilerErrorType::Reassignment,
                                 "Functions are immutable.",
                             );
                             return None;
@@ -440,7 +440,7 @@ impl Compiler {
                         SymbolType::Class => {
                             self.error_at_token(
                                 token,
-                                CompilerError::Reassignment,
+                                CompilerErrorType::Reassignment,
                                 "Classes are immutable.",
                             );
                             return None;
@@ -448,7 +448,7 @@ impl Compiler {
                         SymbolType::Enum => {
                             self.error_at_token(
                                 token,
-                                CompilerError::Reassignment,
+                                CompilerErrorType::Reassignment,
                                 "Enums are immutable.",
                             );
                             return None;
@@ -468,7 +468,7 @@ impl Compiler {
             if for_reassign {
                 self.error_at_token(
                     token,
-                    CompilerError::Reassignment,
+                    CompilerErrorType::Reassignment,
                     &format!("Cannot modify native function '{}'.", token.lexeme),
                 );
             } else {
@@ -482,7 +482,7 @@ impl Compiler {
         // The symbol doesn't exist
         self.error_at_token(
             token,
-            CompilerError::Reference,
+            CompilerErrorType::Reference,
             &format!("Use of undeclared identifier '{}'.", token.lexeme),
         );
         None
@@ -510,7 +510,7 @@ impl Compiler {
             Err(_) => {
                 self.error_at_token(
                     token,
-                    CompilerError::MaxCapacity,
+                    CompilerErrorType::MaxCapacity,
                     "Too many constants in one chunk.",
                 );
             }

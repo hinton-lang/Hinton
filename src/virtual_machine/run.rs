@@ -1,9 +1,8 @@
-use super::{CallFrame, RuntimeErrorType, RuntimeResult, VirtualMachine};
+use super::{RuntimeErrorType, RuntimeResult, VirtualMachine};
 use crate::{
     chunk::OpCode,
     natives::{get_next_in_iter, iter_has_next, make_iter},
-    objects::{FunctionObject, Object, RangeObject},
-    FRAMES_MAX,
+    objects::{Object, RangeObject},
 };
 
 impl<'a> VirtualMachine {
@@ -359,18 +358,19 @@ impl<'a> VirtualMachine {
                     let right = self.pop_stack();
                     let left = self.pop_stack();
 
-                    match self.check_integer_operands(&left, &right, "..") {
-                        Ok(_) => {
-                            let a = left.as_int().unwrap();
-                            let b = right.as_int().unwrap();
-                            self.push_stack(Object::Range(RangeObject { min: a, max: b }));
-                        }
-                        Err(e) => {
-                            return RuntimeResult::Error {
-                                error: RuntimeErrorType::TypeError,
-                                message: e,
-                            }
-                        }
+                    if left.is_int() && right.is_int() {
+                        let a = left.as_int().unwrap();
+                        let b = right.as_int().unwrap();
+                        self.push_stack(Object::Range(RangeObject { min: a, max: b }));
+                    } else {
+                        return RuntimeResult::Error {
+                            error: RuntimeErrorType::TypeError,
+                            message: format!(
+                                "Operation '..' not defined for operands of type '{}' and '{}'.",
+                                left.type_name(),
+                                right.type_name()
+                            ),
+                        };
                     }
                 }
 
@@ -512,83 +512,5 @@ impl<'a> VirtualMachine {
         // to return (because errors are returned by the match rules), so we can
         // safely return an `INTERPRET_OK` result.
         return RuntimeResult::Ok;
-    }
-
-    pub(super) fn call(&mut self, callee: FunctionObject, arg_count: u8) -> RuntimeResult {
-        let max_arity = callee.max_arity;
-        let min_arity = callee.min_arity;
-
-        // Check that the correct number of arguments is passed to the function
-        if arg_count < min_arity || arg_count > max_arity {
-            let msg;
-
-            if min_arity == max_arity {
-                msg = format!(
-                    "Expected {} arguments but got {} instead.",
-                    min_arity, arg_count
-                );
-            } else {
-                msg = format!(
-                    "Expected {} to {} arguments but got {} instead.",
-                    min_arity, max_arity, arg_count
-                );
-            };
-
-            return RuntimeResult::Error {
-                error: RuntimeErrorType::ArgumentError,
-                message: msg,
-            };
-        }
-
-        // Pushes the default values onto the stack
-        // if they were not passed into the func call
-        if arg_count != max_arity {
-            let missing_args = max_arity - arg_count;
-
-            for i in (max_arity - 1 - missing_args)..(max_arity - 1) {
-                let val = callee.defaults[i as usize].clone();
-                self.push_stack(val);
-            }
-        }
-
-        // Check we are not overflowing the stack of frames
-        if self.frames.len() >= (FRAMES_MAX as usize) {
-            return RuntimeResult::Error {
-                error: RuntimeErrorType::RecursionError,
-                message: String::from("Max recursion depth exceeded."),
-            };
-        }
-
-        self.frames.push(CallFrame {
-            function: callee,
-            ip: 0,
-            base_pointer: self.stack.len() - (max_arity as usize) - 1,
-        });
-
-        RuntimeResult::Ok
-    }
-
-    /// Prints the execution trace for the program. Useful for debugging the VM.
-    ///
-    /// ## Arguments
-    /// * `instr` – The current OpCode to be executed.
-    fn print_execution(&mut self, instr: OpCode) {
-        println!("\n==========================");
-
-        // Prints the next instruction to be executed
-        println!("OpCode:\t\x1b[36m{:?}\x1b[0m ", instr);
-        println!("Byte:\t{:#04X} ", instr as u8);
-
-        // Prints the index of the current instruction
-        println!("IP:\t{:>04} ", self.current_frame().ip);
-
-        // Prints the current state of the values stack
-        print!("stack\t[");
-        for val in self.stack.iter() {
-            print!("{}; ", val);
-        }
-        println!("]");
-
-        print!("Output:\t");
     }
 }

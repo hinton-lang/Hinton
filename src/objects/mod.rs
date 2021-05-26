@@ -1,8 +1,4 @@
-use crate::{
-    chunk::Chunk,
-    natives::NativeFn,
-    virtual_machine::{RuntimeErrorType, RuntimeResult},
-};
+use crate::{chunk::Chunk, natives::NativeFn};
 use std::{cell::RefCell, fmt, rc::Rc};
 
 // Submodules
@@ -55,33 +51,6 @@ pub struct NativeFunctionObj {
     pub min_arity: u8,
     pub max_arity: u8,
     pub function: NativeFn,
-}
-
-pub enum ObjectOprErrType {
-    TypeError,
-    IndexError,
-    ZeroDivisionError,
-}
-
-pub struct ObjectOperationError(pub ObjectOprErrType, pub String);
-
-impl ObjectOperationError {
-    pub fn to_runtime_error(&self) -> RuntimeResult {
-        match self.0 {
-            ObjectOprErrType::TypeError => RuntimeResult::Error {
-                error: RuntimeErrorType::TypeError,
-                message: self.1.to_owned(),
-            },
-            ObjectOprErrType::IndexError => RuntimeResult::Error {
-                error: RuntimeErrorType::IndexError,
-                message: self.1.to_owned(),
-            },
-            ObjectOprErrType::ZeroDivisionError => RuntimeResult::Error {
-                error: RuntimeErrorType::ZeroDivision,
-                message: self.1.to_owned(),
-            },
-        }
-    }
 }
 
 impl Object {
