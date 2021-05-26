@@ -1,7 +1,7 @@
 use super::{RuntimeErrorType, RuntimeResult, VirtualMachine};
 use crate::{
     chunk::OpCode,
-    natives::{get_next_in_iter, iter_has_next, make_iter},
+    natives::{self, get_next_in_iter, iter_has_next, make_iter},
     objects::{Object, RangeObject},
 };
 
@@ -435,19 +435,12 @@ impl<'a> VirtualMachine {
                 OpCode::LoadNative => {
                     let name = match self.pop_stack() {
                         Object::String(x) => x,
-                        _ => {
-                            unreachable!("Expected a native function name on TOS.");
-                        }
+                        _ => unreachable!("Expected a native function name on TOS."),
                     };
 
-                    match self.natives.get_native_fn_object(&name) {
+                    match natives::get_native_fn(&name) {
                         Ok(f) => self.push_stack(Object::NativeFunction(f)),
-                        Err(e) => {
-                            return RuntimeResult::Error {
-                                error: RuntimeErrorType::ReferenceError,
-                                message: e,
-                            }
-                        }
+                        Err(e) => return e
                     }
                 }
 

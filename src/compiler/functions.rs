@@ -6,11 +6,7 @@ impl Compiler {
     pub(super) fn compile_function_decl(&mut self, decl: &FunctionDeclNode) {
         match self.declare_symbol(&decl.name, SymbolType::Function) {
             Ok(symbol_pos) => {
-                let comp = match Compiler::compile_function(
-                    self.filepath.clone(),
-                    self.natives.clone(),
-                    &decl,
-                ) {
+                let comp = match Compiler::compile_function(self.filepath.clone(), &decl) {
                     Ok(func) => func,
                     Err(mut e) => {
                         self.errors.append(e.borrow_mut());

@@ -1,5 +1,5 @@
 use super::{Compiler, CompilerErrorType, SymbolType};
-use crate::{ast::*, chunk::OpCode, lexer::tokens::Token, objects::Object};
+use crate::{ast::*, chunk::OpCode, lexer::tokens::Token, natives, objects::Object};
 
 impl Compiler {
     /// Compiles a literal expression.
@@ -464,7 +464,7 @@ impl Compiler {
         }
 
         // Look for the identifier in the natives
-        if self.natives.contains(&token.lexeme) {
+        if natives::check_is_native(&token.lexeme) {
             if for_reassign {
                 self.error_at_token(
                     token,

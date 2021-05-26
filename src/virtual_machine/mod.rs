@@ -5,8 +5,7 @@ use crate::{
     chunk::OpCode,
     compiler::Compiler,
     errors::{report_errors_list, report_runtime_error, RuntimeErrorType},
-    exec_time,
-    natives::NativeFunctions,
+    exec_time, natives,
     objects::{self, FunctionObject, Object},
     parser::Parser,
     FRAMES_MAX,
@@ -59,7 +58,6 @@ impl CallFrame {
 pub struct VirtualMachine {
     filepath: String,
     frames: Vec<CallFrame>,
-    natives: NativeFunctions,
     stack: Vec<objects::Object>,
 }
 
@@ -81,7 +79,6 @@ impl VirtualMachine {
         let mut _self = VirtualMachine {
             stack: Vec::with_capacity(256),
             frames: Vec::with_capacity(256),
-            natives: Default::default(),
             filepath: String::from(filepath),
         };
 
@@ -98,8 +95,7 @@ impl VirtualMachine {
         };
 
         // Compiles the program into bytecode and calculates the compiler's execution time
-        let compiling =
-            exec_time(|| Compiler::compile_file(filepath, _self.natives.names.clone(), &ast));
+        let compiling = exec_time(|| Compiler::compile_file(filepath, &ast));
         let module = match compiling.0 {
             Ok(x) => x,
             Err(e) => {
@@ -205,7 +201,7 @@ impl VirtualMachine {
                 }
                 args.reverse();
 
-                match self.natives.call_native(&obj.name, args) {
+                match natives::call_native(&obj.name, args) {
                     Ok(x) => {
                         // Pop the native function call off the stack
                         self.pop_stack();

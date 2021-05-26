@@ -77,8 +77,7 @@ pub struct Compiler {
     // patch the break (OP_JUMP) offsets.
     loops: Vec<LoopScope>,
     breaks: Vec<BreakScope>,
-    // Native functions
-    natives: Vec<String>,
+    // A list of errors generated when compiling the AST
     errors: Vec<ErrorReport>,
 }
 
@@ -103,7 +102,6 @@ impl Compiler {
     /// the main chunk for this module. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
     pub fn compile_file(
         filepath: &str,
-        natives: Vec<String>,
         program: &ASTNode,
     ) -> Result<FunctionObject, Vec<ErrorReport>> {
         let base_fn = FunctionObject {
@@ -130,7 +128,6 @@ impl Compiler {
             scope_depth: 0,
             loops: vec![],
             breaks: vec![],
-            natives,
             filepath: String::from(filepath),
             errors: vec![],
         };
@@ -159,7 +156,6 @@ impl Compiler {
     /// the main chunk for this module. Otherwise returns an InterpretResult::INTERPRET_COMPILE_ERROR.
     pub fn compile_function(
         filepath: String,
-        natives: Vec<String>,
         func: &FunctionDeclNode,
     ) -> Result<FunctionObject, Vec<ErrorReport>> {
         let base_fn = FunctionObject {
@@ -186,7 +182,6 @@ impl Compiler {
             scope_depth: 0,
             loops: vec![],
             breaks: vec![],
-            natives,
             filepath,
             errors: vec![],
         };
