@@ -96,7 +96,7 @@ impl Compiler {
         }
 
         // Declares the loop's identifier.
-        match self.declare_symbol(&stmt.id.token, SymbolType::Constant) {
+        match self.declare_symbol(&stmt.id.token, SymbolType::Variable) {
             Ok(symbol_pos) => self.symbol_table[symbol_pos].is_initialized = true,
             Err(_) => return,
         }
