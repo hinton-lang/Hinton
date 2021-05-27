@@ -1,5 +1,5 @@
 use super::{Compiler, Symbol, SymbolType};
-use crate::{ast::*, chunk::OpCode, errors::CompilerErrorType, lexer::tokens::Token};
+use crate::{ast::*, bytecode::OpCode, errors::CompilerErrorType, lexer::tokens::Token};
 use std::borrow::Borrow;
 
 impl Compiler {

@@ -1,4 +1,4 @@
-use crate::{chunk::Chunk, natives::NativeFn};
+use crate::{bytecode::Chunk, natives::NativeFn};
 use std::{cell::RefCell, fmt, rc::Rc};
 
 // Submodules
