@@ -1,6 +1,6 @@
 use super::{RuntimeErrorType, RuntimeResult, VirtualMachine};
 use crate::{
-    chunk::OpCode,
+    bytecode::OpCode,
     natives::{self, get_next_in_iter, iter_has_next, make_iter},
     objects::{Object, RangeObject},
 };

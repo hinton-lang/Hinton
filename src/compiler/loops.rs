@@ -1,6 +1,6 @@
 use crate::{
     ast::{BreakStmtNode, ForStmtNode, WhileStmtNode},
-    chunk::OpCode,
+    bytecode::OpCode,
     compiler::{CompilerErrorType, Symbol, SymbolType},
     lexer::tokens::Token,
 };

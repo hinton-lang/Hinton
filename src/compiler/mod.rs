@@ -1,5 +1,5 @@
 use crate::{
-    ast::*, chunk, errors::CompilerErrorType, errors::ErrorReport, lexer::tokens::Token,
+    ast::*, bytecode, errors::CompilerErrorType, errors::ErrorReport, lexer::tokens::Token,
     objects::FunctionObject,
 };
 use std::{convert::TryFrom, fmt, fmt::Display, str, vec};
@@ -112,7 +112,7 @@ impl Compiler {
             defaults: vec![],
             min_arity: 0,
             max_arity: 0,
-            chunk: chunk::Chunk::new(),
+            chunk: bytecode::Chunk::new(),
             name: format!("<File '{}'>", filepath),
         };
 
@@ -166,7 +166,7 @@ impl Compiler {
             defaults: vec![],
             min_arity: func.min_arity,
             max_arity: func.max_arity,
-            chunk: chunk::Chunk::new(),
+            chunk: bytecode::Chunk::new(),
             name: func.name.lexeme.clone(),
         };
 
@@ -208,8 +208,8 @@ impl Compiler {
 
     fn end_compiler(&mut self) {
         // TODO: Emit the correct position
-        self.emit_op_code(chunk::OpCode::LoadImmNull, (0, 0));
-        self.emit_op_code(chunk::OpCode::Return, (0, 0));
+        self.emit_op_code(bytecode::OpCode::LoadImmNull, (0, 0));
+        self.emit_op_code(bytecode::OpCode::Return, (0, 0));
 
         // The number of local symbols that need to be popped off the stack
         let num_of_symbols = self.symbol_table.len() - 1;
@@ -217,9 +217,9 @@ impl Compiler {
 
         // Shows the chunk.
         #[cfg(feature = "show_bytecode")]
-        chunk::disassemble_chunk(&self.function.chunk, self.function.name.as_str());
+        bytecode::disassemble_chunk(&self.function.chunk, self.function.name.as_str());
         #[cfg(feature = "show_raw_bytecode")]
-        chunk::print_raw(&self.function.chunk, self.function.name.as_str());
+        bytecode::print_raw(&self.function.chunk, self.function.name.as_str());
     }
 
     /// Compiles an AST node.
@@ -265,7 +265,7 @@ impl Compiler {
     ///
     /// ## Returns
     /// * `usize` – The position of the currently emitted OpCode in the chunk.
-    fn emit_op_code(&mut self, instr: chunk::OpCode, pos: (usize, usize)) -> usize {
+    fn emit_op_code(&mut self, instr: bytecode::OpCode, pos: (usize, usize)) -> usize {
         self.function.chunk.push_byte(instr as u8);
         self.function.chunk.push_line_info(pos.clone());
 
@@ -313,7 +313,7 @@ impl Compiler {
     /// `usize` – The position of the currently emitted jump instruction. This value
     /// should be used by the call to the `patch_jump(...)` function to patch the
     /// correct jump instruction's offset.
-    fn emit_jump(&mut self, instruction: chunk::OpCode, token: &Token) -> usize {
+    fn emit_jump(&mut self, instruction: bytecode::OpCode, token: &Token) -> usize {
         self.emit_op_code(instruction, (token.line_num, token.column_num));
         // We emit a temporary short representing the jump that will be
         // made by the vm during runtime
@@ -353,14 +353,17 @@ impl Compiler {
         let offset = self.function.chunk.len() - loop_start;
 
         if offset < (u8::MAX - 2) as usize {
-            self.emit_op_code(chunk::OpCode::LoopJump, (token.line_num, token.column_num));
+            self.emit_op_code(
+                bytecode::OpCode::LoopJump,
+                (token.line_num, token.column_num),
+            );
 
             // +2 to account for the 'OP_LOOP_JUMP' and its operand.
             let jump = (offset + 2) as u8;
             self.emit_raw_byte(jump, (token.line_num, token.column_num));
         } else if offset < (u16::MAX - 3) as usize {
             self.emit_op_code(
-                chunk::OpCode::LoopJumpLong,
+                bytecode::OpCode::LoopJumpLong,
                 (token.line_num, token.column_num),
             );
 

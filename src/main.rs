@@ -11,7 +11,7 @@ use std::{env, fs, time::Duration};
 
 // Declaring crate-level Modules
 mod ast;
-mod chunk;
+mod bytecode;
 mod compiler;
 mod errors;
 mod lexer;

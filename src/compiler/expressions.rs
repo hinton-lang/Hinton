@@ -1,5 +1,5 @@
 use super::{Compiler, CompilerErrorType, SymbolType};
-use crate::{ast::*, chunk::OpCode, lexer::tokens::Token, natives, objects::Object};
+use crate::{ast::*, bytecode::OpCode, lexer::tokens::Token, natives, objects::Object};
 
 impl Compiler {
     /// Compiles a literal expression.

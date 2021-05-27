@@ -1,5 +1,5 @@
 use super::{Compiler, CompilerErrorType, CompilerType, SymbolType};
-use crate::{ast::*, chunk::OpCode, objects::Object};
+use crate::{ast::*, bytecode::OpCode, objects::Object};
 use std::borrow::BorrowMut;
 
 impl Compiler {

@@ -2,7 +2,7 @@
 use std::time::Instant;
 
 use crate::{
-    chunk::OpCode,
+    bytecode::OpCode,
     compiler::Compiler,
     errors::{report_errors_list, report_runtime_error, RuntimeErrorType},
     exec_time, natives,
