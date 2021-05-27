@@ -51,7 +51,11 @@ struct BreakScope {
 /// break statements to know which loops to break.
 #[derive(Clone, Copy)]
 struct LoopScope {
+    /// The position of the loop's start in the chunk
     position: usize,
+    /// The scope depth of the body of the loop
+    scope_depth: usize,
+    /// The type of loop this represents
     loop_type: LoopType,
 }
 

@@ -440,7 +440,7 @@ impl<'a> VirtualMachine {
 
                     match natives::get_native_fn(&name) {
                         Ok(f) => self.push_stack(Object::NativeFunction(f)),
-                        Err(e) => return e
+                        Err(e) => return e,
                     }
                 }
 

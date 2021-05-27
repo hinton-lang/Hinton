@@ -25,6 +25,9 @@ impl Compiler {
         self.loops.push(LoopScope {
             position: loop_start,
             loop_type: super::LoopType::While,
+            // +1 because we don't start the actual scope until the loop
+            // body is being compiled, which occurs later in this function.
+            scope_depth: self.scope_depth + 1,
         });
 
         // Only compile the condition if it is not a truthy literal or equivalent.
@@ -58,6 +61,10 @@ impl Compiler {
         self.compile_node(&stmt.iterator);
         self.emit_op_code(OpCode::MakeIter, loop_line_info);
 
+        // Increment the scope so that the loop's identifier and iterator
+        // placeholder have their own scope.
+        self.scope_depth += 1;
+
         // Begin the loop
         self.emit_op_code(OpCode::ForLoopIterNext, loop_line_info);
         let loop_start = self.function.chunk.len() - 1;
@@ -65,11 +72,10 @@ impl Compiler {
         self.loops.push(LoopScope {
             position: loop_start,
             loop_type: super::LoopType::ForIn,
+            // +1 because we don't start the actual scope until the loop
+            // body is being compiled, which occurs later in this function.
+            scope_depth: self.scope_depth + 1,
         });
-
-        // Increment the scope so that the loop's identifier and iterator
-        // placeholder have their own scope.
-        self.scope_depth += 1;
 
         // Emits a placeholder symbol for the loop's iterator, which lives on
         // the stack until the end of the loop. The programmer will never be
@@ -180,7 +186,7 @@ impl Compiler {
                 .get(self.symbol_table.len() - i)
                 .unwrap()
                 .symbol_depth
-                >= self.scope_depth
+                >= current_loop.scope_depth
         {
             let idx = self.symbol_table.len() - i;
             let symbol = &self.symbol_table[idx];
