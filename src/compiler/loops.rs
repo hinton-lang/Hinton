@@ -93,17 +93,13 @@ impl Compiler {
                 is_global: false,
             },
         ) {
-            Ok(symbol_pos) => {
-                self.current_func_scope_mut().s_table.symbols[symbol_pos].is_initialized = true
-            }
+            Ok(symbol_pos) => self.current_func_scope_mut().s_table.symbols[symbol_pos].is_initialized = true,
             Err(_) => return,
         }
 
         // Declares the loop's identifier.
         match self.declare_symbol(&stmt.id.token, SymbolType::Variable) {
-            Ok(symbol_pos) => {
-                self.current_func_scope_mut().s_table.symbols[symbol_pos].is_initialized = true
-            }
+            Ok(symbol_pos) => self.current_func_scope_mut().s_table.symbols[symbol_pos].is_initialized = true,
             Err(_) => return,
         }
 

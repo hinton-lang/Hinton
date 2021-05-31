@@ -230,10 +230,7 @@ impl VirtualMachine {
             let msg;
 
             if min_arity == max_arity {
-                msg = format!(
-                    "Expected {} arguments but got {} instead.",
-                    min_arity, arg_count
-                );
+                msg = format!("Expected {} arguments but got {} instead.", min_arity, arg_count);
             } else {
                 msg = format!(
                     "Expected {} to {} arguments but got {} instead.",

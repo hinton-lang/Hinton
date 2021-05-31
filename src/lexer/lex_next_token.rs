@@ -57,19 +57,11 @@ impl<'a> Lexer {
                 self.make_token(tok)
             }
             ':' => {
-                let tok = if self.matches('=') {
-                    COLON_EQUALS
-                } else {
-                    COLON
-                };
+                let tok = if self.matches('=') { COLON_EQUALS } else { COLON };
                 self.make_token(tok)
             }
             '^' => {
-                let tok = if self.matches('=') {
-                    BIT_XOR_EQ
-                } else {
-                    BIT_XOR
-                };
+                let tok = if self.matches('=') { BIT_XOR_EQ } else { BIT_XOR };
                 self.make_token(tok)
             }
             '&' => {

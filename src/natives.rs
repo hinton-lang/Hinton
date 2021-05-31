@@ -74,10 +74,7 @@ pub fn call_native(name: &str, args: Vec<Object>) -> Result<Object, RuntimeResul
                 if f.min_arity == f.max_arity {
                     return Err(RuntimeResult::Error {
                         error: RuntimeErrorType::ArgumentError,
-                        message: format!(
-                            "Expected {} arguments but got {} instead.",
-                            f.min_arity, args_len
-                        ),
+                        message: format!("Expected {} arguments but got {} instead.", f.min_arity, args_len),
                     });
                 } else {
                     return Err(RuntimeResult::Error {

@@ -264,6 +264,7 @@ impl<'a> Chunk {
 /// ## Arguments
 ///
 /// * `name` – the name to print for the current chunk
+#[cfg(feature = "show_raw_bytecode")]
 pub fn print_raw(chunk: &Chunk, name: &str) {
     let mut i = 0;
 
@@ -292,6 +293,7 @@ pub fn print_raw(chunk: &Chunk, name: &str) {
 ///
 /// ## Arguments
 /// * `name` – the name to print for the current chunk
+#[cfg(feature = "show_bytecode")]
 pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
     // prints this chunk's name
     println!("==== {} ====", name);
@@ -343,11 +345,10 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
             // Gets the operand value
             let mut get_operand = |operand_count: usize| {
                 idx += operand_count;
-                if operand_count == 1 {
-                    operand_val = format!("{}", chunk.get_byte(idx - (operand_count - 1)).unwrap());
+                operand_val = if operand_count == 1 {
+                    format!("{}", chunk.get_byte(idx - (operand_count - 1)).unwrap())
                 } else {
-                    operand_val =
-                        format!("{}", chunk.get_short(idx - (operand_count - 1)).unwrap());
+                    format!("{}", chunk.get_short(idx - (operand_count - 1)).unwrap())
                 }
             };
 

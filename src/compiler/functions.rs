@@ -14,9 +14,7 @@ impl Compiler {
         match self.declare_symbol(&decl.name, SymbolType::Function) {
             Ok(parent_symbol_pos) => {
                 let func_pos = (decl.name.line_num, decl.name.column_num);
-
-                let prev_compiler_type =
-                    std::mem::replace(&mut self.compiler_type, CompilerType::Function);
+                let prev_compiler_type = std::mem::replace(&mut self.compiler_type, CompilerType::Function);
 
                 // The first element in a symbol table is always the symbol representing
                 // the function to which the symbol table belongs.
@@ -51,11 +49,7 @@ impl Compiler {
                 self.functions.push(new_function_scope);
 
                 // Add the function's name to the pool of the function
-                self.add_literal_to_pool(
-                    Object::String(decl.name.lexeme.clone()),
-                    &decl.name,
-                    false,
-                );
+                self.add_literal_to_pool(Object::String(decl.name.lexeme.clone()), &decl.name, false);
 
                 // compiles the parameter declarations so that the compiler
                 // knows about their their lexical scoping (their stack position),
@@ -92,8 +86,7 @@ impl Compiler {
                 } else {
                     // Marks the variables as initialized
                     // a.k.a, defines the variables
-                    self.current_func_scope_mut().s_table.symbols[parent_symbol_pos]
-                        .is_initialized = true;
+                    self.current_func_scope_mut().s_table.symbols[parent_symbol_pos].is_initialized = true;
                 }
             }
 
@@ -114,10 +107,7 @@ impl Compiler {
                 }
                 None => {
                     if param.is_optional {
-                        self.emit_op_code(
-                            OpCode::LoadImmNull,
-                            (param.name.line_num, param.name.column_num),
-                        );
+                        self.emit_op_code(OpCode::LoadImmNull, (param.name.line_num, param.name.column_num));
                     }
                 }
             }
@@ -125,10 +115,7 @@ impl Compiler {
 
         // Once all the named parameter expressions are compiled, we bind
         // each of the named parameters to the function
-        self.emit_op_code(
-            OpCode::BindDefaults,
-            (decl.name.line_num, decl.name.column_num),
-        );
+        self.emit_op_code(OpCode::BindDefaults, (decl.name.line_num, decl.name.column_num));
         self.emit_raw_byte(
             (decl.max_arity - decl.min_arity) as u8,
             (decl.name.line_num, decl.name.column_num),
@@ -161,23 +148,13 @@ impl Compiler {
         }
 
         match &stmt.value {
-            Some(v) => {
-                self.compile_node(v);
-            }
-            None => {
-                self.emit_op_code(
-                    OpCode::LoadImmNull,
-                    (stmt.token.line_num, stmt.token.column_num),
-                );
-            }
+            Some(v) => self.compile_node(v),
+            None => self.emit_op_code(OpCode::LoadImmNull, (stmt.token.line_num, stmt.token.column_num)),
         }
 
         self.emit_op_code(OpCode::Return, (stmt.token.line_num, stmt.token.column_num));
         // The number of local symbols that need to be popped off the stack
         let num_of_symbols = self.current_function_scope().s_table.len() - 1;
-        self.emit_raw_byte(
-            num_of_symbols as u8,
-            (stmt.token.line_num, stmt.token.column_num),
-        );
+        self.emit_raw_byte(num_of_symbols as u8, (stmt.token.line_num, stmt.token.column_num));
     }
 }

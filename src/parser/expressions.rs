@@ -438,7 +438,7 @@ impl<'a> Parser {
                     None => return None, // Could not create rhs of expression
                 },
                 opr_token: opr,
-                opr_type: opr_type,
+                opr_type,
             }));
         }
 
@@ -878,7 +878,9 @@ impl<'a> Parser {
             match self.parse_argument() {
                 Some(a) => {
                     if args.len() > 0 && !a.is_named && args.last().unwrap().is_named {
-                        self.error_at_previous("Optional and named parameters must be declared after all required parameters.");
+                        self.error_at_previous(
+                            "Optional and named parameters must be declared after all required parameters.",
+                        );
                         return None;
                     }
 

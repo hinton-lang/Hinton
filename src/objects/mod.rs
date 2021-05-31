@@ -319,11 +319,13 @@ impl<'a> fmt::Display for Object {
 
                 write!(f, "{}", arr_str)
             }
-            Object::Range(ref inner) => write!(
-                f,
-                "[\x1b[38;5;81m{}\x1b[0m..\x1b[38;5;81m{}\x1b[0m]",
-                inner.min, inner.max
-            ),
+            Object::Range(ref inner) => {
+                write!(
+                    f,
+                    "[\x1b[38;5;81m{}\x1b[0m..\x1b[38;5;81m{}\x1b[0m]",
+                    inner.min, inner.max
+                )
+            }
             Object::Iter(ref inner) => {
                 let str = format!("<Iterable '{}'>", inner.borrow_mut().iter.type_name());
                 fmt::Display::fmt(&str, f)

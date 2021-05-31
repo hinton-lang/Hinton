@@ -291,9 +291,7 @@ impl std::ops::BitAnd<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } & rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(
-                    if lhs { 1 } else { 0 } & if rhs { 1 } else { 0 },
-                )),
+                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } & if rhs { 1 } else { 0 })),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -320,9 +318,7 @@ impl std::ops::BitOr<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } | rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(
-                    if lhs { 1 } else { 0 } | if rhs { 1 } else { 0 },
-                )),
+                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } | if rhs { 1 } else { 0 })),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -349,9 +345,7 @@ impl std::ops::BitXor<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } ^ rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(
-                    if lhs { 1 } else { 0 } ^ if rhs { 1 } else { 0 },
-                )),
+                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } ^ if rhs { 1 } else { 0 })),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -378,9 +372,7 @@ impl std::ops::Shl<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } << rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(
-                    if lhs { 1 } else { 0 } << if rhs { 1 } else { 0 },
-                )),
+                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } << if rhs { 1 } else { 0 })),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -407,9 +399,7 @@ impl std::ops::Shr<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } >> rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(
-                    if lhs { 1 } else { 0 } >> if rhs { 1 } else { 0 },
-                )),
+                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } >> if rhs { 1 } else { 0 })),
                 _ => return error_msg,
             },
             _ => return error_msg,

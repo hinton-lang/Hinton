@@ -1,7 +1,5 @@
 use super::{symbols::Symbol, Compiler, CompilerErrorType};
-use crate::{
-    ast::*, bytecode::OpCode, compiler::symbols::SymbolLoc, lexer::tokens::Token, objects::Object,
-};
+use crate::{ast::*, bytecode::OpCode, compiler::symbols::SymbolLoc, lexer::tokens::Token, objects::Object};
 
 impl Compiler {
     /// Compiles a literal expression.
@@ -13,27 +11,15 @@ impl Compiler {
         let opr_pos = (expr.token.line_num, expr.token.column_num);
 
         match obj {
-            Object::Bool(x) if x => {
-                self.emit_op_code(OpCode::LoadImmTrue, opr_pos);
-            }
-            Object::Bool(x) if !x => {
-                self.emit_op_code(OpCode::LoadImmFalse, opr_pos);
-            }
-            Object::Null => {
-                self.emit_op_code(OpCode::LoadImmNull, opr_pos);
-            }
-            Object::Int(x) if x == 0i64 => {
-                self.emit_op_code(OpCode::LoadImm0I, opr_pos);
-            }
-            Object::Int(x) if x == 1i64 => {
-                self.emit_op_code(OpCode::LoadImm1I, opr_pos);
-            }
-            Object::Float(x) if x == 0f64 => {
-                self.emit_op_code(OpCode::LoadImm0F, opr_pos);
-            }
-            Object::Float(x) if x == 1f64 => {
-                self.emit_op_code(OpCode::LoadImm1F, opr_pos);
-            }
+            Object::Bool(x) if x => self.emit_op_code(OpCode::LoadImmTrue, opr_pos),
+            Object::Bool(x) if !x => self.emit_op_code(OpCode::LoadImmFalse, opr_pos),
+            Object::Int(x) if x == 0i64 => self.emit_op_code(OpCode::LoadImm0I, opr_pos),
+            Object::Int(x) if x == 1i64 => self.emit_op_code(OpCode::LoadImm1I, opr_pos),
+            Object::Float(x) if x == 0f64 => self.emit_op_code(OpCode::LoadImm0F, opr_pos),
+            Object::Float(x) if x == 1f64 => self.emit_op_code(OpCode::LoadImm1F, opr_pos),
+            Object::Null => self.emit_op_code(OpCode::LoadImmNull, opr_pos),
+
+            // Compile integer literals with the immediate instruction when possible
             Object::Int(x) if x > 1i64 => {
                 if x < 256i64 {
                     self.emit_op_code(OpCode::LoadImmN, opr_pos);
@@ -43,10 +29,12 @@ impl Compiler {
                     self.emit_short(x as u16, opr_pos);
                 } else {
                     // If the number cannot be encoded within two bytes (as an unsigned short),
-                    // the we add it to the constant pool.
+                    // then we add it to the constant pool.
                     self.add_literal_to_pool(obj, &expr.token, true);
                 }
             }
+
+            // If none of the above hold true, then load the literal from the pool at runtime.
             _ => {
                 self.add_literal_to_pool(obj, &expr.token, true);
             }
@@ -74,23 +62,20 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – A binary expression node.
     pub(super) fn compile_binary_expr(&mut self, expr: &BinaryExprNode) {
-        // Because logic 'AND' expressions are short-circuit expressions,
-        // they are compiled by a separate function.
-        if let BinaryExprType::LogicAND = expr.opr_type {
-            return self.compile_and_expr(expr);
-        }
-
-        // Because logic 'OR' expressions are short-circuit expressions,
-        // they are compiled by a separate function.
-        if let BinaryExprType::LogicOR = expr.opr_type {
-            return self.compile_or_expr(expr);
+        // Because logic 'OR' and logic 'AND' expressions are short-circuit
+        // expressions, they are compiled by a separate function.
+        match expr.opr_type {
+            BinaryExprType::LogicAND | BinaryExprType::LogicOR => {
+                return self.compile_logic_and_or_expr(expr);
+            }
+            _ => {}
         }
 
         // Compiles the binary operators.
         self.compile_node(&expr.left);
         self.compile_node(&expr.right);
 
-        let expression_op_code = match expr.opr_type {
+        let expr_op_code = match expr.opr_type {
             BinaryExprType::BitwiseAND => OpCode::BitwiseAnd,
             BinaryExprType::BitwiseOR => OpCode::BitwiseOr,
             BinaryExprType::BitwiseShiftLeft => OpCode::BitwiseShiftLeft,
@@ -98,18 +83,14 @@ impl Compiler {
             BinaryExprType::BitwiseXOR => OpCode::BitwiseXor,
             BinaryExprType::Division => OpCode::Divide,
             BinaryExprType::Expo => OpCode::Expo,
-            BinaryExprType::LogicAND => {
-                unreachable!("The 'AND' expression should have been compiled by now.")
-            }
+            BinaryExprType::LogicAND => unreachable!("AND expressions not compiled here."),
             BinaryExprType::LogicEQ => OpCode::Equals,
             BinaryExprType::LogicGreaterThan => OpCode::GreaterThan,
             BinaryExprType::LogicGreaterThanEQ => OpCode::GreaterThanEq,
             BinaryExprType::LogicLessThan => OpCode::LessThan,
             BinaryExprType::LogicLessThanEQ => OpCode::LessThanEq,
             BinaryExprType::LogicNotEQ => OpCode::NotEq,
-            BinaryExprType::LogicOR => {
-                unreachable!("The 'OR' expression should have been compiled by now.")
-            }
+            BinaryExprType::LogicOR => unreachable!("OR expressions not compiled here."),
             BinaryExprType::Minus => OpCode::Subtract,
             BinaryExprType::Modulus => OpCode::Modulus,
             BinaryExprType::Multiplication => OpCode::Multiply,
@@ -118,10 +99,7 @@ impl Compiler {
             BinaryExprType::Range => OpCode::MakeRange,
         };
 
-        self.emit_op_code(
-            expression_op_code,
-            (expr.opr_token.line_num, expr.opr_token.column_num),
-        );
+        self.emit_op_code(expr_op_code, (expr.opr_token.line_num, expr.opr_token.column_num));
     }
 
     /// Compiles a ternary conditional expression.
@@ -139,58 +117,30 @@ impl Compiler {
         });
     }
 
-    /// Compiles an 'AND' expression.
+    /// Compiles an 'AND' or a logic 'OR' expression.
     ///
     /// # Arguments
     /// * `expr` – A binary expression node.
-    pub(super) fn compile_and_expr(&mut self, expr: &BinaryExprNode) {
-        match expr.opr_type {
-            BinaryExprType::LogicAND => {
-                // First compile the lhs of the expression which will leave its value on the stack.
-                self.compile_node(&expr.left);
+    pub(super) fn compile_logic_and_or_expr(&mut self, expr: &BinaryExprNode) {
+        // First compile the lhs of the expression which will leave its value on the stack.
+        self.compile_node(&expr.left);
 
-                // For 'AND' expressions, if the lhs is false, then the entire expression must be false.
-                // We emit a `JUMP_IF_FALSE_OR_POP` instruction to jump over the rest of this expression
-                // if the lhs is falsey.
-                let end_jump = self.emit_jump(OpCode::JumpIfFalseOrPop, &expr.opr_token);
+        let op_code = match expr.opr_type {
+            // For 'AND' expressions, if the lhs is false, then the entire expression must be false.
+            // We emit a `JUMP_IF_FALSE_OR_POP` instruction to jump over the rest of this expression
+            // if the lhs is falsey.
+            BinaryExprType::LogicAND => OpCode::JumpIfFalseOrPop,
+            // For 'OR' expressions, if the lhs is true, then the entire expression must be true.
+            // We emit a `JUMP_IF_TRUE_OR_POP` instruction to jump over to the next expression
+            // if the lhs is falsey.
+            BinaryExprType::LogicOR => OpCode::JumpIfTrueOrPop,
+            // Other binary expressions are not allowed here.
+            _ => unreachable!("Can only compile logic OR or AND expressions here."),
+        };
 
-                self.compile_node(&expr.right);
-
-                // Patches the `JUMP_IF_FALSE_OR_POP` instruction above so that if the lhs is falsey, it knows
-                // where the end of the expression is.
-                self.patch_jump(end_jump, &expr.opr_token);
-            }
-            _ => unreachable!(
-                "the `compile_and_expr(...)` function can only compile logical 'AND' expressions."
-            ),
-        }
-    }
-
-    // Compiles an 'OR' expression.
-    ///
-    /// # Arguments
-    /// * `expr` – A binary expression node.
-    pub(super) fn compile_or_expr(&mut self, expr: &BinaryExprNode) {
-        match expr.opr_type {
-            BinaryExprType::LogicOR => {
-                // First compile the lhs of the expression which will leave its value on the stack.
-                self.compile_node(&expr.left);
-
-                // For 'OR' expressions, if the lhs is true, then the entire expression must be true.
-                // We emit a `JUMP_IF_TRUE_OR_POP` instruction to jump over to the next expression
-                // if the lhs is falsey.
-                let end_jump = self.emit_jump(OpCode::JumpIfTrueOrPop, &expr.opr_token);
-
-                self.compile_node(&expr.right);
-
-                // Patches the `JUMP_IF_TRUE_OR_POP` instruction above so that if the lhs is truthy, it knows
-                // where the end of the expression is.
-                self.patch_jump(end_jump, &expr.opr_token);
-            }
-            _ => unreachable!(
-                "the `compile_or_expr(...)` function can only compile logical 'OR' expressions."
-            ),
-        }
+        let end_jump = self.emit_jump(op_code, &expr.opr_token);
+        self.compile_node(&expr.right);
+        self.patch_jump(end_jump, &expr.opr_token);
     }
 
     /// Compiles an identifier expression.
@@ -272,18 +222,12 @@ impl Compiler {
                         ReassignmentType::Mul => self.emit_op_code(OpCode::Multiply, line_info),
                         ReassignmentType::Expo => self.emit_op_code(OpCode::Expo, line_info),
                         ReassignmentType::Mod => self.emit_op_code(OpCode::Modulus, line_info),
-                        ReassignmentType::ShiftL => {
-                            self.emit_op_code(OpCode::BitwiseShiftLeft, line_info)
-                        }
-                        ReassignmentType::ShiftR => {
-                            self.emit_op_code(OpCode::BitwiseShiftRight, line_info)
-                        }
-                        ReassignmentType::BitAnd => {
-                            self.emit_op_code(OpCode::BitwiseAnd, line_info)
-                        }
+                        ReassignmentType::ShiftL => self.emit_op_code(OpCode::BitwiseShiftLeft, line_info),
+                        ReassignmentType::ShiftR => self.emit_op_code(OpCode::BitwiseShiftRight, line_info),
+                        ReassignmentType::BitAnd => self.emit_op_code(OpCode::BitwiseAnd, line_info),
                         ReassignmentType::Xor => self.emit_op_code(OpCode::BitwiseXor, line_info),
                         ReassignmentType::BitOr => self.emit_op_code(OpCode::BitwiseOr, line_info),
-                        ReassignmentType::None => 0,
+                        ReassignmentType::None => {}
                     };
                 }
 
@@ -300,6 +244,8 @@ impl Compiler {
     /// * `expr` – A array expression node.
     pub(super) fn compile_array_expr(&mut self, expr: &ArrayExprNode) {
         if expr.values.len() <= (u16::MAX as usize) {
+            let line_info = (expr.token.line_num, expr.token.column_num);
+
             // We reverse the list here because at runtime, we pop each value of the stack in the
             // opposite order (because it *is* a stack). Instead of performing that operation during
             // runtime, we execute it once during compile time.
@@ -308,23 +254,11 @@ impl Compiler {
             }
 
             if expr.values.len() < 256 {
-                self.emit_op_code(
-                    OpCode::MakeArray,
-                    (expr.token.line_num, expr.token.column_num),
-                );
-                self.emit_raw_byte(
-                    expr.values.len() as u8,
-                    (expr.token.line_num, expr.token.column_num),
-                );
+                self.emit_op_code(OpCode::MakeArray, line_info);
+                self.emit_raw_byte(expr.values.len() as u8, line_info);
             } else {
-                self.emit_op_code(
-                    OpCode::MakeArrayLong,
-                    (expr.token.line_num, expr.token.column_num),
-                );
-                self.emit_short(
-                    expr.values.len() as u16,
-                    (expr.token.line_num, expr.token.column_num),
-                );
+                self.emit_op_code(OpCode::MakeArrayLong, line_info);
+                self.emit_short(expr.values.len() as u16, line_info);
             }
         } else {
             self.error_at_token(
@@ -341,6 +275,8 @@ impl Compiler {
     /// * `expr` – A tuple expression node.
     pub(super) fn compile_tuple_expr(&mut self, expr: &TupleExprNode) {
         if expr.values.len() <= (u16::MAX as usize) {
+            let line_info = (expr.token.line_num, expr.token.column_num);
+
             // We reverse the list here because at runtime, we pop each value of the stack in the
             // opposite order (because it *is* a stack). Instead of performing that operation during
             // runtime, we execute it once during compile time.
@@ -349,23 +285,11 @@ impl Compiler {
             }
 
             if expr.values.len() < 256 {
-                self.emit_op_code(
-                    OpCode::MakeTuple,
-                    (expr.token.line_num, expr.token.column_num),
-                );
-                self.emit_raw_byte(
-                    expr.values.len() as u8,
-                    (expr.token.line_num, expr.token.column_num),
-                );
+                self.emit_op_code(OpCode::MakeTuple, line_info);
+                self.emit_raw_byte(expr.values.len() as u8, line_info);
             } else {
-                self.emit_op_code(
-                    OpCode::MakeTupleLong,
-                    (expr.token.line_num, expr.token.column_num),
-                );
-                self.emit_short(
-                    expr.values.len() as u16,
-                    (expr.token.line_num, expr.token.column_num),
-                );
+                self.emit_op_code(OpCode::MakeTupleLong, line_info);
+                self.emit_short(expr.values.len() as u16, line_info);
             }
         } else {
             self.error_at_token(
@@ -409,18 +333,14 @@ impl Compiler {
     /// # Arguments
     /// * `obj` – A reference to the literal object being added to the pool.
     /// * `token` – The object's original token.
-    pub(super) fn add_literal_to_pool(
-        &mut self,
-        obj: Object,
-        token: &Token,
-        emit_load: bool,
-    ) -> Option<u16> {
+    /// * `load` – Whether or not we should also emit a LOAD_CONSTANT instruction.
+    pub(super) fn add_literal_to_pool(&mut self, obj: Object, token: &Token, load: bool) -> Option<u16> {
         let constant_pos = self.current_chunk_mut().add_constant(obj);
         let opr_pos = (token.line_num, token.column_num);
 
         match constant_pos {
             Ok(idx) => {
-                if emit_load {
+                if load {
                     if idx < 256 {
                         self.emit_op_code(OpCode::LoadConstant, opr_pos);
                         self.emit_raw_byte(idx as u8, opr_pos);
