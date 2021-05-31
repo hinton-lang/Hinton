@@ -6,11 +6,11 @@ use crate::{
     compiler::Compiler,
     errors::{report_errors_list, report_runtime_error, RuntimeErrorType},
     exec_time, natives,
-    objects::{self, FunctionObject, Object},
+    objects::{self, FuncObject, Object},
     parser::Parser,
     FRAMES_MAX,
 };
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 // Submodules
 mod run;
@@ -25,7 +25,7 @@ pub enum InterpretResult {
 
 /// Represents a single ongoing function call.
 pub struct CallFrame {
-    pub function: FunctionObject,
+    pub function: FuncObject,
     pub ip: usize,
     pub base_pointer: usize,
 }
@@ -59,6 +59,7 @@ pub struct VirtualMachine {
     filepath: String,
     frames: Vec<CallFrame>,
     stack: Vec<objects::Object>,
+    globals: HashMap<String, Object>,
 }
 
 pub enum RuntimeResult {
@@ -80,6 +81,7 @@ impl VirtualMachine {
             stack: Vec::with_capacity(256),
             frames: Vec::with_capacity(256),
             filepath: String::from(filepath),
+            globals: Default::default(),
         };
 
         // Parses the program into an AST and calculates the parser's execution time
@@ -193,7 +195,7 @@ impl VirtualMachine {
     fn call_value(&mut self, callee: Object, arg_count: u8) -> RuntimeResult {
         return match callee {
             Object::Function(obj) => self.call_fn(obj, arg_count),
-            Object::NativeFunction(obj) => {
+            Object::Native(obj) => {
                 let mut args: Vec<Object> = vec![];
                 for _ in 0..arg_count {
                     let val = self.pop_stack();
@@ -219,7 +221,7 @@ impl VirtualMachine {
         };
     }
 
-    pub(super) fn call_fn(&mut self, callee: FunctionObject, arg_count: u8) -> RuntimeResult {
+    pub(super) fn call_fn(&mut self, callee: FuncObject, arg_count: u8) -> RuntimeResult {
         let max_arity = callee.max_arity;
         let min_arity = callee.min_arity;
 
@@ -247,10 +249,11 @@ impl VirtualMachine {
 
         // Pushes the default values onto the stack
         // if they were not passed into the func call
-        if arg_count != max_arity {
-            let missing_args = max_arity - arg_count;
+        if arg_count < max_arity {
+            let missing_args = (max_arity - arg_count) as usize;
+            let def_count = callee.defaults.len();
 
-            for i in (max_arity - 1 - missing_args)..(max_arity - 1) {
+            for i in (def_count - missing_args)..def_count {
                 let val = callee.defaults[i as usize].clone();
                 self.push_stack(val);
             }
@@ -289,7 +292,7 @@ impl VirtualMachine {
 
         // Prints the current state of the values stack
         print!("stack\t[");
-        for val in self.stack.iter() {
+        for val in self.stack[1..].iter() {
             print!("{}; ", val);
         }
         println!("]");

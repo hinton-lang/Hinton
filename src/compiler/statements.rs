@@ -1,5 +1,10 @@
-use super::{Compiler, Symbol, SymbolType};
-use crate::{ast::*, bytecode::OpCode, errors::CompilerErrorType, lexer::tokens::Token};
+use super::{
+    symbols::{Symbol, SymbolType},
+    Compiler,
+};
+use crate::{
+    ast::*, bytecode::OpCode, errors::CompilerErrorType, lexer::tokens::Token, objects::Object,
+};
 use std::borrow::Borrow;
 
 impl Compiler {
@@ -8,7 +13,7 @@ impl Compiler {
     /// * `stmt` – The expression statement node being compiled.
     pub(super) fn compile_expression_stmt(&mut self, stmt: &ExpressionStmtNode) {
         self.compile_node(&stmt.child);
-        self.emit_op_code(OpCode::PopStack1, stmt.pos);
+        self.emit_op_code(OpCode::PopStackTop, stmt.pos);
     }
 
     /// Compiles a variable declaration.
@@ -18,20 +23,20 @@ impl Compiler {
     pub(super) fn compile_variable_decl(&mut self, decl: &VariableDeclNode) {
         // Declares the variables
         for id in decl.identifiers.iter() {
-            match self.declare_symbol(id, SymbolType::Variable) {
-                Ok(symbol_pos) => {
-                    // Compiles the variable's value
-                    self.compile_node(&decl.value);
+            if let Ok(symbol_pos) = self.declare_symbol(id, SymbolType::Variable) {
+                // Compiles the variable's value
+                self.compile_node(&decl.value);
 
+                // If we are in the global scope, declarations are
+                // stored in the VM.globals hashmap
+                if self.is_global_scope() {
+                    self.define_as_global(id);
+                    self.globals.symbols[symbol_pos].is_initialized = true;
+                } else {
                     // Marks the variables as initialized
                     // a.k.a, defines the variables
-                    self.symbol_table[symbol_pos].is_initialized = true;
+                    self.current_func_scope_mut().s_table.symbols[symbol_pos].is_initialized = true;
                 }
-
-                // We do nothing if there was an error because the `declare_symbol()`
-                // function takes care of reporting the appropriate error for us.
-                // Explicit `return` to stop the loop.
-                Err(_) => return,
             }
         }
     }
@@ -42,18 +47,37 @@ impl Compiler {
     /// * `expr` – A constant declaration node.
     pub(super) fn compile_constant_decl(&mut self, decl: &ConstantDeclNode) {
         // Declares the constant
-        match self.declare_symbol(&decl.name, SymbolType::Constant) {
-            Ok(symbol_pos) => {
-                // Compiles the constant's value
-                self.compile_node(&decl.value);
+        if let Ok(symbol_pos) = self.declare_symbol(&decl.name, SymbolType::Constant) {
+            // Compiles the constant's value
+            self.compile_node(&decl.value);
 
-                // Marks the constant as initialized
-                self.symbol_table[symbol_pos].is_initialized = true;
+            // If we are in the global scope, declarations are
+            // stored in the VM.globals hashmap
+            if self.is_global_scope() {
+                self.define_as_global(&decl.name);
+                self.globals.symbols[symbol_pos].is_initialized = true;
+            } else {
+                self.current_func_scope_mut().s_table.symbols[symbol_pos].is_initialized = true;
             }
+        }
+    }
 
-            // We do nothing if there was an error because the `declare_symbol()`
-            // function takes care of reporting the appropriate error for us.
-            Err(_) => {}
+    /// Defines a declaration as global by emitting a `DEFINE_GLOBAL` instructions.
+    ///
+    /// ## Arguments
+    /// * `token` – The token associated with this global declaration.
+    pub(super) fn define_as_global(&mut self, token: &Token) {
+        let name = Object::String(token.lexeme.clone());
+        if let Some(idx) = self.add_literal_to_pool(name, token, false) {
+            let pos = (token.line_num, token.column_num);
+
+            if idx <= 255 {
+                self.emit_op_code(OpCode::DefineGlobal, pos);
+                self.emit_raw_byte(idx as u8, pos);
+            } else {
+                self.emit_op_code(OpCode::DefineGlobalLong, pos);
+                self.emit_short(idx, pos);
+            }
         }
     }
 
@@ -70,38 +94,33 @@ impl Compiler {
         token: &Token,
         symbol_type: SymbolType,
     ) -> Result<usize, ()> {
-        // Look for the symbols declared in this scope to see if
-        // there is a symbol with the same name already declared.
-        for symbol in self.symbol_table.iter().rev() {
-            // Only look for the symbol in the current scope.
-            if symbol.symbol_depth < self.scope_depth {
-                break;
+        let depth = self.relative_scope_depth();
+
+        if let Some(symbol) = self
+            .current_func_scope_mut()
+            .s_table
+            .find_in_scope(&token.lexeme, depth)
+        {
+            match symbol.symbol_type {
+                SymbolType::Variable
+                | SymbolType::Constant
+                | SymbolType::Function
+                | SymbolType::Class
+                | SymbolType::Enum => self.error_at_token(
+                    &token,
+                    CompilerErrorType::Duplication,
+                    &format!("Duplicate definition for identifier '{}'", token.lexeme),
+                ),
+                SymbolType::Parameter => self.error_at_token(
+                    &token,
+                    CompilerErrorType::Duplication,
+                    &format!("Duplicate definition for parameter '{}'", token.lexeme),
+                ),
             }
 
-            if symbol.name == token.lexeme {
-                match symbol.symbol_type {
-                    SymbolType::Variable
-                    | SymbolType::Constant
-                    | SymbolType::Function
-                    | SymbolType::Class
-                    | SymbolType::Enum => self.error_at_token(
-                        &token,
-                        CompilerErrorType::Duplication,
-                        &format!("Duplicate definition for identifier '{}'", token.lexeme),
-                    ),
-                    SymbolType::Parameter => self.error_at_token(
-                        &token,
-                        CompilerErrorType::Duplication,
-                        &format!("Duplicate definition for parameter '{}'", token.lexeme),
-                    ),
-                }
-
-                return Err(());
-            }
+            return Err(());
         }
 
-        // Emit the symbol if there is no symbol with the
-        // same name in the current scope.
         self.emit_symbol(&token, symbol_type)
     }
 
@@ -118,32 +137,37 @@ impl Compiler {
             name,
             Symbol {
                 name: name.lexeme.clone(),
-                symbol_depth: self.scope_depth,
+                symbol_depth: self.relative_scope_depth(),
                 is_initialized: match symbol_type {
                     SymbolType::Variable | SymbolType::Constant | SymbolType::Function => false,
                     _ => true,
                 },
                 symbol_type,
                 is_used: false,
-                pos: (name.line_num, name.column_num),
+                line_info: (name.line_num, name.column_num),
+                is_global: self.is_global_scope(),
             },
         )
     }
 
     pub(super) fn push_symbol(&mut self, token: &Token, symbol: Symbol) -> Result<usize, ()> {
-        if self.symbol_table.len() >= (u16::MAX as usize) {
-            self.error_at_token(
-                &token,
-                CompilerErrorType::MaxCapacity,
-                "Too many variables in this scope.",
-            );
-            return Err(());
+        if self.is_global_scope() {
+            self.globals.push(symbol);
+            Ok(self.globals.len() - 1)
+        } else {
+            if self.current_func_scope_mut().s_table.len() >= (u16::MAX as usize) {
+                self.error_at_token(
+                    &token,
+                    CompilerErrorType::MaxCapacity,
+                    "Too many variables in this scope.",
+                );
+                return Err(());
+            }
+
+            self.current_func_scope_mut().s_table.push(symbol);
+            // Variable was successfully declared
+            Ok(self.current_func_scope_mut().s_table.len() - 1)
         }
-
-        self.symbol_table.push(symbol);
-
-        // Variable was successfully declared
-        Ok(self.symbol_table.len() - 1)
     }
 
     /// Compiles a block statement.
@@ -161,39 +185,19 @@ impl Compiler {
 
     /// Starts a new scope.
     pub(super) fn begin_scope(&mut self) {
-        self.scope_depth += 1;
+        self.current_func_scope_mut().scope_depth += 1;
     }
 
     /// Ends a scope.
     pub(super) fn end_scope(&mut self) {
-        self.scope_depth -= 1;
+        let current_depth = self.relative_scope_depth();
+        let popped_scope =
+            self.current_func_scope_mut()
+                .s_table
+                .pop_scope(current_depth, true, true);
 
-        let mut pop_count = 0usize;
-        let mut last_symbol_pos = (0, 0);
-
-        // When a scope ends, we remove all local symbols in the scope.
-        while self.symbol_table.len() > 0
-            && self
-                .symbol_table
-                .get(self.symbol_table.len() - 1)
-                .unwrap()
-                .symbol_depth
-                > self.scope_depth
-        {
-            // Because variables live in the stack, once we are done with
-            // them for this scope, we take them out of the stack by emitting
-            // the OP_POP_STACK instruction for each one of the variables.
-            let symbol = self.symbol_table.pop().unwrap();
-            pop_count += 1;
-            last_symbol_pos = symbol.pos;
-
-            if !symbol.is_used {
-                println!(
-                    "\x1b[33;1mWarning\x1b[0m at [{}:{}] – Variable '\x1b[1m{}\x1b[0m' is never used.",
-                    symbol.pos.0, symbol.pos.1, symbol.name
-                );
-            }
-        }
+        let pop_count = popped_scope.0;
+        let last_symbol_pos = popped_scope.1;
 
         if pop_count > 0 {
             if pop_count < 256 {
@@ -204,6 +208,8 @@ impl Compiler {
                 self.emit_short(pop_count as u16, last_symbol_pos);
             }
         }
+
+        self.current_func_scope_mut().scope_depth -= 1;
     }
 
     /// Compiles an if statement.

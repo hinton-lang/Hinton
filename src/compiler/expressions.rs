@@ -1,5 +1,7 @@
-use super::{Compiler, CompilerErrorType, SymbolType};
-use crate::{ast::*, bytecode::OpCode, lexer::tokens::Token, natives, objects::Object};
+use super::{symbols::Symbol, Compiler, CompilerErrorType};
+use crate::{
+    ast::*, bytecode::OpCode, compiler::symbols::SymbolLoc, lexer::tokens::Token, objects::Object,
+};
 
 impl Compiler {
     /// Compiles a literal expression.
@@ -42,10 +44,12 @@ impl Compiler {
                 } else {
                     // If the number cannot be encoded within two bytes (as an unsigned short),
                     // the we add it to the constant pool.
-                    self.add_literal_to_pool(obj, &expr.token)
+                    self.add_literal_to_pool(obj, &expr.token, true);
                 }
             }
-            _ => self.add_literal_to_pool(obj, &expr.token),
+            _ => {
+                self.add_literal_to_pool(obj, &expr.token, true);
+            }
         };
     }
 
@@ -194,17 +198,50 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – An identifier expression node.
     pub(super) fn compile_identifier_expr(&mut self, expr: &IdentifierExprNode) {
-        if let Some(idx) = self.resolve_symbol(&expr.token, false) {
-            if idx < 256 {
-                self.emit_op_code(OpCode::GetVar, (expr.token.line_num, expr.token.column_num));
-                self.emit_raw_byte(idx as u8, (expr.token.line_num, expr.token.column_num));
-            } else {
-                self.emit_op_code(
-                    OpCode::GetVarLong,
-                    (expr.token.line_num, expr.token.column_num),
-                );
-                self.emit_short(idx, (expr.token.line_num, expr.token.column_num));
+        match self.resolve_symbol(&expr.token, false) {
+            SymbolLoc::Global(g, p) | SymbolLoc::Local(g, p) => {
+                self.named_variable(&(g, p), &expr.token, false)
             }
+            _ => {}
+        }
+    }
+
+    /// Emits the appropriate opcode to get or set either a local or global variable.
+    ///
+    /// ## Arguments
+    /// * `symbol` – The symbol and its location.
+    /// * `token` – A reference to the token associated with this symbol.
+    /// * `to_set` – Whether or not to emit reassignment instructions.
+    fn named_variable(&mut self, symbol: &(Symbol, usize), token: &Token, to_set: bool) {
+        let pos = (token.line_num, token.column_num);
+
+        let op_name;
+        let op_name_long;
+
+        if symbol.0.is_global {
+            if to_set {
+                op_name = OpCode::SetGlobal;
+                op_name_long = OpCode::SetGlobalLong;
+            } else {
+                op_name = OpCode::GetGlobal;
+                op_name_long = OpCode::GetGlobalLong;
+            }
+        } else {
+            if to_set {
+                op_name = OpCode::SetLocal;
+                op_name_long = OpCode::SetLocalLong;
+            } else {
+                op_name = OpCode::GetLocal;
+                op_name_long = OpCode::GetLocalLong;
+            }
+        }
+
+        if symbol.1 < 256 {
+            self.emit_op_code(op_name, pos);
+            self.emit_raw_byte(symbol.1 as u8, pos);
+        } else {
+            self.emit_op_code(op_name_long, pos);
+            self.emit_short(symbol.1 as u16, pos);
         }
     }
 
@@ -213,53 +250,47 @@ impl Compiler {
     /// # Arguments
     /// * `expr` – A variable reassignment expression node.
     pub(super) fn compile_var_reassignment_expr(&mut self, expr: &VarReassignmentExprNode) {
-        if let Some(idx) = self.resolve_symbol(&expr.target, true) {
-            let line_info = (expr.target.line_num, expr.target.column_num);
+        match self.resolve_symbol(&expr.target, false) {
+            SymbolLoc::Global(s, p) | SymbolLoc::Local(s, p) => {
+                let symbol = &(s, p);
+                let line_info = (expr.target.line_num, expr.target.column_num);
 
-            if let ReassignmentType::None = expr.opr_type {
-                // Proceed to directly reassign the variable.
-                self.compile_node(&expr.value);
-            } else {
-                // The expression `a /= 2` expands to `a = a / 2`, so we
-                // must get the variable's value onto the stack first.
-                if idx < 256 {
-                    self.emit_op_code(OpCode::GetVar, line_info);
-                    self.emit_raw_byte(idx as u8, line_info);
+                if let ReassignmentType::None = expr.opr_type {
+                    // Proceed to directly reassign the variable.
+                    self.compile_node(&expr.value);
                 } else {
-                    self.emit_op_code(OpCode::GetVarLong, line_info);
-                    self.emit_short(idx, line_info);
+                    // The expression `a /= 2` expands to `a = a / 2`, so we
+                    // must get the variable's value onto the stack first.
+                    self.named_variable(symbol, &expr.target, false);
+
+                    self.compile_node(&expr.value);
+
+                    match expr.opr_type {
+                        ReassignmentType::Plus => self.emit_op_code(OpCode::Add, line_info),
+                        ReassignmentType::Minus => self.emit_op_code(OpCode::Subtract, line_info),
+                        ReassignmentType::Div => self.emit_op_code(OpCode::Divide, line_info),
+                        ReassignmentType::Mul => self.emit_op_code(OpCode::Multiply, line_info),
+                        ReassignmentType::Expo => self.emit_op_code(OpCode::Expo, line_info),
+                        ReassignmentType::Mod => self.emit_op_code(OpCode::Modulus, line_info),
+                        ReassignmentType::ShiftL => {
+                            self.emit_op_code(OpCode::BitwiseShiftLeft, line_info)
+                        }
+                        ReassignmentType::ShiftR => {
+                            self.emit_op_code(OpCode::BitwiseShiftRight, line_info)
+                        }
+                        ReassignmentType::BitAnd => {
+                            self.emit_op_code(OpCode::BitwiseAnd, line_info)
+                        }
+                        ReassignmentType::Xor => self.emit_op_code(OpCode::BitwiseXor, line_info),
+                        ReassignmentType::BitOr => self.emit_op_code(OpCode::BitwiseOr, line_info),
+                        ReassignmentType::None => 0,
+                    };
                 }
 
-                self.compile_node(&expr.value);
-
-                match expr.opr_type {
-                    ReassignmentType::Plus => self.emit_op_code(OpCode::Add, line_info),
-                    ReassignmentType::Minus => self.emit_op_code(OpCode::Subtract, line_info),
-                    ReassignmentType::Div => self.emit_op_code(OpCode::Divide, line_info),
-                    ReassignmentType::Mul => self.emit_op_code(OpCode::Multiply, line_info),
-                    ReassignmentType::Expo => self.emit_op_code(OpCode::Expo, line_info),
-                    ReassignmentType::Mod => self.emit_op_code(OpCode::Modulus, line_info),
-                    ReassignmentType::ShiftL => {
-                        self.emit_op_code(OpCode::BitwiseShiftLeft, line_info)
-                    }
-                    ReassignmentType::ShiftR => {
-                        self.emit_op_code(OpCode::BitwiseShiftRight, line_info)
-                    }
-                    ReassignmentType::BitAnd => self.emit_op_code(OpCode::BitwiseAnd, line_info),
-                    ReassignmentType::Xor => self.emit_op_code(OpCode::BitwiseXor, line_info),
-                    ReassignmentType::BitOr => self.emit_op_code(OpCode::BitwiseOr, line_info),
-                    ReassignmentType::None => 0,
-                };
+                // Sets the new value (which will be on top of the stack)
+                self.named_variable(symbol, &expr.target, true);
             }
-
-            // Sets the new value (which will be on top of the stack)
-            if idx < 256 {
-                self.emit_op_code(OpCode::SetVar, line_info);
-                self.emit_raw_byte(idx as u8, line_info);
-            } else {
-                self.emit_op_code(OpCode::SetVarLong, line_info);
-                self.emit_short(idx, line_info);
-            }
+            _ => {}
         }
     }
 
@@ -355,6 +386,10 @@ impl Compiler {
         self.emit_op_code(OpCode::Indexing, expr.pos);
     }
 
+    /// Compiles a function call expression.
+    ///
+    /// # Arguments
+    /// * `expr` – A function call expression node.
     pub(super) fn compile_function_call_expr(&mut self, expr: &FunctionCallExprNode) {
         // Compile the call's identifier
         self.compile_node(&expr.target);
@@ -369,143 +404,33 @@ impl Compiler {
         self.emit_raw_byte(expr.args.len() as u8, expr.pos);
     }
 
-    /// Looks for a symbol with the given token name in the symbol table.
-    ///
-    /// ## Arguments
-    /// * `token` – A reference to the token (symbol name) related to the symbol.
-    /// * `for_reassign` – Wether of not we are resolving the symbol for the purpose of reassignment.
-    ///
-    /// ## Returns
-    /// * `Option<u16>` – If there were no errors with resolving the symbol, it returns the position
-    /// of the symbol in the symbol table.
-    fn resolve_symbol(&mut self, token: &Token, for_reassign: bool) -> Option<u16> {
-        // Look for the symbol in the symbol table starting from the back.
-        // We loop backwards because we want to first check if the symbol
-        // exists in the current scope, then in any of the parent scopes, etc..
-        for (index, symbol) in self.symbol_table.iter_mut().enumerate().rev() {
-            if symbol.name == token.lexeme {
-                if !symbol.is_initialized {
-                    match symbol.symbol_type {
-                        SymbolType::Variable => self.error_at_token(
-                            &token,
-                            CompilerErrorType::Reference,
-                            &format!(
-                                "Cannot reference variable '{}' before it has been defined.",
-                                token.lexeme
-                            ),
-                        ),
-                        SymbolType::Constant => self.error_at_token(
-                            &token,
-                            CompilerErrorType::Reference,
-                            &format!(
-                                "Cannot reference constant '{}' before it has been defined. ",
-                                token.lexeme
-                            ),
-                        ),
-                        SymbolType::Function => self.error_at_token(
-                            &token,
-                            CompilerErrorType::Reference,
-                            &format!(
-                                "Cannot reference function '{}' before it has been defined.",
-                                token.lexeme
-                            ),
-                        ),
-                        // Classes, Parameters, and Enums are initialized upon declaration. Hence, unreachable here.
-                        _ => unreachable!("Symbol should have been initialized by now."),
-                    }
-
-                    // Return None here because a symbol should be referenced
-                    // unless it has been initialized.
-                    return None;
-                }
-
-                if for_reassign {
-                    match &symbol.symbol_type {
-                        SymbolType::Constant => {
-                            self.error_at_token(
-                                token,
-                                CompilerErrorType::Reassignment,
-                                "Constants are immutable.",
-                            );
-                            return None;
-                        }
-                        SymbolType::Function => {
-                            self.error_at_token(
-                                token,
-                                CompilerErrorType::Reassignment,
-                                "Functions are immutable.",
-                            );
-                            return None;
-                        }
-                        SymbolType::Class => {
-                            self.error_at_token(
-                                token,
-                                CompilerErrorType::Reassignment,
-                                "Classes are immutable.",
-                            );
-                            return None;
-                        }
-                        SymbolType::Enum => {
-                            self.error_at_token(
-                                token,
-                                CompilerErrorType::Reassignment,
-                                "Enums are immutable.",
-                            );
-                            return None;
-                        }
-                        // Only variables & parameters are reassignable
-                        SymbolType::Variable | SymbolType::Parameter => {}
-                    }
-                }
-
-                symbol.is_used = true;
-                return Some(index as u16);
-            }
-        }
-
-        // Look for the identifier in the natives
-        if natives::check_is_native(&token.lexeme) {
-            if for_reassign {
-                self.error_at_token(
-                    token,
-                    CompilerErrorType::Reassignment,
-                    &format!("Cannot modify native function '{}'.", token.lexeme),
-                );
-            } else {
-                self.add_literal_to_pool(Object::String(token.lexeme.clone()), token);
-                self.emit_op_code(OpCode::LoadNative, (token.line_num, token.column_num));
-            }
-
-            return None;
-        }
-
-        // The symbol doesn't exist
-        self.error_at_token(
-            token,
-            CompilerErrorType::Reference,
-            &format!("Use of undeclared identifier '{}'.", token.lexeme),
-        );
-        None
-    }
-
     /// Emits a constant instruction and adds the related object to the constant pool
     ///
     /// # Arguments
     /// * `obj` – A reference to the literal object being added to the pool.
     /// * `token` – The object's original token.
-    pub(super) fn add_literal_to_pool(&mut self, obj: Object, token: &Token) {
-        let constant_pos = self.function.chunk.add_constant(obj);
+    pub(super) fn add_literal_to_pool(
+        &mut self,
+        obj: Object,
+        token: &Token,
+        emit_load: bool,
+    ) -> Option<u16> {
+        let constant_pos = self.current_chunk_mut().add_constant(obj);
         let opr_pos = (token.line_num, token.column_num);
 
         match constant_pos {
             Ok(idx) => {
-                if idx < 256 {
-                    self.emit_op_code(OpCode::LoadConstant, opr_pos);
-                    self.emit_raw_byte(idx as u8, opr_pos);
-                } else {
-                    self.emit_op_code(OpCode::LoadConstantLong, opr_pos);
-                    self.emit_short(idx, opr_pos);
+                if emit_load {
+                    if idx < 256 {
+                        self.emit_op_code(OpCode::LoadConstant, opr_pos);
+                        self.emit_raw_byte(idx as u8, opr_pos);
+                    } else {
+                        self.emit_op_code(OpCode::LoadConstantLong, opr_pos);
+                        self.emit_short(idx, opr_pos);
+                    }
                 }
+
+                Some(idx)
             }
             Err(_) => {
                 self.error_at_token(
@@ -513,6 +438,8 @@ impl Compiler {
                     CompilerErrorType::MaxCapacity,
                     "Too many constants in one chunk.",
                 );
+
+                None
             }
         }
     }

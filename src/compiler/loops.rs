@@ -1,11 +1,10 @@
+use super::{BreakScope, Compiler, LoopScope};
 use crate::{
     ast::{BreakStmtNode, ForStmtNode, WhileStmtNode},
     bytecode::OpCode,
     compiler::{CompilerErrorType, Symbol, SymbolType},
     lexer::tokens::Token,
 };
-
-use super::{BreakScope, Compiler, LoopScope};
 
 impl Compiler {
     /// Compiles a `while` statement.
@@ -20,14 +19,15 @@ impl Compiler {
 
         let condition_is_truthy_lit = stmt.condition.is_truthy_literal();
 
-        let loop_start = self.function.chunk.len();
+        let loop_start = self.current_chunk().len();
         // starts this loop's break scope
-        self.loops.push(LoopScope {
+        let depth = self.relative_scope_depth() + 1;
+        self.current_func_scope_mut().loops.push(LoopScope {
             position: loop_start,
             loop_type: super::LoopType::While,
             // +1 because we don't start the actual scope until the loop
             // body is being compiled, which occurs later in this function.
-            scope_depth: self.scope_depth + 1,
+            scope_depth: depth,
         });
 
         // Only compile the condition if it is not a truthy literal or equivalent.
@@ -48,7 +48,7 @@ impl Compiler {
         }
 
         self.close_breaks(loop_start, &stmt.token);
-        self.loops.pop(); // ends this loop's break scope
+        self.current_func_scope_mut().loops.pop(); // ends this loop's break scope
     }
 
     /// Compiles a `for` statement.
@@ -63,18 +63,19 @@ impl Compiler {
 
         // Increment the scope so that the loop's identifier and iterator
         // placeholder have their own scope.
-        self.scope_depth += 1;
+        self.current_func_scope_mut().scope_depth += 1;
 
         // Begin the loop
         self.emit_op_code(OpCode::ForLoopIterNext, loop_line_info);
-        let loop_start = self.function.chunk.len() - 1;
+        let loop_start = self.current_chunk().len() - 1;
+        let depth = self.relative_scope_depth() + 1;
         // Starts this loop's break scope
-        self.loops.push(LoopScope {
+        self.current_func_scope_mut().loops.push(LoopScope {
             position: loop_start,
             loop_type: super::LoopType::ForIn,
             // +1 because we don't start the actual scope until the loop
             // body is being compiled, which occurs later in this function.
-            scope_depth: self.scope_depth + 1,
+            scope_depth: depth,
         });
 
         // Emits a placeholder symbol for the loop's iterator, which lives on
@@ -84,20 +85,25 @@ impl Compiler {
             &stmt.token,
             Symbol {
                 name: format!("<for-loop placeholder at byte #{}>", loop_start),
-                symbol_depth: self.scope_depth,
+                symbol_depth: self.relative_scope_depth(),
                 is_initialized: true,
                 symbol_type: SymbolType::Constant,
                 is_used: true,
-                pos: loop_line_info,
+                line_info: loop_line_info,
+                is_global: false,
             },
         ) {
-            Ok(symbol_pos) => self.symbol_table[symbol_pos].is_initialized = true,
+            Ok(symbol_pos) => {
+                self.current_func_scope_mut().s_table.symbols[symbol_pos].is_initialized = true
+            }
             Err(_) => return,
         }
 
         // Declares the loop's identifier.
         match self.declare_symbol(&stmt.id.token, SymbolType::Variable) {
-            Ok(symbol_pos) => self.symbol_table[symbol_pos].is_initialized = true,
+            Ok(symbol_pos) => {
+                self.current_func_scope_mut().s_table.symbols[symbol_pos].is_initialized = true
+            }
             Err(_) => return,
         }
 
@@ -105,7 +111,7 @@ impl Compiler {
         self.compile_node(&stmt.body);
 
         // +2 to count the jump instruction and its one operand
-        let offset = (self.function.chunk.len() + 2) - loop_start;
+        let offset = (self.current_chunk().len() + 2) - loop_start;
 
         // Jump back to the start of the loop if we haven't reached the end of the
         // iterator. This instruction takes care of popping the loop's  variable.
@@ -114,7 +120,7 @@ impl Compiler {
             self.emit_raw_byte(offset as u8, loop_line_info);
         } else {
             // +3 to count the Jump instruction and its two operands
-            let offset = (self.function.chunk.len() + 3) - loop_start;
+            let offset = (self.current_chunk().len() + 3) - loop_start;
 
             if offset < u16::MAX as usize {
                 self.emit_op_code(OpCode::JumpHasNextOrPopLong, loop_line_info);
@@ -133,12 +139,12 @@ impl Compiler {
         self.close_breaks(loop_start, &stmt.token);
 
         // Ends this loop's break scope
-        self.loops.pop();
+        self.current_func_scope_mut().loops.pop();
 
         // Remove the loop's variables and end the scope
-        self.symbol_table.pop();
-        self.symbol_table.pop();
-        self.scope_depth -= 1;
+        self.current_func_scope_mut().s_table.pop();
+        self.current_func_scope_mut().s_table.pop();
+        self.current_func_scope_mut().scope_depth -= 1;
     }
 
     /// Patches all breaks associated with the current loop.
@@ -146,6 +152,7 @@ impl Compiler {
         // Looks for any break statements associated with this loop
         let mut breaks: Vec<usize> = vec![];
         for b in self
+            .current_func_scope_mut()
             .breaks
             .iter()
             .filter(|br| br.parent_loop.position == loop_start)
@@ -163,7 +170,7 @@ impl Compiler {
     ///
     /// * `stmt` – The `break` statement node being compiled.
     pub(super) fn compile_break_stmt(&mut self, stmt: &BreakStmtNode) {
-        if self.loops.len() == 0 {
+        if self.current_function_scope().loops.len() == 0 {
             self.error_at_token(
                 &stmt.token,
                 CompilerErrorType::Syntax,
@@ -172,29 +179,14 @@ impl Compiler {
             return;
         }
 
-        let current_loop = *self.loops.last().unwrap();
-        let mut pop_count = 0usize;
-        let mut last_symbol_pos = (0, 0);
+        let current_loop = *self.current_function_scope().loops.last().unwrap();
+        let popped_scope =
+            self.current_func_scope_mut()
+                .s_table
+                .pop_scope(current_loop.scope_depth, false, false);
 
-        // Pop all local symbols off the stack when the loop ends, but do not
-        // remove the symbols from the symbol table since they must also be
-        // removed when the loop's scope.
-        let mut i = 1;
-        while self.symbol_table.len() > 0
-            && self
-                .symbol_table
-                .get(self.symbol_table.len() - i)
-                .unwrap()
-                .symbol_depth
-                >= current_loop.scope_depth
-        {
-            let idx = self.symbol_table.len() - i;
-            let symbol = &self.symbol_table[idx];
-            pop_count += 1;
-            last_symbol_pos = symbol.pos;
-
-            i += 1;
-        }
+        let mut pop_count = popped_scope.0;
+        let last_symbol_pos = popped_scope.1;
 
         // If we are breaking inside a for-in loop, also pop the loop's variable
         // and the iterator off the stack before exiting the loop.
@@ -216,7 +208,7 @@ impl Compiler {
         let break_pos = self.emit_jump(OpCode::JumpForward, &stmt.token);
 
         // Add to the breaks list to breaks associated with the current loop
-        self.breaks.push(BreakScope {
+        self.current_func_scope_mut().breaks.push(BreakScope {
             parent_loop: current_loop,
             loop_position: break_pos,
         })
