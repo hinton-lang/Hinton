@@ -1,7 +1,7 @@
 use super::{symbols::SymbolLoc, Compiler};
 use crate::{
-    bytecode::OpCode, compiler::symbols::SymbolType, errors::CompilerErrorType,
-    lexer::tokens::Token, natives, objects::Object,
+    bytecode::OpCode, compiler::symbols::SymbolType, errors::CompilerErrorType, lexer::tokens::Token,
+    natives, objects::Object,
 };
 
 impl Compiler {
@@ -59,11 +59,7 @@ impl Compiler {
     /// ## Returns
     /// * `Result<SymbolLoc, ()>` – The location (if found) and resolution type of the symbol.
     fn resolve_local_symbol(&mut self, token: &Token, reassign: bool) -> Result<SymbolLoc, ()> {
-        if let Some(symbol_info) = self
-            .current_func_scope_mut()
-            .s_table
-            .resolve(&token.lexeme, true)
-        {
+        if let Some(symbol_info) = self.current_func_scope_mut().s_table.resolve(&token.lexeme, true) {
             if !symbol_info.0.is_initialized {
                 let sym_type = match symbol_info.0.symbol_type {
                     SymbolType::Variable => "variable",
@@ -152,14 +148,12 @@ impl Compiler {
                     SymbolType::Class => "Classes",
                     SymbolType::Enum => "Enums",
                     // Only variables & parameters are re-assignable
-                    SymbolType::Variable | SymbolType::Parameter => match self.add_literal_to_pool(
-                        Object::String(token.lexeme.clone()),
-                        &token,
-                        false,
-                    ) {
-                        Some(idx) => return Ok(SymbolLoc::Global(symbol_info.0, idx as usize)),
-                        None => return Ok(SymbolLoc::None),
-                    },
+                    SymbolType::Variable | SymbolType::Parameter => {
+                        match self.add_literal_to_pool(Object::String(token.lexeme.clone()), &token, false) {
+                            Some(idx) => return Ok(SymbolLoc::Global(symbol_info.0, idx as usize)),
+                            None => return Ok(SymbolLoc::None),
+                        }
+                    }
                 };
 
                 self.error_at_token(
@@ -171,11 +165,7 @@ impl Compiler {
                 return Ok(SymbolLoc::None);
             }
 
-            return match self.add_literal_to_pool(
-                Object::String(token.lexeme.clone()),
-                &token,
-                false,
-            ) {
+            return match self.add_literal_to_pool(Object::String(token.lexeme.clone()), &token, false) {
                 Some(idx) => Ok(SymbolLoc::Global(symbol_info.0, idx as usize)),
                 None => Ok(SymbolLoc::None),
             };

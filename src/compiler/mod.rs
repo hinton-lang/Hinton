@@ -67,7 +67,6 @@ pub struct FunctionScope {
 pub struct Compiler {
     compiler_type: CompilerType,
     functions: Vec<FunctionScope>,
-    filepath: String,
     globals: SymbolTable,
     errors: Vec<ErrorReport>,
 }
@@ -116,7 +115,6 @@ impl Compiler {
         let mut _self = Compiler {
             compiler_type: CompilerType::Script,
             functions: vec![base_fn],
-            filepath: String::from(filepath),
             errors: vec![],
             globals: SymbolTable { symbols: vec![] },
         };
@@ -229,44 +227,31 @@ impl Compiler {
     ///
     /// ## Arguments
     /// * `instr` – The OpCode instruction to added to the chunk.
-    ///
-    /// ## Returns
-    /// * `usize` – The position of the currently emitted OpCode in the chunk.
-    fn emit_op_code(&mut self, instr: bytecode::OpCode, pos: (usize, usize)) -> usize {
+    /// * `pos` – The source line and column associated with this op_code.
+    fn emit_op_code(&mut self, instr: bytecode::OpCode, pos: (usize, usize)) {
         self.current_chunk_mut().push_byte(instr as u8);
         self.current_chunk_mut().push_line_info(pos.clone());
-
-        return self.current_chunk_mut().len() - 1;
     }
 
     /// Emits a raw byte instruction into the chunk's instruction list.
     ///
     /// ## Arguments
     /// * `byte` – The byte instruction to added to the chunk.
-    ///
-    /// ## Returns
-    /// * `usize` – The position of the currently emitted OpCode in the chunk.
-    fn emit_raw_byte(&mut self, byte: u8, pos: (usize, usize)) -> usize {
+    /// * `pos` – The source line and column associated with this op_code.
+    fn emit_raw_byte(&mut self, byte: u8, pos: (usize, usize)) {
         self.current_chunk_mut().push_byte(byte);
         self.current_chunk_mut().push_line_info(pos.clone());
-
-        return self.current_chunk_mut().len() - 1;
     }
 
     /// Emits a short instruction from a 16-bit integer into the chunk's instruction list.
     ///
     /// ## Arguments
     /// * `instr` – The 16-bit short instruction to added to the chunk.
-    ///
-    /// ## Returns
-    /// * `usize` – The position of the first byte for the currently emitted 16-bit short
-    /// in the chunk.
-    fn emit_short(&mut self, instr: u16, pos: (usize, usize)) -> usize {
+    /// * `pos` – The source line and column associated with this op_code.
+    fn emit_short(&mut self, instr: u16, pos: (usize, usize)) {
         self.current_chunk_mut().push_short(instr);
         self.current_chunk_mut().push_line_info(pos.clone());
         self.current_chunk_mut().push_line_info(pos.clone());
-
-        return self.current_chunk_mut().len() - 2;
     }
 
     /// Emits a jump instructions with a dummy jump offset. This offset should be
@@ -282,9 +267,8 @@ impl Compiler {
     /// correct jump instruction's offset.
     fn emit_jump(&mut self, instruction: bytecode::OpCode, token: &Token) -> usize {
         self.emit_op_code(instruction, (token.line_num, token.column_num));
-        // We emit a temporary short representing the jump that will be
-        // made by the vm during runtime
-        self.emit_short(0xffff, (token.line_num, token.column_num))
+        self.emit_short(0xffff, (token.line_num, token.column_num));
+        return self.current_chunk_mut().len() - 2;
     }
 
     /// Patches the offset of a jump instruction.
@@ -318,31 +302,22 @@ impl Compiler {
     /// * `token` – The token associated with this jump patch.
     fn emit_loop(&mut self, loop_start: usize, token: &Token) {
         let offset = self.current_chunk_mut().len() - loop_start;
+        let line_info = (token.line_num, token.column_num);
 
         if offset < (u8::MAX - 2) as usize {
-            self.emit_op_code(
-                bytecode::OpCode::LoopJump,
-                (token.line_num, token.column_num),
-            );
+            self.emit_op_code(bytecode::OpCode::LoopJump, line_info);
 
             // +2 to account for the 'OP_LOOP_JUMP' and its operand.
             let jump = (offset + 2) as u8;
-            self.emit_raw_byte(jump, (token.line_num, token.column_num));
+            self.emit_raw_byte(jump, line_info);
         } else if offset < (u16::MAX - 3) as usize {
-            self.emit_op_code(
-                bytecode::OpCode::LoopJumpLong,
-                (token.line_num, token.column_num),
-            );
+            self.emit_op_code(bytecode::OpCode::LoopJumpLong, line_info);
 
             // +3 to account for the 'OP_LOOP_JUMP_LONG' and its operands.
             let jump = (offset + 3) as u16;
-            self.emit_short(jump, (token.line_num, token.column_num));
+            self.emit_short(jump, line_info);
         } else {
-            return self.error_at_token(
-                token,
-                CompilerErrorType::MaxCapacity,
-                "Loop body too large.",
-            );
+            return self.error_at_token(token, CompilerErrorType::MaxCapacity, "Loop body too large.");
         }
     }
 

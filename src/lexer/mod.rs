@@ -180,8 +180,7 @@ impl<'a> Lexer {
 
         // Keep consuming characters until there is an unescaped quote or
         // the program reaches the end of the source file.
-        while (self.get_current() != quote
-            || (self.get_current() == quote && self.previous() == '\\'))
+        while (self.get_current() != quote || (self.get_current() == quote && self.previous() == '\\'))
             && !self.is_at_end()
         {
             self.advance();

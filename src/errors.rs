@@ -130,12 +130,7 @@ pub fn print_error_snippet(line_num: usize, col: usize, len: usize, src: &str) {
 }
 
 /// Throws a runtime error to the console
-pub fn report_runtime_error(
-    vm: &VirtualMachine,
-    error: RuntimeErrorType,
-    message: String,
-    source: &str,
-) {
+pub fn report_runtime_error(vm: &VirtualMachine, error: RuntimeErrorType, message: String, source: &str) {
     let source_lines: Vec<&str> = source.split("\n").collect();
 
     let frame = vm.current_frame();

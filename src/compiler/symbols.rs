@@ -42,11 +42,7 @@ pub struct Symbol {
 
 impl Display for Symbol {
     fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
-        let s = format!(
-            "(name: {}, scope: {})",
-            self.name.as_str(),
-            self.symbol_depth
-        );
+        let s = format!("(name: {}, scope: {})", self.name.as_str(), self.symbol_depth);
         fmt::Debug::fmt(s.as_str(), f)
     }
 }

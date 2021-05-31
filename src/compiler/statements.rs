@@ -2,9 +2,7 @@ use super::{
     symbols::{Symbol, SymbolType},
     Compiler,
 };
-use crate::{
-    ast::*, bytecode::OpCode, errors::CompilerErrorType, lexer::tokens::Token, objects::Object,
-};
+use crate::{ast::*, bytecode::OpCode, errors::CompilerErrorType, lexer::tokens::Token, objects::Object};
 use std::borrow::Borrow;
 
 impl Compiler {
@@ -89,11 +87,7 @@ impl Compiler {
     ///
     /// ## Returns
     /// `Result<(), ()>` – Whether or not there was an error with the variable declaration.
-    pub(super) fn declare_symbol(
-        &mut self,
-        token: &Token,
-        symbol_type: SymbolType,
-    ) -> Result<usize, ()> {
+    pub(super) fn declare_symbol(&mut self, token: &Token, symbol_type: SymbolType) -> Result<usize, ()> {
         let depth = self.relative_scope_depth();
 
         if let Some(symbol) = self
@@ -191,10 +185,10 @@ impl Compiler {
     /// Ends a scope.
     pub(super) fn end_scope(&mut self) {
         let current_depth = self.relative_scope_depth();
-        let popped_scope =
-            self.current_func_scope_mut()
-                .s_table
-                .pop_scope(current_depth, true, true);
+        let popped_scope = self
+            .current_func_scope_mut()
+            .s_table
+            .pop_scope(current_depth, true, true);
 
         let pop_count = popped_scope.0;
         let last_symbol_pos = popped_scope.1;
