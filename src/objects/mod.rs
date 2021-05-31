@@ -11,10 +11,10 @@ pub enum Object {
     Array(Vec<Object>),
     Bool(bool),
     Float(f64),
-    Function(FunctionObject),
+    Function(FuncObject),
     Int(i64),
-    Iterable(Rc<RefCell<IterObject>>),
-    NativeFunction(NativeFunctionObj),
+    Iter(Rc<RefCell<IterObject>>),
+    Native(NativeFuncObj),
     Null,
     Range(RangeObject),
     String(String),
@@ -36,7 +36,7 @@ pub struct IterObject {
 
 /// Represents a Hinton function object.
 #[derive(Clone)]
-pub struct FunctionObject {
+pub struct FuncObject {
     pub defaults: Vec<Object>,
     pub min_arity: u8,
     pub max_arity: u8,
@@ -44,9 +44,21 @@ pub struct FunctionObject {
     pub name: String,
 }
 
+impl Default for FuncObject {
+    fn default() -> Self {
+        Self {
+            defaults: vec![],
+            min_arity: 0,
+            max_arity: 0,
+            chunk: Chunk::new(),
+            name: String::from(""),
+        }
+    }
+}
+
 /// Represents a Hinton native function object.
 #[derive(Clone)]
-pub struct NativeFunctionObj {
+pub struct NativeFuncObj {
     pub name: String,
     pub min_arity: u8,
     pub max_arity: u8,
@@ -59,9 +71,9 @@ impl Object {
             &Self::Array(_) => "Array",
             &Self::Bool(_) => "Bool",
             &Self::Float(_) => "Float",
-            &Self::Function(_) | Self::NativeFunction(_) => "Function",
+            &Self::Function(_) | Self::Native(_) => "Function",
             &Self::Int(_) => "Int",
-            &Self::Iterable(_) => "Iter",
+            &Self::Iter(_) => "Iter",
             &Self::Null => "Null",
             &Self::Range(_) => "Range",
             &Self::String(_) => "String",
@@ -312,7 +324,7 @@ impl<'a> fmt::Display for Object {
                 "[\x1b[38;5;81m{}\x1b[0m..\x1b[38;5;81m{}\x1b[0m]",
                 inner.min, inner.max
             ),
-            Object::Iterable(ref inner) => {
+            Object::Iter(ref inner) => {
                 let str = format!("<Iterable '{}'>", inner.borrow_mut().iter.type_name());
                 fmt::Display::fmt(&str, f)
             }
@@ -325,7 +337,7 @@ impl<'a> fmt::Display for Object {
 
                 fmt::Display::fmt(&str, f)
             }
-            Object::NativeFunction(ref inner) => {
+            Object::Native(ref inner) => {
                 let str = format!("<NativeFn '{}'>", inner.name);
                 fmt::Display::fmt(&str, f)
             }

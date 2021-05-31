@@ -45,7 +45,7 @@ pub enum OpCode {
     Negate,
     NotEq,
     NullishCoalescing,
-    PopStack1,
+    PopStackTop,
     Subtract,
 
     // Instructions with one chunk operands.
@@ -53,7 +53,7 @@ pub enum OpCode {
     // from the chunk as its operand.
     BindDefaults,
     FuncCall,
-    GetVar,
+    GetLocal,
     JumpHasNextOrPop,
     LoadConstant,
     LoadImmN,
@@ -62,12 +62,15 @@ pub enum OpCode {
     MakeTuple,
     PopStackN,
     Return,
-    SetVar,
+    SetLocal,
+    DefineGlobal,
+    GetGlobal,
+    SetGlobal,
 
     // Instructions with two chunk operands.
     // These instructions use the next two
     // bytes (a short) as their operands.
-    GetVarLong,
+    GetLocalLong,
     JumpForward,
     JumpHasNextOrPopLong,
     JumpIfFalseOrPop,
@@ -79,7 +82,10 @@ pub enum OpCode {
     MakeTupleLong,
     PopJumpIfFalse,
     PopStackNLong,
-    SetVarLong,
+    SetLocalLong,
+    DefineGlobalLong,
+    GetGlobalLong,
+    SetGlobalLong,
 }
 
 /// Contains all the necessary information about
@@ -378,7 +384,7 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                 OpCode::Negate => op_code_name = "NEGATE",
                 OpCode::NotEq => op_code_name = "NOT_EQ",
                 OpCode::NullishCoalescing => op_code_name = "NULLISH",
-                OpCode::PopStack1 => op_code_name = "POP_STACK_1",
+                OpCode::PopStackTop => op_code_name = "POP_STACK_TOP",
                 OpCode::Subtract => op_code_name = "SUBTRACT",
 
                 // OpCodes with 1 operand
@@ -390,8 +396,8 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                     op_code_name = "FUNC_CALL";
                     get_operand(1);
                 }
-                OpCode::GetVar => {
-                    op_code_name = "GET_VAR";
+                OpCode::GetLocal => {
+                    op_code_name = "GET_LOCAL";
                     get_operand(1);
                 }
                 OpCode::JumpHasNextOrPop => {
@@ -405,6 +411,21 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                     op_code_name = "LOAD_CONSTANT";
                     get_operand(1);
                     operand_val += &format!(" -> ({})", const_val(idx, false));
+                }
+                OpCode::DefineGlobal => {
+                    op_code_name = "DEFINE_GLOBAL";
+                    get_operand(1);
+                    operand_val += &format!(" -> '{}'", const_val(idx, false));
+                }
+                OpCode::GetGlobal => {
+                    op_code_name = "GET_GLOBAL";
+                    get_operand(1);
+                    operand_val += &format!(" -> '{}'", const_val(idx, false));
+                }
+                OpCode::SetGlobal => {
+                    op_code_name = "SET_GLOBAL";
+                    get_operand(1);
+                    operand_val += &format!(" -> '{}'", const_val(idx, false));
                 }
                 OpCode::LoadImmN => {
                     op_code_name = "LOAD_IMM_N";
@@ -433,14 +454,14 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                     op_code_name = "RETURN";
                     get_operand(1);
                 }
-                OpCode::SetVar => {
-                    op_code_name = "SET_VAR";
+                OpCode::SetLocal => {
+                    op_code_name = "SET_LOCAL";
                     get_operand(1);
                 }
 
                 // OpCode with 2 operands
-                OpCode::GetVarLong => {
-                    op_code_name = "GET_VAR_LONG";
+                OpCode::GetLocalLong => {
+                    op_code_name = "GET_LOCAL_LONG";
                     get_operand(2);
                 }
                 OpCode::JumpForward => {
@@ -468,7 +489,22 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                 OpCode::LoadConstantLong => {
                     op_code_name = "LOAD_CONSTANT_LONG";
                     get_operand(2);
-                    operand_val += &format!(" -> ({})", const_val(idx - 1, false));
+                    operand_val += &format!(" -> ({})", const_val(idx - 1, true));
+                }
+                OpCode::DefineGlobalLong => {
+                    op_code_name = "DEFINE_GLOBAL_LONG";
+                    get_operand(1);
+                    operand_val += &format!(" -> '{}'", const_val(idx - 1, true));
+                }
+                OpCode::GetGlobalLong => {
+                    op_code_name = "GET_GLOBAL_LONG";
+                    get_operand(1);
+                    operand_val += &format!(" -> '{}'", const_val(idx - 1, true));
+                }
+                OpCode::SetGlobalLong => {
+                    op_code_name = "GET_GLOBAL_LONG";
+                    get_operand(1);
+                    operand_val += &format!(" -> '{}'", const_val(idx - 1, true));
                 }
                 OpCode::LoadImmNLong => {
                     op_code_name = "LOAD_IMM_N_LONG";
@@ -500,8 +536,8 @@ pub fn disassemble_chunk(chunk: &Chunk, name: &str) {
                     op_code_name = "POP_STACK_N_LONG";
                     get_operand(2);
                 }
-                OpCode::SetVarLong => {
-                    op_code_name = "SET_VAR_LONG";
+                OpCode::SetLocalLong => {
+                    op_code_name = "SET_LOCAL_LONG";
                     get_operand(2);
                 }
             }

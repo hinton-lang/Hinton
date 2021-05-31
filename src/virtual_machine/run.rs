@@ -15,7 +15,7 @@ impl<'a> VirtualMachine {
     pub(crate) fn run(&mut self) -> RuntimeResult {
         while let Some(instruction) = self.get_next_op_code() {
             match instruction {
-                OpCode::PopStack1 => {
+                OpCode::PopStackTop => {
                     self.pop_stack();
                 }
 
@@ -64,6 +64,54 @@ impl<'a> VirtualMachine {
                     self.push_stack(val)
                 }
 
+                OpCode::DefineGlobal | OpCode::DefineGlobalLong => {
+                    let pos = if let OpCode::DefineGlobal = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    // Gets the name from the pool assigns the value to the global
+                    if let Object::String(name) = self.read_constant(pos).clone() {
+                        let val = self.pop_stack();
+                        self.globals.insert(name, val);
+                    } else {
+                        unreachable!("Expected a string for global declaration name.");
+                    }
+                }
+
+                OpCode::GetGlobal | OpCode::GetGlobalLong => {
+                    let pos = if let OpCode::GetGlobal = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    // Gets the name from the pool
+                    if let Object::String(name) = self.read_constant(pos).clone() {
+                        let val = self.globals.get(&name).unwrap().clone();
+                        self.push_stack(val);
+                    } else {
+                        unreachable!("Expected a string as global declaration name.");
+                    }
+                }
+
+                OpCode::SetGlobal | OpCode::SetGlobalLong => {
+                    let pos = if let OpCode::SetGlobal = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    // Gets the name from the pool
+                    if let Object::String(name) = self.read_constant(pos).clone() {
+                        let val = self.stack.last().unwrap().clone();
+                        self.globals.insert(name, val);
+                    } else {
+                        unreachable!("Expected a string as global declaration name.");
+                    }
+                }
+
                 OpCode::MakeIter => {
                     let tos = self.pop_stack();
 
@@ -77,7 +125,7 @@ impl<'a> VirtualMachine {
                     let tos = self.peek_stack(self.stack.len() - 1);
 
                     match tos {
-                        Object::Iterable(iter) => match get_next_in_iter(iter) {
+                        Object::Iter(iter) => match get_next_in_iter(iter) {
                             Ok(o) => self.push_stack(o),
                             Err(_) => unreachable!("No more items to iterate in for-loop"),
                         },
@@ -95,7 +143,7 @@ impl<'a> VirtualMachine {
                     };
 
                     match self.peek_stack(self.stack.len() - 1) {
-                        Object::Iterable(o) => {
+                        Object::Iter(o) => {
                             if iter_has_next(o) {
                                 self.current_frame_mut().ip -= jump;
                             } else {
@@ -150,9 +198,9 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                OpCode::GetVar | OpCode::GetVarLong => {
+                OpCode::GetLocal | OpCode::GetLocalLong => {
                     // The position of the local variable's value in the stack
-                    let pos = if let OpCode::GetVar = instruction {
+                    let pos = if let OpCode::GetLocal = instruction {
                         self.get_next_byte().unwrap() as usize
                     } else {
                         self.get_next_short().unwrap() as usize
@@ -163,9 +211,9 @@ impl<'a> VirtualMachine {
                     self.push_stack(value);
                 }
 
-                OpCode::SetVar | OpCode::SetVarLong => {
+                OpCode::SetLocal | OpCode::SetLocalLong => {
                     // The position of the local variable's value in the stack
-                    let pos = if let OpCode::SetVar = instruction {
+                    let pos = if let OpCode::SetLocal = instruction {
                         self.get_next_byte().unwrap() as usize
                     } else {
                         self.get_next_short().unwrap() as usize
@@ -439,7 +487,7 @@ impl<'a> VirtualMachine {
                     };
 
                     match natives::get_native_fn(&name) {
-                        Ok(f) => self.push_stack(Object::NativeFunction(f)),
+                        Ok(f) => self.push_stack(Object::Native(f)),
                         Err(e) => return e,
                     }
                 }

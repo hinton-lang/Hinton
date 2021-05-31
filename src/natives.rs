@@ -1,6 +1,6 @@
 use crate::{
     errors::RuntimeErrorType,
-    objects::{IterObject, NativeFunctionObj, Object},
+    objects::{IterObject, NativeFuncObj, Object},
     virtual_machine::RuntimeResult,
 };
 use std::{borrow::Borrow, cell::RefCell, io, rc::Rc, time::SystemTime};
@@ -16,33 +16,33 @@ pub type NativeFn = fn(Vec<Object>) -> Result<Object, RuntimeResult>;
 /// ## Returns
 /// Returns a native function if the provided name matches a native function's name,
 /// otherwise returns a RuntimeResult error.
-pub fn get_native_fn(name: &str) -> Result<NativeFunctionObj, RuntimeResult> {
+pub fn get_native_fn(name: &str) -> Result<NativeFuncObj, RuntimeResult> {
     match name {
-        "print" => Ok(NativeFunctionObj {
+        "print" => Ok(NativeFuncObj {
             name: String::from("print"),
             min_arity: 1,
             max_arity: 1,
             function: native_print as NativeFn,
         }),
-        "input" => Ok(NativeFunctionObj {
+        "input" => Ok(NativeFuncObj {
             name: String::from("input"),
             min_arity: 1,
             max_arity: 1,
             function: native_input as NativeFn,
         }),
-        "iter" => Ok(NativeFunctionObj {
+        "iter" => Ok(NativeFuncObj {
             name: String::from("iter"),
             min_arity: 1,
             max_arity: 1,
             function: native_iter as NativeFn,
         }),
-        "next" => Ok(NativeFunctionObj {
+        "next" => Ok(NativeFuncObj {
             name: String::from("next"),
             min_arity: 1,
             max_arity: 1,
             function: native_next as NativeFn,
         }),
-        "clock" => Ok(NativeFunctionObj {
+        "clock" => Ok(NativeFuncObj {
             name: String::from("clock"),
             min_arity: 0,
             max_arity: 0,
@@ -156,7 +156,7 @@ pub fn make_iter(o: Object) -> Result<Object, RuntimeResult> {
         Object::Range(_) => {}
         Object::Tuple(_) => {}
         // If the object is already an iterable, return that same object.
-        Object::Iterable(_) => return Ok(o),
+        Object::Iter(_) => return Ok(o),
         // Object cannot be iterable.
         _ => {
             return Err(RuntimeResult::Error {
@@ -166,7 +166,7 @@ pub fn make_iter(o: Object) -> Result<Object, RuntimeResult> {
         }
     };
 
-    return Ok(Object::Iterable(Rc::new(RefCell::new(IterObject {
+    return Ok(Object::Iter(Rc::new(RefCell::new(IterObject {
         iter: Box::new(o),
         index: 0,
     }))));
@@ -176,7 +176,7 @@ pub fn make_iter(o: Object) -> Result<Object, RuntimeResult> {
 /// retrieves the next item in an iterable object.
 fn native_next(args: Vec<Object>) -> Result<Object, RuntimeResult> {
     match args[0].borrow() {
-        Object::Iterable(iter) => get_next_in_iter(iter),
+        Object::Iter(iter) => get_next_in_iter(iter),
         _ => Err(RuntimeResult::Error {
             error: RuntimeErrorType::TypeError,
             message: format!("Object of type '{}' is not iterable.", args[0].type_name()),

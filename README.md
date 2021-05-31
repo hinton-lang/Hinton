@@ -9,8 +9,6 @@ Though this interpreter is based on the Crafting Interpreters book, it implement
 
 * Hinton source code is first parsed into an Abstract Syntax Tree (AST), then compiled to bytecode, then interpreted by the VM. This is because traversing the AST allows for easier bytecode generation and optimization (optimization strategies will be added later).
 
-* Hinton stores all variables on the stack. There is no concept of a "global" variable in Hinton. Variables will be stored this way unless having a different strategy for global variables is needed in the future.
-
 * Hinton has extra built-in data structures like `Arrays`, `Tuples`, `Iterators`, and `Ranges`.
 
 * Hinton has extra built-in functions like:
@@ -22,6 +20,8 @@ Though this interpreter is based on the Crafting Interpreters book, it implement
 * Hinton has support for more operators like `%`, `**`, `<<`, `>>`, `^`, `&`, `~`, nullish coalescing (`??`), ternary conditionals (`? :`), advanced reassignment (`+=`, `**=`, `%=`, etc...), plus binary, hexadecimal, and octal numbers.
 
 * Hinton supports the `break` statement in loops. The `continue` statement is coming soon.
+
+* Hinton supports the "long" version of almost all instructions that have an argument. For example, while the `DEFINE_GLOBAL` instruction takes the next byte as its operand (only allowing 255 global variables to be declared), the `DEFINE_GLOBAL_LONG` instruction takes the next two bytes as its operand (allowing up to 65,536 global variables to be declared).
 
 ** Hinton is a work-in-progress, and many other features are yet to come. To see a list of the features currently being worked on, visit the [Planned Features](https://github.com/hinton-lang/Hinton/projects/1) page. For a list of features without a near-by implementation date, visit the [Missing Features](#missing-features) section of this README.
 
@@ -41,7 +41,7 @@ NOTE: You must install Rust to run Hinton. I know, I know, but Hinton isn't a fu
 
 ## Advanced Programs
 ### The Classic Fibonacci Number Calculator:
-On average, running with release mode, the algorithm takes ~361ms to compute the `fib(25)` on my MacBook Pro 2019 with 16GB of RAM running MacOS Big Sur. For comparison, a similar program in Python takes ~24ms. Not very fast.
+On average, running with release mode, the algorithm takes ~455ms to compute the `fib(25)` on my MacBook Pro 2019 with 16GB of RAM running MacOS Big Sur. For comparison, a similar program in Python takes ~24ms. Not very fast 😕.
 ```swift
 func fib(n := 0) {
     if (n < 2) return n;
@@ -70,9 +70,9 @@ Hinton programs get executed in three separate steps: parsing, compiling and exe
 
 * **Compiling**: The compiler takes an AST, walks the tree, and generates bytecode instructions as it goes. It creates a `SymbolTable` to keep track of declarations made in local scopes and enforces lexical scoping at compile time so that the VM does not have to perform checks for the existence of variables at runtime. (You can also [print the bytecode](#printing-bytecode) of a program).
 
-* **Executing**: The execution step involves the creation of a stack-based Virtual Machine (VM). The VM takes a chunk of bytecode and executes one instruction in the chunk at a time. It works by pushing and popping objects onto an Object stack where it stores variables and temporary objects. It also has a Frames stack, where it pushed and pops function call frames.
+* **Executing**: The execution step involves the creation of a stack-based Virtual Machine (VM). The VM takes a chunk of bytecode and executes one instruction in the chunk at a time. It works by pushing and popping objects onto an Object stack where it stores local variables and temporary objects. It also has a Frames stack, where it pushes and pops function call frames.
 
-Because Hinton programs are executed in these three separate steps, Hinton takes longer to start execution. To see the time each step takes to execute, run the programs with the `bench_time` Cargo feature flag:
+Because Hinton programs are executed in these three separate steps, they takes longer to start execution. To see the time each step takes to execute, run the programs with the `bench_time` Cargo feature flag:
 ```
 cargo run --features bench_time </path/to/program.ht>
 ```
@@ -103,27 +103,28 @@ while x <= 10 {
 ```
 **Bytecode**
 ```
-==== Script: './test.ht' ====
+==== <File '/path/to/file.ht'> ====
 001     0000 0x11 – LOAD_IMM_0I                
-003     0001 0x24 – GET_VAR                    1
- |      0003 0x27 – LOAD_IMM_N                 10
- |      0005 0x0F – LESS_THAN_EQ               
- |      0006 0x38 – POP_JUMP_IF_FALSE          29 (add 20 to IP)
-004     0009 0x26 – LOAD_CONSTANT              0 -> (print)
- |      0011 0x17 – LOAD_NATIVE                
- |      0012 0x26 – LOAD_CONSTANT              1 -> (X equals )
- |      0014 0x24 – GET_VAR                    1
- |      0016 0x00 – ADD                        
- |      0017 0x23 – FUNC_CALL                  1
-003     0019 0x20 – POP_STACK_1                
-005     0020 0x24 – GET_VAR                    1
- |      0022 0x13 – LOAD_IMM_1I                
- |      0023 0x00 – ADD                        
- |      0024 0x2D – SET_VAR                    1
-004     0026 0x20 – POP_STACK_1                
-003     0027 0x28 – LOOP_JUMP                  1 (sub 28 from IP)
-000     0029 0x15 – LOAD_IMM_NULL              
- |      0030 0x2C – RETURN                     1
+ |      0001 0x2E – DEFINE_GLOBAL              0 -> 'x'
+003     0003 0x2F – GET_GLOBAL                 0 -> 'x'
+ |      0005 0x27 – LOAD_IMM_N                 10
+ |      0007 0x0F – LESS_THAN_EQ               
+ |      0008 0x3B – POP_JUMP_IF_FALSE          31 (add 20 to IP)
+004     0011 0x26 – LOAD_CONSTANT              1 -> (print)
+ |      0013 0x17 – LOAD_NATIVE                
+ |      0014 0x26 – LOAD_CONSTANT              2 -> (X equals )
+ |      0016 0x2F – GET_GLOBAL                 0 -> 'x'
+ |      0018 0x00 – ADD                        
+ |      0019 0x23 – FUNC_CALL                  1
+003     0021 0x20 – POP_STACK_TOP              
+005     0022 0x2F – GET_GLOBAL                 0 -> 'x'
+ |      0024 0x13 – LOAD_IMM_1I                
+ |      0025 0x00 – ADD                        
+ |      0026 0x30 – SET_GLOBAL                 0 -> 'x'
+004     0028 0x20 – POP_STACK_TOP              
+003     0029 0x28 – LOOP_JUMP                  3 (sub 28 from IP)
+000     0031 0x15 – LOAD_IMM_NULL              
+ |      0032 0x2C – RETURN                     0
 ```
 
 And to see the raw bytes, run the file with the `show_raw_bytecode` flag:
@@ -132,15 +133,15 @@ cargo run --features show_raw_bytecode </path/to/program.ht>
 ```
 Which, for the above program, results in the following chunk of bytes:
 ```
-==== Script: './test.ht' ====
-0x11 0x24 0x01 0x27 0x0A 0x0F 0x38 0x00 
-0x14 0x26 0x00 0x17 0x26 0x01 0x24 0x01 
-0x00 0x23 0x01 0x20 0x24 0x01 0x13 0x00 
-0x2D 0x01 0x20 0x28 0x1C 0x15 0x2C 0x01 
+==== <File '/path/to/file.ht'> ====
+0x11 0x2E 0x00 0x2F 0x00 0x27 0x0A 0x0F 
+0x3B 0x00 0x14 0x26 0x01 0x17 0x26 0x02 
+0x2F 0x00 0x00 0x23 0x01 0x20 0x2F 0x00 
+0x13 0x00 0x30 0x00 0x20 0x28 0x1C 0x15 
+0x2C 0x00 
 
-
-Chunk Size: 32
-================ 
+Chunk Size: 34
+================
 ```
 
 ## Missing Features
