@@ -7,7 +7,7 @@ extern crate num_derive;
 use std::time::Instant;
 
 // Using other modules
-use std::{env, fs, time::Duration};
+use std::{env, fs, io::ErrorKind, time::Duration};
 
 // Declaring crate-level Modules
 mod ast;
@@ -87,17 +87,29 @@ fn main() {
 fn run_file(filename: &String) {
     let filepath = match fs::canonicalize(filename) {
         Ok(path) => path,
-        Err(_) => {
-            eprintln!("File not found: '{}'.", filename);
-            std::process::exit(70);
+        Err(error) => {
+            match error.kind() {
+                ErrorKind::NotFound => eprintln!("File not '{}' found.", filename),
+                ErrorKind::PermissionDenied => eprintln!("Need permission to open '{}'.", filename),
+                ErrorKind::UnexpectedEof => eprintln!("Unexpected End of file '{}'.", filename),
+                _ => eprintln!("Unexpected error when opening file '{}'.", filename),
+            }
+
+            std::process::exit(70)
         }
     };
 
     let contents = match fs::read_to_string(filepath.clone()) {
         Ok(src) => src,
-        Err(_) => {
-            eprintln!("File not found: '{:?}'.", filepath);
-            std::process::exit(70);
+        Err(error) => {
+            match error.kind() {
+                ErrorKind::NotFound => eprintln!("File not '{}' found.", filename),
+                ErrorKind::PermissionDenied => eprintln!("Need permission to open '{}'.", filename),
+                ErrorKind::UnexpectedEof => eprintln!("Unexpected End of file '{}'.", filename),
+                _ => eprintln!("Unexpected error when opening file '{}'.", filename),
+            }
+
+            std::process::exit(70)
         }
     };
 
