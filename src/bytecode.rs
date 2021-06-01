@@ -256,6 +256,11 @@ impl<'a> Chunk {
     pub fn len(&self) -> usize {
         return self.instructions.len();
     }
+
+    #[cfg(test)]
+    pub fn get_pool_size(&self) -> usize {
+        return self.constants.len();
+    }
 }
 
 /// Disassembles the chunk into its raw bytes, and prints the each instruction byte.

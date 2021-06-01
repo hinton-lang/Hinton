@@ -64,10 +64,10 @@ impl<'a> Parser {
             }
         }
 
-        return if parser.errors.len() > 0 {
-            Err(parser.errors)
-        } else {
+        return if parser.errors.len() == 0 {
             Ok(ASTNode::Module(program))
+        } else {
+            Err(parser.errors)
         };
     }
 
