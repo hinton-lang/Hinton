@@ -54,3 +54,130 @@ fn test_const_pool_no_duplicate_items() {
 }
 
 
+#[test]
+fn allow_break_inside_compact_while_loop() {
+    let program = match Parser::parse("while (true) break;") {
+        Ok(ast) => ast,
+        Err(_) => panic!("Parser Had Errors."),
+    };
+
+    if let Err(_) = Compiler::compile_file("test", &program) {
+        panic!("Compiler should allow break statements inside of compact while loops.")
+    }
+}
+
+#[test]
+fn allow_break_inside_compact_for_loop() {
+    let program = match Parser::parse("for (let x in 0..10) break;") {
+        Ok(ast) => ast,
+        Err(_) => panic!("Parser Had Errors."),
+    };
+
+    if let Err(_) = Compiler::compile_file("test", &program) {
+        panic!("Compiler should allow break statements inside of compact for loops.")
+    }
+}
+
+#[test]
+fn allow_break_inside_nested_while_loop_scope() {
+    let src =  "while true {
+        {
+            {{ break; }}
+        }
+    }";
+
+    let program = match Parser::parse(src) {
+        Ok(ast) => ast,
+        Err(_) => panic!("Parser Had Errors."),
+    };
+
+    if let Err(_) = Compiler::compile_file("test", &program) {
+        panic!("Compiler should allow break statements inside of nested while loop scopes.")
+    }
+}
+
+#[test]
+fn allow_break_inside_nested_for_loop_scope() {
+    let src =  "for let x in 0..10 {
+        {
+            {{ break; }}
+        }
+    }";
+
+    let program = match Parser::parse(src) {
+        Ok(ast) => ast,
+        Err(_) => panic!("Parser Had Errors."),
+    };
+
+    if let Err(_) = Compiler::compile_file("test", &program) {
+        panic!("Compiler should allow break statements inside of nested for loop scopes.")
+    }
+}
+
+#[test]
+fn error_if_break_outside_loop() {
+    let program = match Parser::parse("func my_func() { break; }") {
+        Ok(ast) => ast,
+        Err(_) => panic!("Parser Had Errors."),
+    };
+
+    if let Ok(_) = Compiler::compile_file("test", &program) {
+        panic!("Compiler should emit error when breaking outside of a loop.")
+    }
+}
+
+#[test]
+fn error_if_break_inside_func_inside_loop() {
+    let program = match Parser::parse("while true { func my_func() { break; } }") {
+        Ok(ast) => ast,
+        Err(_) => panic!("Parser Had Errors."),
+    };
+
+    if let Ok(_) = Compiler::compile_file("test", &program) {
+        panic!("Compiler should emit error when breaking outside inside a function inside a loop.")
+    }
+}
+
+#[test]
+fn error_if_return_outside_func() {
+    let program = match Parser::parse("while true { return false; }") {
+        Ok(ast) => ast,
+        Err(_) => panic!("Parser Had Errors."),
+    };
+
+    if let Ok(_) = Compiler::compile_file("test", &program) {
+        panic!("Compiler should emit error when returning from outside of function.")
+    }
+}
+
+#[test]
+fn allow_return_inside_loop_inside_func() {
+    let program = match Parser::parse("func my_func(x) { while x { return false; } }") {
+        Ok(ast) => ast,
+        Err(_) => panic!("Parser Had Errors."),
+    };
+
+    if let Err(_) = Compiler::compile_file("test", &program) {
+        panic!("Compiler should allow returning from loop inside function.")
+    }
+}
+
+#[test]
+fn functions_have_access_to_global_vars() {
+    let src = "
+        let global = \"some value\";
+
+        func my_function() {
+            print(global);
+        }
+    ";
+
+    let program = match Parser::parse(src) {
+        Ok(ast) => ast,
+        Err(_) => panic!("Parser Had Errors."),
+    };
+
+    if let Err(_) = Compiler::compile_file("test", &program) {
+        panic!("Functions should have access to global declarations.")
+    }
+}
