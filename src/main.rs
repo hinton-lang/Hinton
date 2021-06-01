@@ -20,6 +20,9 @@ mod objects;
 mod parser;
 mod virtual_machine;
 
+#[cfg(test)]
+mod tests;
+
 // Using create-level sub-modules
 use virtual_machine::InterpretResult;
 use virtual_machine::VirtualMachine;

@@ -14,8 +14,11 @@ Though this interpreter is based on the Crafting Interpreters book, it implement
 * Hinton has extra built-in functions like:
     * `print(...)`: To print to the console,
     * `input(...)`: To receive user input,
-    * `iter(...)`: To convert an object to an iterator, and
+    * `iter(...)`: To convert an object to an iterator,
     * `next(...)`: To get the next item in an iterator,
+    * `assert(...)`: To test that an expression is truthy,
+    * `assert_eq(...)`: To test that two expressions are equal, and
+    * `assert_ne(...)`: To test that two expressions are not equal,
 
 * Hinton has support for more operators like `%`, `**`, `<<`, `>>`, `^`, `&`, `~`, nullish coalescing (`??`), ternary conditionals (`? :`), advanced reassignment (`+=`, `**=`, `%=`, etc...), plus binary, hexadecimal, and octal numbers.
 

@@ -48,6 +48,24 @@ pub fn get_native_fn(name: &str) -> Result<NativeFuncObj, RuntimeResult> {
             max_arity: 0,
             function: native_clock as NativeFn,
         }),
+        "assert" => Ok(NativeFuncObj {
+            name: String::from("assert"),
+            min_arity: 1,
+            max_arity: 2,
+            function: native_assert as NativeFn,
+        }),
+        "assert_eq" => Ok(NativeFuncObj {
+            name: String::from("assert_eq"),
+            min_arity: 2,
+            max_arity: 3,
+            function: native_assert_eq as NativeFn,
+        }),
+        "assert_ne" => Ok(NativeFuncObj {
+            name: String::from("assert_ne"),
+            min_arity: 2,
+            max_arity: 3,
+            function: native_assert_ne as NativeFn,
+        }),
         _ => Err(RuntimeResult::Error {
             error: RuntimeErrorType::ReferenceError,
             message: format!("No native function named '{}'.", name),
@@ -245,5 +263,73 @@ fn native_input(args: Vec<Object>) -> Result<Object, RuntimeResult> {
             error: RuntimeErrorType::Internal,
             message: format!("Failed to read input. IO failed flush. {}", e),
         }),
+    }
+}
+
+// Implements the `assert(...)` native function for Hinton, which checks that
+// the first argument of the function call is truthy, emitting a RuntimeError
+// (with an optional third parameter as its message) if the value is falsey.
+fn native_assert(args: Vec<Object>) -> Result<Object, RuntimeResult> {
+    let value = args[0].clone();
+
+    if !value.is_falsey() {
+        Ok(Object::Null)
+    } else {
+        let message = if args.len() == 2 {
+            args[1].clone()
+        } else {
+            Object::String(String::from("Assertion failed on a falsey value."))
+        };
+
+        Err(RuntimeResult::Error {
+            error: RuntimeErrorType::AssertionError,
+            message: format!("{}", message),
+        })
+    }
+}
+
+// Implements the `assert_eq(...)` native function for Hinton, which checks that
+// the first two arguments of the function call are equal, emitting a RuntimeError
+// (with an optional third parameter as its message) if the values are not equal.
+fn native_assert_eq(args: Vec<Object>) -> Result<Object, RuntimeResult> {
+    let value1 = args[0].clone();
+    let value2 = args[1].clone();
+
+    if value1.equals(&value2) {
+        Ok(Object::Null)
+    } else {
+        let message = if args.len() == 3 {
+            args[2].clone()
+        } else {
+            Object::String(String::from("Assertion values are not equal."))
+        };
+
+        Err(RuntimeResult::Error {
+            error: RuntimeErrorType::AssertionError,
+            message: format!("{}", message),
+        })
+    }
+}
+
+// Implements the `assert_ne(...)` native function for Hinton, which checks that
+// the first two arguments of the function call are not equal, emitting a RuntimeError
+// (with an optional third parameter as its message) if the values are equal.
+fn native_assert_ne(args: Vec<Object>) -> Result<Object, RuntimeResult> {
+    let value1 = args[0].clone();
+    let value2 = args[1].clone();
+
+    if !value1.equals(&value2) {
+        Ok(Object::Null)
+    } else {
+        let message = if args.len() == 3 {
+            args[2].clone()
+        } else {
+            Object::String(String::from("Assertion values are equal."))
+        };
+
+        Err(RuntimeResult::Error {
+            error: RuntimeErrorType::AssertionError,
+            message: format!("{}", message),
+        })
     }
 }

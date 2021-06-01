@@ -19,6 +19,7 @@ pub enum RuntimeErrorType {
     ArgumentError,
     RecursionError,
     ReferenceError,
+    AssertionError,
 }
 
 /// Represents the types of errors that can occur during compilation
@@ -137,14 +138,15 @@ pub fn report_runtime_error(vm: &VirtualMachine, error: RuntimeErrorType, messag
     let line = frame.function.chunk.get_line_info(frame.ip - 1).unwrap();
 
     let error_name = match error {
-        RuntimeErrorType::IndexError => "IndexError",
-        RuntimeErrorType::StopIteration => "EndOfIterationError",
-        RuntimeErrorType::Internal => "InternalError",
-        RuntimeErrorType::TypeError => "TypeError",
-        RuntimeErrorType::ZeroDivision => "ZeroDivisionError",
         RuntimeErrorType::ArgumentError => "ArgumentError",
+        RuntimeErrorType::AssertionError => "AssertionError",
+        RuntimeErrorType::IndexError => "IndexError",
+        RuntimeErrorType::Internal => "InternalError",
         RuntimeErrorType::RecursionError => "RecursionError",
         RuntimeErrorType::ReferenceError => "ReferenceError",
+        RuntimeErrorType::StopIteration => "EndOfIterationError",
+        RuntimeErrorType::TypeError => "TypeError",
+        RuntimeErrorType::ZeroDivision => "ZeroDivisionError",
     };
 
     eprintln!("\x1b[31;1m{}:\x1b[0m\x1b[1m {}\x1b[0m", error_name, message);
