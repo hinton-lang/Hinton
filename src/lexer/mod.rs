@@ -180,8 +180,7 @@ impl<'a> Lexer {
 
         // Keep consuming characters until there is an unescaped quote or
         // the program reaches the end of the source file.
-        while (self.get_current() != quote
-            || (self.get_current() == quote && self.previous() == '\\'))
+        while (self.get_current() != quote || (self.get_current() == quote && self.previous() == '\\'))
             && !self.is_at_end()
         {
             self.advance();
@@ -194,7 +193,7 @@ impl<'a> Lexer {
         // The closing quote.
         self.advance();
 
-        return self.make_token(STRING_LITERAL);
+        return self.make_token(STRING);
     }
 
     /// Generates an identifier token with the current state of the scanner.

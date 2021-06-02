@@ -1,339 +1,10 @@
-use crate::chunk::Chunk;
-use std::fmt;
-use std::rc::Rc;
-use std::result;
+use crate::errors::ObjectOprErrType;
 
-/// All types of objects in Hinton
-#[derive(Clone)]
-pub enum Object {
-    Int(i64),
-    Float(f64),
-    String(String),
-    Bool(bool),
-    Function(FunctionObject),
-    NativeFunction(NativeFunctionObj),
-    Array(Vec<Object>),
-    Range(Rc<RangeObject>),
-    Null,
-}
-
-/// Represents a Hinton range object.
-pub struct RangeObject {
-    pub min: isize,
-    pub max: isize,
-    pub step: isize,
-}
-
-/// Represents a Hinton function object.
-#[derive(Clone)]
-pub struct FunctionObject {
-    pub defaults: Vec<Object>,
-    pub min_arity: u8,
-    pub max_arity: u8,
-    pub chunk: Chunk,
-    pub name: String,
-}
-
-/// Represents a Hinton native function object.
-#[derive(Clone)]
-pub struct NativeFunctionObj {
-    pub name: String,
-    pub min_arity: u8,
-    pub max_arity: u8,
-    pub function: NativeFn,
-}
-
-/// Represents the body of a Hinton native function object.
-pub type NativeFn = fn(Vec<Object>) -> Result<Object, String>;
-
-impl Object {
-    pub fn type_name(&self) -> &str {
-        return match self {
-            &Object::Bool(_) => "Bool",
-            &Object::Null => "Null",
-            &Object::Int(_) => "Int",
-            &Object::Float(_) => "Float",
-            &Object::String(_) => "String",
-            &Object::Array(_) => "Array",
-            &Object::Range(_) => "Range",
-            &Object::Function(_) | Object::NativeFunction(_) => "Function",
-        };
-    }
-
-    pub fn is_numeric(&self) -> bool {
-        match self {
-            Object::Int(_) | Object::Float(_) | Object::Bool(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_int(&self) -> bool {
-        match self {
-            Object::Int(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_float(&self) -> bool {
-        match self {
-            Object::Float(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_bool(&self) -> bool {
-        match self {
-            Object::Bool(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_string(&self) -> bool {
-        match self {
-            Object::String(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_stringifyable(&self) -> bool {
-        match self {
-            Object::String(_) | Object::Int(_) | Object::Float(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_array(&self) -> bool {
-        match self {
-            Object::Array(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_function(&self) -> bool {
-        match self {
-            Object::Function(_) => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_null(&self) -> bool {
-        match self {
-            Object::Null => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_falsey(&self) -> bool {
-        match self {
-            Object::Null => true,
-            Object::Bool(val) => !val,
-            Object::Int(x) if *x == 0i64 => true,
-            Object::Float(x) if *x == 0f64 => true,
-            _ => false,
-        }
-    }
-
-    pub fn as_int(&self) -> Option<i64> {
-        match self {
-            Object::Int(v) => Some(*v),
-            Object::Bool(b) => {
-                if *b {
-                    Some(1i64)
-                } else {
-                    Some(0i64)
-                }
-            }
-            _ => None,
-        }
-    }
-
-    pub fn as_float(&self) -> Option<f64> {
-        match self {
-            Object::Float(v) => Some(*v),
-            _ => None,
-        }
-    }
-
-    pub fn as_string(&self) -> Option<String> {
-        match self {
-            Object::String(s) => Some(String::from(s)),
-            Object::Int(n) => Some(n.to_string()),
-            Object::Float(n) => Some(n.to_string()),
-            _ => None,
-        }
-    }
-
-    pub fn as_bool(&self) -> Option<bool> {
-        match self {
-            Object::Bool(v) => Some(*v),
-            _ => None,
-        }
-    }
-
-    pub fn as_range(&self) -> Option<Rc<RangeObject>> {
-        match self {
-            Object::Range(v) => Some(Rc::clone(v)),
-            _ => None,
-        }
-    }
-
-    pub fn as_array(&self) -> Option<&Vec<Object>> {
-        match self {
-            Object::Array(v) => Some(v),
-            _ => None,
-        }
-    }
-
-    pub fn as_function(&self) -> Option<&FunctionObject> {
-        match self {
-            Object::Function(f) => Some(f),
-            _ => None,
-        }
-    }
-
-    /// Defines equality for Hinton objects.
-    pub fn equals(&self, right: &Object) -> bool {
-        // Equality check for numeric types
-        match self {
-            Object::Int(i) => {
-                return match right {
-                    Object::Int(x) if i == x => true,
-                    Object::Float(x) if (x - i.clone() as f64) == 0f64 => true,
-                    Object::Bool(x) if (i == &0i64 && !x) || (i == &1i64 && *x) => true,
-                    _ => false,
-                }
-            }
-            Object::Float(f) => {
-                return match right {
-                    Object::Int(x) if (f - x.clone() as f64) == 0f64 => true,
-                    Object::Float(x) if f == x => true,
-                    Object::Bool(x) if (f == &0f64 && !x) || (f == &1f64 && *x) => true,
-                    _ => false,
-                }
-            }
-            Object::Bool(b) => {
-                return match right {
-                    Object::Int(x) if (x == &0i64 && !b) || (x == &1i64 && *b) => true,
-                    Object::Float(x) if (x == &0f64 && !b) || (x == &1f64 && *b) => true,
-                    Object::Bool(x) => !(b ^ x),
-                    _ => false,
-                }
-            }
-            _ => {}
-        }
-
-        // If the operands differ in type, we can safely assume
-        // they are not equal in value.
-        if std::mem::discriminant(self) != std::mem::discriminant(&right) {
-            return false;
-        }
-
-        // At this point, the operands have the same type, so we
-        // proceed to check if they match in value.
-        return match self {
-            Object::String(a) => (*a == right.as_string().unwrap()),
-            Object::Array(a) => {
-                let b = right.as_array().unwrap();
-                // If arrays differ in size, they must differ in value. However, if they
-                // are equal in size, then we must check that each item match.
-                if a.len() != b.len() {
-                    false
-                } else {
-                    for i in 0..a.len() {
-                        let a_ith = &a[i];
-                        let b_ith = &b[i];
-
-                        // If at least one of the items differ in value,
-                        // then the arrays are not equals.
-                        if !a_ith.equals(&b_ith) {
-                            return false;
-                        }
-                    }
-
-                    true
-                }
-            }
-            Object::Range(a) => {
-                let b = right.as_range().unwrap();
-
-                // If the ranges match in boundaries,
-                // then they are equal in value.
-                a.min == b.min && a.max == b.max
-            }
-            _ => false,
-        };
-    }
-}
-
-/// Implements the `Display` trait so that objects can be printed in a console-friendly way.
-impl<'a> fmt::Display for Object {
-    fn fmt(&self, f: &mut fmt::Formatter) -> result::Result<(), fmt::Error> {
-        match *self {
-            Object::Int(ref inner) => {
-                let str = String::from("\x1b[38;5;81m")
-                    + inner.to_string().as_str()
-                    + String::from("\x1b[0m").as_str();
-                fmt::Display::fmt(&str, f)
-            }
-            Object::Float(ref inner) => {
-                let str = String::from("\x1b[38;5;81m")
-                    + inner.to_string().as_str()
-                    + if inner.fract() == 0.0 { ".0" } else { "" } // display the .0
-                    + String::from("\x1b[0m").as_str();
-                fmt::Display::fmt(&str, f)
-            }
-            Object::String(ref inner) => {
-                let inner = format!("\"{}\"", inner);
-                fmt::Display::fmt(&inner, f)
-            }
-            Object::Bool(inner) => {
-                let str = if inner {
-                    String::from("\x1b[38;5;3mtrue\x1b[0m")
-                } else {
-                    String::from("\x1b[38;5;3mfalse\x1b[0m")
-                };
-
-                fmt::Display::fmt(&str, f)
-            }
-            Object::Array(ref inner) => {
-                let mut arr_str = String::from("[");
-                for (idx, obj) in inner.iter().enumerate() {
-                    if idx == inner.len() - 1 {
-                        arr_str += &(format!("{}", obj))[..]
-                    } else {
-                        arr_str += &(format!("{}, ", obj))[..];
-                    }
-                }
-                arr_str += "]";
-
-                write!(f, "{}", arr_str)
-            }
-            Object::Range(ref inner) => write!(
-                f,
-                "[\x1b[38;5;81m{}\x1b[0m..\x1b[38;5;81m{}\x1b[0m]",
-                inner.min, inner.max
-            ),
-            Object::Function(ref inner) => {
-                let str = if inner.name == "" {
-                    String::from("<script>")
-                } else {
-                    format!("<Func '{}'>", inner.name)
-                };
-
-                fmt::Display::fmt(&str, f)
-            }
-            Object::NativeFunction(ref inner) => {
-                let str = format!("<NativeFn '{}'>", inner.name);
-                fmt::Display::fmt(&str, f)
-            }
-            Object::Null => f.write_str("\x1b[37;1mnull\x1b[0m"),
-        }
-    }
-}
+use super::Object;
 
 /// Defines negation of Hinton objects.
 impl std::ops::Neg for Object {
-    type Output = Result<Object, String>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn neg(self) -> Self::Output {
         match self {
@@ -342,10 +13,10 @@ impl std::ops::Neg for Object {
             Object::Bool(lhs) if lhs => Ok(Object::Int(-1)),
             Object::Bool(lhs) if !lhs => Ok(Object::Int(0)),
             _ => {
-                return Err(format!(
+                return Err(ObjectOprErrType::TypeError(format!(
                     "Cannot negate operand of type '{}'.",
                     self.type_name()
-                ))
+                )))
             }
         }
     }
@@ -353,14 +24,14 @@ impl std::ops::Neg for Object {
 
 /// Defines addition of Hinton objects.
 impl std::ops::Add<Object> for Object {
-    type Output = Result<Object, String>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn add(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(format!(
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '+' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -412,14 +83,14 @@ impl std::ops::Add<Object> for Object {
 
 /// Defines subtraction of Hinton objects.
 impl std::ops::Sub<Object> for Object {
-    type Output = Result<Object, String>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn sub(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(format!(
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '-' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -453,14 +124,14 @@ impl std::ops::Sub<Object> for Object {
 
 /// Defines multiplication of Hinton objects.
 impl std::ops::Mul<Object> for Object {
-    type Output = Result<Object, String>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn mul(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(format!(
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '*' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -499,21 +170,23 @@ impl std::ops::Mul<Object> for Object {
 
 /// Defines division of Hinton objects.
 impl std::ops::Div<Object> for Object {
-    type Output = Result<Object, String>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn div(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(format!(
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '/' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         // Divide-by-zero errors
         if rhs.is_int() && rhs.as_int().unwrap() == 0
             || rhs.is_float() && rhs.as_float().unwrap() == 0f64
             || rhs.is_bool() && !rhs.as_bool().unwrap()
         {
-            return Err(String::from("Cannot divide by zero."));
+            return Err(ObjectOprErrType::ZeroDivisionError(String::from(
+                "Cannot divide by zero.",
+            )));
         }
 
         match self {
@@ -549,21 +222,23 @@ impl std::ops::Div<Object> for Object {
 
 /// Defines modulo of Hinton objects.
 impl std::ops::Rem<Object> for Object {
-    type Output = Result<Object, String>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn rem(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(format!(
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '%' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         // zero-modulo errors
         if rhs.is_int() && rhs.as_int().unwrap() == 0
             || rhs.is_float() && rhs.as_float().unwrap() == 0f64
             || rhs.is_bool() && !rhs.as_bool().unwrap()
         {
-            return Err(String::from("Right-hand-side of modulus cannot be zero."));
+            return Err(ObjectOprErrType::ZeroDivisionError(String::from(
+                "Right-hand-side of modulus cannot be zero.",
+            )));
         }
 
         match self {
@@ -599,14 +274,14 @@ impl std::ops::Rem<Object> for Object {
 
 /// Defines the bitwise-and operation of Hinton objects.
 impl std::ops::BitAnd<Object> for Object {
-    type Output = Result<Object, String>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn bitand(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(format!(
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '&' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -616,9 +291,7 @@ impl std::ops::BitAnd<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } & rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(
-                    if lhs { 1 } else { 0 } & if rhs { 1 } else { 0 },
-                )),
+                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } & if rhs { 1 } else { 0 })),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -628,14 +301,14 @@ impl std::ops::BitAnd<Object> for Object {
 
 /// Defines the bitwise-or operation of Hinton objects.
 impl std::ops::BitOr<Object> for Object {
-    type Output = Result<Object, String>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn bitor(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(format!(
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '|' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -645,9 +318,7 @@ impl std::ops::BitOr<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } | rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(
-                    if lhs { 1 } else { 0 } | if rhs { 1 } else { 0 },
-                )),
+                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } | if rhs { 1 } else { 0 })),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -657,14 +328,14 @@ impl std::ops::BitOr<Object> for Object {
 
 /// Defines the bitwise-xor operation of Hinton objects.
 impl std::ops::BitXor<Object> for Object {
-    type Output = Result<Object, String>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn bitxor(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(format!(
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '^' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -674,9 +345,7 @@ impl std::ops::BitXor<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } ^ rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(
-                    if lhs { 1 } else { 0 } ^ if rhs { 1 } else { 0 },
-                )),
+                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } ^ if rhs { 1 } else { 0 })),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -686,14 +355,14 @@ impl std::ops::BitXor<Object> for Object {
 
 /// Defines the bitwise-shift-left operation of Hinton objects.
 impl std::ops::Shl<Object> for Object {
-    type Output = Result<Object, String>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn shl(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(format!(
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '<<' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -703,9 +372,7 @@ impl std::ops::Shl<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } << rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(
-                    if lhs { 1 } else { 0 } << if rhs { 1 } else { 0 },
-                )),
+                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } << if rhs { 1 } else { 0 })),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -715,14 +382,14 @@ impl std::ops::Shl<Object> for Object {
 
 /// Defines the bitwise-shift-right operation of Hinton objects.
 impl std::ops::Shr<Object> for Object {
-    type Output = Result<Object, String>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn shr(self, rhs: Object) -> Self::Output {
-        let error_msg = Err(format!(
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '>>' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -732,9 +399,7 @@ impl std::ops::Shr<Object> for Object {
             },
             Object::Bool(lhs) if lhs => match rhs {
                 Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } >> rhs)),
-                Object::Bool(rhs) => Ok(Object::Int(
-                    if lhs { 1 } else { 0 } >> if rhs { 1 } else { 0 },
-                )),
+                Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } >> if rhs { 1 } else { 0 })),
                 _ => return error_msg,
             },
             _ => return error_msg,
@@ -749,17 +414,17 @@ impl std::ops::Shr<Object> for Object {
 /// object only applies the bitwise-not operation. For the
 /// logic-not operation use the `Object.is_falsey()` method.
 impl std::ops::Not for Object {
-    type Output = Result<Object, String>;
+    type Output = Result<Object, ObjectOprErrType>;
 
     fn not(self) -> Self::Output {
         match self {
             Object::Int(opr) => Ok(Object::Int(!opr)),
             Object::Bool(opr) => Ok(Object::Int(!(opr as i64))),
             _ => {
-                return Err(format!(
+                return Err(ObjectOprErrType::TypeError(format!(
                     "Operation '~' not defined for object of type '{}'.",
                     self.type_name()
-                ))
+                )))
             }
         }
     }
@@ -767,12 +432,12 @@ impl std::ops::Not for Object {
 
 impl Object {
     /// Defines exponentiation of Hinton objects.
-    pub fn pow(self, rhs: Object) -> Result<Object, String> {
-        let error_msg = Err(format!(
+    pub fn pow(self, rhs: Object) -> Result<Object, ObjectOprErrType> {
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '**' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         match self {
             // TODO: These conversions seem error-prone...
@@ -808,12 +473,12 @@ impl Object {
     }
 
     /// Defines the greater-than operation of Hinton objects.
-    pub fn gt(self, rhs: Object) -> Result<Object, String> {
-        let error_msg = Err(format!(
+    pub fn gt(self, rhs: Object) -> Result<Object, ObjectOprErrType> {
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '>' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -839,12 +504,12 @@ impl Object {
     }
 
     /// Defines the greater-than-equals operation of Hinton objects.
-    pub fn gteq(self, rhs: Object) -> Result<Object, String> {
-        let error_msg = Err(format!(
+    pub fn gteq(self, rhs: Object) -> Result<Object, ObjectOprErrType> {
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '>=' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -870,12 +535,12 @@ impl Object {
     }
 
     /// Defines the less-than operation of Hinton objects.
-    pub fn lt(self, rhs: Object) -> Result<Object, String> {
-        let error_msg = Err(format!(
+    pub fn lt(self, rhs: Object) -> Result<Object, ObjectOprErrType> {
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '<' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {
@@ -901,12 +566,12 @@ impl Object {
     }
 
     /// Defines the less-than-equal operation of Hinton objects.
-    pub fn lteq(self, rhs: Object) -> Result<Object, String> {
-        let error_msg = Err(format!(
+    pub fn lteq(self, rhs: Object) -> Result<Object, ObjectOprErrType> {
+        let error_msg = Err(ObjectOprErrType::TypeError(format!(
             "Operation '<=' not defined for objects of type '{}' and '{}'.",
             self.type_name(),
             rhs.type_name()
-        ));
+        )));
 
         match self {
             Object::Int(lhs) => match rhs {

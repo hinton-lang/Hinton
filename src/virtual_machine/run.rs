@@ -1,11 +1,8 @@
-use std::rc::Rc;
-
-use super::VirtualMachine;
-use super::{CallFrame, InterpretResult};
-use crate::{chunk::OpCode, objects::RangeObject};
+use super::{RuntimeErrorType, RuntimeResult, VirtualMachine};
 use crate::{
-    objects::{FunctionObject, Object},
-    FRAMES_MAX,
+    bytecode::OpCode,
+    natives::{self, get_next_in_iter, iter_has_next, make_iter},
+    objects::{Object, RangeObject},
 };
 
 impl<'a> VirtualMachine {
@@ -15,11 +12,23 @@ impl<'a> VirtualMachine {
     ///
     /// ## Returns
     /// `InterpretResult` – The result of the execution.
-    pub(crate) fn run(&mut self) -> InterpretResult {
+    pub(crate) fn run(&mut self) -> RuntimeResult {
         while let Some(instruction) = self.get_next_op_code() {
             match instruction {
-                OpCode::PopStack => {
+                OpCode::PopStackTop => {
                     self.pop_stack();
+                }
+
+                OpCode::PopStackN | OpCode::PopStackNLong => {
+                    let n = if let OpCode::PopStackN = instruction {
+                        self.get_next_byte().unwrap() as i64
+                    } else {
+                        self.get_next_short().unwrap() as i64
+                    };
+
+                    for _ in 0..n {
+                        self.pop_stack();
+                    }
                 }
 
                 OpCode::LoadImmNull => self.push_stack(Object::Null),
@@ -30,8 +39,8 @@ impl<'a> VirtualMachine {
                 OpCode::LoadImm1F => self.push_stack(Object::Float(1f64)),
                 OpCode::LoadImm1I => self.push_stack(Object::Int(1i64)),
 
-                OpCode::LoadImm | OpCode::LoadImmLong => {
-                    let imm = if let OpCode::LoadImm = instruction {
+                OpCode::LoadImmN | OpCode::LoadImmNLong => {
+                    let imm = if let OpCode::LoadImmN = instruction {
                         self.get_next_byte().unwrap() as i64
                     } else {
                         self.get_next_short().unwrap() as i64
@@ -55,6 +64,96 @@ impl<'a> VirtualMachine {
                     self.push_stack(val)
                 }
 
+                OpCode::DefineGlobal | OpCode::DefineGlobalLong => {
+                    let pos = if let OpCode::DefineGlobal = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    // Gets the name from the pool assigns the value to the global
+                    if let Object::String(name) = self.read_constant(pos).clone() {
+                        let val = self.pop_stack();
+                        self.globals.insert(name, val);
+                    } else {
+                        unreachable!("Expected a string for global declaration name.");
+                    }
+                }
+
+                OpCode::GetGlobal | OpCode::GetGlobalLong => {
+                    let pos = if let OpCode::GetGlobal = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    // Gets the name from the pool
+                    if let Object::String(name) = self.read_constant(pos).clone() {
+                        let val = self.globals.get(&name).unwrap().clone();
+                        self.push_stack(val);
+                    } else {
+                        unreachable!("Expected a string as global declaration name.");
+                    }
+                }
+
+                OpCode::SetGlobal | OpCode::SetGlobalLong => {
+                    let pos = if let OpCode::SetGlobal = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    // Gets the name from the pool
+                    if let Object::String(name) = self.read_constant(pos).clone() {
+                        let val = self.stack.last().unwrap().clone();
+                        self.globals.insert(name, val);
+                    } else {
+                        unreachable!("Expected a string as global declaration name.");
+                    }
+                }
+
+                OpCode::MakeIter => {
+                    let tos = self.pop_stack();
+
+                    match make_iter(tos) {
+                        Ok(iter) => self.push_stack(iter),
+                        Err(e) => return e,
+                    }
+                }
+
+                OpCode::ForLoopIterNext => {
+                    let tos = self.peek_stack(self.stack.len() - 1);
+
+                    match tos {
+                        Object::Iter(iter) => match get_next_in_iter(iter) {
+                            Ok(o) => self.push_stack(o),
+                            Err(_) => unreachable!("No more items to iterate in for-loop"),
+                        },
+                        _ => unreachable!("Cannot iterate object of type '{}'.", tos.type_name()),
+                    }
+                }
+
+                OpCode::JumpHasNextOrPop | OpCode::JumpHasNextOrPopLong => {
+                    self.pop_stack(); // pop the current iterator item off the stack
+
+                    let jump = if let OpCode::JumpHasNextOrPop = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    match self.peek_stack(self.stack.len() - 1) {
+                        Object::Iter(o) => {
+                            if iter_has_next(o) {
+                                self.current_frame_mut().ip -= jump;
+                            } else {
+                                self.pop_stack();
+                            }
+                        }
+                        _ => unreachable!("Expected iterable object on TOS."),
+                    };
+                }
+
                 OpCode::MakeArray | OpCode::MakeArrayLong => {
                     // The number of values to pop from the stack. Essentially the size of the array.
                     let size = if let OpCode::MakeArray = instruction {
@@ -72,46 +171,36 @@ impl<'a> VirtualMachine {
                     self.push_stack(Object::Array(arr_values));
                 }
 
+                OpCode::MakeTuple | OpCode::MakeTupleLong => {
+                    // The number of values to pop from the stack. Essentially the size of the array.
+                    let size = if let OpCode::MakeTuple = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    let mut tuple_values: Vec<Object> = Vec::with_capacity(size);
+
+                    for _ in 0..size {
+                        tuple_values.push(self.pop_stack());
+                    }
+
+                    self.push_stack(Object::Tuple(tuple_values));
+                }
+
                 OpCode::Indexing => {
                     let index = self.pop_stack();
                     let target = self.pop_stack();
 
-                    if !index.is_int() {
-                        self.report_runtime_error("Array index must be an integer.");
-                        return InterpretResult::RuntimeError;
-                    }
-
-                    if !target.is_array() {
-                        self.report_runtime_error(&format!(
-                            "Cannot index object of type '{}'.",
-                            target.type_name()
-                        ));
-                        return InterpretResult::RuntimeError;
-                    }
-
-                    let array = target.as_array().unwrap();
-                    let idx = index.as_int().unwrap();
-                    let idx = if idx >= 0i64 {
-                        idx as usize
-                    } else {
-                        self.report_runtime_error("Array index out of bounds.");
-                        return InterpretResult::RuntimeError;
-                    };
-
-                    match array.get(idx) {
-                        Some(val) => {
-                            self.push_stack(val.clone());
-                        }
-                        None => {
-                            self.report_runtime_error("Array index out of bounds.");
-                            return InterpretResult::RuntimeError;
-                        }
+                    match target.get_at_index(&index) {
+                        Ok(r) => self.push_stack(r),
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
-                OpCode::GetVar | OpCode::GetVarLong => {
+                OpCode::GetLocal | OpCode::GetLocalLong => {
                     // The position of the local variable's value in the stack
-                    let pos = if let OpCode::GetVar = instruction {
+                    let pos = if let OpCode::GetLocal = instruction {
                         self.get_next_byte().unwrap() as usize
                     } else {
                         self.get_next_short().unwrap() as usize
@@ -122,9 +211,9 @@ impl<'a> VirtualMachine {
                     self.push_stack(value);
                 }
 
-                OpCode::SetVar | OpCode::SetVarLong => {
+                OpCode::SetLocal | OpCode::SetLocalLong => {
                     // The position of the local variable's value in the stack
-                    let pos = if let OpCode::SetVar = instruction {
+                    let pos = if let OpCode::SetLocal = instruction {
                         self.get_next_byte().unwrap() as usize
                     } else {
                         self.get_next_short().unwrap() as usize
@@ -138,87 +227,66 @@ impl<'a> VirtualMachine {
 
                 OpCode::Negate => match -self.pop_stack() {
                     Ok(r) => self.push_stack(r),
-                    Err(e) => {
-                        self.report_runtime_error(e.as_str());
-                        return InterpretResult::RuntimeError;
-                    }
+                    Err(e) => return e.to_runtime_error(),
                 },
 
                 OpCode::Add => {
-                    let val2 = self.stack.pop().unwrap();
-                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
 
                     match val1 + val2 {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
                 OpCode::Subtract => {
-                    let val2 = self.stack.pop().unwrap();
-                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
 
                     match val1 - val2 {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
                 OpCode::Multiply => {
-                    let val2 = self.stack.pop().unwrap();
-                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
 
                     match val1 * val2 {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
                 OpCode::Divide => {
-                    let val2 = self.stack.pop().unwrap();
-                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
 
                     match val1 / val2 {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
                 OpCode::Modulus => {
-                    let val2 = self.stack.pop().unwrap();
-                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
 
                     match val1 % val2 {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
                 OpCode::Expo => {
-                    let val2 = self.stack.pop().unwrap();
-                    let val1 = self.stack.pop().unwrap();
+                    let val2 = self.pop_stack();
+                    let val1 = self.pop_stack();
 
                     match val1.pow(val2) {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -245,10 +313,7 @@ impl<'a> VirtualMachine {
 
                     match val1.lt(val2) {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -258,10 +323,7 @@ impl<'a> VirtualMachine {
 
                     match val1.lteq(val2) {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -271,10 +333,7 @@ impl<'a> VirtualMachine {
 
                     match val1.gt(val2) {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -284,10 +343,7 @@ impl<'a> VirtualMachine {
 
                     match val1.gteq(val2) {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -297,10 +353,7 @@ impl<'a> VirtualMachine {
 
                     match left | right {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -310,10 +363,7 @@ impl<'a> VirtualMachine {
 
                     match left ^ right {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -323,19 +373,13 @@ impl<'a> VirtualMachine {
 
                     match left & right {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
                 OpCode::BitwiseNot => match !self.pop_stack() {
                     Ok(r) => self.push_stack(r),
-                    Err(e) => {
-                        self.report_runtime_error(e.as_str());
-                        return InterpretResult::RuntimeError;
-                    }
+                    Err(e) => return e.to_runtime_error(),
                 },
 
                 OpCode::BitwiseShiftLeft => {
@@ -344,10 +388,7 @@ impl<'a> VirtualMachine {
 
                     match left << right {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -357,10 +398,7 @@ impl<'a> VirtualMachine {
 
                     match left >> right {
                         Ok(r) => self.push_stack(r),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                        Err(e) => return e.to_runtime_error(),
                     }
                 }
 
@@ -368,17 +406,19 @@ impl<'a> VirtualMachine {
                     let right = self.pop_stack();
                     let left = self.pop_stack();
 
-                    if self.check_integer_operands(&left, &right, "..") {
-                        let a = left.as_int().unwrap() as isize;
-                        let b = right.as_int().unwrap() as isize;
-
-                        self.push_stack(Object::Range(Rc::new(RangeObject {
-                            min: a,
-                            max: b,
-                            step: 1,
-                        })));
+                    if left.is_int() && right.is_int() {
+                        let a = left.as_int().unwrap();
+                        let b = right.as_int().unwrap();
+                        self.push_stack(Object::Range(RangeObject { min: a, max: b }));
                     } else {
-                        return InterpretResult::RuntimeError;
+                        return RuntimeResult::Error {
+                            error: RuntimeErrorType::TypeError,
+                            message: format!(
+                                "Operation '..' not defined for operands of type '{}' and '{}'.",
+                                left.type_name(),
+                                right.type_name()
+                            ),
+                        };
                     }
                 }
 
@@ -393,19 +433,39 @@ impl<'a> VirtualMachine {
                     }
                 }
 
-                OpCode::JumpIfFalse => {
+                OpCode::PopJumpIfFalse => {
                     // The OP_JUMP_IF_FALSE instruction always has a short as its operand.
                     let offset = self.get_next_short().unwrap() as usize;
 
-                    let top = self.stack.last().unwrap();
-
-                    if top.is_falsey() {
+                    if self.pop_stack().is_falsey() {
                         self.current_frame_mut().ip += offset;
                     }
                 }
 
-                OpCode::Jump => {
-                    // The OP_JUM instruction always has a short as its operand.
+                OpCode::JumpIfFalseOrPop => {
+                    // The OP_JUMP_IF_FALSE instruction always has a short as its operand.
+                    let offset = self.get_next_short().unwrap() as usize;
+
+                    if self.peek_stack(self.stack.len() - 1).is_falsey() {
+                        self.current_frame_mut().ip += offset;
+                    } else {
+                        self.pop_stack();
+                    }
+                }
+
+                OpCode::JumpIfTrueOrPop => {
+                    // The OP_JUMP_IF_FALSE instruction always has a short as its operand.
+                    let offset = self.get_next_short().unwrap() as usize;
+
+                    if !self.peek_stack(self.stack.len() - 1).is_falsey() {
+                        self.current_frame_mut().ip += offset;
+                    } else {
+                        self.pop_stack();
+                    }
+                }
+
+                OpCode::JumpForward => {
+                    // The OP_JUMP instruction always has a short as its operand.
                     let offset = self.get_next_short().unwrap() as usize;
                     self.current_frame_mut().ip += offset;
                 }
@@ -423,18 +483,12 @@ impl<'a> VirtualMachine {
                 OpCode::LoadNative => {
                     let name = match self.pop_stack() {
                         Object::String(x) => x,
-                        _ => {
-                            self.report_runtime_error("Expected native function name.");
-                            return InterpretResult::RuntimeError;
-                        }
+                        _ => unreachable!("Expected a native function name on TOS."),
                     };
 
-                    match self.natives.get_native_fn_object(&name) {
-                        Ok(f) => self.push_stack(Object::NativeFunction(f)),
-                        Err(e) => {
-                            self.report_runtime_error(e.as_str());
-                            return InterpretResult::RuntimeError;
-                        }
+                    match natives::get_native_fn(&name) {
+                        Ok(f) => self.push_stack(Object::Native(f)),
+                        Err(e) => return e,
                     }
                 }
 
@@ -446,9 +500,9 @@ impl<'a> VirtualMachine {
                         .clone();
 
                     match self.call_value(maybe_function, arg_count) {
-                        Ok(_) => {}
-                        Err(_) => {
-                            return InterpretResult::RuntimeError;
+                        RuntimeResult::Ok => {}
+                        RuntimeResult::Error { error, message } => {
+                            return RuntimeResult::Error { error, message }
                         }
                     }
                 }
@@ -467,7 +521,7 @@ impl<'a> VirtualMachine {
                         Object::Function(m) => {
                             m.defaults = defaults;
                         }
-                        _ => unreachable!("Expected a function object on stack top."),
+                        _ => unreachable!("Expected a function object on TOS."),
                     }
                 }
 
@@ -484,7 +538,7 @@ impl<'a> VirtualMachine {
                     self.frames.pop();
 
                     if self.frames.len() == 0 {
-                        return InterpretResult::Ok;
+                        return RuntimeResult::Ok;
                     }
 
                     self.push_stack(result);
@@ -492,83 +546,12 @@ impl<'a> VirtualMachine {
             }
 
             // Prints the execution of the program.
-            // self.print_execution(&instruction);
+            // self.print_execution(instruction);
         }
 
         // If the compiler reaches this point, that means there were no errors
         // to return (because errors are returned by the match rules), so we can
         // safely return an `INTERPRET_OK` result.
-        return InterpretResult::Ok;
-    }
-
-    pub(super) fn call(&mut self, callee: FunctionObject, arg_count: u8) -> Result<(), ()> {
-        let max_arity = callee.max_arity;
-        let min_arity = callee.min_arity;
-
-        // Check that the correct number of arguments is passed to the function
-        if arg_count < min_arity || arg_count > max_arity {
-            if min_arity == max_arity {
-                self.report_runtime_error(&format!(
-                    "Expected {} arguments but got {} instead.",
-                    min_arity, arg_count
-                ))
-            } else {
-                self.report_runtime_error(&format!(
-                    "Expected {} to {} arguments but got {} instead.",
-                    min_arity, max_arity, arg_count
-                ))
-            }
-
-            return Err(());
-        }
-
-        // Pushes the default values onto the stack
-        // if they were not passed into the func call
-        if arg_count != max_arity {
-            let missing_args = max_arity - arg_count;
-
-            for i in (max_arity - 1 - missing_args)..(max_arity - 1) {
-                let val = callee.defaults[i as usize].clone();
-                self.push_stack(val);
-            }
-        }
-
-        // Check we are not overflowing the stack of frames
-        if self.frames.len() >= (FRAMES_MAX as usize) {
-            self.report_runtime_error("Stack overflow.");
-            return Err(());
-        }
-
-        self.frames.push(CallFrame {
-            function: callee,
-            ip: 0,
-            base_pointer: self.stack.len() - (max_arity as usize) - 1,
-        });
-
-        Ok(())
-    }
-
-    /// Prints the execution trace for the program. Useful for debugging the VM.
-    ///
-    /// ## Arguments
-    /// * `instr` – The current OpCode to be executed.
-    fn print_execution(&mut self, instr: OpCode) {
-        println!("\n==========================");
-
-        // Prints the next instruction to be executed
-        println!("OpCode:\t\x1b[36m{:?}\x1b[0m ", instr);
-        println!("Byte:\t{:#04X} ", instr as u8);
-
-        // Prints the index of the current instruction
-        println!("IP:\t{:>04} ", self.current_frame().ip);
-
-        // Prints the current state of the values stack
-        print!("stack\t[");
-        for val in self.stack.iter() {
-            print!("{}; ", val);
-        }
-        println!("]");
-
-        print!("Output:\t");
+        return RuntimeResult::Ok;
     }
 }

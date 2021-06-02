@@ -1,0 +1,65 @@
+// Test if-else statements
+let initial = 3;
+if (initial == 1 and true) {
+    assert_eq(initial, 1);
+} else if (initial == 2) {
+    assert_eq(initial, 2);
+} else if (initial == 3) {
+    assert_eq(initial, 3);
+} else {
+    assert(initial > 3);
+}
+
+// Test ternary expressions
+assert_eq(false ? "value 1" : true ? "value 2" : "value 3", "value 2");
+
+// Test chained array indexing
+let a = [1, 1 + 1, ["a", "b", "c", "d"], true, false, null];
+let b = 1;
+assert_eq(a[2][b], "b");
+
+
+// Test function returns with optional parameters
+func myFunction(a, b?, c := "named parameter") {
+    return a + " " + b + " " + c;
+}
+assert_eq(myFunction("hello", "world"), "hello world named parameter");
+
+// More testing of functions
+func fib(n) {
+    if (n < 2) return n;
+    return fib(n - 2) + fib(n - 1);
+}
+assert_eq(fib(12), 144);
+
+// More testing of functions
+func fact(x) {
+    if (x == 0) return 1;
+    return x * fact(x - 1);
+}
+assert_eq(fact(12), 479001600);
+
+// Ranges are equal if their bounds are equal
+assert_eq(14..24, 14..24);
+assert_ne(0..10, 0..9);
+
+// Test negative indexing
+let greetings = ["hello", "hola", "ciao"];
+assert_eq(greetings[-2][1], "o"); // ["hello", "hola", "ciao"][-2][1] ==> "hola"[1] ==> "o"
+
+// Test iterators
+let array_iter = iter(greetings);
+assert_eq(next(array_iter), "hello");
+assert_eq(next(array_iter), "hola");
+assert_eq(next(array_iter), "ciao");
+
+let city = "New York";
+let string_iter = iter(city);
+assert_eq(next(string_iter), "N");
+assert_eq(next(string_iter), "e");
+assert_eq(next(string_iter), "w");
+assert_eq(next(string_iter), " ");
+assert_eq(next(string_iter), "Y");
+assert_eq(next(string_iter), "o");
+assert_eq(next(string_iter), "r");
+assert_eq(next(string_iter), "k");

@@ -7,38 +7,114 @@ extern crate num_derive;
 use std::time::Instant;
 
 // Using other modules
-use std::{fs, time::Duration};
+use std::{env, fs, io::ErrorKind, time::Duration};
 
 // Declaring crate-level Modules
 mod ast;
-mod chunk;
+mod bytecode;
 mod compiler;
+mod errors;
 mod lexer;
 mod natives;
 mod objects;
 mod parser;
 mod virtual_machine;
 
+#[cfg(test)]
+mod tests;
+
 // Using create-level sub-modules
 use virtual_machine::InterpretResult;
 use virtual_machine::VirtualMachine;
 
+/// Represents the arguments passed to the Hinton CLI.
+struct CLI {
+    flags: Vec<String>,
+    args: Vec<String>,
+}
+
 // Static things
-static FRAMES_MAX: u16 = 1000;
+static FRAMES_MAX: usize = 1000;
 
 /// The main function
 fn main() {
-    let filename = "./test.ht";
-    run_file(filename);
+    // structure: hinton <flags?> <filename> <program args?>
+    let args: Vec<String> = env::args().collect();
+
+    // new CLI
+    let mut _self = CLI {
+        flags: vec![],
+        args: vec![],
+    };
+
+    // If no arguments are provided, run the REPL
+    if args.len() <= 1 {
+        todo!("We need a REPL!!!")
+    }
+
+    // Where in the args list do we specify the filename
+    let mut file_name_idx = 1;
+
+    // Get program flags
+    for arg_pos in 1..(args.len() + 1) {
+        let arg = &args[arg_pos];
+
+        if arg.to_string().starts_with("--") {
+            _self.flags.push(arg.to_lowercase());
+            file_name_idx += 1;
+        } else {
+            break;
+        }
+    }
+
+    // Get the name of the file to run
+    let file_name = &args[file_name_idx];
+
+    // Get the program args
+    _self.args = args[(file_name_idx + 1)..].to_vec();
+
+    // Run the appropriate command
+    match file_name.as_str() {
+        "compile" => todo!("Compile command is not yet supported."),
+        _ => run_file(file_name),
+    }
 }
 
-fn run_file(filename: &str) {
-    let contents = fs::read_to_string(filename).expect("Something went wrong reading the file.");
+/// Parses, compiles, and interprets a Hinton source file.
+///
+/// ## Arguments
+/// * `filename` – The path to the file to run.
+fn run_file(filename: &String) {
+    let filepath = match fs::canonicalize(filename) {
+        Ok(path) => path,
+        Err(error) => {
+            match error.kind() {
+                ErrorKind::NotFound => eprintln!("File not '{}' found.", filename),
+                ErrorKind::PermissionDenied => eprintln!("Need permission to open '{}'.", filename),
+                ErrorKind::UnexpectedEof => eprintln!("Unexpected End of file '{}'.", filename),
+                _ => eprintln!("Unexpected error when opening file '{}'.", filename),
+            }
 
-    // Creates a virtual machine with the given source contents
-    let mut vm = VirtualMachine::new();
+            std::process::exit(70)
+        }
+    };
+
+    let contents = match fs::read_to_string(filepath.clone()) {
+        Ok(src) => src,
+        Err(error) => {
+            match error.kind() {
+                ErrorKind::NotFound => eprintln!("File not '{}' found.", filename),
+                ErrorKind::PermissionDenied => eprintln!("Need permission to open '{}'.", filename),
+                ErrorKind::UnexpectedEof => eprintln!("Unexpected End of file '{}'.", filename),
+                _ => eprintln!("Unexpected error when opening file '{}'.", filename),
+            }
+
+            std::process::exit(70)
+        }
+    };
+
     // Interprets the source contents in the VM
-    let result = vm.interpret(filename, &contents);
+    let result = VirtualMachine::interpret(filepath.to_str().unwrap(), &contents);
 
     // Exit the interpreter with the appropriate code
     match result {
