@@ -2,14 +2,15 @@
 use std::time::Instant;
 
 use crate::{
-    chunk::OpCode,
+    bytecode::OpCode,
     compiler::Compiler,
-    exec_time,
-    natives::NativeFunctions,
-    objects::{self, FunctionObject, Object},
+    errors::{report_errors_list, report_runtime_error, RuntimeErrorType},
+    exec_time, natives,
+    objects::{self, FuncObject, Object},
     parser::Parser,
+    FRAMES_MAX,
 };
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
 // Submodules
 mod run;
@@ -24,9 +25,9 @@ pub enum InterpretResult {
 
 /// Represents a single ongoing function call.
 pub struct CallFrame {
-    function: FunctionObject,
-    ip: usize,
-    base_pointer: usize,
+    pub function: FuncObject,
+    pub ip: usize,
+    pub base_pointer: usize,
 }
 
 impl CallFrame {
@@ -55,76 +56,98 @@ impl CallFrame {
 
 /// Represents a virtual machine
 pub struct VirtualMachine {
-    stack: Vec<objects::Object>,
+    filepath: String,
     frames: Vec<CallFrame>,
-    natives: NativeFunctions,
+    stack: Vec<objects::Object>,
+    globals: HashMap<String, Object>,
 }
 
-impl<'a> VirtualMachine {
-    /// Creates a new instance of the virtual machine.
-    ///
-    /// ## Returns
-    /// * `VirtualMachine` – a new instance of the virtual machine.
-    pub fn new() -> Self {
-        Self {
-            stack: vec![],
-            frames: vec![],
-            natives: Default::default(),
-        }
-    }
+pub enum RuntimeResult {
+    Error {
+        error: RuntimeErrorType,
+        message: String,
+    },
+    Ok,
+}
 
+impl VirtualMachine {
     /// Interprets a chuck of code.
     ///
     /// ## Returns
     /// * `InterpretResult` – The result of the source interpretation.
-    pub(crate) fn interpret(&mut self, filepath: &str, source: &'a str) -> InterpretResult {
+    pub(crate) fn interpret(filepath: &str, source: &str) -> InterpretResult {
+        // Creates a new virtual machine
+        let mut _self = VirtualMachine {
+            stack: Vec::with_capacity(256),
+            frames: Vec::with_capacity(256),
+            filepath: String::from(filepath),
+            globals: Default::default(),
+        };
+
         // Parses the program into an AST and calculates the parser's execution time
         let parsing = exec_time(|| Parser::parse(source));
 
+        // Aborts if there are any parsing errors
         let ast = match parsing.0 {
             Ok(x) => Rc::new(x),
-            Err(e) => return e,
+            Err(e) => {
+                report_errors_list(&_self.filepath, e, source);
+                return InterpretResult::ParseError;
+            }
         };
 
         // Compiles the program into bytecode and calculates the compiler's execution time
-        let compiling =
-            exec_time(|| Compiler::compile_file(filepath, &ast, self.natives.names.clone()));
+        let compiling = exec_time(|| Compiler::compile_file(filepath, &ast));
+        let module = match compiling.0 {
+            Ok(x) => x,
+            Err(e) => {
+                report_errors_list(&_self.filepath, e, source);
+                return InterpretResult::CompileError;
+            }
+        };
 
         // Executes the program
-        return match compiling.0 {
-            Ok(main_func) => {
-                self.stack.push(Object::Function(main_func.clone()));
+        _self.stack.push(Object::Function(module.clone()));
+        return match _self.call_fn(module, 0) {
+            RuntimeResult::Ok => {
+                #[cfg(feature = "bench_time")]
+                let start = Instant::now();
 
-                match self.call(main_func, 0) {
-                    Ok(_) => {
-                        #[cfg(feature = "bench_time")]
-                        let start = Instant::now();
+                // Runs the program.
+                let runtime_result = _self.run();
 
-                        // Runs the program.
-                        let runtime_result = self.run();
+                #[cfg(feature = "bench_time")]
+                {
+                    let run_time = start.elapsed();
 
-                        #[cfg(feature = "bench_time")]
-                        {
-                            let run_time = start.elapsed();
+                    println!("\n======= ⚠️  Execution Results ⚠️  =======");
+                    println!("Parse Time:\t{:?}", parsing.1);
+                    println!("Compile Time:\t{:?}", compiling.1);
+                    println!("Run Time:\t{:?}", run_time);
+                    println!("=======================================");
+                }
 
-                            println!("\n======= ⚠️  Execution Results ⚠️  =======");
-                            println!("Parse Time:\t{:?}", parsing.1);
-                            println!("Compile Time:\t{:?}", compiling.1);
-                            println!("Run Time:\t{:?}", run_time);
-                            println!("=======================================");
-                        }
-
-                        return runtime_result;
+                match runtime_result {
+                    RuntimeResult::Ok => InterpretResult::Ok,
+                    RuntimeResult::Error { error, message } => {
+                        report_runtime_error(&_self, error, message, source);
+                        InterpretResult::RuntimeError
                     }
-                    Err(_) => return InterpretResult::RuntimeError,
                 }
             }
-            Err(e) => e,
+            RuntimeResult::Error { error, message } => {
+                report_runtime_error(&_self, error, message, source);
+                InterpretResult::RuntimeError
+            }
         };
     }
 
-    fn current_frame(&self) -> &CallFrame {
+    pub fn current_frame(&self) -> &CallFrame {
         self.frames.last().unwrap()
+    }
+
+    pub fn frames_list(&self) -> &Vec<CallFrame> {
+        &self.frames
     }
 
     fn current_frame_mut(&mut self) -> &mut CallFrame {
@@ -169,10 +192,10 @@ impl<'a> VirtualMachine {
         return self.current_frame().get_constant(idx);
     }
 
-    fn call_value(&mut self, callee: Object, arg_count: u8) -> Result<(), ()> {
+    fn call_value(&mut self, callee: Object, arg_count: u8) -> RuntimeResult {
         return match callee {
-            Object::Function(obj) => self.call(obj, arg_count),
-            Object::NativeFunction(obj) => {
+            Object::Function(obj) => self.call_fn(obj, arg_count),
+            Object::Native(obj) => {
                 let mut args: Vec<Object> = vec![];
                 for _ in 0..arg_count {
                     let val = self.pop_stack();
@@ -180,74 +203,97 @@ impl<'a> VirtualMachine {
                 }
                 args.reverse();
 
-                match self.natives.call_native(&obj.name, args) {
+                match natives::call_native(&obj.name, args) {
                     Ok(x) => {
                         // Pop the native function call off the stack
                         self.pop_stack();
                         // Place the result of the call on top of the stack
                         self.push_stack(x);
-                        Ok(())
+                        RuntimeResult::Ok
                     }
-                    Err(e) => {
-                        self.report_runtime_error(e.as_str());
-                        Err(())
-                    }
+                    Err(e) => e,
                 }
             }
-            _ => {
-                self.report_runtime_error(&format!(
-                    "Cannot call object of type '{}'.",
-                    callee.type_name()
-                ));
-                Err(())
-            }
+            _ => RuntimeResult::Error {
+                error: RuntimeErrorType::TypeError,
+                message: format!("Cannot call object of type '{}'.", callee.type_name()),
+            },
         };
     }
 
-    /// Throws a runtime error to the console
-    pub fn report_runtime_error(&self, message: &'a str) {
-        let frame = self.current_frame();
-        let line = frame.function.chunk.get_line_info(frame.ip).unwrap();
-        eprintln!(
-            "\x1b[31;1mRuntimeError\x1b[0m at [{}:{}] – {}",
-            line.0, line.1, message
-        );
+    pub(super) fn call_fn(&mut self, callee: FuncObject, arg_count: u8) -> RuntimeResult {
+        let max_arity = callee.max_arity;
+        let min_arity = callee.min_arity;
 
-        // Print stack trace
-        for frame in self.frames.iter().rev() {
-            let func = &frame.function;
-            let line = frame.function.chunk.get_line_info(frame.ip).unwrap();
+        // Check that the correct number of arguments is passed to the function
+        if arg_count < min_arity || arg_count > max_arity {
+            let msg;
 
-            if func.name != "" {
-                eprintln!(
-                    "Stack trace: [{}:{}] at '{}(...)'",
-                    line.0, line.1, func.name
+            if min_arity == max_arity {
+                msg = format!("Expected {} arguments but got {} instead.", min_arity, arg_count);
+            } else {
+                msg = format!(
+                    "Expected {} to {} arguments but got {} instead.",
+                    min_arity, max_arity, arg_count
                 );
+            };
+
+            return RuntimeResult::Error {
+                error: RuntimeErrorType::ArgumentError,
+                message: msg,
+            };
+        }
+
+        // Pushes the default values onto the stack
+        // if they were not passed into the func call
+        if arg_count < max_arity {
+            let missing_args = (max_arity - arg_count) as usize;
+            let def_count = callee.defaults.len();
+
+            for i in (def_count - missing_args)..def_count {
+                let val = callee.defaults[i as usize].clone();
+                self.push_stack(val);
             }
         }
-    }
 
-    /// Checks that both operands of a binary operand are numeric.
-    ///
-    /// ## Arguments
-    /// * `left` – The left operand.
-    /// * `right` – The right operand.
-    /// * `operator` – A string representation of the operator (for error reporting)
-    ///
-    /// ## Returns
-    /// `bool` – True if both operands are numeric, false otherwise.
-    pub fn check_integer_operands(&self, left: &Object, right: &Object, opr: &str) -> bool {
-        // If the operands are not numeric, throw a runtime error.
-        if !left.is_int() || !right.is_int() {
-            self.report_runtime_error(&format!(
-                "Operation '{}' not defined for operands of type '{}' and '{}'.",
-                opr.to_string(),
-                left.type_name(),
-                right.type_name()
-            ));
-            return false;
+        // Check we are not overflowing the stack of frames
+        if self.frames.len() >= (FRAMES_MAX as usize) {
+            return RuntimeResult::Error {
+                error: RuntimeErrorType::RecursionError,
+                message: String::from("Max recursion depth exceeded."),
+            };
         }
 
-        return true;
+        self.frames.push(CallFrame {
+            function: callee,
+            ip: 0,
+            base_pointer: self.stack.len() - (max_arity as usize) - 1,
+        });
+
+        RuntimeResult::Ok
+    }
+
+    /// Prints the execution trace for the program. Useful for debugging the VM.
+    ///
+    /// ## Arguments
+    /// * `instr` – The current OpCode to be executed.
+    fn print_execution(&mut self, instr: OpCode) {
+        println!("\n==========================");
+
+        // Prints the next instruction to be executed
+        println!("OpCode:\t\x1b[36m{:?}\x1b[0m ", instr);
+        println!("Byte:\t{:#04X} ", instr as u8);
+
+        // Prints the index of the current instruction
+        println!("IP:\t{:>04} ", self.current_frame().ip);
+
+        // Prints the current state of the values stack
+        print!("stack\t[");
+        for val in self.stack[1..].iter() {
+            print!("{}; ", val);
+        }
+        println!("]");
+
+        print!("Output:\t");
     }
 }
