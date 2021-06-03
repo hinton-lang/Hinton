@@ -29,11 +29,10 @@ impl Compiler {
                 // stored in the VM.globals hashmap
                 if self.is_global_scope() {
                     self.define_as_global(id);
-                    self.globals.symbols[symbol_pos].is_initialized = true;
+                    self.globals.mark_initialized(symbol_pos);
                 } else {
-                    // Marks the variables as initialized
-                    // a.k.a, defines the variables
-                    self.current_func_scope_mut().s_table.symbols[symbol_pos].is_initialized = true;
+                    // Marks the variables as initialized, a.k.a, defines the variables.
+                    self.current_func_scope_mut().s_table.mark_initialized(symbol_pos);
                 }
             }
         }
@@ -53,9 +52,9 @@ impl Compiler {
             // stored in the VM.globals hashmap
             if self.is_global_scope() {
                 self.define_as_global(&decl.name);
-                self.globals.symbols[symbol_pos].is_initialized = true;
+                self.globals.mark_initialized(symbol_pos);
             } else {
-                self.current_func_scope_mut().s_table.symbols[symbol_pos].is_initialized = true;
+                self.current_func_scope_mut().s_table.mark_initialized(symbol_pos);
             }
         }
     }
@@ -69,12 +68,10 @@ impl Compiler {
         if let Some(idx) = self.add_literal_to_pool(name, token, false) {
             let pos = (token.line_num, token.column_num);
 
-            if idx <= 255 {
-                self.emit_op_code(OpCode::DefineGlobal, pos);
-                self.emit_raw_byte(idx as u8, pos);
+            if idx < 256 {
+                self.emit_op_code_with_byte(OpCode::DefineGlobal, idx as u8, pos);
             } else {
-                self.emit_op_code(OpCode::DefineGlobalLong, pos);
-                self.emit_short(idx, pos);
+                self.emit_op_code_with_short(OpCode::DefineGlobalLong, idx, pos);
             }
         }
     }
@@ -174,7 +171,7 @@ impl Compiler {
             self.compile_node(&node.clone());
         }
 
-        self.end_scope();
+        self.end_scope(!block.is_func_body);
     }
 
     /// Starts a new scope.
@@ -183,23 +180,22 @@ impl Compiler {
     }
 
     /// Ends a scope.
-    pub(super) fn end_scope(&mut self) {
+    pub(super) fn end_scope(&mut self, pop_symbols: bool) {
         let current_depth = self.relative_scope_depth();
         let popped_scope = self
             .current_func_scope_mut()
             .s_table
-            .pop_scope(current_depth, true, true);
+            .pop_scope(current_depth, pop_symbols, true);
 
-        let pop_count = popped_scope.0;
-        let last_symbol_pos = popped_scope.1;
-
-        if pop_count > 0 {
-            if pop_count < 256 {
-                self.emit_op_code(OpCode::PopStackN, last_symbol_pos);
-                self.emit_raw_byte(pop_count as u8, last_symbol_pos);
-            } else {
-                self.emit_op_code(OpCode::PopStackNLong, last_symbol_pos);
-                self.emit_short(pop_count as u16, last_symbol_pos);
+        if pop_symbols {
+            let pop_count = popped_scope.0;
+            let last_symbol_pos = popped_scope.1;
+            if pop_count > 0 {
+                if pop_count < 256 {
+                    self.emit_op_code_with_byte(OpCode::PopStackN, pop_count as u8, last_symbol_pos);
+                } else {
+                    self.emit_op_code_with_short(OpCode::PopStackNLong, pop_count as u16, last_symbol_pos);
+                }
             }
         }
 

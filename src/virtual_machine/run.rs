@@ -2,7 +2,7 @@ use super::{RuntimeErrorType, RuntimeResult, VirtualMachine};
 use crate::{
     bytecode::OpCode,
     natives::{self, get_next_in_iter, iter_has_next, make_iter},
-    objects::{Object, RangeObject},
+    objects::{ClosureObject, Object, RangeObject},
 };
 
 impl<'a> VirtualMachine {
@@ -507,6 +507,41 @@ impl<'a> VirtualMachine {
                     }
                 }
 
+                OpCode::MakeClosure | OpCode::MakeClosureLarge => {
+                    let pos = if let OpCode::MakeClosure = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    let val = match self.read_constant(pos).clone() {
+                        Object::Function(obj) => obj,
+                        _ => unreachable!("Expected a function object for closure."),
+                    };
+
+                    let closure = Object::Closure(ClosureObject { function: val });
+                    self.push_stack(closure);
+                }
+
+                OpCode::MakeClosureLong | OpCode::MakeClosureLongLarge => {
+                    let pos = if let OpCode::MakeClosure = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    let val = match self.read_constant(pos).clone() {
+                        Object::Function(obj) => obj,
+                        _ => unreachable!("Expected a function object for closure."),
+                    };
+
+                    let closure = Object::Closure(ClosureObject { function: val });
+                    self.push_stack(closure);
+                }
+
+                OpCode::SetUpVal | OpCode::SetUpValLong => {}
+                OpCode::GetUpVal | OpCode::GetUpValLong => {}
+
                 OpCode::BindDefaults => {
                     let param_count = self.get_next_byte().unwrap();
 
@@ -521,12 +556,20 @@ impl<'a> VirtualMachine {
                         Object::Function(m) => {
                             m.defaults = defaults;
                         }
+                        Object::Closure(m) => {
+                            m.function.defaults = defaults;
+                        }
                         _ => unreachable!("Expected a function object on TOS."),
                     }
                 }
 
-                OpCode::Return => {
-                    let locals_to_pop = self.get_next_byte().unwrap();
+                OpCode::PopNReturn | OpCode::PopNReturnLong => {
+                    let locals_to_pop = if let OpCode::PopNReturn = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
                     let result = self.pop_stack();
 
                     // Pops local declarations from the stack
@@ -537,11 +580,13 @@ impl<'a> VirtualMachine {
                     // removes the call frame
                     self.frames.pop();
 
-                    if self.frames.len() == 0 {
-                        return RuntimeResult::Ok;
-                    }
-
                     self.push_stack(result);
+                }
+
+                OpCode::EndVirtualMachine => {
+                    self.pop_stack(); // Remove the main function off the stack
+                    self.frames.pop();
+                    return RuntimeResult::Ok;
                 }
             }
 
