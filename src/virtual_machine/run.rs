@@ -2,7 +2,7 @@ use super::{RuntimeErrorType, RuntimeResult, VirtualMachine};
 use crate::{
     bytecode::OpCode,
     natives::{self, get_next_in_iter, iter_has_next, make_iter},
-    objects::{ClosureObject, Object, RangeObject},
+    objects::{ClosureObject, Object, RangeObject, UpValObject},
 };
 
 impl<'a> VirtualMachine {
@@ -514,13 +514,27 @@ impl<'a> VirtualMachine {
                         self.get_next_short().unwrap() as usize
                     };
 
-                    let val = match self.read_constant(pos).clone() {
+                    let function = match self.read_constant(pos).clone() {
                         Object::Function(obj) => obj,
                         _ => unreachable!("Expected a function object for closure."),
                     };
 
-                    let closure = Object::Closure(ClosureObject { function: val });
-                    self.push_stack(closure);
+                    let mut up_values: Vec<UpValObject> = Vec::with_capacity(function.up_val_count);
+
+                    for _ in 0..(function.up_val_count) {
+                        let is_local = self.get_next_byte().unwrap() == 1u8;
+                        let index = self.get_next_byte().unwrap() as usize;
+
+                        let up = if is_local {
+                            self.capture_up_value(self.current_frame().base_pointer + index)
+                        } else {
+                            self.current_frame().closure.up_values[index].clone()
+                        };
+
+                        up_values.push(up);
+                    }
+
+                    self.push_stack(Object::Closure(ClosureObject { function, up_values }));
                 }
 
                 OpCode::MakeClosureLong | OpCode::MakeClosureLongLarge => {
@@ -530,17 +544,52 @@ impl<'a> VirtualMachine {
                         self.get_next_short().unwrap() as usize
                     };
 
-                    let val = match self.read_constant(pos).clone() {
+                    let function = match self.read_constant(pos).clone() {
                         Object::Function(obj) => obj,
                         _ => unreachable!("Expected a function object for closure."),
                     };
 
-                    let closure = Object::Closure(ClosureObject { function: val });
-                    self.push_stack(closure);
+                    let mut up_values: Vec<UpValObject> = Vec::with_capacity(function.up_val_count);
+
+                    for _ in 0..(function.up_val_count) {
+                        let is_local = self.get_next_byte().unwrap() == 1u8;
+                        let index = self.get_next_short().unwrap() as usize;
+
+                        let up = if is_local {
+                            self.capture_up_value(self.current_frame().base_pointer + index)
+                        } else {
+                            self.current_frame().closure.up_values[index].clone()
+                        };
+
+                        up_values.push(up);
+                    }
+
+                    self.push_stack(Object::Closure(ClosureObject { function, up_values }));
                 }
 
-                OpCode::SetUpVal | OpCode::SetUpValLong => {}
-                OpCode::GetUpVal | OpCode::GetUpValLong => {}
+                OpCode::GetUpVal | OpCode::GetUpValLong => {
+                    let pos = if let OpCode::GetUpVal = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    let up_val = &self.current_frame().closure.up_values[pos];
+                    let val = self.peek_stack(up_val.location).clone();
+                    self.push_stack(val);
+                }
+
+                OpCode::SetUpVal | OpCode::SetUpValLong => {
+                    let pos = if let OpCode::SetUpVal = instruction {
+                        self.get_next_byte().unwrap() as usize
+                    } else {
+                        self.get_next_short().unwrap() as usize
+                    };
+
+                    let original = self.current_frame().closure.up_values[pos].location;
+                    let new_val = self.stack.last().unwrap().clone();
+                    self.stack[original] = new_val;
+                }
 
                 OpCode::BindDefaults => {
                     let param_count = self.get_next_byte().unwrap();

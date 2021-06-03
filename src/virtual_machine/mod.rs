@@ -6,7 +6,7 @@ use crate::{
     compiler::Compiler,
     errors::{report_errors_list, report_runtime_error, RuntimeErrorType},
     exec_time, natives,
-    objects::{self, ClosureObject, FuncObject, Object},
+    objects::{self, ClosureObject, FuncObject, Object, UpValObject},
     parser::Parser,
     FRAMES_MAX,
 };
@@ -99,7 +99,7 @@ impl VirtualMachine {
         // Compiles the program into bytecode and calculates the compiler's execution time
         let compiling = exec_time(|| Compiler::compile_file(filepath, &ast));
         let module = match compiling.0 {
-            Ok(x) => ClosureObject { function: x },
+            Ok(x) => x,
             Err(e) => {
                 report_errors_list(&_self.filepath, e, source);
                 return InterpretResult::CompileError;
@@ -107,8 +107,8 @@ impl VirtualMachine {
         };
 
         // Executes the program
-        _self.stack.push(Object::Closure(module.clone()));
-        return match _self.call_closure(module, 0) {
+        _self.stack.push(Object::Function(module.clone()));
+        return match _self.call_function(module, 0) {
             RuntimeResult::Ok => {
                 #[cfg(feature = "bench_time")]
                 let start = Instant::now();
@@ -230,7 +230,10 @@ impl VirtualMachine {
         let max_arity = callee.max_arity as usize;
 
         self.frames.push(CallFrame {
-            closure: ClosureObject { function: callee },
+            closure: ClosureObject {
+                function: callee,
+                up_values: vec![],
+            },
             ip: 0,
             base_pointer: self.stack.len() - max_arity - 1,
         });
@@ -298,6 +301,10 @@ impl VirtualMachine {
         }
 
         Ok(())
+    }
+
+    fn capture_up_value(&self, index: usize) -> UpValObject {
+        UpValObject { location: index }
     }
 
     /// Prints the execution trace for the program. Useful for debugging the VM.

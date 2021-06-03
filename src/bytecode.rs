@@ -621,7 +621,7 @@ pub fn disassemble_function_scope(chunk: &Chunk, name: &String) {
 
                         operand_val += &format!("  |\t{:>05}      | {}", idx + 1, i);
 
-                        let is_local = chunk.get_byte(idx + 1).unwrap() == 0u8;
+                        let is_local = chunk.get_byte(idx + 1).unwrap() == 1u8;
                         let index = chunk.get_byte(idx + 2).unwrap();
                         let up_val_type = if is_local { "Local" } else { "UpVal" };
                         operand_val += &format!(" {} idx={}", up_val_type, index);
@@ -655,7 +655,7 @@ pub fn disassemble_function_scope(chunk: &Chunk, name: &String) {
 
                         operand_val += &format!("  |\t{:>05}      | {}", idx + 1, i);
 
-                        let is_local = chunk.get_byte(idx + 1).unwrap() == 0u8;
+                        let is_local = chunk.get_byte(idx + 1).unwrap() == 1u8;
                         let index = chunk.get_short(idx + 2).unwrap();
                         let up_val_type = if is_local { "Local" } else { "UpVal" };
                         operand_val += &format!(" {} idx={}", up_val_type, index);

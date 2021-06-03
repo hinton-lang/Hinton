@@ -54,6 +54,12 @@ pub struct NativeFuncObj {
 #[derive(Clone)]
 pub struct ClosureObject {
     pub function: FuncObject,
+    pub up_values: Vec<UpValObject>,
+}
+
+#[derive(Clone)]
+pub struct UpValObject {
+    pub location: usize,
 }
 
 /// All types of objects in Hinton
