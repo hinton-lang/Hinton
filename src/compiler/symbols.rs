@@ -3,6 +3,8 @@ use std::{
     usize,
 };
 
+use super::UpValue;
+
 /// Types of symbols available in Hinton.
 #[derive(Clone)]
 pub enum SymbolType {
@@ -22,6 +24,8 @@ pub enum SymbolLoc {
     /// Represents the symbol of a global declaration,
     /// and the pool position of the symbol's name.
     Global(Symbol, usize),
+    /// Represents an UpValue symbol
+    UpValue(UpValue, usize),
     /// Represents a native function symbol.
     Native,
     /// Represents a not-found symbol.
@@ -49,10 +53,14 @@ impl Display for Symbol {
 
 /// Represents the list of local symbols in a particular function.
 pub struct SymbolTable {
-    pub symbols: Vec<Symbol>,
+    symbols: Vec<Symbol>,
 }
 
 impl SymbolTable {
+    pub fn new(symbols: Vec<Symbol>) -> Self {
+        Self { symbols }
+    }
+
     pub fn len(&self) -> usize {
         self.symbols.len()
     }
@@ -65,8 +73,8 @@ impl SymbolTable {
         self.symbols.pop()
     }
 
-    pub fn get(&self, pos: usize) -> Option<&Symbol> {
-        self.symbols.get(pos)
+    pub fn mark_initialized(&mut self, pos: usize) {
+        self.symbols[pos].is_initialized = true;
     }
 
     pub fn find_in_scope(&self, name: &String, scope: usize) -> Option<&Symbol> {

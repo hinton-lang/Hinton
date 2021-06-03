@@ -6,7 +6,7 @@ use crate::{
     compiler::Compiler,
     errors::{report_errors_list, report_runtime_error, RuntimeErrorType},
     exec_time, natives,
-    objects::{self, FuncObject, Object},
+    objects::{self, ClosureObject, FuncObject, Object},
     parser::Parser,
     FRAMES_MAX,
 };
@@ -25,32 +25,32 @@ pub enum InterpretResult {
 
 /// Represents a single ongoing function call.
 pub struct CallFrame {
-    pub function: FuncObject,
+    pub closure: ClosureObject,
     pub ip: usize,
     pub base_pointer: usize,
 }
 
 impl CallFrame {
     fn get_next_op_code(&mut self) -> Option<OpCode> {
-        let code = self.function.chunk.get_op_code(self.ip);
+        let code = self.closure.function.chunk.get_op_code(self.ip);
         self.ip += 1;
         return code;
     }
 
     fn get_next_byte(&mut self) -> Option<u8> {
-        let code = self.function.chunk.get_byte(self.ip);
+        let code = self.closure.function.chunk.get_byte(self.ip);
         self.ip += 1;
         return code;
     }
 
     fn get_next_short(&mut self) -> Option<u16> {
-        let next_short = self.function.chunk.get_short(self.ip);
+        let next_short = self.closure.function.chunk.get_short(self.ip);
         self.ip += 2;
         return next_short;
     }
 
     fn get_constant(&self, idx: usize) -> &Object {
-        self.function.chunk.get_constant(idx).unwrap()
+        self.closure.function.chunk.get_constant(idx).unwrap()
     }
 }
 
@@ -75,7 +75,7 @@ impl VirtualMachine {
     ///
     /// ## Returns
     /// * `InterpretResult` – The result of the source interpretation.
-    pub(crate) fn interpret(filepath: &str, source: &str) -> InterpretResult {
+    pub fn interpret(filepath: &str, source: &str) -> InterpretResult {
         // Creates a new virtual machine
         let mut _self = VirtualMachine {
             stack: Vec::with_capacity(256),
@@ -99,7 +99,7 @@ impl VirtualMachine {
         // Compiles the program into bytecode and calculates the compiler's execution time
         let compiling = exec_time(|| Compiler::compile_file(filepath, &ast));
         let module = match compiling.0 {
-            Ok(x) => x,
+            Ok(x) => ClosureObject { function: x },
             Err(e) => {
                 report_errors_list(&_self.filepath, e, source);
                 return InterpretResult::CompileError;
@@ -107,8 +107,8 @@ impl VirtualMachine {
         };
 
         // Executes the program
-        _self.stack.push(Object::Function(module.clone()));
-        return match _self.call_fn(module, 0) {
+        _self.stack.push(Object::Closure(module.clone()));
+        return match _self.call_closure(module, 0) {
             RuntimeResult::Ok => {
                 #[cfg(feature = "bench_time")]
                 let start = Instant::now();
@@ -194,7 +194,8 @@ impl VirtualMachine {
 
     fn call_value(&mut self, callee: Object, arg_count: u8) -> RuntimeResult {
         return match callee {
-            Object::Function(obj) => self.call_fn(obj, arg_count),
+            Object::Function(obj) => self.call_function(obj, arg_count),
+            Object::Closure(obj) => self.call_closure(obj, arg_count),
             Object::Native(obj) => {
                 let mut args: Vec<Object> = vec![];
                 for _ in 0..arg_count {
@@ -221,9 +222,41 @@ impl VirtualMachine {
         };
     }
 
-    pub(super) fn call_fn(&mut self, callee: FuncObject, arg_count: u8) -> RuntimeResult {
-        let max_arity = callee.max_arity;
-        let min_arity = callee.min_arity;
+    fn call_function(&mut self, callee: FuncObject, arg_count: u8) -> RuntimeResult {
+        if let Err(e) = self.verify_fn(&callee, arg_count) {
+            return e;
+        }
+
+        let max_arity = callee.max_arity as usize;
+
+        self.frames.push(CallFrame {
+            closure: ClosureObject { function: callee },
+            ip: 0,
+            base_pointer: self.stack.len() - max_arity - 1,
+        });
+
+        RuntimeResult::Ok
+    }
+
+    fn call_closure(&mut self, callee: ClosureObject, arg_count: u8) -> RuntimeResult {
+        if let Err(e) = self.verify_fn(&callee.function, arg_count) {
+            return e;
+        }
+
+        let max_arity = callee.function.max_arity as usize;
+
+        self.frames.push(CallFrame {
+            closure: callee,
+            ip: 0,
+            base_pointer: self.stack.len() - max_arity - 1,
+        });
+
+        RuntimeResult::Ok
+    }
+
+    fn verify_fn(&mut self, function: &FuncObject, arg_count: u8) -> Result<(), RuntimeResult> {
+        let max_arity = function.max_arity;
+        let min_arity = function.min_arity;
 
         // Check that the correct number of arguments is passed to the function
         if arg_count < min_arity || arg_count > max_arity {
@@ -238,39 +271,33 @@ impl VirtualMachine {
                 );
             };
 
-            return RuntimeResult::Error {
+            return Err(RuntimeResult::Error {
                 error: RuntimeErrorType::ArgumentError,
                 message: msg,
-            };
+            });
         }
 
         // Pushes the default values onto the stack
         // if they were not passed into the func call
         if arg_count < max_arity {
             let missing_args = (max_arity - arg_count) as usize;
-            let def_count = callee.defaults.len();
+            let def_count = function.defaults.len();
 
             for i in (def_count - missing_args)..def_count {
-                let val = callee.defaults[i as usize].clone();
+                let val = function.defaults[i as usize].clone();
                 self.push_stack(val);
             }
         }
 
         // Check we are not overflowing the stack of frames
         if self.frames.len() >= (FRAMES_MAX as usize) {
-            return RuntimeResult::Error {
+            return Err(RuntimeResult::Error {
                 error: RuntimeErrorType::RecursionError,
-                message: String::from("Max recursion depth exceeded."),
-            };
+                message: String::from("Maximum recursion depth exceeded."),
+            });
         }
 
-        self.frames.push(CallFrame {
-            function: callee,
-            ip: 0,
-            base_pointer: self.stack.len() - (max_arity as usize) - 1,
-        });
-
-        RuntimeResult::Ok
+        Ok(())
     }
 
     /// Prints the execution trace for the program. Useful for debugging the VM.
