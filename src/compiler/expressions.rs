@@ -217,6 +217,7 @@ impl Compiler {
         let res = match self.resolve_symbol(&expr.target, false) {
             SymbolLoc::Global(s, p) => SymbolLoc::Global(s, p),
             SymbolLoc::Local(s, p) => SymbolLoc::Local(s, p),
+            SymbolLoc::UpValue(u, p) => SymbolLoc::UpValue(u, p),
             _ => return,
         };
 
@@ -268,11 +269,9 @@ impl Compiler {
             }
 
             if expr.values.len() < 256 {
-                self.emit_op_code(OpCode::MakeArray, line_info);
-                self.emit_raw_byte(expr.values.len() as u8, line_info);
+                self.emit_op_code_with_byte(OpCode::MakeArray, expr.values.len() as u8, line_info);
             } else {
-                self.emit_op_code(OpCode::MakeArrayLong, line_info);
-                self.emit_short(expr.values.len() as u16, line_info);
+                self.emit_op_code_with_short(OpCode::MakeArrayLong, expr.values.len() as u16, line_info);
             }
         } else {
             self.error_at_token(
