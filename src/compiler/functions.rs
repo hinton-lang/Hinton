@@ -26,7 +26,7 @@ impl Compiler {
                     symbol_depth: 0,
                     is_used: true,
                     line_info: func_pos,
-                    is_global: false,
+                    is_captured: false,
                 }]);
 
                 // Make the this function declaration the
@@ -58,8 +58,7 @@ impl Compiler {
 
                 // Emit a return if the body does not end with a return
                 if !decl.ends_with_return {
-                    self.emit_op_code(bytecode::OpCode::LoadImmNull, func_pos);
-                    self.emit_return(func_pos);
+                    self.emit_return(&None, func_pos);
                 }
 
                 // When the 'show_bytecode' features flag is on, keep track of the
@@ -200,8 +199,6 @@ impl Compiler {
     }
 
     pub(super) fn compile_return_stmt(&mut self, stmt: &ReturnStmtNode) {
-        let token_pos = (stmt.token.line_num, stmt.token.column_num);
-
         if let CompilerType::Script = self.compiler_type {
             self.error_at_token(
                 &stmt.token,
@@ -211,23 +208,33 @@ impl Compiler {
             return;
         }
 
-        match &stmt.value {
-            Some(v) => self.compile_node(v),
-            None => self.emit_op_code(OpCode::LoadImmNull, token_pos),
-        }
-
-        self.emit_return(token_pos);
+        self.emit_return(&stmt.value, (stmt.token.line_num, stmt.token.column_num))
     }
 
-    fn emit_return(&mut self, token_pos: (usize, usize)) {
-        // The number of local symbols that need to be popped off the stack
-        // before returning out of the function
-        let num_of_symbols = self.current_function_scope().s_table.len() - 1;
-
-        if num_of_symbols < 256 {
-            self.emit_op_code_with_byte(OpCode::PopNReturn, num_of_symbols as u8, token_pos);
+    fn emit_return(&mut self, value: &Option<Box<ASTNode>>, token_pos: (usize, usize)) {
+        if let Some(node) = value {
+            self.compile_node(node);
         } else {
-            self.emit_op_code_with_short(OpCode::PopNReturnLong, num_of_symbols as u16, token_pos);
+            self.emit_op_code(OpCode::LoadImmNull, token_pos);
         }
+
+        let depth = self.relative_scope_depth();
+
+        let symbols = self
+            .current_func_scope_mut()
+            .s_table
+            .pop_scope(depth, false, false);
+
+        for (i, is_captured) in symbols.iter().rev().enumerate() {
+            if *is_captured {
+                if i < 256 {
+                    self.emit_op_code_with_byte(OpCode::CloseUpVal, i as u8, token_pos)
+                } else {
+                    self.emit_op_code_with_short(OpCode::CloseUpValLong, i as u16, token_pos);
+                }
+            }
+        }
+
+        self.emit_op_code(OpCode::Return, token_pos);
     }
 }

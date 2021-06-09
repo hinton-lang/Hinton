@@ -85,24 +85,26 @@ impl Parser {
     /// ## Returns
     /// `Option<ASTNode>` – The block statement's AST node.
     fn parse_block(&mut self) -> Option<ASTNode> {
-        let mut statements = BlockNode {
-            body: vec![],
-            // If the block is, indeed, a function body,
-            // the `parse_func_declaration(...)` method
-            // will change this to true.
-            is_func_body: false,
-        };
+        let mut body: Vec<ASTNode> = vec![];
 
         while !self.check(&R_CURLY) && !self.check(&EOF) {
             match self.parse_declaration() {
-                Some(val) => statements.body.push(val),
+                Some(val) => body.push(val),
                 // Report parse error if node has None value
                 None => return None,
             }
         }
 
         self.consume(&R_CURLY, "Expect '}' after block.");
-        return Some(BlockStmt(statements));
+
+        return Some(BlockStmt(BlockNode {
+            body,
+            end_of_block: self.previous.clone(),
+            // If the block is, indeed, a function body,
+            // the `parse_func_declaration(...)` method
+            // will change this to true.
+            is_func_body: false,
+        }));
     }
 
     /// Parses a variable declaration as specified in the grammar.bnf file.

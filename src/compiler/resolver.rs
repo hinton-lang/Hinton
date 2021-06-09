@@ -1,5 +1,5 @@
 use super::{
-    symbols::{Symbol, SymbolLoc},
+    symbols::{Symbol, SL},
     Compiler, UpValue,
 };
 use crate::{
@@ -16,9 +16,9 @@ impl Compiler {
     ///
     /// ## Returns
     /// * `SymbolLoc` – The location (if found) and resolution type of the symbol.
-    pub(super) fn resolve_symbol(&mut self, token: &Token, reassign: bool) -> SymbolLoc {
+    pub(super) fn resolve_symbol(&mut self, token: &Token, reassign: bool) -> SL {
         // Look for the symbol in the local scope of the current function
-        if let Ok(s) = self.resolve_local_symbol(token, reassign, self.functions.len() - 1) {
+        if let Ok(s) = self.resolve_local(token, reassign, self.functions.len() - 1, false) {
             return s;
         }
 
@@ -31,7 +31,7 @@ impl Compiler {
         }
 
         // Looks for the symbol in the global scope of the current script
-        if let Ok(s) = self.resolve_global_symbol(token, reassign) {
+        if let Ok(s) = self.resolve_global(token, reassign) {
             return s;
         }
 
@@ -48,7 +48,7 @@ impl Compiler {
                 self.emit_op_code(OpCode::LoadNative, (token.line_num, token.column_num));
             }
 
-            return SymbolLoc::Native;
+            return SL::Native;
         }
 
         // The symbol doesn't exist
@@ -58,7 +58,7 @@ impl Compiler {
             &format!("Use of undeclared identifier '{}'.", token.lexeme),
         );
 
-        SymbolLoc::None
+        SL::None
     }
 
     /// Looks for a symbol with the given token name in current function scope.
@@ -69,12 +69,18 @@ impl Compiler {
     ///
     /// ## Returns
     /// * `Result<SymbolLoc, ()>` – The location (if found) and resolution type of the symbol.
-    fn resolve_local_symbol(&mut self, token: &Token, reassign: bool, func: usize) -> Result<SymbolLoc, ()> {
-        let func = &mut self.functions[func];
+    fn resolve_local(
+        &mut self,
+        token: &Token,
+        for_reassign: bool,
+        func_idx: usize,
+        captured: bool,
+    ) -> Result<SL, ()> {
+        let func = &mut self.functions[func_idx];
 
-        if let Some(symbol_info) = func.s_table.resolve(&token.lexeme, true) {
-            if !symbol_info.0.is_initialized {
-                let sym_type = match symbol_info.0.symbol_type {
+        if let Some(resolution) = func.s_table.resolve(&token.lexeme, true, captured) {
+            if !resolution.0.is_initialized {
+                let sym_type = match resolution.0.symbol_type {
                     SymbolType::Variable => "variable",
                     SymbolType::Constant => "constant",
                     SymbolType::Function => "function",
@@ -92,18 +98,18 @@ impl Compiler {
 
                 // Return None here because a symbol should not be referenced
                 // until it has been initialized.
-                return Ok(SymbolLoc::None);
+                return Ok(SL::None);
             }
 
-            if reassign {
-                let sym_type = match &symbol_info.0.symbol_type {
+            if for_reassign {
+                let sym_type = match &resolution.0.symbol_type {
                     SymbolType::Constant => "Constants",
                     SymbolType::Function => "Functions",
                     SymbolType::Class => "Classes",
                     SymbolType::Enum => "Enums",
                     // Only variables & parameters are re-assignable
                     SymbolType::Variable | SymbolType::Parameter => {
-                        return Ok(SymbolLoc::Local(symbol_info.0, symbol_info.1))
+                        return Ok(SL::Local(resolution.0, resolution.1))
                     }
                 };
 
@@ -113,10 +119,10 @@ impl Compiler {
                     &format!("{} are immutable.", sym_type),
                 );
 
-                return Ok(SymbolLoc::None);
+                return Ok(SL::None);
             }
 
-            return Ok(SymbolLoc::Local(symbol_info.0, symbol_info.1));
+            return Ok(SL::Local(resolution.0, resolution.1));
         }
 
         Err(())
@@ -130,8 +136,8 @@ impl Compiler {
     ///
     /// ## Returns
     /// * `Result<SymbolLoc, ()>` – The location (if found) and resolution type of the symbol.
-    fn resolve_global_symbol(&mut self, token: &Token, reassign: bool) -> Result<SymbolLoc, ()> {
-        if let Some(symbol_info) = self.globals.resolve(&token.lexeme, true) {
+    fn resolve_global(&mut self, token: &Token, reassign: bool) -> Result<SL, ()> {
+        if let Some(symbol_info) = self.globals.resolve(&token.lexeme, true, false) {
             if !symbol_info.0.is_initialized {
                 let sym_type = match symbol_info.0.symbol_type {
                     SymbolType::Variable => "variable",
@@ -151,7 +157,7 @@ impl Compiler {
 
                 // Return None here because a symbol should not be referenced
                 // until it has been initialized.
-                return Ok(SymbolLoc::None);
+                return Ok(SL::None);
             }
 
             if reassign {
@@ -163,8 +169,8 @@ impl Compiler {
                     // Only variables & parameters are re-assignable
                     SymbolType::Variable | SymbolType::Parameter => {
                         match self.add_literal_to_pool(Object::String(token.lexeme.clone()), &token, false) {
-                            Some(idx) => return Ok(SymbolLoc::Global(symbol_info.0, idx as usize)),
-                            None => return Ok(SymbolLoc::None),
+                            Some(idx) => return Ok(SL::Global(symbol_info.0, idx as usize)),
+                            None => return Ok(SL::None),
                         }
                     }
                 };
@@ -175,12 +181,12 @@ impl Compiler {
                     &format!("{} are immutable.", sym_type),
                 );
 
-                return Ok(SymbolLoc::None);
+                return Ok(SL::None);
             }
 
             return match self.add_literal_to_pool(Object::String(token.lexeme.clone()), &token, false) {
-                Some(idx) => Ok(SymbolLoc::Global(symbol_info.0, idx as usize)),
-                None => Ok(SymbolLoc::None),
+                Some(idx) => Ok(SL::Global(symbol_info.0, idx as usize)),
+                None => Ok(SL::None),
             };
         }
 
@@ -199,7 +205,7 @@ impl Compiler {
     ///
     /// ## Returns
     /// * `Result<SymbolLoc, ()>` – The location (if found) and resolution type of the symbol.
-    fn resolve_up_value(&mut self, token: &Token, reassign: bool, func_idx: usize) -> Result<SymbolLoc, ()> {
+    fn resolve_up_value(&mut self, token: &Token, reassign: bool, func_idx: usize) -> Result<SL, ()> {
         if func_idx == 0 {
             return Err(());
         }
@@ -211,9 +217,9 @@ impl Compiler {
         // for the `self.functions.len() - 2` function scope. That is, the local scope of the parent
         // function of the parent function. Look at the call to `self.resolve_up_value(...)` in
         // `self.resolve_symbol(...)` to understand this better.
-        if let Ok(s) = self.resolve_local_symbol(token, reassign, func_idx) {
+        if let Ok(s) = self.resolve_local(token, reassign, func_idx, true) {
             return match s {
-                SymbolLoc::Local(s, p) => self.add_up_value(token, func_idx + 1, s, p, true),
+                SL::Local(s, p) => self.add_up_value(token, func_idx + 1, s, p, true),
                 _ => unreachable!("SymbolLoc should have been a local symbol."),
             };
         }
@@ -221,7 +227,7 @@ impl Compiler {
         // Recursively look for the symbol in higher function scopes.
         if let Ok(s) = self.resolve_up_value(token, reassign, func_idx - 1) {
             return match s {
-                SymbolLoc::UpValue(u, p) => self.add_up_value(token, func_idx + 1, u.symbol, p, false),
+                SL::UpValue(u, p) => self.add_up_value(token, func_idx + 1, u.symbol, p, false),
                 _ => unreachable!("SymbolLoc should have been an up_value symbol."),
             };
         }
@@ -236,11 +242,11 @@ impl Compiler {
         symbol: Symbol,
         index: usize,
         is_local: bool,
-    ) -> Result<SymbolLoc, ()> {
+    ) -> Result<SL, ()> {
         // Prevent creating repeated up_values
         for (index, up_val) in self.functions[func_idx].up_values.iter().enumerate() {
             if up_val.index == index && up_val.is_local == is_local && up_val.symbol.name == symbol.name {
-                return Ok(SymbolLoc::UpValue(up_val.clone(), index));
+                return Ok(SL::UpValue(up_val.clone(), index));
             }
         }
 
@@ -262,7 +268,7 @@ impl Compiler {
         self.functions[func_idx].up_values.push(up_value.clone());
         self.functions[func_idx].function.up_val_count += 1;
 
-        return Ok(SymbolLoc::UpValue(
+        return Ok(SL::UpValue(
             up_value,
             self.functions[func_idx].up_values.len() - 1,
         ));

@@ -136,7 +136,7 @@ impl Compiler {
                 symbol_type,
                 is_used: false,
                 line_info: (name.line_num, name.column_num),
-                is_global: self.is_global_scope(),
+                is_captured: false,
             },
         )
     }
@@ -165,41 +165,53 @@ impl Compiler {
     ///
     /// * `block` – The block node being compiled.
     pub(super) fn compile_block_stmt(&mut self, block: &BlockNode) {
-        self.begin_scope();
+        if !block.is_func_body {
+            self.begin_scope();
+        }
 
         for node in block.body.iter() {
             self.compile_node(&node.clone());
         }
 
-        self.end_scope(!block.is_func_body);
+        self.end_scope(block.is_func_body, &block.end_of_block);
     }
 
     /// Starts a new scope.
-    pub(super) fn begin_scope(&mut self) {
+    fn begin_scope(&mut self) {
         self.current_func_scope_mut().scope_depth += 1;
     }
 
     /// Ends a scope.
-    pub(super) fn end_scope(&mut self, pop_symbols: bool) {
-        let current_depth = self.relative_scope_depth();
+    fn end_scope(&mut self, is_func_body: bool, token: &Token) {
+        let scope = self.relative_scope_depth();
+
         let popped_scope = self
             .current_func_scope_mut()
             .s_table
-            .pop_scope(current_depth, pop_symbols, true);
+            .pop_scope(scope, !is_func_body, true);
 
-        if pop_symbols {
-            let pop_count = popped_scope.0;
-            let last_symbol_pos = popped_scope.1;
-            if pop_count > 0 {
-                if pop_count < 256 {
-                    self.emit_op_code_with_byte(OpCode::PopStackN, pop_count as u8, last_symbol_pos);
-                } else {
-                    self.emit_op_code_with_short(OpCode::PopStackNLong, pop_count as u16, last_symbol_pos);
-                }
-            }
+        if !is_func_body {
+            self.emit_pop_stack_n(popped_scope, token);
+            self.current_func_scope_mut().scope_depth -= 1;
         }
+    }
 
-        self.current_func_scope_mut().scope_depth -= 1;
+    pub(super) fn emit_pop_stack_n(&mut self, symbols: Vec<bool>, token: &Token) {
+        let pos = (token.line_num, token.column_num);
+
+        let num_to_pop = symbols.len();
+
+        if num_to_pop < 256 {
+            self.emit_op_code_with_byte(OpCode::PopStackN, num_to_pop as u8, pos);
+        } else if num_to_pop < u16::MAX as usize {
+            self.emit_op_code_with_byte(OpCode::PopStackN, num_to_pop as u8, pos);
+        } else {
+            self.error_at_token(
+                token,
+                CompilerErrorType::MaxCapacity,
+                "Too many local variables to pop from the stack.",
+            );
+        }
     }
 
     /// Compiles an if statement.

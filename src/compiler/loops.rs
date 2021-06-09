@@ -90,7 +90,7 @@ impl Compiler {
                 symbol_type: SymbolType::Constant,
                 is_used: true,
                 line_info: loop_line_info,
-                is_global: false,
+                is_captured: false,
             },
         ) {
             Ok(symbol_pos) => self.current_func_scope_mut().s_table.mark_initialized(symbol_pos),
@@ -174,27 +174,19 @@ impl Compiler {
         }
 
         let current_loop = *self.current_function_scope().loops.last().unwrap();
-        let popped_scope =
+        let mut popped_scope =
             self.current_func_scope_mut()
                 .s_table
                 .pop_scope(current_loop.scope_depth, false, false);
 
-        let mut pop_count = popped_scope.0;
-        let last_symbol_pos = popped_scope.1;
-
         // If we are breaking inside a for-in loop, also pop the loop's variable
         // and the iterator off the stack before exiting the loop.
         if let super::LoopType::ForIn = current_loop.loop_type {
-            pop_count += 2;
+            popped_scope.append(&mut vec![false, false]);
         }
 
-        if pop_count > 0 {
-            if pop_count < 256 {
-                self.emit_op_code_with_byte(OpCode::PopStackN, pop_count as u8, last_symbol_pos);
-            } else {
-                self.emit_op_code_with_short(OpCode::PopStackNLong, pop_count as u16, last_symbol_pos);
-            }
-        }
+        // Emit the pop instructions
+        self.emit_pop_stack_n(popped_scope, &stmt.token);
 
         // Jump out of the loop
         let break_pos = self.emit_jump(OpCode::JumpForward, &stmt.token);
