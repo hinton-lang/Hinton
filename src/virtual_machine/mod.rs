@@ -6,11 +6,11 @@ use crate::{
     compiler::Compiler,
     errors::{report_errors_list, report_runtime_error, RuntimeErrorType},
     exec_time, natives,
-    objects::{self, ClosureObject, FuncObject, Object, UpValObject},
+    objects::{self, ClosureObject, FuncObject, Object, UpValRef},
     parser::Parser,
     FRAMES_MAX,
 };
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 // Submodules
 mod run;
@@ -31,6 +31,10 @@ pub struct CallFrame {
 }
 
 impl CallFrame {
+    fn peek_current_op_code(&self) -> Option<OpCode> {
+        self.closure.function.chunk.get_op_code(self.ip - 1)
+    }
+
     fn get_next_op_code(&mut self) -> Option<OpCode> {
         let code = self.closure.function.chunk.get_op_code(self.ip);
         self.ip += 1;
@@ -60,6 +64,7 @@ pub struct VirtualMachine {
     frames: Vec<CallFrame>,
     stack: Vec<objects::Object>,
     globals: HashMap<String, Object>,
+    up_values: Vec<Rc<RefCell<UpValRef>>>,
 }
 
 pub enum RuntimeResult {
@@ -82,6 +87,7 @@ impl VirtualMachine {
             frames: Vec::with_capacity(256),
             filepath: String::from(filepath),
             globals: Default::default(),
+            up_values: vec![],
         };
 
         // Parses the program into an AST and calculates the parser's execution time
@@ -142,12 +148,16 @@ impl VirtualMachine {
         };
     }
 
+    pub fn frames_list(&self) -> &Vec<CallFrame> {
+        &self.frames
+    }
+
     pub fn current_frame(&self) -> &CallFrame {
         self.frames.last().unwrap()
     }
 
-    pub fn frames_list(&self) -> &Vec<CallFrame> {
-        &self.frames
+    pub fn get_up_val(&self, idx: usize) -> Rc<RefCell<UpValRef>> {
+        self.current_frame().closure.up_values[idx].clone()
     }
 
     fn current_frame_mut(&mut self) -> &mut CallFrame {
@@ -303,9 +313,19 @@ impl VirtualMachine {
         Ok(())
     }
 
-    fn capture_up_value(&self, index: usize) -> UpValObject {
-        UpValObject { location: index }
+    fn create_up_value(&mut self, index: usize) -> Rc<RefCell<UpValRef>> {
+        for u in self.up_values.iter() {
+            if u.borrow().is_open_at(index) {
+                return u.clone();
+            }
+        }
+
+        let new_up_val = Rc::new(RefCell::new(UpValRef::Open(index)));
+        self.up_values.push(new_up_val.clone());
+        new_up_val
     }
+
+    // fn close_up_value(&mut self, index: usize) -> UpValRef {}
 
     /// Prints the execution trace for the program. Useful for debugging the VM.
     ///

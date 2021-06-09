@@ -5,7 +5,7 @@ use num_traits::FromPrimitive;
 ///
 /// **NOTE:** Changing the order in which members are declared creates
 /// incompatibilities between different versions of the interpreter.
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 #[repr(u8)]
 #[derive(FromPrimitive)]
 pub enum OpCode {
@@ -48,6 +48,7 @@ pub enum OpCode {
     PopStackTop,
     Subtract,
     EndVirtualMachine,
+    Return,
 
     // Instructions with one chunk operands.
     // These instructions use the next byte
@@ -68,7 +69,7 @@ pub enum OpCode {
     SetGlobal,
     GetUpVal,
     SetUpVal,
-    PopNReturn,
+    CloseUpVal,
 
     // Instructions with two chunk operands.
     // These instructions use the next two
@@ -91,7 +92,7 @@ pub enum OpCode {
     SetGlobalLong,
     GetUpValLong,
     SetUpValLong,
-    PopNReturnLong,
+    CloseUpValLong,
 
     // Instructions with a variable number of instructions.
     MakeClosure,
@@ -421,6 +422,7 @@ pub fn disassemble_function_scope(chunk: &Chunk, name: &String) {
                 OpCode::PopStackTop => op_code_name = "POP_STACK_TOP",
                 OpCode::Subtract => op_code_name = "SUBTRACT",
                 OpCode::EndVirtualMachine => op_code_name = "END_VIRTUAL_MACHINE",
+                OpCode::Return => op_code_name = "RETURN",
 
                 // OpCodes with 1 operand
                 OpCode::BindDefaults => {
@@ -485,10 +487,6 @@ pub fn disassemble_function_scope(chunk: &Chunk, name: &String) {
                     op_code_name = "POP_STACK_N";
                     get_operand(1);
                 }
-                OpCode::PopNReturn => {
-                    op_code_name = "POP_N_RETURN";
-                    get_operand(1);
-                }
                 OpCode::SetLocal => {
                     op_code_name = "SET_LOCAL";
                     get_operand(1);
@@ -499,6 +497,10 @@ pub fn disassemble_function_scope(chunk: &Chunk, name: &String) {
                 }
                 OpCode::SetUpVal => {
                     op_code_name = "SET_UP_VAL";
+                    get_operand(1);
+                }
+                OpCode::CloseUpVal => {
+                    op_code_name = "CLOSE_UP_VAL";
                     get_operand(1);
                 }
 
@@ -579,10 +581,6 @@ pub fn disassemble_function_scope(chunk: &Chunk, name: &String) {
                     op_code_name = "POP_STACK_N_LONG";
                     get_operand(2);
                 }
-                OpCode::PopNReturnLong => {
-                    op_code_name = "POP_N_RETURN_LONG";
-                    get_operand(2);
-                }
                 OpCode::SetLocalLong => {
                     op_code_name = "SET_LOCAL_LONG";
                     get_operand(2);
@@ -593,6 +591,10 @@ pub fn disassemble_function_scope(chunk: &Chunk, name: &String) {
                 }
                 OpCode::SetUpValLong => {
                     op_code_name = "SET_UP_VAL_LONG";
+                    get_operand(2);
+                }
+                OpCode::CloseUpValLong => {
+                    op_code_name = "CLOSE_UP_VAL_LONG";
                     get_operand(2);
                 }
 

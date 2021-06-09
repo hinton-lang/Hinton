@@ -54,12 +54,29 @@ pub struct NativeFuncObj {
 #[derive(Clone)]
 pub struct ClosureObject {
     pub function: FuncObject,
-    pub up_values: Vec<UpValObject>,
+    pub up_values: Vec<Rc<RefCell<UpValRef>>>,
 }
 
 #[derive(Clone)]
-pub struct UpValObject {
-    pub location: usize,
+pub enum UpValRef {
+    Open(usize),
+    Closed(Object),
+}
+
+impl UpValRef {
+    pub fn is_open_at(&self, index: usize) -> bool {
+        match self {
+            &UpValRef::Closed(_) => false,
+            &UpValRef::Open(i) => i == index,
+        }
+    }
+
+    pub fn print(&self) {
+        match &self {
+            &UpValRef::Open(p) => println!("UpValRef::OPEN({})", p),
+            &UpValRef::Closed(o) => println!("UpValRef::CLOSED({})", o),
+        }
+    }
 }
 
 /// All types of objects in Hinton
@@ -364,9 +381,9 @@ impl<'a> fmt::Display for Object {
             }
             Object::Closure(ref inner) => {
                 let str = if inner.function.name == "" {
-                    String::from("<Closure script>")
+                    String::from("<Func script>")
                 } else {
-                    format!("<Closure '{}'>", inner.function.name)
+                    format!("<Func '{}'>", inner.function.name)
                 };
 
                 fmt::Display::fmt(&str, f)

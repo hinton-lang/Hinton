@@ -107,7 +107,7 @@ impl Compiler {
             symbol_depth: 0,
             is_used: true,
             line_info: (0, 0),
-            is_global: true,
+            is_captured: false,
         }]);
 
         let base_fn = FunctionScope {

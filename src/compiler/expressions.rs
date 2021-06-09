@@ -1,5 +1,5 @@
 use super::{Compiler, CompilerErrorType};
-use crate::{ast::*, bytecode::OpCode, compiler::symbols::SymbolLoc, lexer::tokens::Token, objects::Object};
+use crate::{ast::*, bytecode::OpCode, compiler::symbols::SL, lexer::tokens::Token, objects::Object};
 
 impl Compiler {
     /// Compiles a literal expression.
@@ -156,7 +156,7 @@ impl Compiler {
     /// * `symbol` – The symbol and its location.
     /// * `token` – A reference to the token associated with this symbol.
     /// * `to_set` – Whether or not to emit reassignment instructions.
-    fn named_variable(&mut self, symbol_loc: &SymbolLoc, token: &Token, to_set: bool) {
+    fn named_variable(&mut self, symbol_loc: &SL, token: &Token, to_set: bool) {
         let pos = (token.line_num, token.column_num);
 
         let op_name;
@@ -164,7 +164,7 @@ impl Compiler {
         let idx: usize;
 
         match symbol_loc {
-            SymbolLoc::Global(_, p) => {
+            SL::Global(_, p) => {
                 idx = *p;
 
                 if to_set {
@@ -175,7 +175,7 @@ impl Compiler {
                     op_name_long = OpCode::GetGlobalLong;
                 }
             }
-            SymbolLoc::Local(_, p) => {
+            SL::Local(_, p) => {
                 idx = *p;
 
                 if to_set {
@@ -186,7 +186,7 @@ impl Compiler {
                     op_name_long = OpCode::GetLocalLong;
                 }
             }
-            SymbolLoc::UpValue(_, p) => {
+            SL::UpValue(_, p) => {
                 idx = *p;
 
                 if to_set {
@@ -215,9 +215,9 @@ impl Compiler {
         let line_info = (expr.target.line_num, expr.target.column_num);
 
         let res = match self.resolve_symbol(&expr.target, false) {
-            SymbolLoc::Global(s, p) => SymbolLoc::Global(s, p),
-            SymbolLoc::Local(s, p) => SymbolLoc::Local(s, p),
-            SymbolLoc::UpValue(u, p) => SymbolLoc::UpValue(u, p),
+            SL::Global(s, p) => SL::Global(s, p),
+            SL::Local(s, p) => SL::Local(s, p),
+            SL::UpValue(u, p) => SL::UpValue(u, p),
             _ => return,
         };
 
