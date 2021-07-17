@@ -17,7 +17,6 @@ pub enum OpCode {
    // Although these instructions do not have any bytecode operands, some of them do have object
    // operands from the stack.
    Add,
-   AppendClassField,
    BitwiseAnd,
    BitwiseNot,
    BitwiseOr,
@@ -57,6 +56,7 @@ pub enum OpCode {
    // Instructions with one chunk operands.
    // These instructions use the next byte
    // from the chunk as its operand.
+   AppendClassField,
    BindDefaults,
    CloseUpVal,
    DefineGlobal,
@@ -279,7 +279,6 @@ pub fn disassemble_func_scope(chunk: &Chunk, natives: &[String], primitives: &[S
          }
          OpCode::MakeInstance => {
             get_operand(1);
-            operand_val += &format!(" -> '{}'", const_val(idx, false));
             "MAKE_INSTANCE"
          }
          OpCode::GetProp => {

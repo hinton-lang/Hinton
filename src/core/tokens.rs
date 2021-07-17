@@ -87,7 +87,7 @@ pub enum TokenType {
    RETURN_KW,
    R_BRACKET,
    R_CURLY,
-   R_PARENTHESIS,
+   R_PAREN,
    SELF_KW,
    SEMICOLON,
    SLASH,

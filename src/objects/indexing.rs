@@ -1,8 +1,6 @@
 use crate::errors::ObjectOprErrType;
+use crate::objects::dictionary_obj::DictObject;
 use crate::objects::{Object, RangeObject};
-use hashbrown::HashMap;
-use std::cell::RefCell;
-use std::rc::Rc;
 
 impl Object {
    /// Defines the indexing operation of Hinton objects.
@@ -13,12 +11,10 @@ impl Object {
          Object::String(str) => subscript_string(&str, index),
          Object::Range(range) => subscript_range(range, index),
          Object::Dict(dict) => subscript_dictionary(dict, index),
-         _ => {
-            return Err(ObjectOprErrType::TypeError(format!(
-               "Cannot index object of type '{}'.",
-               self.type_name()
-            )))
-         }
+         _ => Err(ObjectOprErrType::TypeError(format!(
+            "Cannot index object of type '{}'.",
+            self.type_name()
+         ))),
       }
    }
 }
@@ -245,18 +241,9 @@ fn subscript_range(range: &RangeObject, index: &Object) -> Result<Object, Object
 /// # Returns
 /// - `Result<Object, ObjectOprErrType>`: Returns `Ok(Object)` with a Hinton Object if the key
 /// exists in the dictionary. Returns `Err(ObjectOprErrType)` otherwise.
-fn subscript_dictionary(
-   dict: &Rc<RefCell<HashMap<String, Object>>>,
-   index: &Object,
-) -> Result<Object, ObjectOprErrType> {
+fn subscript_dictionary(dict: &DictObject, index: &Object) -> Result<Object, ObjectOprErrType> {
    return match index {
-      Object::String(key) => match dict.borrow().get(key) {
-         Some(o) => Ok(o.clone()),
-         None => Err(ObjectOprErrType::KeyError(format!(
-            "Entry with key '{}' not found in the dictionary.",
-            key
-         ))),
-      },
+      Object::String(key) => dict.get_prop(key),
       // Indexing type: Range[Range]
       Object::Range(_) => {
          unimplemented!("Range indexing with ranges.")

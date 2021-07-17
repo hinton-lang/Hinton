@@ -12,9 +12,10 @@ pub enum ASTNode {
    FunctionCall(FunctionCallExprNode),
    Identifier(IdentifierExprNode),
    Instance(FunctionCallExprNode),
+   Lambda(FunctionDeclNode),
    Literal(LiteralExprNode),
-   ObjectGetter(ObjectGetExprNode),
-   ObjectSetter(ObjectSetExprNode),
+   PropGetExpr(PropGetExprNode),
+   PropSetExpr(PropSetExprNode),
    SelfExpr(SelfExprNode),
    Subscript(SubscriptExprNode),
    SubscriptAssignment(SubscriptAssignExprNode),
@@ -22,7 +23,6 @@ pub enum ASTNode {
    Tuple(TupleExprNode),
    Unary(UnaryExprNode),
    VarReassignment(VarReassignmentExprNode),
-   Lambda(FunctionDeclNode),
 
    // Declarations
    ClassDecl(ClassDeclNode),
@@ -259,8 +259,7 @@ pub struct FunctionCallExprNode {
 
 #[derive(Clone)]
 pub struct Argument {
-   pub name: Option<ASTNode>,
-   pub is_named: bool,
+   pub name: Option<Token>,
    pub value: Box<ASTNode>,
 }
 
@@ -295,13 +294,13 @@ pub struct SelfExprNode {
 }
 
 #[derive(Clone)]
-pub struct ObjectGetExprNode {
+pub struct PropGetExprNode {
    pub target: Box<ASTNode>,
    pub getter: Token,
 }
 
 #[derive(Clone)]
-pub struct ObjectSetExprNode {
+pub struct PropSetExprNode {
    pub target: Box<ASTNode>,
    pub setter: Token,
    pub value: Box<ASTNode>,

@@ -48,7 +48,7 @@ NOTE: You must install Rust to run Hinton. I know, I know, but Hinton isn't a fu
 
 ## Advanced Programs
 ### The Classic Fibonacci Number Calculator:
-On average, running with release mode, the algorithm takes ~210ms to compute the `fib(25)` on my MacBook Pro 2019 with 16GB of RAM running MacOS Big Sur. For comparison, a similar program in Python takes ~24ms. Not very fast 😕.
+On average, running with release mode, the algorithm takes ~95ms to compute the `fib(25)` on my MacBook Pro 2019 with 16GB of RAM running MacOS Big Sur. For comparison, a similar program in Python takes ~24ms. Not very fast 😕.
 ```swift
 func fib(n := 0) {
     if (n < 2) return n;

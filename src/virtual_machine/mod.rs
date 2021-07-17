@@ -153,7 +153,8 @@ impl VM {
 
    /// Gets an immutable reference to the current call frame.
    pub fn current_frame(&self) -> &CallFrame {
-      self.frames.last().unwrap()
+      let frames_len = self.frames.len();
+      &self.frames[frames_len - 1]
    }
 
    /// Gets a mutable reference to the current call frame.
@@ -181,9 +182,7 @@ impl VM {
    pub(crate) fn pop_stack(&mut self) -> Object {
       match self.stack.pop() {
          Some(obj) => obj,
-         None => {
-            panic!("Stack is empty!")
-         }
+         None => panic!("Stack is empty!"),
       }
    }
 
@@ -375,7 +374,7 @@ impl VM {
 
       match self.stack[class_pos].clone() {
          Object::Instance(i) => {
-            if let Ok(value) = i.borrow().get_prop("init".to_string()) {
+            if let Ok(value) = i.borrow().get_prop("init") {
                self.call_object(value, arg_count);
             }
          }

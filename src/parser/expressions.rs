@@ -70,10 +70,7 @@ impl<'a> Parser {
          };
 
          // Gets the value for assignment
-         let rhs = match self.parse_expression() {
-            Some(t) => t,
-            None => return None, // Could not create expression value for assignment
-         };
+         let rhs = self.parse_expression()?;
 
          // Returns the assignment expression of the corresponding type
          return match expr {
@@ -87,7 +84,7 @@ impl<'a> Parser {
                })),
 
                // Object setter `object.property = value`.
-               ObjectGetter(getter) => Some(ObjectSetter(ObjectSetExprNode {
+               PropGetExpr(getter) => Some(PropSetExpr(PropSetExprNode {
                   target: getter.target,
                   setter: getter.getter,
                   value: Box::new(rhs),
@@ -124,26 +121,15 @@ impl<'a> Parser {
 
       if self.matches(&QUESTION) {
          let true_branch_opr = self.previous.clone();
+         let branch_true = self.parse_expression()?;
 
-         let branch_true = match self.parse_expression() {
-            Some(t) => t,
-            None => return None, // Could not create expression for the `branch_true`
-         };
-
-         self.consume(&COLON, "Expected ':' after the expression.");
+         self.consume(&COLON, "Expected ':' after the expression.")?;
 
          let false_branch_opr = self.previous.clone();
-
-         let branch_false = match self.parse_expression() {
-            Some(t) => t,
-            None => return None, // Could not create expression for the `branch_false`
-         };
+         let branch_false = self.parse_expression()?;
 
          expr = Some(TernaryConditional(TernaryConditionalNode {
-            condition: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create conditional expression
-            },
+            condition: Box::new(expr?),
             true_branch_token: true_branch_opr,
             branch_true: Box::new(branch_true),
             branch_false: Box::new(branch_false),
@@ -162,14 +148,8 @@ impl<'a> Parser {
          let opr = self.previous.clone();
 
          expr = Some(Binary(BinaryExprNode {
-            left: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create lhs of expression
-            },
-            right: match self.parse_logic_or() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            left: Box::new(expr?),
+            right: Box::new(self.parse_logic_or()?),
             opr_token: opr,
             opr_type: BinaryExprType::Nullish,
          }));
@@ -186,14 +166,8 @@ impl<'a> Parser {
          let opr = self.previous.clone();
 
          expr = Some(Binary(BinaryExprNode {
-            left: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create lhs of expression
-            },
-            right: match self.parse_logic_and() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            left: Box::new(expr?),
+            right: Box::new(self.parse_logic_and()?),
             opr_token: opr,
             opr_type: BinaryExprType::LogicOR,
          }));
@@ -210,14 +184,8 @@ impl<'a> Parser {
          let opr = self.previous.clone();
 
          expr = Some(Binary(BinaryExprNode {
-            left: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create lhs of expression
-            },
-            right: match self.parse_bitwise_or() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            left: Box::new(expr?),
+            right: Box::new(self.parse_bitwise_or()?),
             opr_token: opr,
             opr_type: BinaryExprType::LogicAND,
          }));
@@ -234,14 +202,8 @@ impl<'a> Parser {
          let opr = self.previous.clone();
 
          expr = Some(Binary(BinaryExprNode {
-            left: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create lhs of expression
-            },
-            right: match self.parse_bitwise_xor() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            left: Box::new(expr?),
+            right: Box::new(self.parse_bitwise_xor()?),
             opr_token: opr,
             opr_type: BinaryExprType::BitwiseOR,
          }));
@@ -258,14 +220,8 @@ impl<'a> Parser {
          let opr = self.previous.clone();
 
          expr = Some(Binary(BinaryExprNode {
-            left: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create lhs of expression
-            },
-            right: match self.parse_bitwise_and() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            left: Box::new(expr?),
+            right: Box::new(self.parse_bitwise_and()?),
             opr_token: opr,
             opr_type: BinaryExprType::BitwiseXOR,
          }));
@@ -282,14 +238,8 @@ impl<'a> Parser {
          let opr = self.previous.clone();
 
          expr = Some(Binary(BinaryExprNode {
-            left: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create lhs of expression
-            },
-            right: match self.parse_equality() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            left: Box::new(expr?),
+            right: Box::new(self.parse_equality()?),
             opr_token: opr,
             opr_type: BinaryExprType::BitwiseAND,
          }));
@@ -312,14 +262,8 @@ impl<'a> Parser {
          };
 
          expr = Some(Binary(BinaryExprNode {
-            left: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create lhs of expression
-            },
-            right: match self.parse_comparison() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            left: Box::new(expr?),
+            right: Box::new(self.parse_comparison()?),
             opr_token: opr,
             opr_type,
          }));
@@ -350,14 +294,8 @@ impl<'a> Parser {
          };
 
          expr = Some(Binary(BinaryExprNode {
-            left: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create lhs of expression
-            },
-            right: match self.parse_range() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            left: Box::new(expr?),
+            right: Box::new(self.parse_range()?),
             opr_token: opr,
             opr_type,
          }));
@@ -374,14 +312,8 @@ impl<'a> Parser {
          let opr = self.previous.clone();
 
          expr = Some(Binary(BinaryExprNode {
-            left: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create lhs of expression
-            },
-            right: match self.parse_bitwise_shift() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            left: Box::new(expr?),
+            right: Box::new(self.parse_bitwise_shift()?),
             opr_token: opr,
             opr_type: BinaryExprType::Range,
          }));
@@ -404,14 +336,8 @@ impl<'a> Parser {
          };
 
          expr = Some(Binary(BinaryExprNode {
-            left: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create lhs of expression
-            },
-            right: match self.parse_term() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            left: Box::new(expr?),
+            right: Box::new(self.parse_term()?),
             opr_token: opr,
             opr_type,
          }));
@@ -434,14 +360,8 @@ impl<'a> Parser {
          };
 
          expr = Some(Binary(BinaryExprNode {
-            left: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create lhs of expression
-            },
-            right: match self.parse_factor() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            left: Box::new(expr?),
+            right: Box::new(self.parse_factor()?),
             opr_token: opr,
             opr_type,
          }));
@@ -466,14 +386,8 @@ impl<'a> Parser {
          };
 
          expr = Some(Binary(BinaryExprNode {
-            left: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create lhs of expression
-            },
-            right: match self.parse_expo() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            left: Box::new(expr?),
+            right: Box::new(self.parse_expo()?),
             opr_token: opr,
             opr_type,
          }));
@@ -490,14 +404,8 @@ impl<'a> Parser {
          let opr = self.previous.clone();
 
          expr = Some(Binary(BinaryExprNode {
-            left: match expr {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create lhs of expression
-            },
-            right: match self.parse_unary() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            left: Box::new(expr?),
+            right: Box::new(self.parse_unary()?),
             opr_token: opr,
             opr_type: BinaryExprType::Expo,
          }));
@@ -520,10 +428,7 @@ impl<'a> Parser {
          };
 
          Some(Unary(UnaryExprNode {
-            operand: match self.parse_expression() {
-               Some(e) => Box::new(e),
-               None => return None, // Could not create rhs of expression
-            },
+            operand: Box::new(self.parse_expression()?),
             pos: (opr.line_num, opr.column_start),
             opr_type,
          }))
@@ -531,23 +436,30 @@ impl<'a> Parser {
          let mut expr = self.parse_primary();
 
          loop {
-            // Parse array indexing
             if self.matches(&L_BRACKET) {
-               expr = self.parse_subscripting(expr);
+               // Parse array indexing
+               expr = Some(Subscript(SubscriptExprNode {
+                  target: Box::new(expr?),
+                  index: Box::new(self.parse_expression()?),
+                  pos: (self.previous.line_num, self.previous.column_start),
+               }));
+
+               self.consume(&R_BRACKET, "Expected matching ']' for array indexing expression.")?;
             } else if self.matches(&L_PAREN) {
+               let call_pos = (self.previous.line_num, self.previous.column_start);
+
                // Parse function call
-               expr = self.parse_function_call(expr);
+               expr = Some(FunctionCall(FunctionCallExprNode {
+                  target: Box::new(expr?),
+                  args: self.parse_arguments_list()?,
+                  pos: call_pos,
+               }))
             } else if self.matches(&DOT) {
-               // Parse object getter
-               let target = match expr {
-                  Some(node) => Box::new(node),
-                  None => return None,
-               };
-
-               self.consume(&&IDENTIFIER, "Expected property name after the dot.");
-               let getter = self.previous.clone();
-
-               expr = Some(ObjectGetter(ObjectGetExprNode { target, getter }));
+               // Property access
+               expr = Some(PropGetExpr(PropGetExprNode {
+                  target: Box::new(expr?),
+                  getter: self.consume(&IDENTIFIER, "Expected property name after the dot.")?,
+               }))
             } else {
                break;
             }
@@ -568,31 +480,16 @@ impl<'a> Parser {
          FALSE => Object::Bool(false),
          NULL => Object::Null,
          L_BRACKET => return self.construct_array(),
-         INTEGER => match self.compile_integer() {
-            Ok(x) => x,
-            Err(_) => return None,
-         },
-         FLOAT => match self.compile_float() {
-            Ok(x) => x,
-            Err(_) => return None,
-         },
-         BINARY => match self.compile_int_from_base(2) {
-            Ok(x) => x,
-            Err(_) => return None,
-         },
-         OCTAL => match self.compile_int_from_base(8) {
-            Ok(x) => x,
-            Err(_) => return None,
-         },
-         HEXADECIMAL => match self.compile_int_from_base(16) {
-            Ok(x) => x,
-            Err(_) => return None,
-         },
+         INTEGER => self.compile_integer().ok()?,
+         FLOAT => self.compile_float().ok()?,
+         BINARY => self.compile_int_from_base(2).ok()?,
+         OCTAL => self.compile_int_from_base(8).ok()?,
+         HEXADECIMAL => self.compile_int_from_base(16).ok()?,
          L_PAREN => {
             let start_token = self.previous.clone();
 
             // If the parenthesis are empty, then we parse this as an empty tuple.
-            return if self.matches(&R_PARENTHESIS) {
+            return if self.matches(&R_PAREN) {
                Some(Tuple(TupleExprNode {
                   values: vec![].into_boxed_slice(),
                   token: start_token,
@@ -604,7 +501,7 @@ impl<'a> Parser {
                if self.matches(&COMMA) {
                   self.parse_tuple(start_token, expr)
                } else {
-                  self.consume(&R_PARENTHESIS, "Expected closing ')'.");
+                  self.consume(&R_PAREN, "Expected closing ')'.")?;
                   // For grouping expression, we don't wrap the inner expression inside an extra node.
                   // Instead, we return the actual expression that was enclosed in the parenthesis.
                   expr
@@ -628,12 +525,7 @@ impl<'a> Parser {
             // For class instances, we parse a unary after the "new" keyword so that the instance can
             // be parsed and compiled as a regular function call. The only purpose of the "new" keyword
             // is to differentiate between a function call, and a class instance in Hinton code.
-            let instance = match self.parse_unary() {
-               Some(i) => i,
-               None => return None, // could not parse instance
-            };
-
-            return match instance {
+            return match self.parse_unary()? {
                ASTNode::FunctionCall(call) => Some(Instance(call)),
                _ => {
                   self.error_at_current("Expected class instance.");
@@ -644,12 +536,9 @@ impl<'a> Parser {
          FN_LAMBDA_KW => {
             let fn_keyword = self.previous.clone();
 
-            self.consume(&L_PAREN, "Expected '(' before lambda expression parameters.");
-            let params = match self.parse_parameters() {
-               Some(p) => p,
-               None => return None,
-            };
-            self.consume(&L_CURLY, "Expected '{' for the function body.");
+            self.consume(&L_PAREN, "Expected '(' before lambda expression parameters.")?;
+            let params = self.parse_parameters()?;
+            self.consume(&L_CURLY, "Expected '{' for the function body.")?;
 
             let min_arity = params.0;
             let max_arity = params.1.len() as u8;
@@ -658,12 +547,9 @@ impl<'a> Parser {
                name: fn_keyword,
                params: params.1,
                arity: (min_arity, max_arity),
-               body: match self.parse_block() {
-                  Some(node) => match node {
-                     BlockStmt(b) => b.body,
-                     _ => unreachable!("Should have parsed a block statement."),
-                  },
-                  None => return None,
+               body: match self.parse_block()? {
+                  BlockStmt(b) => b.body,
+                  _ => unreachable!("Should have parsed a block statement."),
                },
             }));
          }
@@ -709,10 +595,9 @@ impl<'a> Parser {
       let lexeme = self.previous.lexeme.clone();
       // Removes the underscores from the lexeme
       let lexeme = lexeme.replace('_', "");
-      // Parses the lexeme into a float
-      let num = lexeme.parse::<i64>();
 
-      match num {
+      // Parses the lexeme into a float
+      match lexeme.parse::<i64>() {
          Ok(x) => Ok(Object::Int(x)),
          Err(_) => {
             // The lexeme could not be converted to an i64.
@@ -730,10 +615,9 @@ impl<'a> Parser {
       let lexeme = self.previous.lexeme.clone();
       // Removes the underscores from the lexeme
       let lexeme = lexeme.replace('_', "");
-      // Parses the lexeme into a float
-      let num = lexeme.parse::<f64>();
 
-      match num {
+      // Parses the lexeme into a float
+      match lexeme.parse::<f64>() {
          Ok(x) => Ok(Object::Float(x)),
          Err(_) => {
             // The lexeme could not be converted to a f64.
@@ -752,10 +636,9 @@ impl<'a> Parser {
       let lexeme = self.previous.lexeme.clone();
       // Removes the underscores from the lexeme
       let lexeme = lexeme.replace('_', "");
-      // Parses the lexeme into an integer
-      let num = i64::from_str_radix(&lexeme[2..], radix);
 
-      match num {
+      // Parses the lexeme into an integer
+      match i64::from_str_radix(&lexeme[2..], radix) {
          Ok(x) => Ok(Object::Int(x)),
          Err(_) => {
             // The lexeme could not be converted to an i64.
@@ -772,17 +655,13 @@ impl<'a> Parser {
 
       if !self.matches(&R_BRACKET) {
          loop {
-            values.push(match self.parse_expression() {
-               Some(e) => e,
-               None => return None,
-            });
+            values.push(self.parse_expression()?);
 
             if self.matches(&COMMA) {
                continue;
             }
 
             self.consume(&R_BRACKET, "Expected matching ']' for array literal.");
-
             break;
          }
       }
@@ -795,26 +674,17 @@ impl<'a> Parser {
 
    /// Parses a tuple literal expression.
    fn parse_tuple(&mut self, start_token: Token, first: Option<ASTNode>) -> Option<ASTNode> {
-      let first = match first {
-         Some(node) => node,
-         None => return None, // The first expression is invalid.
-      };
+      let mut values: Vec<ASTNode> = vec![first?];
 
-      // Initialize the vector
-      let mut values: Vec<ASTNode> = vec![first];
-
-      if !self.matches(&R_PARENTHESIS) {
+      if !self.matches(&R_PAREN) {
          loop {
-            values.push(match self.parse_expression() {
-               Some(e) => e,
-               None => return None,
-            });
+            values.push(self.parse_expression()?);
 
             if self.matches(&COMMA) {
                continue;
             }
 
-            self.consume(&R_PARENTHESIS, "Expected matching ')' for tuple declaration.");
+            self.consume(&R_PAREN, "Expected matching ')' for tuple declaration.");
             break;
          }
       }
@@ -850,13 +720,10 @@ impl<'a> Parser {
             }
 
             // Consumes the colon
-            self.consume(&COLON, "Expected ':' after dictionary key.");
+            self.consume(&COLON, "Expected ':' after dictionary key.")?;
 
             // Consumes the value
-            match self.parse_expression() {
-               Some(node) => values.push(node),
-               None => return None,
-            }
+            values.push(self.parse_expression()?);
 
             // If matches a comma, consume next
             if self.matches(&COMMA) {
@@ -882,95 +749,28 @@ impl<'a> Parser {
       }))
    }
 
-   /// Parses an array indexing expression.
-   fn parse_subscripting(&mut self, expr: Option<ASTNode>) -> Option<ASTNode> {
-      let expr = match expr {
-         Some(e) => e,
-         None => return None,
-      };
-
-      let pos = (self.previous.line_num, self.previous.column_start);
-
-      let expr = Some(Subscript(SubscriptExprNode {
-         target: Box::new(expr),
-         index: match self.parse_expression() {
-            Some(e) => Box::new(e),
-            None => return None,
-         },
-         pos,
-      }));
-
-      self.consume(&R_BRACKET, "Expected matching ']' for array indexing expression.");
-      expr
-   }
-
-   /// Parses a function call expression.
-   fn parse_function_call(&mut self, name: Option<ASTNode>) -> Option<ASTNode> {
-      let name = match name {
-         Some(e) => e,
-         None => return None,
-      };
-
-      let pos = (self.previous.line_num, self.previous.column_start);
+   /// Parses a function argument expression.
+   fn parse_arguments_list(&mut self) -> Option<Box<[Argument]>> {
       let mut args: Vec<Argument> = vec![];
 
-      if !self.matches(&R_PARENTHESIS) {
-         loop {
-            if args.len() >= 255 {
-               self.error_at_current("Can't have more than 255 arguments.");
-               return None;
-            }
+      while !self.matches(&R_PAREN) {
+         if args.len() >= 256 {
+            self.error_at_current("Can't have more than 255 arguments.");
+            return None;
+         }
 
-            match self.parse_argument() {
-               Some(a) => {
-                  if !args.is_empty() && !a.is_named && args.last().unwrap().is_named {
-                     self.error_at_previous("Named arguments must be declared after all unnamed arguments.");
-                     return None;
-                  }
+         args.push(Argument {
+            name: None,
+            value: Box::new(self.parse_expression()?),
+         });
 
-                  args.push(a);
-               }
-               None => return None, // Could not parse the argument
-            }
-
-            if self.matches(&COMMA) {
-               continue;
-            }
-
-            self.consume(&R_PARENTHESIS, "Expected matching ')' after arguments.");
+         if self.matches(&R_PAREN) {
             break;
          }
+
+         self.consume(&COMMA, "Expected a comma after the argument.");
       }
 
-      Some(FunctionCall(FunctionCallExprNode {
-         target: Box::new(name),
-         args: args.into_boxed_slice(),
-         pos,
-      }))
-   }
-
-   /// Parses a function argument expression.
-   fn parse_argument(&mut self) -> Option<Argument> {
-      let expr = match self.parse_expression() {
-         Some(e) => e,
-         None => return None, // could not parse argument expression
-      };
-
-      if self.matches(&COLON_EQUALS) {
-         return Some(Argument {
-            name: Some(expr),
-            is_named: true,
-            value: match self.parse_expression() {
-               Some(x) => Box::new(x),
-               None => return None, // Could not compile default value for parameter
-            },
-         });
-      }
-
-      Some(Argument {
-         name: None,
-         is_named: false,
-         value: Box::new(expr),
-      })
+      Some(args.into_boxed_slice())
    }
 }

@@ -30,7 +30,7 @@ impl Lexer {
       match c {
          '"' | '\'' => self.make_string_token(),
          '(' => self.make_token(L_PAREN),
-         ')' => self.make_token(R_PARENTHESIS),
+         ')' => self.make_token(R_PAREN),
          '{' => self.make_token(L_CURLY),
          '}' => self.make_token(R_CURLY),
          '[' => self.make_token(L_BRACKET),
