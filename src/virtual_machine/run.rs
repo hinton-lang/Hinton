@@ -3,7 +3,8 @@ use crate::built_in::BuiltIn;
 use crate::core::ast::{BinaryExprType, UnaryExprType};
 use crate::core::bytecode::OpCode;
 use crate::errors::RuntimeErrorType;
-use crate::objects::class_obj::{BoundMethod, ClassField, ClassObject};
+use crate::objects::class_obj::{ClassField, ClassObject};
+use crate::objects::dictionary_obj::DictObject;
 use crate::objects::indexing::to_bounded_index;
 use crate::objects::*;
 use crate::virtual_machine::{RuntimeResult, VM};
@@ -407,29 +408,17 @@ impl VM {
 
       let value = self.pop_stack();
       match value {
-         Object::Instance(x) => match x.borrow().get_prop(prop_name) {
+         Object::Instance(x) => match x.borrow().get_prop(&prop_name) {
             Ok(o) => match o {
-               Object::Closure(c) => self.push_stack(Object::BoundMethod(BoundMethod {
-                  receiver: x.clone(),
-                  method: c,
-               })),
-               Object::Function(f) => self.push_stack(Object::BoundMethod(BoundMethod {
-                  receiver: x.clone(),
-                  method: ClosureObject {
-                     function: f,
-                     up_values: vec![],
-                  },
-               })),
+               Object::Closure(c) => self.push_stack(c.into_bound_method(x.clone())),
+               Object::Function(f) => self.push_stack(FuncObject::bound_method(f, x.clone())),
                _ => self.push_stack(o),
             },
             Err(e) => e,
          },
-         Object::Dict(x) => match x.borrow().get(&prop_name) {
-            Some(val) => self.push_stack(val.clone()),
-            None => RuntimeResult::Error {
-               error: RuntimeErrorType::KeyError,
-               message: format!("Entry with key '{}' not found in the dictionary.", prop_name),
-            },
+         Object::Dict(x) => match x.get_prop(&prop_name) {
+            Ok(o) => self.push_stack(o),
+            Err(e) => e.to_runtime_error(),
          },
          Object::Int(_) => BuiltIn::primitive_prop(self, value, "Int", prop_name),
          Object::String(_) => BuiltIn::primitive_prop(self, value, "String", prop_name),
@@ -458,8 +447,8 @@ impl VM {
             Ok(o) => self.push_stack(o),
             Err(e) => e,
          },
-         Object::Dict(dict) => {
-            dict.borrow_mut().insert(prop_name, value.clone());
+         Object::Dict(mut dict) => {
+            dict.set_prop(&prop_name, value.clone());
             self.push_stack(value)
          }
          _ => todo!("Other objects also have properties."),
@@ -498,9 +487,9 @@ impl VM {
                },
             }
          }
-         Object::Dict(dict) => match index {
+         Object::Dict(mut dict) => match index {
             Object::String(s) => {
-               dict.borrow_mut().insert(s, value.clone());
+               dict.set_prop(&s, value.clone());
                self.push_stack(value)
             }
             _ => RuntimeResult::Error {
@@ -661,7 +650,7 @@ impl VM {
          }
       }
 
-      self.push_stack(Object::Dict(Rc::new(RefCell::new(dict))))
+      self.push_stack(DictObject::new_object(dict))
    }
 
    /// Executes the instruction to subscript and object by some index.

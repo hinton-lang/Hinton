@@ -124,10 +124,10 @@ impl Parser {
    /// - `tok_type`: The expected type of the token to consume.
    /// - `message`: The error message to be displayed if the current token does not match the
    /// provided type.
-   fn consume(&mut self, tok_type: &TokenType, message: &str) {
+   fn consume(&mut self, tok_type: &TokenType, message: &str) -> Option<Token> {
       if self.check(tok_type) {
          self.advance();
-         return;
+         return Some(self.previous.clone());
       }
 
       if let SEMICOLON = tok_type {
@@ -135,6 +135,8 @@ impl Parser {
       } else {
          self.error_at_current(message);
       }
+
+      None
    }
 
    /// Gets the type of the current token.

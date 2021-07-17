@@ -19,18 +19,22 @@
   </component>
   <component name="ChangeListManager">
     <list default="true" id="01377ebb-e361-4782-8382-eca9171c4216" name="Default Changelist" comment="">
-      <change afterPath="$PROJECT_DIR$/src/built_in/primitives/array.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/src/built_in/primitives/string.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/objects/dictionary_obj.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/built_in/natives.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/built_in/natives.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/built_in/primitives/int.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/built_in/primitives/int.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/built_in/primitives/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/built_in/primitives/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/compiler/expressions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/compiler/expressions.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/compiler/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/compiler/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/core/ast.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/core/ast.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/core/chunk.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/core/chunk.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/core/bytecode.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/core/bytecode.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/core/tokens.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/core/tokens.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/lexer/lex_next_token.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lexer/lex_next_token.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/objects/class_obj.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/objects/class_obj.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/objects/indexing.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/objects/indexing.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/objects/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/objects/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/objects/native_operations.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/objects/native_operations.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/parser/expressions.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser/expressions.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/parser/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser/mod.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/parser/statements.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser/statements.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/virtual_machine/mod.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/virtual_machine/mod.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/virtual_machine/run.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/virtual_machine/run.rs" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -106,7 +110,7 @@
     <property name="project.structure.proportion" value="0.0" />
     <property name="project.structure.side.proportion" value="0.0" />
     <property name="run.code.analysis.last.selected.profile" value="pProject Default" />
-    <property name="settings.editor.selected.configurable" value="preferences.pluginManager" />
+    <property name="settings.editor.selected.configurable" value="dynamic.analysis.tools.valgrind" />
   </component>
   <component name="ReaderModeSettings">
     <option name="showRenderedDocs" value="false" />
@@ -124,9 +128,20 @@
     </option>
   </component>
   <component name="RunManager" selected="Cargo.Test">
-    <configuration default="true" type="CMakeRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+    <configuration name="Run Clock Fib" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
+      <option name="command" value="run --release ./development/clock_fib.ht" />
+      <option name="workingDirectory" value="file://$PROJECT_DIR$" />
+      <option name="channel" value="DEFAULT" />
+      <option name="requiredFeatures" value="true" />
+      <option name="allFeatures" value="false" />
+      <option name="emulateTerminal" value="false" />
+      <option name="withSudo" value="false" />
+      <option name="backtrace" value="SHORT" />
+      <envs />
+      <option name="isRedirectInput" value="false" />
+      <option name="redirectInputPath" value="" />
       <method v="2">
-        <option name="com.jetbrains.cidr.execution.CidrBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+        <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
     <configuration name="Run Development" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
@@ -177,8 +192,14 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
+    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" USE_EXTERNAL_CONSOLE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
     <list>
       <item itemvalue="Cargo.Run Development" />
+      <item itemvalue="Cargo.Run Clock Fib" />
       <item itemvalue="Cargo.Run Hinton Test" />
       <item itemvalue="Cargo.Test" />
     </list>
@@ -211,7 +232,8 @@
       <workItem from="1625334490569" duration="35000" />
       <workItem from="1625336521311" duration="10846000" />
       <workItem from="1625586078059" duration="69172000" />
-      <workItem from="1625849567301" duration="32089000" />
+      <workItem from="1625849567301" duration="45408000" />
+      <workItem from="1626126516773" duration="28845000" />
     </task>
     <servers />
   </component>

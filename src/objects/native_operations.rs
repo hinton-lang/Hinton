@@ -1,6 +1,15 @@
 use crate::errors::ObjectOprErrType;
 use crate::objects::{obj_vectors_equal, Object};
 
+macro_rules! binary_opr_error_msg {
+   ($opr: expr, $lhs_type: expr, $rhs_type: expr) => {
+      Err(ObjectOprErrType::TypeError(format!(
+         "Operation '{}' not defined for objects of type '{}' and '{}'.",
+         $opr, $lhs_type, $rhs_type
+      )))
+   };
+}
+
 /// Defines negation of Hinton objects.
 impl std::ops::Neg for Object {
    type Output = Result<Object, ObjectOprErrType>;
@@ -11,12 +20,10 @@ impl std::ops::Neg for Object {
          Object::Float(lhs) => Ok(Object::Float(-lhs)),
          Object::Bool(lhs) if lhs => Ok(Object::Int(-1)),
          Object::Bool(lhs) if !lhs => Ok(Object::Int(0)),
-         _ => {
-            return Err(ObjectOprErrType::TypeError(format!(
-               "Cannot negate an object of type '{}'.",
-               self.type_name()
-            )))
-         }
+         _ => Err(ObjectOprErrType::TypeError(format!(
+            "Cannot negate an object of type '{}'.",
+            self.type_name()
+         ))),
       }
    }
 }
@@ -26,19 +33,13 @@ impl std::ops::Add<Object> for Object {
    type Output = Result<Object, ObjectOprErrType>;
 
    fn add(self, rhs: Object) -> Self::Output {
-      let error_msg = Err(ObjectOprErrType::TypeError(format!(
-         "Operation '+' not defined for objects of type '{}' and '{}'.",
-         self.type_name(),
-         rhs.type_name()
-      )));
-
       match self {
          Object::Int(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Int(lhs + rhs)),
             Object::Float(rhs) => Ok(Object::Float(lhs as f64 + rhs)),
             Object::Bool(rhs) => Ok(Object::Int(lhs + if rhs { 1 } else { 0 })),
             Object::String(rhs) => Ok(Object::String(format!("{}{}", lhs, rhs))),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("+", "Int", rhs.type_name()),
          },
          Object::Float(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Float(lhs + rhs as f64)),
@@ -50,7 +51,7 @@ impl std::ops::Add<Object> for Object {
                if lhs.fract() == 0.0 { ".0" } else { "" },
                rhs
             ))),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("+", "Float", rhs.type_name()),
          },
          Object::String(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::String(format!("{}{}", lhs, rhs))),
@@ -61,21 +62,21 @@ impl std::ops::Add<Object> for Object {
                if rhs.fract() == 0.0 { ".0" } else { "" }
             ))),
             Object::String(rhs) => Ok(Object::String(format!("{}{}", lhs, rhs))),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("+", "String", rhs.type_name()),
          },
          Object::Bool(lhs) if lhs => match rhs {
             Object::Int(rhs) => Ok(Object::Int(rhs + 1i64)),
             Object::Float(rhs) => Ok(Object::Float(rhs + 1f64)),
             Object::Bool(rhs) => Ok(Object::Int(1 + if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("+", "Bool", rhs.type_name()),
          },
          Object::Bool(lhs) if !lhs => match rhs {
             Object::Int(rhs) => Ok(Object::Int(rhs)),
             Object::Float(rhs) => Ok(Object::Float(rhs)),
             Object::Bool(rhs) => Ok(Object::Int(if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("+", "Bool", rhs.type_name()),
          },
-         _ => error_msg,
+         _ => binary_opr_error_msg!("+", self.type_name(), rhs.type_name()),
       }
    }
 }
@@ -85,38 +86,32 @@ impl std::ops::Sub<Object> for Object {
    type Output = Result<Object, ObjectOprErrType>;
 
    fn sub(self, rhs: Object) -> Self::Output {
-      let error_msg = Err(ObjectOprErrType::TypeError(format!(
-         "Operation '-' not defined for objects of type '{}' and '{}'.",
-         self.type_name(),
-         rhs.type_name()
-      )));
-
       match self {
          Object::Int(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Int(lhs - rhs)),
             Object::Float(rhs) => Ok(Object::Float(lhs as f64 - rhs)),
             Object::Bool(rhs) => Ok(Object::Int(lhs - if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("-", "Int", rhs.type_name()),
          },
          Object::Float(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Float(lhs - rhs as f64)),
             Object::Float(rhs) => Ok(Object::Float(lhs - rhs)),
             Object::Bool(rhs) => Ok(Object::Float(lhs - if rhs { 1f64 } else { 0f64 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("-", "Float", rhs.type_name()),
          },
          Object::Bool(lhs) if lhs => match rhs {
             Object::Int(rhs) => Ok(Object::Int(1i64 - rhs)),
             Object::Float(rhs) => Ok(Object::Float(1f64 - rhs)),
             Object::Bool(rhs) => Ok(Object::Int(1 - if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("-", "Bool", rhs.type_name()),
          },
          Object::Bool(lhs) if !lhs => match rhs {
             Object::Int(rhs) => Ok(Object::Int(-rhs)),
             Object::Float(rhs) => Ok(Object::Float(-rhs)),
             Object::Bool(rhs) => Ok(Object::Int(if rhs { -1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("-", "Bool", rhs.type_name()),
          },
-         _ => error_msg,
+         _ => binary_opr_error_msg!("-", self.type_name(), rhs.type_name()),
       }
    }
 }
@@ -126,43 +121,37 @@ impl std::ops::Mul<Object> for Object {
    type Output = Result<Object, ObjectOprErrType>;
 
    fn mul(self, rhs: Object) -> Self::Output {
-      let error_msg = Err(ObjectOprErrType::TypeError(format!(
-         "Operation '*' not defined for objects of type '{}' and '{}'.",
-         self.type_name(),
-         rhs.type_name()
-      )));
-
       match self {
          Object::Int(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Int(lhs.saturating_mul(rhs))),
             Object::Float(rhs) => Ok(Object::Float(lhs as f64 * rhs)),
             Object::Bool(rhs) => Ok(Object::Int(if rhs { lhs } else { 0 })),
             Object::String(rhs) => Ok(Object::String(rhs.repeat(lhs as usize))),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("*", "Int", rhs.type_name()),
          },
          Object::Float(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Float(lhs * rhs as f64)),
             Object::Float(rhs) => Ok(Object::Float(lhs * rhs)),
             Object::Bool(rhs) => Ok(Object::Float(if rhs { lhs } else { 0f64 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("*", "Float", rhs.type_name()),
          },
          Object::String(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::String(lhs.repeat(rhs as usize))),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("*", "String", rhs.type_name()),
          },
          Object::Bool(lhs) if lhs => match rhs {
             Object::Int(rhs) => Ok(Object::Int(rhs)),
             Object::Float(rhs) => Ok(Object::Float(rhs)),
             Object::Bool(rhs) => Ok(Object::Int(if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("*", "Bool", rhs.type_name()),
          },
          Object::Bool(lhs) if !lhs => match rhs {
             Object::Int(_) => Ok(Object::Int(0)),
             Object::Float(_) => Ok(Object::Float(0f64)),
             Object::Bool(_) => Ok(Object::Int(0)),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("*", "Bool", rhs.type_name()),
          },
-         _ => error_msg,
+         _ => binary_opr_error_msg!("*", self.type_name(), rhs.type_name()),
       }
    }
 }
@@ -172,12 +161,6 @@ impl std::ops::Div<Object> for Object {
    type Output = Result<Object, ObjectOprErrType>;
 
    fn div(self, rhs: Object) -> Self::Output {
-      let error_msg = Err(ObjectOprErrType::TypeError(format!(
-         "Operation '/' not defined for objects of type '{}' and '{}'.",
-         self.type_name(),
-         rhs.type_name()
-      )));
-
       // Divide-by-zero errors
       if rhs.is_int() && rhs.as_int().unwrap() == 0
          || rhs.is_float() && rhs.as_float().unwrap() == 0f64
@@ -193,27 +176,27 @@ impl std::ops::Div<Object> for Object {
             Object::Int(rhs) => Ok(Object::Float(lhs as f64 / rhs as f64)),
             Object::Float(rhs) => Ok(Object::Float(lhs as f64 / rhs)),
             Object::Bool(_) => Ok(Object::Float(lhs as f64)),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("/", "Int", rhs.type_name()),
          },
          Object::Float(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Float(lhs / rhs as f64)),
             Object::Float(rhs) => Ok(Object::Float(lhs / rhs)),
             Object::Bool(_) => Ok(Object::Float(lhs as f64)),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("/", "Float", rhs.type_name()),
          },
          Object::Bool(lhs) if lhs => match rhs {
             Object::Int(rhs) => Ok(Object::Float(1f64 / rhs as f64)),
             Object::Float(rhs) => Ok(Object::Float(1f64 / rhs)),
             Object::Bool(_) => Ok(Object::Float(1f64)),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("/", "Bool", rhs.type_name()),
          },
          Object::Bool(lhs) if !lhs => match rhs {
             Object::Int(_) => Ok(Object::Float(0f64)),
             Object::Float(_) => Ok(Object::Float(0f64)),
             Object::Bool(_) => Ok(Object::Float(0f64)),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("/", "Bool", rhs.type_name()),
          },
-         _ => error_msg,
+         _ => binary_opr_error_msg!("/", self.type_name(), rhs.type_name()),
       }
    }
 }
@@ -223,12 +206,6 @@ impl std::ops::Rem<Object> for Object {
    type Output = Result<Object, ObjectOprErrType>;
 
    fn rem(self, rhs: Object) -> Self::Output {
-      let error_msg = Err(ObjectOprErrType::TypeError(format!(
-         "Operation '%' not defined for objects of type '{}' and '{}'.",
-         self.type_name(),
-         rhs.type_name()
-      )));
-
       // zero-modulo errors
       if rhs.is_int() && rhs.as_int().unwrap() == 0
          || rhs.is_float() && rhs.as_float().unwrap() == 0f64
@@ -244,27 +221,27 @@ impl std::ops::Rem<Object> for Object {
             Object::Int(rhs) => Ok(Object::Int(lhs % rhs)),
             Object::Float(rhs) => Ok(Object::Int(lhs % rhs.floor() as i64)),
             Object::Bool(_) => Ok(Object::Int(0i64)),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("%", "Int", rhs.type_name()),
          },
          Object::Float(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Float(lhs % rhs as f64)),
             Object::Float(rhs) => Ok(Object::Float(lhs % rhs)),
             Object::Bool(_) => Ok(Object::Float(lhs % 1f64)),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("%", "Float", rhs.type_name()),
          },
          Object::Bool(lhs) if lhs => match rhs {
             Object::Int(rhs) => Ok(Object::Int(1i64 % rhs)),
             Object::Float(rhs) => Ok(Object::Float(1f64 % rhs)),
             Object::Bool(_) => Ok(Object::Int(0i64)),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("%", "Bool", rhs.type_name()),
          },
          Object::Bool(lhs) if !lhs => match rhs {
             Object::Int(_) => Ok(Object::Int(0i64)),
             Object::Float(_) => Ok(Object::Float(0f64)),
             Object::Bool(_) => Ok(Object::Int(0i64)),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("%", "Bool", rhs.type_name()),
          },
-         _ => error_msg,
+         _ => binary_opr_error_msg!("%", self.type_name(), rhs.type_name()),
       }
    }
 }
@@ -274,24 +251,18 @@ impl std::ops::BitAnd<Object> for Object {
    type Output = Result<Object, ObjectOprErrType>;
 
    fn bitand(self, rhs: Object) -> Self::Output {
-      let error_msg = Err(ObjectOprErrType::TypeError(format!(
-         "Operation '&' not defined for objects of type '{}' and '{}'.",
-         self.type_name(),
-         rhs.type_name()
-      )));
-
       match self {
          Object::Int(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Int(lhs & rhs)),
             Object::Bool(rhs) => Ok(Object::Int(lhs & if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("&", "Int", rhs.type_name()),
          },
          Object::Bool(lhs) if lhs => match rhs {
             Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } & rhs)),
             Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } & if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("&", "Bool", rhs.type_name()),
          },
-         _ => error_msg,
+         _ => binary_opr_error_msg!("&", self.type_name(), rhs.type_name()),
       }
    }
 }
@@ -301,24 +272,18 @@ impl std::ops::BitOr<Object> for Object {
    type Output = Result<Object, ObjectOprErrType>;
 
    fn bitor(self, rhs: Object) -> Self::Output {
-      let error_msg = Err(ObjectOprErrType::TypeError(format!(
-         "Operation '|' not defined for objects of type '{}' and '{}'.",
-         self.type_name(),
-         rhs.type_name()
-      )));
-
       match self {
          Object::Int(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Int(lhs | rhs)),
             Object::Bool(rhs) => Ok(Object::Int(lhs | if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("|", "Int", rhs.type_name()),
          },
          Object::Bool(lhs) if lhs => match rhs {
             Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } | rhs)),
             Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } | if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("|", "Bool", rhs.type_name()),
          },
-         _ => error_msg,
+         _ => binary_opr_error_msg!("|", self.type_name(), rhs.type_name()),
       }
    }
 }
@@ -328,24 +293,18 @@ impl std::ops::BitXor<Object> for Object {
    type Output = Result<Object, ObjectOprErrType>;
 
    fn bitxor(self, rhs: Object) -> Self::Output {
-      let error_msg = Err(ObjectOprErrType::TypeError(format!(
-         "Operation '^' not defined for objects of type '{}' and '{}'.",
-         self.type_name(),
-         rhs.type_name()
-      )));
-
       match self {
          Object::Int(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Int(lhs ^ rhs)),
             Object::Bool(rhs) => Ok(Object::Int(lhs ^ if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("^", "Int", rhs.type_name()),
          },
          Object::Bool(lhs) if lhs => match rhs {
             Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } ^ rhs)),
             Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } ^ if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("^", "Bool", rhs.type_name()),
          },
-         _ => error_msg,
+         _ => binary_opr_error_msg!("^", self.type_name(), rhs.type_name()),
       }
    }
 }
@@ -355,24 +314,18 @@ impl std::ops::Shl<Object> for Object {
    type Output = Result<Object, ObjectOprErrType>;
 
    fn shl(self, rhs: Object) -> Self::Output {
-      let error_msg = Err(ObjectOprErrType::TypeError(format!(
-         "Operation '<<' not defined for objects of type '{}' and '{}'.",
-         self.type_name(),
-         rhs.type_name()
-      )));
-
       match self {
          Object::Int(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Int(lhs << rhs)),
             Object::Bool(rhs) => Ok(Object::Int(lhs << if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("<<", "Int", rhs.type_name()),
          },
          Object::Bool(lhs) if lhs => match rhs {
             Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } << rhs)),
             Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } << if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!("<<", "Bool", rhs.type_name()),
          },
-         _ => error_msg,
+         _ => binary_opr_error_msg!("<<", self.type_name(), rhs.type_name()),
       }
    }
 }
@@ -382,24 +335,18 @@ impl std::ops::Shr<Object> for Object {
    type Output = Result<Object, ObjectOprErrType>;
 
    fn shr(self, rhs: Object) -> Self::Output {
-      let error_msg = Err(ObjectOprErrType::TypeError(format!(
-         "Operation '>>' not defined for objects of type '{}' and '{}'.",
-         self.type_name(),
-         rhs.type_name()
-      )));
-
       match self {
          Object::Int(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Int(lhs >> rhs)),
             Object::Bool(rhs) => Ok(Object::Int(lhs >> if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!(">>", "Int", rhs.type_name()),
          },
          Object::Bool(lhs) if lhs => match rhs {
             Object::Int(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } >> rhs)),
             Object::Bool(rhs) => Ok(Object::Int(if lhs { 1 } else { 0 } >> if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => binary_opr_error_msg!(">>", "Bool", rhs.type_name()),
          },
-         _ => error_msg,
+         _ => binary_opr_error_msg!(">>", self.type_name(), rhs.type_name()),
       }
    }
 }
@@ -415,12 +362,10 @@ impl std::ops::Not for Object {
       match self {
          Object::Int(opr) => Ok(Object::Int(!opr)),
          Object::Bool(opr) => Ok(Object::Int(!(opr as i64))),
-         _ => {
-            return Err(ObjectOprErrType::TypeError(format!(
-               "Operation '~' not defined for objects of type '{}'.",
-               self.type_name()
-            )))
-         }
+         _ => Err(ObjectOprErrType::TypeError(format!(
+            "Operation '~' not defined for objects of type '{}'.",
+            self.type_name()
+         ))),
       }
    }
 }
@@ -481,10 +426,10 @@ impl PartialEq for Object {
             }
          }
          Object::Dict(d1) => {
-            let d1 = d1.borrow();
+            let d1 = d1.0.borrow();
 
             if let Object::Dict(d2) = right {
-               let d2 = d2.borrow();
+               let d2 = d2.0.borrow();
 
                if d1.len() != d2.len() {
                   return false;
@@ -650,32 +595,42 @@ impl Object {
 
    /// Defines the less-than operation of Hinton objects.
    pub fn lt(self, rhs: Object) -> Result<Object, ObjectOprErrType> {
-      let error_msg = Err(ObjectOprErrType::TypeError(format!(
-         "Operation '<' not defined for objects of type '{}' and '{}'.",
-         self.type_name(),
-         rhs.type_name()
-      )));
-
       match self {
          Object::Int(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Bool(lhs < rhs)),
             Object::Float(rhs) => Ok(Object::Bool((lhs as f64) < rhs)),
             Object::Bool(rhs) if rhs => Ok(Object::Bool(lhs < if rhs { 1 } else { 0 })),
-            _ => error_msg,
+            _ => Err(ObjectOprErrType::TypeError(format!(
+               "Operation '<' not defined for objects of type '{}' and '{}'.",
+               self.type_name(),
+               rhs.type_name()
+            ))),
          },
          Object::Float(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Bool(lhs < rhs as f64)),
             Object::Float(rhs) => Ok(Object::Bool(lhs < rhs)),
             Object::Bool(rhs) if rhs => Ok(Object::Bool(lhs < if rhs { 1f64 } else { 0f64 })),
-            _ => error_msg,
+            _ => Err(ObjectOprErrType::TypeError(format!(
+               "Operation '<' not defined for objects of type '{}' and '{}'.",
+               self.type_name(),
+               rhs.type_name()
+            ))),
          },
          Object::Bool(lhs) => match rhs {
             Object::Int(rhs) => Ok(Object::Bool(if lhs { 1 } else { 0 } < rhs)),
             Object::Float(rhs) => Ok(Object::Bool(if lhs { 1f64 } else { 0f64 } < rhs)),
             Object::Bool(rhs) => Ok(Object::Bool(if lhs { 1 } else { 0 } < rhs as i64)),
-            _ => error_msg,
+            _ => Err(ObjectOprErrType::TypeError(format!(
+               "Operation '<' not defined for objects of type '{}' and '{}'.",
+               self.type_name(),
+               rhs.type_name()
+            ))),
          },
-         _ => error_msg,
+         _ => Err(ObjectOprErrType::TypeError(format!(
+            "Operation '<' not defined for objects of type '{}' and '{}'.",
+            self.type_name(),
+            rhs.type_name()
+         ))),
       }
    }
 

@@ -1,7 +1,7 @@
 use crate::built_in::{NativeBoundMethod, NativeFn};
 use crate::core::chunk::Chunk;
 use crate::objects::class_obj::*;
-use hashbrown::HashMap;
+use crate::objects::dictionary_obj::*;
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Formatter;
@@ -9,6 +9,7 @@ use std::rc::Rc;
 
 // Submodules
 pub mod class_obj;
+pub mod dictionary_obj;
 pub mod indexing;
 mod native_operations;
 
@@ -65,6 +66,18 @@ impl fmt::Display for FuncObject {
    }
 }
 
+impl FuncObject {
+   pub fn bound_method(f: Rc<RefCell<FuncObject>>, i: Rc<RefCell<InstanceObject>>) -> Object {
+      Object::BoundMethod(BoundMethod {
+         receiver: i,
+         method: ClosureObject {
+            function: f,
+            up_values: vec![],
+         },
+      })
+   }
+}
+
 /// Represents a Hinton native function object.
 #[derive(Clone)]
 pub struct NativeFuncObj {
@@ -114,6 +127,15 @@ impl fmt::Display for ClosureObject {
    }
 }
 
+impl ClosureObject {
+   pub fn into_bound_method(self, c: Rc<RefCell<InstanceObject>>) -> Object {
+      Object::BoundMethod(BoundMethod {
+         receiver: c,
+         method: self,
+      })
+   }
+}
+
 /// Represents a closure UpValue reference.
 #[derive(Clone)]
 pub enum UpValRef {
@@ -140,7 +162,7 @@ pub enum Object {
    BoundNativeMethod(NativeMethodObj),
    Class(Rc<RefCell<ClassObject>>),
    Closure(ClosureObject),
-   Dict(Rc<RefCell<HashMap<String, Object>>>),
+   Dict(DictObject),
    Float(f64),
    Function(Rc<RefCell<FuncObject>>),
    Instance(Rc<RefCell<InstanceObject>>),
@@ -329,6 +351,7 @@ impl<'a> fmt::Display for Object {
          Object::BoundMethod(ref inner) => write!(f, "{}", inner),
          Object::BoundNativeMethod(ref inner) => write!(f, "{}", inner),
          Object::Null => f.write_str("\x1b[37;1mnull\x1b[0m"),
+         Object::Dict(ref inner) => write!(f, "{}", inner),
          Object::Float(ref inner) => {
             let fractional = if inner.fract() == 0.0 { ".0" } else { "" };
             write!(f, "\x1b[38;5;81m{}{}\x1b[0m", inner, fractional)
@@ -369,21 +392,6 @@ impl<'a> fmt::Display for Object {
                }
             }
             arr_str += ")";
-
-            write!(f, "{}", arr_str)
-         }
-         Object::Dict(ref inner) => {
-            let mut arr_str = String::from("{");
-
-            for (idx, key) in inner.borrow().keys().enumerate() {
-               if idx == inner.borrow().keys().len() - 1 {
-                  arr_str += &(format!("'{}': {}", key, inner.borrow().get(key).unwrap()))[..]
-               } else {
-                  arr_str += &(format!("'{}': {}, ", key, inner.borrow().get(key).unwrap()))[..]
-               }
-            }
-
-            arr_str += "}";
 
             write!(f, "{}", arr_str)
          }

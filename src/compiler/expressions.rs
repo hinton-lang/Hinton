@@ -270,7 +270,7 @@ impl Compiler {
    }
 
    /// Compiles a property-reassignment expression.
-   pub(super) fn compile_object_setter_expr(&mut self, expr: &ObjectSetExprNode) {
+   pub(super) fn compile_property_setter_expr(&mut self, expr: &PropSetExprNode) {
       self.compile_node(&expr.target);
 
       let prop_name = Object::from(expr.setter.lexeme.clone());
@@ -283,7 +283,7 @@ impl Compiler {
          } else {
             // The expression `a.prop /= 2` expands to `a.prop = a.prop / 2`, so we
             // must get the property's value onto the stack first.
-            self.compile_object_getter_expr(&ObjectGetExprNode {
+            self.compile_property_getter_expr(&PropGetExprNode {
                target: expr.target.clone(),
                getter: expr.setter.clone(),
             });
@@ -330,7 +330,7 @@ impl Compiler {
    }
 
    /// Compiles an object property access expression.
-   pub(super) fn compile_object_getter_expr(&mut self, expr: &ObjectGetExprNode) {
+   pub(super) fn compile_property_getter_expr(&mut self, expr: &PropGetExprNode) {
       self.compile_node(&expr.target);
 
       let prop_name = Object::from(expr.getter.lexeme.clone());

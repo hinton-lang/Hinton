@@ -191,8 +191,8 @@ impl InstanceObject {
    /// // ...
    /// let prop_obj = vec_2d.get_prop("magnitude".to_string());
    /// ```
-   pub fn get_prop(&self, prop_name: String) -> Result<Object, RuntimeResult> {
-      match self.members.get(&prop_name) {
+   pub fn get_prop(&self, prop_name: &str) -> Result<Object, RuntimeResult> {
+      match self.members.get(prop_name) {
          Some(field) => {
             if !field.is_public() {
                Err(RuntimeResult::Error {
