@@ -5,6 +5,7 @@ use crate::objects::class_obj::{ClassField, ClassObject};
 use crate::objects::Object;
 use crate::virtual_machine::{RuntimeResult, VM};
 use hashbrown::HashMap;
+use std::rc::Rc;
 
 /// Represents the Hinton `Array` primitive class.
 pub struct ArrayClass(ClassObject);
@@ -35,6 +36,7 @@ impl HTPrimitive for ArrayClass {
       _self.bind_non_static_method("len", (0, 0), len as NativeBoundMethod);
       _self.bind_non_static_method("pop", (0, 0), pop as NativeBoundMethod);
       _self.bind_non_static_method("push", (1, 1), push as NativeBoundMethod);
+      _self.bind_non_static_method("to_tuple", (0, 0), to_tuple as NativeBoundMethod);
       // <<<<<<< Class fields for the "Array" primitive type to be added before this line
 
       _self.0
@@ -127,4 +129,19 @@ fn index_of(vm: &mut VM, this: Object, args: Vec<Object>) -> RuntimeResult {
       Some(i) => vm.push_stack(Object::Int(i as i64)),
       None => vm.push_stack(Object::Null),
    }
+}
+
+/// Converts this Hinton array into a Hinton tuple.
+///
+/// # Arguments
+/// * `vm`: A mutable reference to the virtual machine.
+/// * `this`: The array object.
+/// * `_`: A vector of objects that will serve as arguments to this method call.
+///
+/// # Returns:
+/// RuntimeResult
+fn to_tuple(vm: &mut VM, this: Object, _: Vec<Object>) -> RuntimeResult {
+   let arr = verify_array_object!(this, "to_tuple");
+   let tuple = arr.borrow_mut().clone();
+   vm.push_stack(Object::Tuple(Rc::new(tuple)))
 }

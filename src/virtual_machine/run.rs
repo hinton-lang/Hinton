@@ -1,4 +1,3 @@
-use crate::built_in::natives::{get_next_in_iter, make_iter};
 use crate::built_in::BuiltIn;
 use crate::core::ast::{BinaryExprType, UnaryExprType};
 use crate::core::bytecode::OpCode;
@@ -6,6 +5,7 @@ use crate::errors::RuntimeErrorType;
 use crate::objects::class_obj::{ClassField, ClassObject};
 use crate::objects::dictionary_obj::DictObject;
 use crate::objects::indexing::to_bounded_index;
+use crate::objects::iter_obj::{get_next_in_iter, make_iter};
 use crate::objects::*;
 use crate::virtual_machine::{RuntimeResult, VM};
 use hashbrown::HashMap;
@@ -423,6 +423,7 @@ impl VM {
          Object::Int(_) => BuiltIn::primitive_prop(self, value, "Int", prop_name),
          Object::String(_) => BuiltIn::primitive_prop(self, value, "String", prop_name),
          Object::Array(_) => BuiltIn::primitive_prop(self, value, "Array", prop_name),
+         Object::Tuple(_) => BuiltIn::primitive_prop(self, value, "Tuple", prop_name),
          Object::Class(c) => match c.borrow().get_static_prop(prop_name) {
             Ok(val) => self.push_stack(val),
             Err(e) => e,
@@ -650,7 +651,7 @@ impl VM {
          }
       }
 
-      self.push_stack(DictObject::new_object(dict))
+      self.push_stack(DictObject::from_hashmap(dict))
    }
 
    /// Executes the instruction to subscript and object by some index.
@@ -775,6 +776,12 @@ impl VM {
       match self.peek_stack(0).clone() {
          Object::Class(c) => {
             let mut class = c.borrow_mut();
+
+            // If the class initializer is private, then the class cannot be
+            // constructed from the outside.
+            if field_name == "init" && (mode & 0b_0000_0100) != 4 {
+               class.is_constructable = false
+            }
 
             // Gets the mutable reference to the appropriate hash_map to store the field
             let storage = if is_static {

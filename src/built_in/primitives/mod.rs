@@ -1,6 +1,8 @@
 use crate::built_in::primitives::array::ArrayClass;
 use crate::built_in::primitives::int::IntClass;
+use crate::built_in::primitives::math::MathClass;
 use crate::built_in::primitives::string::StringClass;
+use crate::built_in::primitives::tuple::TupleClass;
 use crate::built_in::NativeBoundMethod;
 use crate::errors::RuntimeErrorType;
 use crate::objects::class_obj::{ClassField, ClassObject};
@@ -13,7 +15,9 @@ use std::rc::Rc;
 // Submodules
 mod array;
 mod int;
+mod math;
 mod string;
+mod tuple;
 
 /// Represents the list of primitive classes available through a Hinton program.
 pub struct Primitives(pub HashMap<String, Rc<RefCell<ClassObject>>>);
@@ -26,6 +30,8 @@ impl Default for Primitives {
       // >>>>>> Primitive class definitions to be added after this line
       primitives.insert("Int".to_string(), Rc::new(RefCell::new(IntClass::default())));
       primitives.insert("Array".to_string(), Rc::new(RefCell::new(ArrayClass::default())));
+      primitives.insert("Tuple".to_string(), Rc::new(RefCell::new(TupleClass::default())));
+      primitives.insert("Math".to_string(), Rc::new(RefCell::new(MathClass::default())));
       primitives.insert(
          "String".to_string(),
          Rc::new(RefCell::new(StringClass::default())),

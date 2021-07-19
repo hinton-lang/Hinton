@@ -12,6 +12,7 @@ pub struct ClassObject {
    pub name: String,
    pub members: HashMap<String, ClassField>,
    pub statics: HashMap<String, ClassField>,
+   pub is_constructable: bool,
 }
 
 /// Implements the display trait for Hinton class objects.
@@ -41,6 +42,7 @@ impl ClassObject {
          name: name.to_string(),
          members: HashMap::new(),
          statics: HashMap::new(),
+         is_constructable: true,
       }
    }
 
