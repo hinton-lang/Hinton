@@ -97,24 +97,18 @@ fn to_lower(vm: &mut VM, this: Object, _: Vec<Object>) -> RuntimeResult {
 /// # Returns:
 /// RuntimeResult
 fn ends_with(vm: &mut VM, this: Object, args: Vec<Object>) -> RuntimeResult {
-   let obj = args[0].clone();
-
-   let suffix = match obj {
-      Object::String(s) => s,
-      _ => {
-         return RuntimeResult::Error {
-            error: RuntimeErrorType::TypeError,
-            message: format!(
-               "Expected argument of type 'String' for call to 'String.ends_with'. Got '{}' instead.",
-               obj.type_name()
-            ),
-         }
-      }
-   };
-
-   vm.push_stack(Object::Bool(
-      verify_string_object!(this, "ends_with").ends_with(&suffix),
-   ))
+   match args[0].clone() {
+      Object::String(s) => vm.push_stack(Object::Bool(
+         verify_string_object!(this, "ends_with").ends_with(&s),
+      )),
+      other => RuntimeResult::Error {
+         error: RuntimeErrorType::TypeError,
+         message: format!(
+            "Expected argument of type 'String'. Got '{}' instead.",
+            other.type_name()
+         ),
+      },
+   }
 }
 
 /// Checks if a string starts with another string.
@@ -127,23 +121,16 @@ fn ends_with(vm: &mut VM, this: Object, args: Vec<Object>) -> RuntimeResult {
 /// # Returns:
 /// RuntimeResult
 fn starts_with(vm: &mut VM, this: Object, args: Vec<Object>) -> RuntimeResult {
-   let obj = args[0].clone();
-
-   let suffix = match obj {
-      Object::String(s) => s,
-      _ => {
-         return RuntimeResult::Error {
-            error: RuntimeErrorType::TypeError,
-            message: format!(
-               "Expected argument of type 'String' for call to 'String.starts_with'. \
-               Got '{}' instead.",
-               obj.type_name()
-            ),
-         }
-      }
-   };
-
-   vm.push_stack(Object::Bool(
-      verify_string_object!(this, "starts_with").starts_with(&suffix),
-   ))
+   match args[0].clone() {
+      Object::String(s) => vm.push_stack(Object::Bool(
+         verify_string_object!(this, "ends_with").starts_with(&s),
+      )),
+      other => RuntimeResult::Error {
+         error: RuntimeErrorType::TypeError,
+         message: format!(
+            "Expected argument of type 'String'. Got '{}' instead.",
+            other.type_name()
+         ),
+      },
+   }
 }

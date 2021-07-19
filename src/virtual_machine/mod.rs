@@ -364,6 +364,14 @@ impl VM {
          }
       };
 
+      // Return an error if the class cannot be constructed.
+      if !class.borrow().is_constructable {
+         return RuntimeResult::Error {
+            error: RuntimeErrorType::InstanceError,
+            message: format!("Class '{}' has a private initializer.", class.borrow().name),
+         };
+      }
+
       let new_instance = Object::from(InstanceObject {
          class: class.clone(),
          members: class.borrow().members.clone(),

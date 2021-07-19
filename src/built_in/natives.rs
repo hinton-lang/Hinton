@@ -1,11 +1,10 @@
 use crate::built_in::NativeFn;
 use crate::errors::RuntimeErrorType;
-use crate::objects::{IterObject, NativeFuncObj, Object};
+use crate::objects::iter_obj::{get_next_in_iter, make_iter};
+use crate::objects::{NativeFuncObj, Object};
 use crate::virtual_machine::{RuntimeResult, VM};
 use hashbrown::{hash_map, HashMap};
-use std::cell::RefCell;
 use std::io;
-use std::rc::Rc;
 use std::time::SystemTime;
 
 /// Represents the list of native functions available through a Hinton program.
@@ -25,6 +24,7 @@ impl Default for Natives {
       natives.add_native_function("iter", 1, 1, native_iter as NativeFn);
       natives.add_native_function("next", 1, 1, native_next as NativeFn);
       natives.add_native_function("print", 1, 1, native_print as NativeFn);
+      natives.add_native_function("random", 0, 0, native_random as NativeFn);
       // <<<<<<<<<<<<<<<< Native functions to be added before this line
 
       natives
@@ -73,15 +73,28 @@ impl Natives {
 // ================= Native Function Implementations After This Line ===================
 // >>>>>>>>>>>>>>>>> =============================================== <<<<<<<<<<<<<<<<<<<
 
-/// Implements the `print(...)` native function for Hinton,
-/// which prints a value to the console.
+/// Implements the `print(...)` native function for Hinton, which prints a value to the console.
+///
+/// # Arguments
+/// * `vm`: A mutable reference to the virtual machine.
+/// * `args`: A vector of objects that will serve as arguments to this function call.
+///
+/// # Returns:
+/// RuntimeResult
 fn native_print(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
    println!("{}", args[0]);
    vm.push_stack(Object::Null)
 }
 
-/// Implements the `clock()` native function for Hinton, which
-/// retrieves the current time from the Unix Epoch time.
+/// Implements the `clock()` native function for Hinton, which retrieves the current time from
+/// the Unix Epoch time.
+///
+/// # Arguments
+/// * `vm`: A mutable reference to the virtual machine.
+/// * `args`: A vector of objects that will serve as arguments to this function call.
+///
+/// # Returns:
+/// RuntimeResult
 fn native_clock(vm: &mut VM, _: Vec<Object>) -> RuntimeResult {
    let now = SystemTime::now().duration_since(SystemTime::UNIX_EPOCH);
 
@@ -97,8 +110,15 @@ fn native_clock(vm: &mut VM, _: Vec<Object>) -> RuntimeResult {
    }
 }
 
-/// Implements the `iter(...)` native function for Hinton, which
-/// converts the give object to an iterable object.
+/// Implements the `iter(...)` native function for Hinton, which converts the give object to an
+/// iterable object.
+///
+/// # Arguments
+/// * `vm`: A mutable reference to the virtual machine.
+/// * `args`: A vector of objects that will serve as arguments to this function call.
+///
+/// # Returns:
+/// RuntimeResult
 fn native_iter(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
    match make_iter(args[0].clone()) {
       Ok(o) => vm.push_stack(o),
@@ -106,32 +126,15 @@ fn native_iter(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
    }
 }
 
-/// Converts a Hinton object into an Iterable object.
-pub fn make_iter(o: Object) -> Result<Object, RuntimeResult> {
-   match o {
-      Object::String(_) => {}
-      Object::Array(_) => {}
-      Object::Range(_) => {}
-      Object::Tuple(_) => {}
-      // If the object is already an iterable, return that same object.
-      Object::Iter(_) => return Ok(o),
-      // Object cannot be iterable.
-      _ => {
-         return Err(RuntimeResult::Error {
-            error: RuntimeErrorType::TypeError,
-            message: format!("Cannot create iterable from '{}'.", o.type_name()),
-         })
-      }
-   };
-
-   Ok(Object::Iter(Rc::new(RefCell::new(IterObject {
-      iter: Box::new(o),
-      index: 0,
-   }))))
-}
-
-/// Implements the `next(...)` native function for Hinton, which
-/// retrieves the next item in an iterable object.
+/// Implements the `next(...)` native function for Hinton, which retrieves the next item in an
+/// iterable object.
+///
+/// # Arguments
+/// * `vm`: A mutable reference to the virtual machine.
+/// * `args`: A vector of objects that will serve as arguments to this function call.
+///
+/// # Returns:
+/// RuntimeResult
 fn native_next(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
    match &args[0] {
       Object::Iter(iter) => match get_next_in_iter(iter) {
@@ -145,32 +148,14 @@ fn native_next(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
    }
 }
 
-/// Gets the next item in a Hinton iterator.
-pub fn get_next_in_iter(o: &Rc<RefCell<IterObject>>) -> Result<Object, RuntimeResult> {
-   let mut iter = o.borrow_mut();
-   let current_index = Object::Int(iter.index as i64);
-
-   // Since we are passing an integer into the `Object.get(...)` method,
-   // the only error that can occur is an `IndexOutOfBounds` error, which
-   // in terms of iterators means there are no more items left to iterate.
-   let obj = match iter.iter.subscript(&current_index) {
-      Ok(o) => o,
-      Err(_) => {
-         return Err(RuntimeResult::Error {
-            error: RuntimeErrorType::StopIteration,
-            message: String::from("End of Iterator."),
-         })
-      }
-   };
-
-   // Increment to the next position of the iterator.
-   iter.index += 1;
-
-   Ok(obj)
-}
-
-/// Implements the `input(...)` native function for Hinton, which
-/// gets user input from the console.
+/// Implements the `input(...)` native function for Hinton, which gets user input from the console.
+///
+/// # Arguments
+/// * `vm`: A mutable reference to the virtual machine.
+/// * `args`: A vector of objects that will serve as arguments to this function call.
+///
+/// # Returns:
+/// RuntimeResult
 fn native_input(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
    print!("{}", args[0]);
 
@@ -197,9 +182,15 @@ fn native_input(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
    }
 }
 
-// Implements the `assert(...)` native function for Hinton, which checks that
-// the first argument of the function call is truthy, emitting a RuntimeError
-// (with an optional third parameter as its message) if the value is falsey.
+/// Implements the `assert(...)` native function for Hinton, which checks that the first argument
+/// of the function call is truthy.
+///
+/// # Arguments
+/// * `vm`: A mutable reference to the virtual machine.
+/// * `args`: A vector of objects that will serve as arguments to this function call.
+///
+/// # Returns:
+/// RuntimeResult
 fn native_assert(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
    let value = args[0].clone();
 
@@ -219,9 +210,15 @@ fn native_assert(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
    }
 }
 
-// Implements the `assert_eq(...)` native function for Hinton, which checks that
-// the first two arguments of the function call are equal, emitting a RuntimeError
-// (with an optional third parameter as its message) if the values are not equal.
+/// Implements the `assert_eq(...)` native function for Hinton, which checks that
+/// the first two arguments of the function call ARE equal.
+///
+/// # Arguments
+/// * `vm`: A mutable reference to the virtual machine.
+/// * `args`: A vector of objects that will serve as arguments to this function call.
+///
+/// # Returns:
+/// RuntimeResult
 fn native_assert_eq(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
    let value1 = args[0].clone();
    let value2 = args[1].clone();
@@ -242,9 +239,15 @@ fn native_assert_eq(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
    }
 }
 
-// Implements the `assert_ne(...)` native function for Hinton, which checks that
-// the first two arguments of the function call are not equal, emitting a RuntimeError
-// (with an optional third parameter as its message) if the values are equal.
+/// Implements the `assert_ne(...)` native function for Hinton, which checks that the first two
+/// arguments of the function call are NOT equal.
+///
+/// # Arguments
+/// * `vm`: A mutable reference to the virtual machine.
+/// * `args`: A vector of objects that will serve as arguments to this function call.
+///
+/// # Returns:
+/// RuntimeResult
 fn native_assert_ne(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
    let value1 = args[0].clone();
    let value2 = args[1].clone();
@@ -263,4 +266,17 @@ fn native_assert_ne(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
          message: format!("{}", message),
       }
    }
+}
+
+/// Implements the `random(...)` native function for Hinton, which computes a random number
+/// between [0, 1).
+///
+/// # Arguments
+/// * `vm`: A mutable reference to the virtual machine.
+/// * `args`: A vector of objects that will serve as arguments to this function call.
+///
+/// # Returns:
+/// RuntimeResult
+fn native_random(vm: &mut VM, _: Vec<Object>) -> RuntimeResult {
+   vm.push_stack(Object::Float(rand::random()))
 }

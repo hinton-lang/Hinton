@@ -200,10 +200,10 @@ impl Parser {
       let token = self.previous.clone();
       let has_parenthesis = self.matches(&L_PAREN);
 
-      // For-loops must have either the `let` or `await` keyword before the loop's variable, but
+      // For-loops must have either the `var` or `await` keyword before the loop's variable, but
       // not both. Here, in the future, we would check which keyword it is and define the type
       // of for-loop we are parsing based on which keyword is present.
-      self.consume(&VAR_KW, "Expected the 'let' keyword before the identifier.");
+      self.consume(&VAR_KW, "Expected the 'var' keyword before the identifier.");
 
       let id = if let ASTNode::Identifier(id) = self.parse_primary()? {
          id
@@ -357,10 +357,7 @@ impl Parser {
             match self.parse_func_declaration() {
                Some(decl) => {
                   if decl.name.lexeme == "init" {
-                     if (mode & 0b_0000_1000) != 8 {
-                        self.error_at_token(&decl.name, "Class initializer must be public.");
-                        return None;
-                     } else if (mode & 0b_0000_0100) == 4 {
+                     if (mode & 0b_0000_0100) == 4 {
                         self.error_at_token(&decl.name, "Class initializer cannot be static.");
                         return None;
                      } else if (mode & 0b_0000_0010) == 2 {

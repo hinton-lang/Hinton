@@ -2,6 +2,7 @@ use crate::built_in::{NativeBoundMethod, NativeFn};
 use crate::core::chunk::Chunk;
 use crate::objects::class_obj::*;
 use crate::objects::dictionary_obj::*;
+use crate::objects::iter_obj::IterObject;
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Formatter;
@@ -11,6 +12,7 @@ use std::rc::Rc;
 pub mod class_obj;
 pub mod dictionary_obj;
 pub mod indexing;
+pub mod iter_obj;
 mod native_operations;
 
 /// Represents a Hinton range object.
@@ -18,18 +20,6 @@ mod native_operations;
 pub struct RangeObject {
    pub min: i64,
    pub max: i64,
-}
-
-/// Represents a Hinton iterator object.
-pub struct IterObject {
-   pub iter: Box<Object>,
-   pub index: usize,
-}
-
-impl fmt::Display for IterObject {
-   fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
-      write!(f, "<Iterable '{}'>", self.iter.type_name())
-   }
 }
 
 /// Represents a Hinton function object.
