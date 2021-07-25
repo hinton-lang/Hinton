@@ -272,7 +272,7 @@ fn atan2(vm: &mut VM, _: Object, args: Vec<Object>) -> RuntimeResult {
    vm.push_stack(Object::Float(arg1.atan2(arg2)))
 }
 
-/// Computes the square root of a Hinton numbers.
+/// Computes the square root of a Hinton number.
 ///
 /// # Arguments
 /// * `vm`: A mutable reference to the virtual machine.
@@ -286,7 +286,7 @@ fn sqrt(vm: &mut VM, _: Object, args: Vec<Object>) -> RuntimeResult {
    vm.push_stack(Object::Float(arg.sqrt()))
 }
 
-/// Computes the cube root of a Hinton numbers.
+/// Computes the cube root of a Hinton number.
 ///
 /// # Arguments
 /// * `vm`: A mutable reference to the virtual machine.
@@ -300,7 +300,7 @@ fn cbrt(vm: &mut VM, _: Object, args: Vec<Object>) -> RuntimeResult {
    vm.push_stack(Object::Float(arg.cbrt()))
 }
 
-/// Computes the exponent (e<sup>x</sup>) of a Hinton numbers.
+/// Computes the exponent (e<sup>x</sup>) of a Hinton number.
 ///
 /// # Arguments
 /// * `vm`: A mutable reference to the virtual machine.
@@ -314,7 +314,7 @@ fn exp(vm: &mut VM, _: Object, args: Vec<Object>) -> RuntimeResult {
    vm.push_stack(Object::Float(arg.exp()))
 }
 
-/// Computes the logarithm of a Hinton numbers with an arbitrary base.
+/// Computes the logarithm of a Hinton number with an arbitrary base.
 ///
 /// # Arguments
 /// * `vm`: A mutable reference to the virtual machine.
@@ -329,7 +329,7 @@ fn log(vm: &mut VM, _: Object, args: Vec<Object>) -> RuntimeResult {
    vm.push_stack(Object::Float(arg1.log(arg2)))
 }
 
-/// Computes the log-base-2 (log<sub>2</sub>(x)) of a Hinton numbers.
+/// Computes the log-base-2 (log<sub>2</sub>(x)) of a Hinton number.
 ///
 /// # Arguments
 /// * `vm`: A mutable reference to the virtual machine.
@@ -343,7 +343,7 @@ fn log2(vm: &mut VM, _: Object, args: Vec<Object>) -> RuntimeResult {
    vm.push_stack(Object::Float(arg1.log2()))
 }
 
-/// Computes the log-base-10 (log<sub>10</sub>(x)) of a Hinton numbers.
+/// Computes the log-base-10 (log<sub>10</sub>(x)) of a Hinton number.
 ///
 /// # Arguments
 /// * `vm`: A mutable reference to the virtual machine.
@@ -357,7 +357,7 @@ fn log10(vm: &mut VM, _: Object, args: Vec<Object>) -> RuntimeResult {
    vm.push_stack(Object::Float(arg1.log10()))
 }
 
-/// Computes the natural logarithm (log<sub>e</sub>(x)) of a Hinton numbers.
+/// Computes the natural logarithm (log<sub>e</sub>(x)) of a Hinton number.
 ///
 /// # Arguments
 /// * `vm`: A mutable reference to the virtual machine.

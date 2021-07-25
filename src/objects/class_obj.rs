@@ -1,6 +1,7 @@
 use crate::errors::RuntimeErrorType;
 use crate::objects::{ClosureObject, Object};
-use crate::virtual_machine::RuntimeResult;
+use crate::virtual_machine::call_frame::CallFrameType;
+use crate::virtual_machine::{RuntimeResult, VM};
 use hashbrown::HashMap;
 use std::cell::RefCell;
 use std::fmt;
@@ -138,7 +139,7 @@ pub struct ClassField {
    /// [1, 0, 0] = 4 -> (public,     non-override,    non-constant)    \
    /// [1, 0, 1] = 5 -> (public,     non-override,    constant)        \
    /// [1, 1, 0] = 6 -> (public,     override,        non-constant)    \
-   /// [1, 1, 1] = 7 -> (public,     override,        constant)        
+   /// [1, 1, 1] = 7 -> (public,     override,        constant)
    pub mode: u8,
 }
 
@@ -193,10 +194,12 @@ impl InstanceObject {
    /// // ...
    /// let prop_obj = vec_2d.get_prop("magnitude".to_string());
    /// ```
-   pub fn get_prop(&self, prop_name: &str) -> Result<Object, RuntimeResult> {
+   pub fn get_prop(&self, vm: &VM, prop_name: &str) -> Result<Object, RuntimeResult> {
+      let is_internal_access = self.is_internal_access(&vm);
+
       match self.members.get(prop_name) {
          Some(field) => {
-            if !field.is_public() {
+            if !field.is_public() & !is_internal_access {
                Err(RuntimeResult::Error {
                   error: RuntimeErrorType::ReferenceError,
                   message: format!(
@@ -236,15 +239,17 @@ impl InstanceObject {
    /// // ...
    /// let prop_obj = vec_2d.set_prop("x".to_string(), Object::Int(55i64));
    /// ```
-   pub fn set_prop(&mut self, prop_name: String, val: Object) -> Result<Object, RuntimeResult> {
-      match self.members.get_mut(&prop_name) {
+   pub fn set_prop(&mut self, vm: &VM, name: String, val: Object) -> Result<Object, RuntimeResult> {
+      let is_internal_access = self.is_internal_access(&vm);
+
+      match self.members.get_mut(&name) {
          Some(field) => {
-            if !field.is_public() {
+            if !field.is_public() && !is_internal_access {
                Err(RuntimeResult::Error {
                   error: RuntimeErrorType::ReferenceError,
                   message: format!(
                      "Cannot access private property '{}' in object of type '{}'.",
-                     prop_name,
+                     name,
                      self.class.borrow().name
                   ),
                })
@@ -253,7 +258,7 @@ impl InstanceObject {
                   error: RuntimeErrorType::ReferenceError,
                   message: format!(
                      "Cannot reassign to immutable property '{}' in object of type '{}'.",
-                     prop_name,
+                     name,
                      self.class.borrow().name
                   ),
                })
@@ -266,11 +271,39 @@ impl InstanceObject {
             error: RuntimeErrorType::ReferenceError,
             message: format!(
                "Property '{}' not defined in object of type '{}'.",
-               prop_name,
+               name,
                self.class.borrow().name
             ),
          }),
       }
+   }
+
+   /// Checks that a property access/setter happened from within the class's body.
+   /// Since accessing class members from within the class itself is only allowed in the
+   /// class's methods, we can check if a field accessed was made from within the class
+   /// by comparing the current frame's method receiver (an instance object) against `self`
+   /// (also an instance object), and if their memory locations match, then they are the same.
+   ///
+   /// # Arguments
+   /// * `vm`: An immutable reference to the VM.
+   ///
+   /// # Returns:
+   /// bool
+   pub fn is_internal_access(&self, vm: &VM) -> bool {
+      for frame in vm.frames_stack().iter().rev() {
+         if let CallFrameType::Method(m) = &frame.callee {
+            return match m.receiver.try_borrow() {
+               Ok(r) => std::ptr::eq(&*r.class.borrow(), &*self.class.borrow()),
+               // Since `&mut self` refers to "this" instance object, the borrow checker
+               // will emit an error if we try to borrow this same instance object again in
+               // this match arm. Therefore, we can assume that the method's receiver and
+               // `&mut self` refer to the same object (i.e., it's an internal access).
+               Err(_) => true,
+            };
+         }
+      }
+
+      false
    }
 }
 
