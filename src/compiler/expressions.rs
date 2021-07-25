@@ -1,5 +1,6 @@
 use crate::compiler::symbols::SL;
 use crate::compiler::Compiler;
+use crate::compiler::CompilerCtx;
 use crate::core::ast::*;
 use crate::core::bytecode::OpCode;
 use crate::core::tokens::Token;
@@ -140,11 +141,11 @@ impl Compiler {
 
    /// Compiles a `self` expression.
    pub(super) fn compile_self_expr(&mut self, expr: &SelfExprNode) {
-      if self.classes.is_empty() {
+      if self.classes.is_empty() || !matches!(self.compiler_type, CompilerCtx::Method | CompilerCtx::Init) {
          self.error_at_token(
             &expr.token,
             CompilerErrorType::Reference,
-            "Cannot use 'self' outside of class.",
+            "Cannot use 'self' outside class method.",
          );
 
          return;

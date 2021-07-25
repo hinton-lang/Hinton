@@ -1,3 +1,4 @@
+use crate::virtual_machine::call_frame::CallFrameType;
 use crate::virtual_machine::{RuntimeResult, VM};
 use std::path::Path;
 
@@ -162,7 +163,11 @@ pub fn report_runtime_error(vm: &VM, error: RuntimeErrorType, message: String, s
    let source_lines: Vec<&str> = source.split('\n').collect();
 
    let frame = vm.current_frame();
-   let f = frame.closure.function.borrow();
+   let f = match &frame.callee {
+      CallFrameType::Closure(c) => c.function.borrow(),
+      CallFrameType::Function(f) => f.borrow(),
+      CallFrameType::Method(m) => m.method.function.borrow(),
+   };
    let line = f.chunk.get_line_info(frame.ip - 1);
 
    let error_name = match error {
@@ -192,7 +197,11 @@ pub fn report_runtime_error(vm: &VM, error: RuntimeErrorType, message: String, s
    let frames_list_len = frames_list.len();
 
    for (i, frame) in frames_list.enumerate() {
-      let func = &frame.closure.function.borrow();
+      let func = match &frame.callee {
+         CallFrameType::Closure(c) => c.function.borrow(),
+         CallFrameType::Function(f) => f.borrow(),
+         CallFrameType::Method(m) => m.method.function.borrow(),
+      };
       let line = func.chunk.get_line_info(frame.ip);
 
       let new_err;

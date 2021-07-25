@@ -2,9 +2,10 @@ use crate::built_in::BuiltIn;
 use crate::compiler::Compiler;
 use crate::core::bytecode::OpCode;
 use crate::errors::{report_errors_list, report_runtime_error, RuntimeErrorType};
-use crate::objects::class_obj::InstanceObject;
+use crate::objects::class_obj::{BoundMethod, InstanceObject};
 use crate::objects::{ClosureObject, FuncObject, Object, UpValRef};
 use crate::parser::Parser;
+use crate::virtual_machine::call_frame::{CallFrame, CallFrameType};
 use crate::FRAMES_MAX;
 use hashbrown::HashMap;
 use std::cell::RefCell;
@@ -12,47 +13,8 @@ use std::path::PathBuf;
 use std::rc::Rc;
 
 // Submodules
+pub mod call_frame;
 mod run;
-
-/// Represents a single ongoing function call.
-pub struct CallFrame {
-   /// The closure (function) for this call frame.
-   pub closure: ClosureObject,
-   /// The index of the current instruction being executed.
-   pub ip: usize,
-   /// The stack index for the base of this call frame.
-   pub return_index: usize,
-}
-
-impl CallFrame {
-   /// Gets the current instruction without incrementing the instruction pointer.
-   fn peek_current_op_code(&self) -> OpCode {
-      self.closure.function.borrow().chunk.get_op_code(self.ip - 1)
-   }
-
-   /// Gets the current instruction and advances the instruction pointer to the next instruction.
-   fn next_op_code(&mut self) -> OpCode {
-      self.ip += 1;
-      self.closure.function.borrow().chunk.get_op_code(self.ip - 1)
-   }
-
-   /// Gets the current raw byte and advances the instruction pointer to the next instruction.
-   fn next_byte(&mut self) -> u8 {
-      self.ip += 1;
-      self.closure.function.borrow().chunk.get_byte(self.ip - 1)
-   }
-
-   /// Gets the current two raw bytes and advances the instruction pointer by 2 instructions.
-   fn next_short(&mut self) -> u16 {
-      self.ip += 2;
-      self.closure.function.borrow().chunk.get_short(self.ip - 2)
-   }
-
-   /// Gets an object from the current call frame's constant pool.
-   fn get_constant(&self, idx: usize) -> Object {
-      self.closure.function.borrow().chunk.get_constant(idx).clone()
-   }
-}
 
 /// Represents a virtual machine.
 pub struct VM {
@@ -210,7 +172,11 @@ impl VM {
 
    /// Gets an UpValue from the UpValues list.
    pub fn get_up_val(&self, idx: usize) -> Rc<RefCell<UpValRef>> {
-      self.current_frame().closure.up_values[idx].clone()
+      match &self.current_frame().callee {
+         CallFrameType::Closure(c) => c.up_values[idx].clone(),
+         CallFrameType::Method(m) => m.method.up_values[idx].clone(),
+         _ => unreachable!("Expected closure object as current call frame."),
+      }
    }
 
    /// Gets an object from the current call frame's constant pool.
@@ -237,10 +203,7 @@ impl VM {
       return match callee {
          Object::Function(obj) => self.call_function(obj, arg_count),
          Object::Closure(obj) => self.call_closure(obj, arg_count),
-         Object::BoundMethod(obj) => {
-            *self.peek_stack_mut(arg_count as usize) = Object::Instance(obj.receiver);
-            self.call_closure(obj.method, arg_count)
-         }
+         Object::BoundMethod(obj) => self.call_bound_method(obj, arg_count),
          Object::Native(obj) => BuiltIn::call_native_fn(self, *obj, arg_count),
          Object::BoundNativeMethod(obj) => BuiltIn::call_bound_method(self, obj, arg_count),
          _ => RuntimeResult::Error {
@@ -260,10 +223,7 @@ impl VM {
       let max_arity = callee.borrow().max_arity as usize;
 
       self.frames.push(CallFrame {
-         closure: ClosureObject {
-            function: callee,
-            up_values: vec![],
-         },
+         callee: CallFrameType::Function(callee),
          ip: 0,
          return_index: self.stack.len() - max_arity - 1,
       });
@@ -281,7 +241,27 @@ impl VM {
       let max_arity = callee.function.borrow().max_arity as usize;
 
       self.frames.push(CallFrame {
-         closure: callee,
+         callee: CallFrameType::Closure(callee),
+         ip: 0,
+         return_index: self.stack.len() - max_arity - 1,
+      });
+
+      RuntimeResult::Continue
+   }
+
+   /// Tries to call a closure object, or returns a runtime error is there was a problem while
+   /// creating the closure's call frame.
+   fn call_bound_method(&mut self, callee: BoundMethod, arg_count: u8) -> RuntimeResult {
+      *self.peek_stack_mut(arg_count as usize) = Object::Instance(callee.receiver.clone());
+
+      if let Err(e) = self.verify_call(&callee.method.function.borrow(), arg_count) {
+         return e;
+      }
+
+      let max_arity = callee.method.function.borrow().max_arity as usize;
+
+      self.frames.push(CallFrame {
+         callee: CallFrameType::Method(callee),
          ip: 0,
          return_index: self.stack.len() - max_arity - 1,
       });
@@ -364,29 +344,35 @@ impl VM {
          }
       };
 
+      let instance = InstanceObject {
+         class: class.clone(),
+         members: class.borrow().members.clone(),
+      };
+
       // Return an error if the class cannot be constructed.
-      if !class.borrow().is_constructable {
+      if !instance.is_internal_access(&self) && !class.borrow().is_constructable {
          return RuntimeResult::Error {
             error: RuntimeErrorType::InstanceError,
-            message: format!("Class '{}' has a private initializer.", class.borrow().name),
+            message: format!("Class '{}' cannot be initialized.", class.borrow().name),
          };
       }
 
-      let new_instance = Object::from(InstanceObject {
-         class: class.clone(),
-         members: class.borrow().members.clone(),
-      });
-
       let class_pos = self.stack.len() - (arg_count as usize) - 1;
-      self.stack[class_pos] = new_instance;
+      self.stack[class_pos] = Object::from(instance);
 
       match self.stack[class_pos].clone() {
          Object::Instance(i) => {
-            if let Ok(value) = i.borrow().get_prop("init") {
-               self.call_object(value, arg_count);
+            if let Ok(value) = i.borrow().get_prop(&self, "init") {
+               let method = match value {
+                  Object::Function(f) => FuncObject::bound_method(f, i.clone()),
+                  Object::Closure(c) => c.into_bound_method(i.clone()),
+                  _ => unreachable!("Initializer should be a function."),
+               };
+
+               self.call_object(method, arg_count);
             }
          }
-         _ => unreachable!("Expected instance object ot stack offset."),
+         _ => unreachable!("Expected instance object on stack offset."),
       }
 
       RuntimeResult::Continue

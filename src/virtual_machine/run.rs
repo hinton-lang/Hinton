@@ -241,7 +241,7 @@ impl VM {
          let up = if is_local {
             self.create_up_value(self.current_frame().return_index + index)
          } else {
-            self.current_frame().closure.up_values[index].clone()
+            self.get_up_val(index)
          };
 
          up_values.push(up.clone());
@@ -273,7 +273,7 @@ impl VM {
          let up = if is_local {
             self.create_up_value(self.current_frame().return_index + index)
          } else {
-            self.current_frame().closure.up_values[index].clone()
+            self.get_up_val(index)
          };
 
          up_values.push(up.clone());
@@ -408,7 +408,7 @@ impl VM {
 
       let value = self.pop_stack();
       match value {
-         Object::Instance(x) => match x.borrow().get_prop(&prop_name) {
+         Object::Instance(x) => match x.borrow().get_prop(&self, &prop_name) {
             Ok(o) => match o {
                Object::Closure(c) => self.push_stack(c.into_bound_method(x.clone())),
                Object::Function(f) => self.push_stack(FuncObject::bound_method(f, x.clone())),
@@ -444,7 +444,7 @@ impl VM {
       let value = self.pop_stack();
 
       return match self.pop_stack() {
-         Object::Instance(inst) => match inst.borrow_mut().set_prop(prop_name, value) {
+         Object::Instance(inst) => match inst.borrow_mut().set_prop(&self, prop_name, value) {
             Ok(o) => self.push_stack(o),
             Err(e) => e,
          },
