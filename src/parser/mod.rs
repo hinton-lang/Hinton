@@ -111,7 +111,7 @@ impl Parser {
          self.current = self.lexer.next_token();
 
          match &self.current.token_type {
-            ERROR => self.error_at_current("Unexpected token."),
+            ERROR => self.error_at_current(&self.current.lexeme.clone()),
             _ => break,
          }
       }
@@ -192,7 +192,7 @@ impl Parser {
       self.errors.push(ErrorReport {
          line: tok.line_num,
          column: tok.column_start,
-         lexeme_len: tok.lexeme.len(),
+         lexeme_len: tok.column_end - tok.column_start,
          message: msg,
       });
    }

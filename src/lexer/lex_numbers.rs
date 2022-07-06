@@ -2,6 +2,27 @@ use crate::core::tokens::Token;
 use crate::core::tokens::TokenType::*;
 use crate::lexer::Lexer;
 
+/// The types of number we can expect to lex.
+enum ExNumType {
+   /// Expect hexadecimal number.
+   Hex,
+   /// Expect octal number.
+   Oct,
+   /// Expect binary number.
+   Bin,
+   /// Expect floating-point number with no leading digits (e.g., .99, .017)
+   Flt,
+   /// Expect integer of regular floating-point number.
+   IntOrFlt,
+}
+
+macro_rules! expect_num_type {
+   ( $self:ident, $radix:expr, $num_type:expr ) => {{
+      $self.advance();
+      ($radix, $num_type)
+   }};
+}
+
 impl Lexer {
    /// Makes a numeric literal. This includes Binary, Octal, Decimal,
    /// Floating-Point, and Hexadecimal numbers.
@@ -9,57 +30,76 @@ impl Lexer {
    /// # Returns
    /// - `Token`: A numeric token (integer, float, binary, octal, or hex).
    pub(super) fn make_numeric_token(&mut self) -> Token {
-      // Support for hexadecimal integers
-      // Hexadecimal literals are converted to integer literals during compilation
-      if self.get_previous() == '0' && (self.get_current() == 'x' || self.get_current() == 'X') {
-         self.advance(); // consumes the "x"
-         self.advance_numeric_digit(16); // Consume digit character in base-16
-         return self.make_token(HEXADECIMAL);
+      let mut has_period = false;
+
+      // Check which type of numeric literal we are lexing
+      let (radix, num_type): (u8, ExNumType) = match (self.get_previous(), self.get_current()) {
+         ('0', 'x') | ('0', 'X') => expect_num_type![self, 16, ExNumType::Hex],
+         ('0', 'o') | ('0', 'O') => expect_num_type![self, 8, ExNumType::Oct],
+         ('0', 'b') | ('0', 'B') => expect_num_type![self, 2, ExNumType::Bin],
+         ('.', _) => (10, ExNumType::Flt),
+         _ => (10, ExNumType::IntOrFlt),
+      };
+
+      while !self.is_at_end() && self.is_digit_char(radix) {
+         if self.get_current() == '.' {
+            // If the lexer encounters double periods, then the current
+            // expression is actually a Range, therefore, only consider
+            // the first part of the range operand as numeric literal.
+            if self.next() == '.' {
+               break;
+            }
+
+            match num_type {
+               ExNumType::Hex => return self.make_error_token("Unexpected '.' in hexadecimal literal."),
+               ExNumType::Oct => return self.make_error_token("Unexpected '.' in octal literal."),
+               ExNumType::Bin => return self.make_error_token("Unexpected '.' in binary literal."),
+               ExNumType::Flt => return self.make_error_token("Unexpected extra '.' in float literal."),
+               _ => {}
+            };
+
+            if has_period {
+               return self.make_error_token("Unexpected extra '.' in float literal.");
+            } else {
+               has_period = true;
+            }
+         }
+
+         if self.get_current() == '_' {
+            match self.get_previous() {
+               '_' => return self.make_error_token("Too many underscores in numeric literal separator."),
+               '.' => return self.make_error_token("Separator not allowed after floating point."),
+               _ => {}
+            }
+
+            if self.next() == '.' {
+               return self.make_error_token("Separator not allowed before floating point.");
+            }
+         }
+
+         self.advance();
       }
 
-      // Support for octal integers
-      // Octal literals are converted to integer literals during compilation
-      if self.get_previous() == '0' && (self.get_current() == 'o' || self.get_current() == 'O') {
-         self.advance(); // consumes the 'o'
-         self.advance_numeric_digit(8); // Consume digit character in base-8
-         return self.make_token(OCTAL);
+      if self.get_previous() == '_' {
+         return self.make_error_token_at_prev("Separator not allowed at the end of numeric literal.");
       }
 
-      // Support for binary integers
-      // Binary literals are converted to integer literals during compilation
-      if self.get_previous() == '0' && (self.get_current() == 'b' || self.get_current() == 'B') {
-         self.advance(); // consumes the 'b'
-         self.advance_numeric_digit(2); // Consume digit character in base-2
-         return self.make_token(BINARY);
-      }
-
-      // Checks whether the numeric token started with a dot (to correctly mark it as a float).
-      let started_with_dot = self.get_previous() == '.';
-      self.advance_numeric_digit(10); // Consume digit character in base-10
-
-      // Look for a fractional part (only for floats that do not start with a dot).
-      if !started_with_dot && self.get_current() == '.' && self.next().is_digit(10) {
-         self.advance(); // Consume the ".".
-         self.advance_numeric_digit(10); // Consume digit character in base-10
-         return self.make_token(FLOAT);
-      }
-
-      if started_with_dot {
-         self.make_token(FLOAT)
-      } else {
-         self.make_token(INTEGER)
+      match num_type {
+         ExNumType::Hex => self.make_token(HEXADECIMAL),
+         ExNumType::Oct => self.make_token(OCTAL),
+         ExNumType::Bin => self.make_token(BINARY),
+         ExNumType::Flt => self.make_token(FLOAT),
+         ExNumType::IntOrFlt => self.make_token(if has_period { FLOAT } else { INTEGER }),
       }
    }
 
-   /// Consumes digit characters of the given radix base.
+   /// Checks whether the current character is a digit in the given radix, or an '_', or a '.'
    ///
    /// # Arguments
-   /// - `radix`: The base of the expected digit.
-   fn advance_numeric_digit(&mut self, radix: u32) {
-      while !self.is_at_end() && self.get_current().is_digit(radix)
-         || (self.get_current() == '_' && self.get_previous() != '_')
-      {
-         self.advance();
-      }
+   /// * `radix`: The expected base of the digit.
+   ///
+   /// returns: bool
+   fn is_digit_char(&self, radix: u8) -> bool {
+      self.get_current().is_digit(radix as u32) || self.get_current() == '_' || self.get_current() == '.'
    }
 }
