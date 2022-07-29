@@ -26,8 +26,12 @@ STATEMENT           ::= BLOCK_STMT
                     | DEL_STMT
                     | IF_STMT
                     | MATCH_STMT
-                    | DECLARATION_STMT
-                    | EXPRESSION_STMT
+                    | VAR_DECL
+                    | CONST_DECL
+                    | ENUM_DECL
+                    | IMPORT_DECL
+                    | DECORATOR_STMT* (FUNC_DECL | CLASS_DECL)
+                    | EXPR_STMT
 
 BLOCK_STMT          ::= "{" STATEMENT* "}"
 
@@ -43,7 +47,8 @@ CONTINUE_STMT       ::= "continue" ";"
 RETURN_STMT         ::= "return" EXPRESSION ";"
 YIELD_STMT          ::= "yield" EXPRESSION ";"
 THROW_STMT          ::= "throw" EXPRESSION ";"
-DEL_STMT            ::= "del" PRIMARY_EXPR ";"
+// Only IDENTIFIER, INDEXING_EXPR, or MEMBER_ACCESS_EXPR can be deleted. 
+DEL_STMT            ::= "del" EXPRESSION ";"
 
 IF_STMT             ::= "if" EXPRESSION BLOCK_STMT ("else" (BLOCK_STMT | IF_STMT))?
 
@@ -60,15 +65,9 @@ TRY_STMT            ::= "try" BLOCK_STMT ((CATCH_PART* FINALLY_PART) | CATCH_PAR
 CATCH_PART          ::= "catch" IDENTIFIER ("as" IDENTIFIER)? BLOCK_STMT
 FINALLY_PART        ::= "finally" BLOCK_STMT
 
-EXPRESSION_STMT     ::= EXPRESSION ";"
+EXPR_STMT           ::= EXPRESSION ";"
 
 // ********************************************** DECLARATION STATEMENTS
-DECLARATION_STMT    ::= VAR_DECL
-                    | CONST_DECL
-                    | ENUM_DECL
-                    | IMPORT_DECL
-                    | DECORATOR_STMT* (FUNC_DECL | CLASS_DECL)
-
 DECORATOR_STMT      ::= "@" (DECORATOR_BDY | "[" DECORATOR_BDY ("," DECORATOR_BDY)* "]")
 DECORATOR_BDY       ::= IDENTIFIER | CALL_EXPR
 
@@ -112,10 +111,9 @@ WILDCARD_IMPORT     ::= "*" "as" IDENTIFIER
 EXPRESSION          ::= REASSIGNMENT_EXPR
 
 // The parser checks that the lhs of the assignment is one of IDENTIFIER,
-// INDEXING_EXPR, CALL_EXPR, or MEMBER_ACCESS_EXPR before proceeding. Unlike
-// in Rust, IF_EXPR_STMT, MATCH_EXPR_STMT, and LOOP_EXPR_STMT are not allowed
-// for assignment because, in Hinton, the program would have to make too
-// many assumptions to proceed.
+// INDEXING_EXPR, or MEMBER_ACCESS_EXPR before proceeding. Unlike Rust,
+// MATCH_EXPR_STMT, and LOOP_EXPR_STMT are not allowed for assignment because,
+// in Hinton, the program would have to make too many assumptions to proceed.
 REASSIGNMENT_EXPR   ::= TERNARY_EXPR (ASSIGNMENT_OPR EXPRESSION)?
 
 TERNARY_EXPR        ::= NONE_COALESCE_EXPR ("?" EXPRESSION ":" EXPRESSION)?

@@ -1,12 +1,12 @@
-use std::iter;
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use serde_json::{json, map, Value};
+use serde_json::{json, Value};
 
 use crate::lexer::tokens::Token;
 use crate::lexer::Lexer;
 use crate::objects::FuncObject;
-use crate::parser::ast::{ASTArena, ASTNodeIdx, ASTNodeKind};
+use crate::parser::ast::ASTNodeKind::*;
+use crate::parser::ast::*;
 
 pub fn get_time_millis() -> u64 {
   let start = SystemTime::now();
@@ -77,19 +77,19 @@ pub fn export(lexer: Option<&Lexer>, ast: Option<&ASTArena>, _module: Option<&Fu
 
 fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str) -> Value {
   let (name, mut attributes, children) = match &arena.get(*idx).kind {
-    ASTNodeKind::Module(x) => ("Module".to_string(), json!({}), ast_list_to_json(tokens, arena, x, "")),
-    ASTNodeKind::VarReassignment(_) => ("Reassignment".to_string(), json!({}), vec![]),
-    ASTNodeKind::Literal(x) => (
+    Module(x) => ("Module".to_string(), json!({}), ast_list_to_json(tokens, arena, x, "")),
+    VarReassignment(_) => ("Reassignment".to_string(), json!({}), vec![]),
+    Literal(x) => (
       tokens[x.token_idx].lexeme.to_string(),
       json!({ "kind": "literal" }),
       vec![],
     ),
-    ASTNodeKind::StringLiteral(_) => ("String".to_string(), json!({}), vec![]),
-    ASTNodeKind::SelfLiteral(_) => ("Self".to_string(), json!({}), vec![]),
-    ASTNodeKind::SuperLiteral(_) => ("Super".to_string(), json!({}), vec![]),
-    ASTNodeKind::Identifier(x) => (tokens[*x].lexeme.to_string(), json!({ "kind": "identifier" }), vec![]),
-    ASTNodeKind::TernaryConditional(_) => ("Ternary".to_string(), json!({}), vec![]),
-    ASTNodeKind::BinaryExpr(x) => (
+    StringLiteral(_) => ("String".to_string(), json!({}), vec![]),
+    SelfLiteral(_) => ("Self".to_string(), json!({}), vec![]),
+    SuperLiteral(_) => ("Super".to_string(), json!({}), vec![]),
+    Identifier(x) => (tokens[*x].lexeme.to_string(), json!({ "kind": "identifier" }), vec![]),
+    TernaryConditional(_) => ("Ternary".to_string(), json!({}), vec![]),
+    BinaryExpr(x) => (
       "Binary".to_string(),
       json!({ "operator": format!("{:?}", x.kind) }),
       vec![
@@ -97,17 +97,17 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
         ast_to_json(tokens, arena, &x.right, "right"),
       ],
     ),
-    ASTNodeKind::UnaryExpr(x) => (
+    UnaryExpr(x) => (
       "Unary".to_string(),
       json!({}),
       vec![ast_to_json(tokens, arena, &x.operand, "")],
     ),
-    ASTNodeKind::Indexing(x) => {
+    Indexing(x) => {
       let mut children = vec![ast_to_json(tokens, arena, &x.target, "target")];
       children.append(&mut ast_list_to_json(tokens, arena, &x.indexers, "indexer"));
       ("Indexing".to_string(), json!({}), children)
     }
-    ASTNodeKind::ArraySlice(x) => {
+    ArraySlice(x) => {
       let mut children: Vec<Value> = vec![];
 
       if let Some(upper) = x.upper {
@@ -120,14 +120,14 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
 
       ("Slice".to_string(), json!({}), children)
     }
-    ASTNodeKind::MemberAccess(_) => ("Member".to_string(), json!({}), vec![]),
-    ASTNodeKind::ArrayLiteral(_) => ("Array".to_string(), json!({}), vec![]),
-    ASTNodeKind::TupleLiteral(_) => ("Tuple".to_string(), json!({}), vec![]),
-    ASTNodeKind::RepeatLiteral(_) => ("Repeat".to_string(), json!({}), vec![]),
-    ASTNodeKind::SpreadExpr(x) => ("Spread".to_string(), json!({}), vec![ast_to_json(tokens, arena, x, "")]),
-    ASTNodeKind::DictLiteral(_) => ("Dict".to_string(), json!({}), vec![]),
-    ASTNodeKind::DictKeyValPair(_) => ("KeyVal".to_string(), json!({}), vec![]),
-    ASTNodeKind::CallExpr(x) => {
+    MemberAccess(_) => ("Member".to_string(), json!({}), vec![]),
+    ArrayLiteral(_) => ("Array".to_string(), json!({}), vec![]),
+    TupleLiteral(_) => ("Tuple".to_string(), json!({}), vec![]),
+    RepeatLiteral(_) => ("Repeat".to_string(), json!({}), vec![]),
+    SpreadExpr(x) => ("Spread".to_string(), json!({}), vec![ast_to_json(tokens, arena, x, "")]),
+    DictLiteral(_) => ("Dict".to_string(), json!({}), vec![]),
+    DictKeyValPair(_) => ("KeyVal".to_string(), json!({}), vec![]),
+    CallExpr(x) => {
       let mut children = vec![ast_to_json(tokens, arena, &x.target, "target")];
       children.append(&mut ast_list_to_json(tokens, arena, &x.val_args, "value arg"));
       children.append(&mut ast_list_to_json(tokens, arena, &x.rest_args, "rest arg"));
@@ -135,6 +135,15 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
       //
       ("Call".to_string(), json!({}), children)
     }
+    ExprStmt(_) => ("Expr Stmt".to_string(), json!({}), vec![]),
+    BlockStmt(_) => ("Block Stmt".to_string(), json!({}), vec![]),
+    LoopExprStmt(_) => ("Loop Stmt".to_string(), json!({}), vec![]),
+    BreakStmt(_) => ("Break Stmt".to_string(), json!({}), vec![]),
+    ContinueStmt => ("Continue Stmt".to_string(), json!({}), vec![]),
+    ReturnStmt(_) => ("Return Stmt".to_string(), json!({}), vec![]),
+    YieldStmt(_) => ("Yield Stmt".to_string(), json!({}), vec![]),
+    ThrowStmt(_) => ("Throe Stmt".to_string(), json!({}), vec![]),
+    DelStmt(_) => ("Del Stmt".to_string(), json!({}), vec![]),
   };
 
   if !bname.is_empty() {

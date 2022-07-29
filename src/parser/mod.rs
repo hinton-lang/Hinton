@@ -1,7 +1,7 @@
 use crate::errors::ErrorReport;
 use crate::lexer::tokens::TokenKind::*;
-use crate::lexer::tokens::{Token, TokenIdx, TokenKind};
-use crate::parser::ast::{ASTArena, ASTNodeIdx, ASTNodeKind};
+use crate::lexer::tokens::*;
+use crate::parser::ast::*;
 
 // Submodules
 pub mod ast;
@@ -24,6 +24,13 @@ macro_rules! check_tok {
       $s.check(&$id)
       $(|| $s.check(&$ids) )*
    }
+}
+
+#[macro_export]
+macro_rules! curr_tk {
+  ($s:ident) => {
+    &$s.tokens[$s.current_pos].kind
+  };
 }
 
 /// Represents Hinton's parser, which converts source text into
@@ -58,16 +65,6 @@ impl<'a> Parser<'a> {
 
     // Return the parse
     parser
-  }
-
-  /// Parses a list of Tokens
-  pub(super) fn parse_module(&mut self) {
-    while !match_tok![self, EOF] {
-      match self.parse_stmt() {
-        Ok(node) => self.ast.attach_to_root(node),
-        Err(e) => self.errors.push(e),
-      }
-    }
   }
 
   /// Checks that the current token matches the tokenType provided.

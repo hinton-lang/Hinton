@@ -3,7 +3,7 @@ use crate::lexer::tokens::TokenKind::*;
 use crate::parser::ast::ASTNodeKind::*;
 use crate::parser::ast::*;
 use crate::parser::Parser;
-use crate::{check_tok, match_tok};
+use crate::{check_tok, curr_tk, match_tok};
 
 impl<'a> Parser<'a> {
   /// Parses an array literal expression.
@@ -25,7 +25,7 @@ impl<'a> Parser<'a> {
 
     if !match_tok![self, R_BRACKET] {
       // Get the first value of the array
-      values.push(match &self.tokens[self.current_pos].kind {
+      values.push(match curr_tk![self] {
         SPREAD if self.advance() => self.parse_single_spread_expr()?,
         _ => {
           let value = self.parse_expr()?;
@@ -69,7 +69,7 @@ impl<'a> Parser<'a> {
     // skip all this code and return an empty tuple like in Python.
     if !match_tok![self, R_PAREN] {
       // Get the first value of the array
-      values.push(match &self.tokens[self.current_pos].kind {
+      values.push(match curr_tk![self] {
         SPREAD if self.advance() => self.parse_single_spread_expr()?,
         _ => {
           let value = self.parse_expr()?;
@@ -138,7 +138,7 @@ impl<'a> Parser<'a> {
     let mut values: Vec<ASTNodeIdx> = vec![];
 
     while match_tok![self, COMMA] {
-      let val = match &self.tokens[self.current_pos].kind {
+      let val = match curr_tk![self] {
         R_PAREN if is_tpl => break,
         R_BRACKET if !is_tpl => break,
         SPREAD if self.advance() => self.parse_single_spread_expr()?,
@@ -198,7 +198,7 @@ impl<'a> Parser<'a> {
     let ky = if match_tok![self, L_PAREN] {
       self.parse_tuple_literal_or_grouping_expr()?
     } else {
-      let literal_or_ident = match &self.tokens[self.current_pos].kind {
+      let literal_or_ident = match curr_tk![self] {
         IDENTIFIER if self.advance() => Identifier(self.current_pos),
         STR_LIT if self.advance() => StringLiteral(self.current_pos),
         INT_LIT if self.advance() => Literal(ASTLiteralNode {

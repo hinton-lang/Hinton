@@ -48,8 +48,13 @@ impl ASTArenaNode {
   }
 }
 
+// TODO: Prevent node duplication.
+// When inserting new nodes, check that the arena doesn't already contain a node
+// with the exact same signature as the one to be inserted. If a such node already
+// exist, return its ASTNodeIdx and do not insert a new one.
 pub enum ASTNodeKind {
   Module(Vec<ASTNodeIdx>),
+
   VarReassignment(ASTVarReassignmentNode),
   Literal(ASTLiteralNode),
   StringLiteral(TokenIdx),
@@ -69,6 +74,16 @@ pub enum ASTNodeKind {
   DictLiteral(Vec<ASTNodeIdx>),
   DictKeyValPair((ASTNodeIdx, ASTNodeIdx)),
   CallExpr(ASTCallExprNode),
+
+  ExprStmt(ASTNodeIdx),
+  BlockStmt(Vec<ASTNodeIdx>),
+  LoopExprStmt(ASTLoopExprStmtNode),
+  BreakStmt(Option<ASTNodeIdx>),
+  ContinueStmt,
+  ReturnStmt(ASTNodeIdx),
+  YieldStmt(ASTNodeIdx),
+  ThrowStmt(ASTNodeIdx),
+  DelStmt(ASTNodeIdx),
 }
 
 pub struct ASTVarReassignmentNode {
@@ -134,6 +149,7 @@ pub struct ASTBinaryExprNode {
 }
 
 #[derive(Clone, Debug)]
+#[repr(u8)]
 pub enum BinaryExprKind {
   Add,           // +
   BitAND,        // &
@@ -224,6 +240,7 @@ pub struct ASTUnaryExprNode {
   pub operand: ASTNodeIdx,
 }
 
+#[repr(u8)]
 pub enum UnaryExprKind {
   LogicNot,
   Negate,
@@ -282,7 +299,13 @@ pub struct ASTRepeatLiteralNode {
   pub count: ASTNodeIdx,
 }
 
+#[repr(u8)]
 pub enum RepeatLiteralKind {
   Array,
   Tuple,
+}
+
+pub struct ASTLoopExprStmtNode {
+  pub body: ASTNodeIdx, // This will always be a block stmt
+  pub is_expr: bool,
 }

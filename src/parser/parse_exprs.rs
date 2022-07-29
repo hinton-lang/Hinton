@@ -4,7 +4,7 @@ use crate::objects::Object;
 use crate::parser::ast::ASTNodeKind::*;
 use crate::parser::ast::*;
 use crate::parser::Parser;
-use crate::{check_tok, match_tok};
+use crate::{check_tok, curr_tk, match_tok};
 
 macro_rules! append_binary_expr {
   ($s:ident, $l:expr, $r:expr, $k:expr) => {
@@ -51,6 +51,8 @@ impl<'a> Parser<'a> {
           let node = ASTVarReassignmentNode { target, kind, value };
           self.emit(VarReassignment(node))
         }
+        MemberAccess(_) => todo!("Parse member reassignment"),
+        Indexing(_) => todo!("Parse indexing reassignment"),
         _ => Err(self.error_at_tok(target_tok, "Invalid assignment target.")),
       };
     }
@@ -352,7 +354,7 @@ impl<'a> Parser<'a> {
     let mut expr = self.parse_large_expr()?;
 
     loop {
-      expr = match &self.tokens[self.current_pos].kind {
+      expr = match curr_tk![self] {
         L_BRACKET if self.advance() => self.parse_indexing_expr(expr)?,
         L_PAREN if self.advance() => self.parse_call_expr(expr)?,
         DOT | SAFE_ACCESS if self.advance() => self.parse_member_access_expr(expr)?,
@@ -378,9 +380,9 @@ impl<'a> Parser<'a> {
   /// LARGE_EXPR ::= LITERAL_EXPR | MATCH_EXPR | LOOP_EXPR_STMT
   /// ```
   pub fn parse_large_expr(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
-    match &self.tokens[self.current_pos].kind {
+    match curr_tk![self] {
       MATCH_KW if self.advance() => todo!("Parse `match` expression."),
-      LOOP_KW if self.advance() => todo!("Parse `loop` expression"),
+      LOOP_KW if self.advance() => self.parse_loop_expr_stmt(true),
       _ => self.parse_literal(),
     }
   }
@@ -459,7 +461,7 @@ impl<'a> Parser<'a> {
     let mut named_args = vec![];
 
     loop {
-      match &self.tokens[self.current_pos].kind {
+      match curr_tk![self] {
         SPREAD => {
           if has_named_args {
             return Err(self.error_at_current("Rest arguments must appear before named arguments."));
