@@ -786,11 +786,7 @@ impl VM {
         }
 
         // Gets the mutable reference to the appropriate hash_map to store the field
-        let storage = if is_static {
-          &mut class.statics
-        } else {
-          &mut class.members
-        };
+        let storage = if is_static { &mut class.statics } else { &mut class.members };
 
         storage.insert(field_name, ClassField { value, mode });
       }

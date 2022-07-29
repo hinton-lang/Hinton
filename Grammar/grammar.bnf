@@ -13,8 +13,8 @@ MODULE              ::= ("pub"? STATEMENT)* EOF
 
 // ********************************************** STATEMENTS
 STATEMENT           ::= BLOCK_STMT
-                    | WHILE_STMT
-                    | FOR_STMT
+                    | WHILE_LOOP_STMT
+                    | FOR_LOOP_STMT
                     | LOOP_EXPR_STMT
                     | BREAK_STMT
                     | CONTINUE_STMT
@@ -36,8 +36,8 @@ STATEMENT           ::= BLOCK_STMT
 BLOCK_STMT          ::= "{" STATEMENT* "}"
 
 // Loop tags do not exist in Hinton for the same reason they do not exist in Python
-WHILE_STMT          ::= "while" ("let" IDENTIFIER "=")? EXPRESSION BLOCK_STMT
-FOR_STMT            ::= "for" FOR_LOOP_HEAD BLOCK_STMT
+WHILE_LOOP_STMT     ::= "while" ("let" IDENTIFIER "=")? EXPRESSION BLOCK_STMT
+FOR_LOOP_STMT       ::= "for" FOR_LOOP_HEAD BLOCK_STMT
 FOR_LOOP_HEAD       ::= IDENTIFIER ("," IDENTIFIER)* "in" EXPRESSION
 // Defaults to `null` if the loop breaks with no value.
 LOOP_EXPR_STMT      ::= "loop" BLOCK_STMT

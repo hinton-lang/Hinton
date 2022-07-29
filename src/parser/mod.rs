@@ -6,7 +6,7 @@ use crate::parser::ast::*;
 // Submodules
 pub mod ast;
 pub mod legacy_ast;
-mod parse_collection_literals;
+mod parse_collects;
 mod parse_exprs;
 mod parse_stmts;
 

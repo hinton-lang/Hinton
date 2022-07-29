@@ -129,10 +129,7 @@ impl Compiler {
     }
 
     let current_loop = *self.current_func_scope().loops.last().unwrap();
-    let mut popped_scope = self
-      .current_func_scope_mut()
-      .s_table
-      .pop_scope(current_loop.scope_depth, false, false);
+    let mut popped_scope = self.current_func_scope_mut().s_table.pop_scope(current_loop.scope_depth, false, false);
 
     // If we are branching inside a for-in loop, also pop the loop's
     // iterator off the stack before exiting the loop.
@@ -169,12 +166,7 @@ impl Compiler {
   fn close_breaks(&mut self, loop_start: usize, token: &Token) {
     // Looks for any break statements associated with this loop
     let mut breaks: Vec<usize> = vec![];
-    for b in self
-      .current_func_scope()
-      .breaks
-      .iter()
-      .filter(|br| br.parent_loop.position == loop_start)
-    {
+    for b in self.current_func_scope().breaks.iter().filter(|br| br.parent_loop.position == loop_start) {
       breaks.push(b.chunk_pos);
     }
 

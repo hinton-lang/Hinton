@@ -36,10 +36,7 @@ impl Compiler {
 
         // If the compiler is currently compiling a class, append the variable to the class.
         if let CompilerCtx::Class = self.compiler_type {
-          if self
-            .add_literal_to_pool(Object::from(id.lexeme.clone()), id, true)
-            .is_some()
-          {
+          if self.add_literal_to_pool(Object::from(id.lexeme.clone()), id, true).is_some() {
             self.emit_op_code(OpCode::AppendClassField, (id.line_num, id.column_start));
             self.emit_raw_byte(mode.unwrap(), (id.line_num, id.column_start));
           }
@@ -79,10 +76,7 @@ impl Compiler {
 
       // If the compiler is currently compiling a class, append the variable to the class.
       if let CompilerCtx::Class = self.compiler_type {
-        if self
-          .add_literal_to_pool(Object::from(decl.name.lexeme.clone()), &decl.name, true)
-          .is_some()
-        {
+        if self.add_literal_to_pool(Object::from(decl.name.lexeme.clone()), &decl.name, true).is_some() {
           self.emit_op_code(OpCode::AppendClassField, (decl.name.line_num, decl.name.column_start));
         }
       }
@@ -217,14 +211,7 @@ impl Compiler {
     let pos = (token.line_num, token.column_start);
 
     for is_closed in symbols {
-      self.emit_op_code(
-        if is_closed {
-          OpCode::PopCloseUpVal
-        } else {
-          OpCode::PopStackTop
-        },
-        pos,
-      );
+      self.emit_op_code(if is_closed { OpCode::PopCloseUpVal } else { OpCode::PopStackTop }, pos);
     }
   }
 

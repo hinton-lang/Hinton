@@ -84,6 +84,9 @@ pub enum ASTNodeKind {
   YieldStmt(ASTNodeIdx),
   ThrowStmt(ASTNodeIdx),
   DelStmt(ASTNodeIdx),
+  WhileLoop(ASTWhileLoopNode),
+  ForLoop(ASTForLoopNode),
+  ForLoopHead(ASTForLoopHeadNode),
 }
 
 pub struct ASTVarReassignmentNode {
@@ -308,4 +311,20 @@ pub enum RepeatLiteralKind {
 pub struct ASTLoopExprStmtNode {
   pub body: ASTNodeIdx, // This will always be a block stmt
   pub is_expr: bool,
+}
+
+pub struct ASTWhileLoopNode {
+  pub let_id: Option<TokenIdx>,
+  pub cond: ASTNodeIdx,
+  pub body: ASTNodeIdx, // This will always be a block stmt
+}
+
+pub struct ASTForLoopNode {
+  pub head: ASTNodeIdx, // This will always be a for-loop head node
+  pub body: ASTNodeIdx, // This will always be a block stmt
+}
+
+pub struct ASTForLoopHeadNode {
+  pub ids: Vec<TokenIdx>,
+  pub target: ASTNodeIdx,
 }

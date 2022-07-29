@@ -118,10 +118,7 @@ impl Compiler {
 
     if !matches!(t, CompilerCtx::Lambda) {
       if let CompilerCtx::Class = self.compiler_type {
-        if self
-          .add_literal_to_pool(Object::from(decl.name.lexeme.clone()), &decl.name, true)
-          .is_some()
-        {
+        if self.add_literal_to_pool(Object::from(decl.name.lexeme.clone()), &decl.name, true).is_some() {
           self.emit_op_code(OpCode::AppendClassField, func_pos);
         }
       }

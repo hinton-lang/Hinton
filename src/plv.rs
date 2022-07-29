@@ -144,6 +144,9 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
     YieldStmt(_) => ("Yield Stmt".to_string(), json!({}), vec![]),
     ThrowStmt(_) => ("Throe Stmt".to_string(), json!({}), vec![]),
     DelStmt(_) => ("Del Stmt".to_string(), json!({}), vec![]),
+    WhileLoop(_) => ("While Loop Stmt".to_string(), json!({}), vec![]),
+    ForLoop(_) => ("For Loop Stmt".to_string(), json!({}), vec![]),
+    ForLoopHead(_) => ("For Loop Head".to_string(), json!({}), vec![]),
   };
 
   if !bname.is_empty() {

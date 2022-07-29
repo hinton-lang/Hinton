@@ -43,7 +43,7 @@ impl<'a> Parser<'a> {
   /// Parses a general statement.
   ///
   /// ```bnf
-  /// STATEMENT ::= BLOCK_STMT | WHILE_STMT | FOR_STMT | LOOP_EXPR_STMT
+  /// STATEMENT ::= BLOCK_STMT | WHILE_LOOP_STMT | FOR_LOOP_STMT | LOOP_EXPR_STMT
   ///           | BREAK_STMT | CONTINUE_STMT | RETURN_STMT | YIELD_STMT
   ///           | WITH_AS_STMT | TRY_STMT | THROW_STMT | DEL_STMT | IF_STMT
   ///           | MATCH_STMT | VAR_DECL | CONST_DECL | ENUM_DECL | IMPORT_DECL
@@ -52,8 +52,8 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_stmt(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
     match curr_tk![self] {
       L_CURLY if self.advance() => self.parse_block_stmt(),
-      WHILE_KW if self.advance() => todo!("Parse while loop."),
-      FOR_KW if self.advance() => todo!("Parse for loop."),
+      WHILE_KW if self.advance() => self.parse_while_loop_stmt(),
+      FOR_KW if self.advance() => self.parse_for_loop_stmt(),
       LOOP_KW if self.advance() => self.parse_loop_expr_stmt(false),
       BREAK_KW if self.advance() => self.parse_break_stmt(),
       CONTINUE_KW if self.advance() => self.parse_continue_stmt(),
@@ -109,9 +109,62 @@ impl<'a> Parser<'a> {
   /// LOOP_EXPR_STMT ::= "loop" BLOCK_STMT
   /// ```
   pub(super) fn parse_loop_expr_stmt(&mut self, is_expr: bool) -> Result<ASTNodeIdx, ErrorReport> {
-    self.consume(&L_CURLY, "Expected '{' after loop keyword.")?;
+    self.consume(&L_CURLY, "Expected '{' after 'loop' keyword.")?;
     let body = self.parse_block_stmt()?;
     self.emit(LoopExprStmt(ASTLoopExprStmtNode { body, is_expr }))
+  }
+
+  /// Parses a while-loop statement.
+  ///
+  /// ```bnf
+  /// WHILE_LOOP_STMT ::= "while" ("let" IDENTIFIER "=")? EXPRESSION BLOCK_STMT
+  /// ```
+  pub(super) fn parse_while_loop_stmt(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+    let mut let_id = None;
+
+    if match_tok![self, LET_KW] {
+      let_id = Some(self.consume(&IDENTIFIER, "Expected identifier for while-let statement.")?);
+      self.consume(&EQUALS, "Expected '=' after while-let statement identifier.")?;
+    }
+
+    let cond = self.parse_expr()?;
+    self.consume(&L_CURLY, "Expected block as 'while' loop body.")?;
+    let body = self.parse_block_stmt()?;
+
+    self.emit(WhileLoop(ASTWhileLoopNode { let_id, cond, body }))
+  }
+
+  /// Parses a for-loop statement.
+  ///
+  /// ```bnf
+  /// FOR_LOOP_STMT ::= "for" FOR_LOOP_HEAD BLOCK_STMT
+  /// ```
+  pub(super) fn parse_for_loop_stmt(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+    let head = self.parse_for_loop_head()?;
+    self.consume(&L_CURLY, "Expected block as 'for' loop body.")?;
+    let body = self.parse_block_stmt()?;
+    self.emit(ForLoop(ASTForLoopNode { head, body }))
+  }
+
+  /// Parses a for-loop statement.
+  ///
+  /// ```bnf
+  /// FOR_LOOP_HEAD ::= IDENTIFIER ("," IDENTIFIER)* "in" EXPRESSION
+  /// ```
+  pub(super) fn parse_for_loop_head(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+    let mut ids = vec![];
+
+    loop {
+      ids.push(self.consume(&IDENTIFIER, "Expected Identifier in 'for' loop.")?);
+
+      if !match_tok![self, COMMA] {
+        break;
+      }
+    }
+
+    self.consume(&IN_KW, "Expected keyword 'in' after for-loop identifiers.")?;
+    let target = self.parse_expr()?;
+    self.emit(ForLoopHead(ASTForLoopHeadNode { ids, target }))
   }
 
   /// Parses a break statement.

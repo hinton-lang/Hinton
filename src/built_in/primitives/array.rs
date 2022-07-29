@@ -121,11 +121,7 @@ fn pop(vm: &mut VM, this: Object, _: Vec<Object>) -> RuntimeResult {
 fn index_of(vm: &mut VM, this: Object, args: Vec<Object>) -> RuntimeResult {
   let obj = args[0].clone();
 
-  match verify_array_object!(this, "index_of")
-    .borrow_mut()
-    .iter()
-    .position(|x| x == &obj)
-  {
+  match verify_array_object!(this, "index_of").borrow_mut().iter().position(|x| x == &obj) {
     Some(i) => vm.push_stack(Object::Int(i as i64)),
     None => vm.push_stack(Object::None),
   }
