@@ -1,5 +1,5 @@
 edition = "2018"
 
-max_width = 110
+max_width = 120
 use_field_init_shorthand = true
-tab_spaces = 3
+tab_spaces = 2

@@ -11,52 +11,52 @@ pub struct StringClass(ClassObject);
 
 /// Implements the `HTPrimitive` trait for the `StringClass` primitive Hinton class.
 impl HTPrimitive for StringClass {
-   /// Gets the name class name of this Hinton primitive.
-   fn name(&self) -> String {
-      self.0.name.clone()
-   }
+  /// Gets the name class name of this Hinton primitive.
+  fn name(&self) -> String {
+    self.0.name.clone()
+  }
 
-   /// Gets the non-static members of this Hinton primitive.
-   fn members(&mut self) -> &mut HashMap<String, ClassField> {
-      &mut self.0.members
-   }
+  /// Gets the non-static members of this Hinton primitive.
+  fn members(&mut self) -> &mut HashMap<String, ClassField> {
+    &mut self.0.members
+  }
 
-   /// Gets the static members of this Hinton primitive.
-   fn statics(&mut self) -> &mut HashMap<String, ClassField> {
-      &mut self.0.statics
-   }
+  /// Gets the static members of this Hinton primitive.
+  fn statics(&mut self) -> &mut HashMap<String, ClassField> {
+    &mut self.0.statics
+  }
 
-   /// Gets the default class object stored in this Hinton primitive.
-   fn default() -> ClassObject {
-      let mut _self = StringClass(ClassObject::new("String"));
+  /// Gets the default class object stored in this Hinton primitive.
+  fn default() -> ClassObject {
+    let mut _self = StringClass(ClassObject::new("String"));
 
-      // >>>>>>> Class fields for the "String" primitive type to be added after this line
-      _self.bind_non_static_method("ends_with", (1, 1), ends_with as NativeBoundMethod);
-      _self.bind_non_static_method("len", (0, 0), len as NativeBoundMethod);
-      _self.bind_non_static_method("starts_with", (1, 1), starts_with as NativeBoundMethod);
-      _self.bind_non_static_method("to_lower", (0, 0), to_lower as NativeBoundMethod);
-      // <<<<<<< Class fields for the "String" primitive type to be added before this line
+    // >>>>>>> Class fields for the "String" primitive type to be added after this line
+    _self.bind_non_static_method("ends_with", (1, 1), ends_with as NativeBoundMethod);
+    _self.bind_non_static_method("len", (0, 0), len as NativeBoundMethod);
+    _self.bind_non_static_method("starts_with", (1, 1), starts_with as NativeBoundMethod);
+    _self.bind_non_static_method("to_lower", (0, 0), to_lower as NativeBoundMethod);
+    // <<<<<<< Class fields for the "String" primitive type to be added before this line
 
-      _self.0
-   }
+    _self.0
+  }
 }
 
 macro_rules! verify_string_object {
-   ($maybe_string: expr, $prop_name: expr) => {
-      match $maybe_string {
-         Object::String(a) => a,
-         _ => {
-            return RuntimeResult::Error {
-               error: RuntimeErrorType::TypeError,
-               message: format!(
-                  "Property 'String.{}' requires that 'self' be a String. Found '{}' instead.",
-                  $prop_name,
-                  $maybe_string.type_name()
-               ),
-            }
-         }
+  ($maybe_string: expr, $prop_name: expr) => {
+    match $maybe_string {
+      Object::String(a) => a,
+      _ => {
+        return RuntimeResult::Error {
+          error: RuntimeErrorType::TypeError,
+          message: format!(
+            "Property 'String.{}' requires that 'self' be a String. Found '{}' instead.",
+            $prop_name,
+            $maybe_string.type_name()
+          ),
+        }
       }
-   };
+    }
+  };
 }
 
 /// Gets the length of a Hinton string.
@@ -69,7 +69,7 @@ macro_rules! verify_string_object {
 /// # Returns:
 /// RuntimeResult
 fn len(vm: &mut VM, this: Object, _: Vec<Object>) -> RuntimeResult {
-   vm.push_stack(Object::from(verify_string_object!(this, "len").len()))
+  vm.push_stack(Object::from(verify_string_object!(this, "len").len()))
 }
 
 /// Creates a copy of a string and lowercase it.
@@ -82,9 +82,7 @@ fn len(vm: &mut VM, this: Object, _: Vec<Object>) -> RuntimeResult {
 /// # Returns:
 /// RuntimeResult
 fn to_lower(vm: &mut VM, this: Object, _: Vec<Object>) -> RuntimeResult {
-   vm.push_stack(Object::from(
-      verify_string_object!(this, "to_lower").to_lowercase(),
-   ))
+  vm.push_stack(Object::from(verify_string_object!(this, "to_lower").to_lowercase()))
 }
 
 /// Checks if a string ends with another string.
@@ -97,18 +95,16 @@ fn to_lower(vm: &mut VM, this: Object, _: Vec<Object>) -> RuntimeResult {
 /// # Returns:
 /// RuntimeResult
 fn ends_with(vm: &mut VM, this: Object, args: Vec<Object>) -> RuntimeResult {
-   match args[0].clone() {
-      Object::String(s) => vm.push_stack(Object::Bool(
-         verify_string_object!(this, "ends_with").ends_with(&s),
-      )),
-      other => RuntimeResult::Error {
-         error: RuntimeErrorType::TypeError,
-         message: format!(
-            "Expected argument of type 'String'. Got '{}' instead.",
-            other.type_name()
-         ),
-      },
-   }
+  match args[0].clone() {
+    Object::String(s) => vm.push_stack(Object::Bool(verify_string_object!(this, "ends_with").ends_with(&s))),
+    other => RuntimeResult::Error {
+      error: RuntimeErrorType::TypeError,
+      message: format!(
+        "Expected argument of type 'String'. Got '{}' instead.",
+        other.type_name()
+      ),
+    },
+  }
 }
 
 /// Checks if a string starts with another string.
@@ -121,16 +117,14 @@ fn ends_with(vm: &mut VM, this: Object, args: Vec<Object>) -> RuntimeResult {
 /// # Returns:
 /// RuntimeResult
 fn starts_with(vm: &mut VM, this: Object, args: Vec<Object>) -> RuntimeResult {
-   match args[0].clone() {
-      Object::String(s) => vm.push_stack(Object::Bool(
-         verify_string_object!(this, "ends_with").starts_with(&s),
-      )),
-      other => RuntimeResult::Error {
-         error: RuntimeErrorType::TypeError,
-         message: format!(
-            "Expected argument of type 'String'. Got '{}' instead.",
-            other.type_name()
-         ),
-      },
-   }
+  match args[0].clone() {
+    Object::String(s) => vm.push_stack(Object::Bool(verify_string_object!(this, "ends_with").starts_with(&s))),
+    other => RuntimeResult::Error {
+      error: RuntimeErrorType::TypeError,
+      message: format!(
+        "Expected argument of type 'String'. Got '{}' instead.",
+        other.type_name()
+      ),
+    },
+  }
 }
