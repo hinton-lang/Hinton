@@ -55,7 +55,7 @@ impl ASTArenaNode {
 pub enum ASTNodeKind {
   Module(Vec<ASTNodeIdx>),
 
-  VarReassignment(ASTVarReassignmentNode),
+  Reassignment(ASTReassignmentNode),
   Literal(ASTLiteralNode),
   StringLiteral(TokenIdx),
   SelfLiteral(TokenIdx),
@@ -91,9 +91,13 @@ pub enum ASTNodeKind {
   CompactArrOrTpl(ASTCompactArrOrTplNode),
   CompactDict(ASTCompactDictNode),
   CompactForLoop(ASTCompactForLoopNode),
+  IfStmt(ASTIfStmtNode),
+  VarConstDecl(ASTVarConsDeclNode),
+  DestructingPattern(ASTDestructingPatternNode),
+  DestructingWildCard(Option<TokenIdx>),
 }
 
-pub struct ASTVarReassignmentNode {
+pub struct ASTReassignmentNode {
   pub target: ASTNodeIdx,
   pub kind: ASTReassignmentKind,
   pub value: ASTNodeIdx,
@@ -349,6 +353,23 @@ pub struct ASTCompactForLoopNode {
 }
 
 pub struct ASTForLoopHeadNode {
-  pub ids: Vec<TokenIdx>,
+  pub id: ASTNodeIdx, // Can either be a single id node or destructuring pattern
   pub target: ASTNodeIdx,
+}
+
+pub struct ASTIfStmtNode {
+  pub cond: ASTNodeIdx,
+  pub true_branch: ASTNodeIdx,
+  pub else_branch: Option<ASTNodeIdx>,
+}
+
+pub struct ASTVarConsDeclNode {
+  pub is_const: bool,
+  pub id: ASTNodeIdx, // Can either be a single id node or destructuring pattern
+  pub val: ASTNodeIdx,
+}
+
+pub struct ASTDestructingPatternNode {
+  // List of identifier nodes, and optionally, at most one wild-card node.
+  pub patterns: Vec<ASTNodeIdx>,
 }

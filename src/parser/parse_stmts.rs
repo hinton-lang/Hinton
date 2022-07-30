@@ -17,7 +17,7 @@ impl<'a> Parser<'a> {
       // Public statement
       if match_tok![self, PUB_KW] {
         let pub_stmt = match curr_tk![self] {
-          CONST_KW => todo!("Parse const declaration."),
+          CONST_KW if self.advance() => self.parse_var_or_const_decl(true),
           ENUM_KW => todo!("Parse enum declaration."),
           FUNC_KW => todo!("Parse func declaration."),
           CLASS_KW => todo!("Parse class declaration."),
@@ -28,7 +28,10 @@ impl<'a> Parser<'a> {
           }
         };
 
-        self.ast.attach_to_root(pub_stmt);
+        match pub_stmt {
+          Ok(node) => self.ast.attach_to_root(node),
+          Err(e) => self.errors.push(e),
+        }
         continue;
       }
 
@@ -73,10 +76,10 @@ impl<'a> Parser<'a> {
       TRY_KW if self.advance() => todo!("Parse try statement."),
       THROW_KW if self.advance() => self.parse_throw_stmt(),
       DEL_KW if self.advance() => self.parse_del_stmt(),
-      IF_KW if self.advance() => todo!("Parse if block."),
+      IF_KW if self.advance() => self.parse_if_stmt(),
       MATCH_KW if self.advance() => todo!("Parse match block."),
-      LET_KW if self.advance() => todo!("Parse let declaration."),
-      CONST_KW if self.advance() => todo!("Parse const declaration."),
+      LET_KW if self.advance() => self.parse_var_or_const_decl(false),
+      CONST_KW if self.advance() => self.parse_var_or_const_decl(true),
       ENUM_KW if self.advance() => todo!("Parse enum declaration."),
       IMPORT_KW if self.advance() => todo!("Parse import declaration."),
       AT if self.advance() => todo!("Parse decorator."),
@@ -160,22 +163,19 @@ impl<'a> Parser<'a> {
   /// Parses a for-loop statement.
   ///
   /// ```bnf
-  /// FOR_LOOP_HEAD ::= IDENTIFIER ("," IDENTIFIER)* "in" EXPRESSION
+  /// FOR_LOOP_HEAD ::= (IDENTIFIER | DESTRUCT_PATTERN) "in" EXPRESSION
   /// ```
   pub(super) fn parse_for_loop_head(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
-    let mut ids = vec![];
-
-    loop {
-      ids.push(self.consume(&IDENTIFIER, "Expected Identifier in 'for' loop.")?);
-
-      if !match_tok![self, COMMA] {
-        break;
-      }
-    }
+    let id = if match_tok![self, L_PAREN] {
+      self.parse_destructing_pattern("'for' loop")?
+    } else {
+      let id = self.consume(&IDENTIFIER, "Expected identifier in 'for' loop")?;
+      self.emit(Identifier(id))?
+    };
 
     self.consume(&IN_KW, "Expected keyword 'in' after for-loop identifiers.")?;
     let target = self.parse_expr()?;
-    self.emit(ForLoopHead(ASTForLoopHeadNode { ids, target }))
+    self.emit(ForLoopHead(ASTForLoopHeadNode { id, target }))
   }
 
   /// Parses a break statement.
@@ -256,5 +256,28 @@ impl<'a> Parser<'a> {
 
     self.consume(&SEMICOLON, "Expected ';' after del statement.")?;
     self.emit(DelStmt(stmt))
+  }
+
+  /// Parses an if statement.
+  ///
+  /// ```bnf
+  /// IF_STMT ::= "if" EXPRESSION BLOCK_STMT ("else" (BLOCK_STMT | IF_STMT))?
+  /// ```
+  pub(super) fn parse_if_stmt(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+    let cond = self.parse_expr()?;
+    self.consume(&L_CURLY, "Expected block as 'if' statement body")?;
+    let true_branch = self.parse_block_stmt()?;
+    let mut else_branch = None;
+
+    if match_tok![self, ELSE_KW] {
+      else_branch = match curr_tk![self] {
+        IF_KW if self.advance() => Some(self.parse_if_stmt()?),
+        L_CURLY if self.advance() => Some(self.parse_block_stmt()?),
+        _ => return Err(self.error_at_current("Expected block or 'if' statement after 'else' keyword.")),
+      }
+    }
+
+    let node = ASTIfStmtNode { cond, true_branch, else_branch };
+    self.emit(IfStmt(node))
   }
 }

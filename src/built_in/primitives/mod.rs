@@ -224,12 +224,7 @@ pub trait HTPrimitive {
       mode |= 0b_0000_0001;
     }
 
-    if s { self.statics() } else { self.members() }.insert(
-      name.to_string(),
-      ClassField {
-        value: Box::new(value),
-        mode,
-      },
-    );
+    if s { self.statics() } else { self.members() }
+      .insert(name.to_string(), ClassField { value: Box::new(value), mode });
   }
 }

@@ -263,11 +263,7 @@ impl Compiler {
       return None;
     }
 
-    let up_value = UpValue {
-      symbol,
-      index,
-      is_local,
-    };
+    let up_value = UpValue { symbol, index, is_local };
 
     self.functions[func_idx].up_values.push(up_value.clone());
     self.functions[func_idx].function.up_val_count += 1;

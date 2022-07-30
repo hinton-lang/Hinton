@@ -8,11 +8,7 @@ use crate::{check_tok, curr_tk, match_tok};
 
 macro_rules! append_binary_expr {
   ($s:ident, $l:expr, $r:expr, $k:expr) => {
-    $s.ast.append(BinaryExpr(ASTBinaryExprNode {
-      left: $l,
-      right: $r,
-      kind: $k,
-    }))
+    $s.ast.append(BinaryExpr(ASTBinaryExprNode { left: $l, right: $r, kind: $k }))
   };
 }
 
@@ -47,12 +43,12 @@ impl<'a> Parser<'a> {
 
       // Returns the assignment expression of the corresponding type
       return match &self.ast.get(target).kind {
-        Identifier(_) => {
-          let node = ASTVarReassignmentNode { target, kind, value };
-          self.emit(VarReassignment(node))
+        // In the compiler, we simply check the kind of target we have
+        // to emit the correct set of bytecode instructions.
+        Identifier(_) | MemberAccess(_) | Indexing(_) => {
+          let node = ASTReassignmentNode { target, kind, value };
+          self.emit(Reassignment(node))
         }
-        MemberAccess(_) => todo!("Parse member reassignment"),
-        Indexing(_) => todo!("Parse indexing reassignment"),
         _ => Err(self.error_at_tok(target_tok, "Invalid assignment target.")),
       };
     }
@@ -519,11 +515,7 @@ impl<'a> Parser<'a> {
 
     let member = self.consume(&IDENTIFIER, "Expected member name after the dot.")?;
 
-    self.emit(MemberAccess(ASTMemberAccessNode {
-      is_safe,
-      target,
-      member,
-    }))
+    self.emit(MemberAccess(ASTMemberAccessNode { is_safe, target, member }))
   }
 
   /// Parses a literal expression.

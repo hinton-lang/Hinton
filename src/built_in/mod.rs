@@ -49,10 +49,7 @@ impl BuiltIn {
   pub fn primitive_prop(vm: &mut VM, val: Object, name: &str, prop: String) -> RuntimeResult {
     match vm.built_in.primitives.get_prop_in_class(name, prop) {
       Ok(o) => vm.push_stack(match o {
-        Object::BoundNativeMethod(b) => Object::from(NativeMethodObj {
-          value: Box::new(val),
-          ..b
-        }),
+        Object::BoundNativeMethod(b) => Object::from(NativeMethodObj { value: Box::new(val), ..b }),
         _ => val,
       }),
       Err(e) => e,

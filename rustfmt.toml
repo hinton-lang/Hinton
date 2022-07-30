@@ -11,3 +11,4 @@ format_macro_bodies = true
 overflow_delimited_expr = true
 group_imports = "StdExternalCrate"
 single_line_if_else_max_width = 75
+struct_lit_width = 30

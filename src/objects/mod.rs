@@ -60,10 +60,7 @@ impl FuncObject {
   pub fn bound_method(f: Rc<RefCell<FuncObject>>, i: Rc<RefCell<InstanceObject>>) -> Object {
     Object::BoundMethod(BoundMethod {
       receiver: i,
-      method: ClosureObject {
-        function: f,
-        up_values: vec![],
-      },
+      method: ClosureObject { function: f, up_values: vec![] },
     })
   }
 }
@@ -119,10 +116,7 @@ impl fmt::Display for ClosureObject {
 
 impl ClosureObject {
   pub fn into_bound_method(self, c: Rc<RefCell<InstanceObject>>) -> Object {
-    Object::BoundMethod(BoundMethod {
-      receiver: c,
-      method: self,
-    })
+    Object::BoundMethod(BoundMethod { receiver: c, method: self })
   }
 }
 

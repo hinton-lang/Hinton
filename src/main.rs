@@ -34,10 +34,7 @@ fn main() {
   let args: Vec<String> = env::args().collect();
 
   // new CLI
-  let mut _self = HintonCLI {
-    flags: vec![],
-    args: vec![],
-  };
+  let mut _self = HintonCLI { flags: vec![], args: vec![] };
 
   // If no arguments are provided, run the REPL
   if args.len() <= 1 {

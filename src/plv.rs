@@ -77,35 +77,31 @@ pub fn export(lexer: Option<&Lexer>, ast: Option<&ASTArena>, _module: Option<&Fu
 
 fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str) -> Value {
   let (name, mut attributes, children) = match &arena.get(*idx).kind {
-    Module(x) => ("Module".to_string(), json!({}), ast_list_to_json(tokens, arena, x, "")),
-    VarReassignment(_) => ("Reassignment".to_string(), json!({}), vec![]),
+    Module(x) => ("Module", json!({}), ast_list_to_json(tokens, arena, x, "")),
+    Reassignment(_) => ("Reassignment", json!({}), vec![]),
     Literal(x) => (
-      tokens[x.token_idx].lexeme.to_string(),
+      tokens[x.token_idx].lexeme.as_str(),
       json!({ "kind": "literal" }),
       vec![],
     ),
-    StringLiteral(_) => ("String".to_string(), json!({}), vec![]),
-    SelfLiteral(_) => ("Self".to_string(), json!({}), vec![]),
-    SuperLiteral(_) => ("Super".to_string(), json!({}), vec![]),
-    Identifier(x) => (tokens[*x].lexeme.to_string(), json!({ "kind": "identifier" }), vec![]),
-    TernaryConditional(_) => ("Ternary".to_string(), json!({}), vec![]),
+    StringLiteral(_) => ("String", json!({}), vec![]),
+    SelfLiteral(_) => ("Self", json!({}), vec![]),
+    SuperLiteral(_) => ("Super", json!({}), vec![]),
+    Identifier(x) => (tokens[*x].lexeme.as_str(), json!({ "kind": "identifier" }), vec![]),
+    TernaryConditional(_) => ("Ternary", json!({}), vec![]),
     BinaryExpr(x) => (
-      "Binary".to_string(),
+      "Binary",
       json!({ "operator": format!("{:?}", x.kind) }),
       vec![
         ast_to_json(tokens, arena, &x.left, "left"),
         ast_to_json(tokens, arena, &x.right, "right"),
       ],
     ),
-    UnaryExpr(x) => (
-      "Unary".to_string(),
-      json!({}),
-      vec![ast_to_json(tokens, arena, &x.operand, "")],
-    ),
+    UnaryExpr(x) => ("Unary", json!({}), vec![ast_to_json(tokens, arena, &x.operand, "")]),
     Indexing(x) => {
       let mut children = vec![ast_to_json(tokens, arena, &x.target, "target")];
       children.append(&mut ast_list_to_json(tokens, arena, &x.indexers, "indexer"));
-      ("Indexing".to_string(), json!({}), children)
+      ("Indexing", json!({}), children)
     }
     ArraySlice(x) => {
       let mut children: Vec<Value> = vec![];
@@ -118,39 +114,43 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
         children.push(ast_to_json(tokens, arena, &lower, "lower"))
       }
 
-      ("Slice".to_string(), json!({}), children)
+      ("Slice", json!({}), children)
     }
-    MemberAccess(_) => ("Member".to_string(), json!({}), vec![]),
-    ArrayLiteral(_) => ("Array".to_string(), json!({}), vec![]),
-    TupleLiteral(_) => ("Tuple".to_string(), json!({}), vec![]),
-    RepeatLiteral(_) => ("Repeat".to_string(), json!({}), vec![]),
-    SpreadExpr(x) => ("Spread".to_string(), json!({}), vec![ast_to_json(tokens, arena, x, "")]),
-    DictLiteral(_) => ("Dict".to_string(), json!({}), vec![]),
-    DictKeyValPair(_) => ("KeyVal".to_string(), json!({}), vec![]),
-    EvaluatedDictKey(_) => ("EvaluatedDictKey".to_string(), json!({}), vec![]),
+    MemberAccess(_) => ("Member", json!({}), vec![]),
+    ArrayLiteral(_) => ("Array", json!({}), vec![]),
+    TupleLiteral(_) => ("Tuple", json!({}), vec![]),
+    RepeatLiteral(_) => ("Repeat", json!({}), vec![]),
+    SpreadExpr(x) => ("Spread", json!({}), vec![ast_to_json(tokens, arena, x, "")]),
+    DictLiteral(_) => ("Dict", json!({}), vec![]),
+    DictKeyValPair(_) => ("KeyVal", json!({}), vec![]),
+    EvaluatedDictKey(_) => ("EvaluatedDictKey", json!({}), vec![]),
     CallExpr(x) => {
       let mut children = vec![ast_to_json(tokens, arena, &x.target, "target")];
       children.append(&mut ast_list_to_json(tokens, arena, &x.val_args, "value arg"));
       children.append(&mut ast_list_to_json(tokens, arena, &x.rest_args, "rest arg"));
       // children.append(&mut ast_list_to_json(tokens, arena, &x.named_args, "named arg"));
       //
-      ("Call".to_string(), json!({}), children)
+      ("Call", json!({}), children)
     }
-    ExprStmt(_) => ("Expr Stmt".to_string(), json!({}), vec![]),
-    BlockStmt(_) => ("Block Stmt".to_string(), json!({}), vec![]),
-    LoopExprStmt(_) => ("Loop Stmt".to_string(), json!({}), vec![]),
-    BreakStmt(_) => ("Break Stmt".to_string(), json!({}), vec![]),
-    ContinueStmt => ("Continue Stmt".to_string(), json!({}), vec![]),
-    ReturnStmt(_) => ("Return Stmt".to_string(), json!({}), vec![]),
-    YieldStmt(_) => ("Yield Stmt".to_string(), json!({}), vec![]),
-    ThrowStmt(_) => ("Throe Stmt".to_string(), json!({}), vec![]),
-    DelStmt(_) => ("Del Stmt".to_string(), json!({}), vec![]),
-    WhileLoop(_) => ("While Loop Stmt".to_string(), json!({}), vec![]),
-    ForLoop(_) => ("For Loop Stmt".to_string(), json!({}), vec![]),
-    ForLoopHead(_) => ("For Loop Head".to_string(), json!({}), vec![]),
-    CompactArrOrTpl(_) => ("Compact Arr or Tpl".to_string(), json!({}), vec![]),
-    CompactDict(_) => ("Compact Dict".to_string(), json!({}), vec![]),
-    CompactForLoop(_) => ("Compact For Loop".to_string(), json!({}), vec![]),
+    ExprStmt(_) => ("Expr Stmt", json!({}), vec![]),
+    BlockStmt(_) => ("Block Stmt", json!({}), vec![]),
+    LoopExprStmt(_) => ("Loop Stmt", json!({}), vec![]),
+    BreakStmt(_) => ("Break Stmt", json!({}), vec![]),
+    ContinueStmt => ("Continue Stmt", json!({}), vec![]),
+    ReturnStmt(_) => ("Return Stmt", json!({}), vec![]),
+    YieldStmt(_) => ("Yield Stmt", json!({}), vec![]),
+    ThrowStmt(_) => ("Throe Stmt", json!({}), vec![]),
+    DelStmt(_) => ("Del Stmt", json!({}), vec![]),
+    WhileLoop(_) => ("While Loop Stmt", json!({}), vec![]),
+    ForLoop(_) => ("For Loop Stmt", json!({}), vec![]),
+    ForLoopHead(_) => ("For Loop Head", json!({}), vec![]),
+    CompactArrOrTpl(_) => ("Compact Arr or Tpl", json!({}), vec![]),
+    CompactDict(_) => ("Compact Dict", json!({}), vec![]),
+    CompactForLoop(_) => ("Compact For Loop", json!({}), vec![]),
+    IfStmt(_) => ("IfStmt", json!({}), vec![]),
+    VarConstDecl(_) => ("VarConstDecl", json!({}), vec![]),
+    DestructingPattern(_) => ("DestructingPattern", json!({}), vec![]),
+    DestructingWildCard(_) => ("DestructingWildCard", json!({}), vec![]),
   };
 
   if !bname.is_empty() {

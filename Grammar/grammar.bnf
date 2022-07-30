@@ -26,8 +26,7 @@ STATEMENT           ::= BLOCK_STMT
                     | DEL_STMT
                     | IF_STMT
                     | MATCH_STMT
-                    | VAR_DECL
-                    | CONST_DECL
+                    | VAR_CONST_DECL
                     | ENUM_DECL
                     | IMPORT_DECL
                     | DECORATOR_STMT* (FUNC_DECL | CLASS_DECL)
@@ -39,7 +38,7 @@ BLOCK_STMT          ::= "{" STATEMENT* "}"
 // Loop tags do not exist in Hinton for the same reason they do not exist in Python
 WHILE_LOOP_STMT     ::= "while" ("let" IDENTIFIER "=")? EXPRESSION BLOCK_STMT
 FOR_LOOP_STMT       ::= "for" FOR_LOOP_HEAD BLOCK_STMT
-FOR_LOOP_HEAD       ::= IDENTIFIER ("," IDENTIFIER)* "in" EXPRESSION
+FOR_LOOP_HEAD       ::= (IDENTIFIER | DESTRUCT_PATTERN) "in" EXPRESSION
 // Defaults to `null` if the loop breaks with no value.
 LOOP_EXPR_STMT      ::= "loop" BLOCK_STMT
 
@@ -69,31 +68,32 @@ FINALLY_PART        ::= "finally" BLOCK_STMT
 EXPR_STMT           ::= EXPRESSION ";"
 
 // ********************************************** DECLARATION STATEMENTS
+IDENTIFIER_LIST     ::= IDENTIFIER ("," IDENTIFIER)*
+
 DECORATOR_STMT      ::= "@" (DECORATOR_BDY | "[" DECORATOR_BDY ("," DECORATOR_BDY)* "]")
 DECORATOR_BDY       ::= IDENTIFIER | CALL_EXPR
 
-VAR_DECL            ::= "let" IDENTIFIER "=" EXPRESSION ";"
-                    | "let" "(" IDENTIFIER ("," IDENTIFIER)* ("," "..." IDENTIFIER)? ")" "=" EXPRESSION ";"
+VAR_CONST_DECL      ::= ("let" | "const") (IDENTIFIER | DESTRUCT_PATTERN) "=" EXPRESSION ";"
+DESTRUCT_PATTERN    ::= "(" IDENTIFIER_LIST ")" // no wildcard
+                    |   "(" IDENTIFIER_LIST "," "..." IDENTIFIER? ")" // tail wildcard
+                    |   "(" IDENTIFIER_LIST "," "..." IDENTIFIER? "," IDENTIFIER_LIST ")" // middle wildcard
+                    |   "(" "..." IDENTIFIER? "," IDENTIFIER_LIST ")" // head wildcard
 
-CONST_DECL          ::= "const" IDENTIFIER "=" EXPRESSION ";"
-                    | "const" "(" IDENTIFIER ("," IDENTIFIER)* ("," "..." IDENTIFIER)? ")" "=" EXPRESSION ";"
-
-ENUM_DECL           ::= "enum" IDENTIFIER "{" (IDENTIFIER ("," IDENTIFIER)*)? "}"
+ENUM_DECL           ::= "enum" IDENTIFIER "{" IDENTIFIER_LIST? "}"
 
 FUNC_DECL           ::= "async"? "func" "*"? IDENTIFIER "(" PARAMETERS ")" BLOCK_STMT
-PARAMETERS          ::= VAR_PARAM? DEFAULT_PARAM? REST_PARAM?
-VAR_PARAM           ::= IDENTIFIER ("," IDENTIFIER)*
-DEFAULT_PARAM       ::= IDENTIFIER ":=" EXPRESSION ("," IDENTIFIER "=" EXPRESSION)*
+PARAMETERS          ::= IDENTIFIER_LIST? DEFAULT_PARAMS? REST_PARAM?
+DEFAULT_PARAMS      ::= IDENTIFIER ":=" EXPRESSION ("," IDENTIFIER "=" EXPRESSION)*
 // Func declarations can only have one rest param (which must be at the end).
 // This becomes a dict with the "args" entry as a list of value arguments, and
 // "kwargs" for dict of named arguments.
 REST_PARAM          ::= "..." IDENTIFIER
 
 CLASS_DECL          ::= "abstract"? "class" IDENTIFIER CLASS_EXTEND? CLASS_IMPL? CLASS_BODY
-CLASS_EXTEND        ::= "->" IDENTIFIER ("," IDENTIFIER)*
-CLASS_IMPL          ::= "impl" IDENTIFIER ("," IDENTIFIER)*
+CLASS_EXTEND        ::= "->" IDENTIFIER_LIST
+CLASS_IMPL          ::= "impl" IDENTIFIER_LIST
 CLASS_BODY          ::= "{" CLASS_MEMBER* "}"
-CLASS_MEMBER        ::= DECORATOR_STMT* "pub"? "override"? "static"? (VAR_DECL | CONST_DECL | FUNC_DECL)
+CLASS_MEMBER        ::= DECORATOR_STMT* "pub"? "override"? "static"? (VAR_CONST_DECL | FUNC_DECL)
                     | OPERATOR_OVERLOAD
 
 OPERATOR_OVERLOAD   ::= "pub" "self" BNRY_OVERLOAD_OPR IDENTIFIER BLOCK_STMT
@@ -104,7 +104,7 @@ OPERATOR_OVERLOAD   ::= "pub" "self" BNRY_OVERLOAD_OPR IDENTIFIER BLOCK_STMT
                     | "pub" "self" "with" "out" "(" PARAMETERS ")" BLOCK_STMT // "out" is an identifier, not a kw
 
 IMPORT_DECL         ::= "import" ((GRANULAR_IMPORT | WILDCARD_IMPORT) "from")?  STRING_LITERAL ";"
-GRANULAR_IMPORT     ::= "{" IDENTIFIER ("," IDENTIFIER)* "}"
+GRANULAR_IMPORT     ::= "{" IDENTIFIER_LIST "}"
 WILDCARD_IMPORT     ::= "*" "as" IDENTIFIER
 
 // ********************************************** GENERAL EXPRESSIONS

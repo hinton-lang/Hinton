@@ -7,6 +7,7 @@ use crate::parser::ast::*;
 pub mod ast;
 pub mod legacy_ast;
 mod parse_clctns;
+mod parse_decls;
 mod parse_exprs;
 mod parse_stmts;
 
