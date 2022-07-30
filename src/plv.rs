@@ -147,6 +147,9 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
     WhileLoop(_) => ("While Loop Stmt".to_string(), json!({}), vec![]),
     ForLoop(_) => ("For Loop Stmt".to_string(), json!({}), vec![]),
     ForLoopHead(_) => ("For Loop Head".to_string(), json!({}), vec![]),
+    CompactArrOrTpl(_) => ("Compact Arr or Tpl".to_string(), json!({}), vec![]),
+    CompactDict(_) => ("Compact Dict".to_string(), json!({}), vec![]),
+    CompactForLoop(_) => ("Compact For Loop".to_string(), json!({}), vec![]),
   };
 
   if !bname.is_empty() {

@@ -87,6 +87,9 @@ pub enum ASTNodeKind {
   WhileLoop(ASTWhileLoopNode),
   ForLoop(ASTForLoopNode),
   ForLoopHead(ASTForLoopHeadNode),
+  CompactArrOrTpl(ASTCompactArrOrTplNode),
+  CompactDict(ASTCompactDictNode),
+  CompactForLoop(ASTCompactForLoopNode),
 }
 
 pub struct ASTVarReassignmentNode {
@@ -322,6 +325,26 @@ pub struct ASTWhileLoopNode {
 pub struct ASTForLoopNode {
   pub head: ASTNodeIdx, // This will always be a for-loop head node
   pub body: ASTNodeIdx, // This will always be a block stmt
+}
+
+pub struct ASTCompactArrOrTplNode {
+  // This will always be a list of compact
+  // for-loop nodes with at least one element
+  pub heads: Vec<ASTNodeIdx>,
+  pub body: ASTNodeIdx,
+  pub is_tpl: bool,
+}
+
+pub struct ASTCompactDictNode {
+  // This will always be a list of compact
+  // for-loop nodes with at least one element
+  pub heads: Vec<ASTNodeIdx>,
+  pub body: ASTNodeIdx,
+}
+
+pub struct ASTCompactForLoopNode {
+  pub head: ASTNodeIdx,         // This will always be a for-loop head node
+  pub cond: Option<ASTNodeIdx>, // The if-part, it it exists
 }
 
 pub struct ASTForLoopHeadNode {

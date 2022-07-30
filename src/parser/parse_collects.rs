@@ -16,8 +16,9 @@ impl<'a> Parser<'a> {
     // If we match a for-keyword at the start the array literal, then we
     // know we have an array comprehension so we can go ahead and parse it.
     if match_tok![self, FOR_KW] {
-      todo!("Implement array comprehension");
-      // self.consume(&R_BRACKET, "Expected matching ']' for array literal.")?;
+      let expr = self.parse_compact_arr_or_tpl(false)?;
+      self.consume(&R_BRACKET, "Expected matching ']' for array literal.")?;
+      return Ok(expr);
     }
 
     // Initialize the list of values for array literal
@@ -45,7 +46,7 @@ impl<'a> Parser<'a> {
       self.consume(&R_BRACKET, "Expected matching ']' for array literal.")?;
     }
 
-    Ok(self.ast.append(ArrayLiteral(values)))
+    self.emit(ArrayLiteral(values))
   }
 
   /// Parses either a tuple literal expression or a grouping expression.
@@ -58,8 +59,9 @@ impl<'a> Parser<'a> {
     // If we match a for-keyword at the start the tuple literal, then we
     // know we have a tuple comprehension so we can go ahead and parse it.
     if match_tok![self, FOR_KW] {
-      todo!("Implement tuple comprehension");
-      // self.consume(&R_PAREN, "Expected matching ')' for tuple literal.")?;
+      let expr = self.parse_compact_arr_or_tpl(false)?;
+      self.consume(&R_PAREN, "Expected matching ')' for tuple literal.")?;
+      return Ok(expr);
     }
 
     // Initialize the list of values for tuple literal
@@ -96,7 +98,7 @@ impl<'a> Parser<'a> {
       self.consume(&R_PAREN, "Expected matching ')' for tuple literal.")?;
     }
 
-    Ok(self.ast.append(TupleLiteral(values)))
+    self.emit(TupleLiteral(values))
   }
 
   /// Parses either a single spread expression
@@ -106,7 +108,7 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_single_spread_expr(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
     let expr = self.parse_expr()?;
-    Ok(self.ast.append(SpreadExpr(expr)))
+    self.emit(SpreadExpr(expr))
   }
 
   /// Parses either an array or tuple repeat.
@@ -126,7 +128,7 @@ impl<'a> Parser<'a> {
     };
 
     let node = ASTRepeatLiteralNode { kind, value, count };
-    Ok(self.ast.append(RepeatLiteral(node)))
+    self.emit(RepeatLiteral(node))
   }
 
   /// Parses the expression list in an array or tuple body.
@@ -151,6 +153,50 @@ impl<'a> Parser<'a> {
     Ok(values)
   }
 
+  /// Parses a compact array or tuple.
+  ///
+  /// ```bnf
+  /// COMPACT_ARR_TPL ::= COMPACT_FOR_LOOP+ (EXPRESSION | SINGLE_SPREAD_EXPR)
+  /// ```
+  pub(super) fn parse_compact_arr_or_tpl(&mut self, is_tpl: bool) -> Result<ASTNodeIdx, ErrorReport> {
+    let mut heads = vec![];
+
+    loop {
+      heads.push(self.parse_compact_for_loop()?);
+
+      if !match_tok![self, FOR_KW] {
+        break;
+      }
+    }
+
+    let body = match curr_tk![self] {
+      SPREAD if self.advance() => self.parse_single_spread_expr()?,
+      _ => self.parse_expr()?,
+    };
+
+    self.emit(CompactArrOrTpl(ASTCompactArrOrTplNode { heads, body, is_tpl }))
+  }
+
+  /// Parses a compact for-loop for an array, tuple, or dict comprehension
+  ///
+  /// ```bnf
+  /// COMPACT_FOR_LOOP ::= "for" "(" FOR_LOOP_HEAD ")" ("if" "(" EXPRESSION ")")?
+  /// ```
+  pub(super) fn parse_compact_for_loop(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+    self.consume(&L_PAREN, "Expected '(' after 'for' keyword in compact for-loop.")?;
+    let head = self.parse_for_loop_head()?;
+    self.consume(&R_PAREN, "Expected ')' after loop head in compact for-loop.")?;
+
+    let mut cond = None;
+    if match_tok![self, IF_KW] {
+      self.consume(&L_PAREN, "Expected '(' after 'if' keyword in compact for-loop.")?;
+      cond = Some(self.parse_expr()?);
+      self.consume(&R_PAREN, "Expected ')' after 'if' head in compact for-loop.")?;
+    }
+
+    self.emit(CompactForLoop(ASTCompactForLoopNode { head, cond }))
+  }
+
   /// Parses a dict literal expression.
   ///
   /// ```bnf
@@ -162,8 +208,9 @@ impl<'a> Parser<'a> {
     // If we match a for-keyword at the start the dict literal, then we
     // know we have a dict comprehension so we can go ahead and parse it.
     if match_tok![self, FOR_KW] {
-      todo!("Implement dict comprehension");
-      // self.consume(&R_CURLY, "Expected matching '}' for dict literal.")?;
+      let expr = self.parse_compact_dict()?;
+      self.consume(&R_CURLY, "Expected matching '}' for dict literal.")?;
+      return Ok(expr);
     }
 
     // Initialize the list of key-val-pairs for dict literal
@@ -181,7 +228,31 @@ impl<'a> Parser<'a> {
       self.consume(&R_CURLY, "Expected matching '}' for dict literal.")?;
     }
 
-    Ok(self.ast.append(DictLiteral(key_val_pairs)))
+    self.emit(DictLiteral(key_val_pairs))
+  }
+
+  /// Parses a compact dict.
+  ///
+  /// ```bnf
+  /// COMPACT_DICT ::= COMPACT_FOR_LOOP+ (KEY_VAL_PAR | SINGLE_SPREAD_EXPR)
+  /// ```
+  pub(super) fn parse_compact_dict(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+    let mut heads = vec![];
+
+    loop {
+      heads.push(self.parse_compact_for_loop()?);
+
+      if !match_tok![self, FOR_KW] {
+        break;
+      }
+    }
+
+    let body = match curr_tk![self] {
+      SPREAD if self.advance() => self.parse_single_spread_expr()?,
+      _ => self.parse_dict_key_val_pair()?,
+    };
+
+    self.emit(CompactDict(ASTCompactDictNode { heads, body }))
   }
 
   /// Parses a single key-value pair for a dict literal.
@@ -223,8 +294,8 @@ impl<'a> Parser<'a> {
       self.ast.append(literal_or_ident)
     };
 
-    self.consume(&COLON, "Expected colon after dictionary literal.")?;
+    self.consume(&COLON, "Expected ':' in dict key-value pair.")?;
     let val = self.parse_expr()?;
-    Ok(self.ast.append(DictKeyValPair((ky, val))))
+    self.emit(DictKeyValPair((ky, val)))
   }
 }

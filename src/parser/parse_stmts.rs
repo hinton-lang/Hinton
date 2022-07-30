@@ -34,7 +34,17 @@ impl<'a> Parser<'a> {
 
       // Private statement
       match self.parse_stmt() {
-        Ok(node) => self.ast.attach_to_root(node),
+        Ok(node) => {
+          if node == 0 {
+            // Because the first element of the AST Arena is the module node,
+            // no child node should be able to reference it. We can use this fact
+            // to ignore nodes in the tree (e.g., extra semicolons). So, If the
+            // `parse_stmt` method returns 0, we can ignore the associated node(s).
+            continue;
+          } else {
+            self.ast.attach_to_root(node)
+          }
+        }
         Err(e) => self.errors.push(e),
       }
     }
@@ -47,7 +57,7 @@ impl<'a> Parser<'a> {
   ///           | BREAK_STMT | CONTINUE_STMT | RETURN_STMT | YIELD_STMT
   ///           | WITH_AS_STMT | TRY_STMT | THROW_STMT | DEL_STMT | IF_STMT
   ///           | MATCH_STMT | VAR_DECL | CONST_DECL | ENUM_DECL | IMPORT_DECL
-  ///           | DECORATOR_STMT* (FUNC_DECL | CLASS_DECL) | EXPR_STMT
+  ///           | DECORATOR_STMT* (FUNC_DECL | CLASS_DECL) | EXPR_STMT | ";"
   /// ```
   pub(super) fn parse_stmt(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
     match curr_tk![self] {
@@ -73,6 +83,7 @@ impl<'a> Parser<'a> {
       FUNC_KW if self.advance() => todo!("Parse func declaration."),
       CLASS_KW if self.advance() => todo!("Parse class declaration."),
       PUB_KW if self.advance() => Err(self.error_at_current("Keyword 'pub' not allowed here.")),
+      SEMICOLON if self.advance() => Ok(0), // See comments in `parse_module` method.
       _ => self.parse_expr_stmt(),
     }
   }

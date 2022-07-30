@@ -32,6 +32,7 @@ STATEMENT           ::= BLOCK_STMT
                     | IMPORT_DECL
                     | DECORATOR_STMT* (FUNC_DECL | CLASS_DECL)
                     | EXPR_STMT
+                    | ";" // ignored
 
 BLOCK_STMT          ::= "{" STATEMENT* "}"
 
@@ -222,21 +223,20 @@ SUPER_LITERAL       ::= "super"
 ARRAY_LITERAL       ::= "[" ARR_TPL_BODY? "]"
 TUPLE_LITERAL       ::= "(" ARR_TPL_BODY? ")"
 
-ARR_TPL_BODY        ::= ARR_TPL_LIST | ARR_TPL_REPEAT | COMPACT_FOR_LOOP
+ARR_TPL_BODY        ::= ARR_TPL_LIST | ARR_TPL_REPEAT | COMPACT_ARR_TPL
 ARR_TPL_LIST        ::= (EXPRESSION | SINGLE_SPREAD_EXPR) ("," (EXPRESSION | SINGLE_SPREAD_EXPR))*
 ARR_TPL_REPEAT      ::= EXPRESSION ";" EXPRESSION
 
-// "put" is a contextual keyword lexed as an identifier
-COMPACT_FOR_LOOP    ::= COMPACT_FOR_BODY+ EXPRESSION
-COMPACT_FOR_BODY    ::= "for" "(" FOR_LOOP_HEAD ")" ("if" "(" EXPRESSION ")")?
+COMPACT_ARR_TPL     ::= COMPACT_FOR_LOOP+ (EXPRESSION | SINGLE_SPREAD_EXPR)
+COMPACT_FOR_LOOP    ::= "for" "(" FOR_LOOP_HEAD ")" ("if" "(" EXPRESSION ")")?
 
 DICT_LITERAL        ::= "{" DICT_BODY? "}"
 DICT_BODY           ::= (KEY_VAL_PAR | SINGLE_SPREAD_EXPR) ("," (KEY_VAL_PAR | SINGLE_SPREAD_EXPR))*
-                    | COMPACT_DICT_LOOP
+                    | COMPACT_DICT
 
-// "put" is a contextual keyword lexed as an identifier
-COMPACT_DICT_LOOP   ::= COMPACT_FOR_BODY+ (KEY_VAL_PAR | SINGLE_SPREAD_EXPR)
-KEY_VAL_PAR         ::= (IDENTIFIER | STRING_LITERAL | INTEGER_LITERAL | HEX_LITERAL | OCT_LITERAL | BINARY_LITERAL | TUPLE_LITERAL) ":" EXPRESSION
+COMPACT_DICT        ::= COMPACT_FOR_LOOP+ (KEY_VAL_PAR | SINGLE_SPREAD_EXPR)
+KEY_VAL_PAR         ::= (IDENTIFIER | STRING_LITERAL | INTEGER_LITERAL | HEX_LITERAL
+                        | OCT_LITERAL | BINARY_LITERAL | TUPLE_LITERAL) ":" EXPRESSION
 
 SINGLE_SPREAD_EXPR    ::= "..." EXPRESSION
 
