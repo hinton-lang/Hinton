@@ -217,11 +217,13 @@ impl<'a> Parser<'a> {
     let mut key_val_pairs: Vec<ASTNodeIdx> = vec![];
 
     if !match_tok![self, R_CURLY] {
-      loop {
-        key_val_pairs.push(self.parse_dict_key_val_pair()?);
+      key_val_pairs.push(self.parse_dict_key_val_pair()?);
 
-        if !match_tok![self, COMMA] {
+      while match_tok![self, COMMA] {
+        if let R_CURLY = curr_tk![self] {
           break;
+        } else {
+          key_val_pairs.push(self.parse_dict_key_val_pair()?);
         }
       }
 
@@ -258,7 +260,8 @@ impl<'a> Parser<'a> {
   /// Parses a single key-value pair for a dict literal.
   ///
   /// ```bnf
-  /// KEY_VAL_PAR ::= (IDENTIFIER | STRING_LITERAL | INTEGER_LITERAL | HEX_LITERAL | OCT_LITERAL | BINARY_LITERAL | TUPLE_LITERAL) ":" EXPRESSION
+  /// KEY_VAL_PAR ::= (("[" EXPRESSION "]") | IDENTIFIER | STRING_LITERAL | INTEGER_LITERAL
+  ///             | HEX_LITERAL | OCT_LITERAL | BINARY_LITERAL | TUPLE_LITERAL |) ":" EXPRESSION
   /// ```
   pub(super) fn parse_dict_key_val_pair(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
     // If we find the spread operator, then simply return a spread expression.
@@ -288,6 +291,11 @@ impl<'a> Parser<'a> {
           value: self.parse_int_from_base(2)?,
           token_idx: self.current_pos,
         }),
+        L_BRACKET if self.advance() => {
+          let expr = self.parse_expr()?;
+          self.consume(&R_BRACKET, "Expected ']' for evaluated dict key name.")?;
+          EvaluatedDictKey(expr)
+        }
         _ => return Err(self.error_at_current("Invalid key for dict literal.")),
       };
 

@@ -73,6 +73,7 @@ pub enum ASTNodeKind {
   SpreadExpr(ASTNodeIdx),
   DictLiteral(Vec<ASTNodeIdx>),
   DictKeyValPair((ASTNodeIdx, ASTNodeIdx)),
+  EvaluatedDictKey(ASTNodeIdx),
   CallExpr(ASTCallExprNode),
 
   ExprStmt(ASTNodeIdx),

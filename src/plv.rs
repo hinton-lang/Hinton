@@ -127,6 +127,7 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
     SpreadExpr(x) => ("Spread".to_string(), json!({}), vec![ast_to_json(tokens, arena, x, "")]),
     DictLiteral(_) => ("Dict".to_string(), json!({}), vec![]),
     DictKeyValPair(_) => ("KeyVal".to_string(), json!({}), vec![]),
+    EvaluatedDictKey(_) => ("EvaluatedDictKey".to_string(), json!({}), vec![]),
     CallExpr(x) => {
       let mut children = vec![ast_to_json(tokens, arena, &x.target, "target")];
       children.append(&mut ast_list_to_json(tokens, arena, &x.val_args, "value arg"));
