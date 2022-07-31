@@ -27,7 +27,7 @@ impl<'a> Parser<'a> {
     if !match_tok![self, R_BRACKET] {
       // Get the first value of the array
       values.push(match curr_tk![self] {
-        SPREAD if self.advance() => self.parse_single_spread_expr()?,
+        TRIPLE_DOT if self.advance() => self.parse_single_spread_expr()?,
         _ => {
           let value = self.parse_expr()?;
 
@@ -72,7 +72,7 @@ impl<'a> Parser<'a> {
     if !match_tok![self, R_PAREN] {
       // Get the first value of the array
       values.push(match curr_tk![self] {
-        SPREAD if self.advance() => self.parse_single_spread_expr()?,
+        TRIPLE_DOT if self.advance() => self.parse_single_spread_expr()?,
         _ => {
           let value = self.parse_expr()?;
 
@@ -143,7 +143,7 @@ impl<'a> Parser<'a> {
       let val = match curr_tk![self] {
         R_PAREN if is_tpl => break,
         R_BRACKET if !is_tpl => break,
-        SPREAD if self.advance() => self.parse_single_spread_expr()?,
+        TRIPLE_DOT if self.advance() => self.parse_single_spread_expr()?,
         _ => self.parse_expr()?,
       };
 
@@ -170,7 +170,7 @@ impl<'a> Parser<'a> {
     }
 
     let body = match curr_tk![self] {
-      SPREAD if self.advance() => self.parse_single_spread_expr()?,
+      TRIPLE_DOT if self.advance() => self.parse_single_spread_expr()?,
       _ => self.parse_expr()?,
     };
 
@@ -182,7 +182,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// COMPACT_FOR_LOOP ::= "for" "(" FOR_LOOP_HEAD ")" ("if" "(" EXPRESSION ")")?
   /// ```
-  pub(super) fn parse_compact_for_loop(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_compact_for_loop(&mut self) -> Result<CompactForLoop, ErrorReport> {
     self.consume(&L_PAREN, "Expected '(' after 'for' keyword in compact for-loop.")?;
     let head = self.parse_for_loop_head()?;
     self.consume(&R_PAREN, "Expected ')' after loop head in compact for-loop.")?;
@@ -194,7 +194,7 @@ impl<'a> Parser<'a> {
       self.consume(&R_PAREN, "Expected ')' after 'if' head in compact for-loop.")?;
     }
 
-    self.emit(CompactForLoop(ASTCompactForLoopNode { head, cond }))
+    Ok(CompactForLoop { head, cond })
   }
 
   /// Parses a dict literal expression.
@@ -250,7 +250,7 @@ impl<'a> Parser<'a> {
     }
 
     let body = match curr_tk![self] {
-      SPREAD if self.advance() => self.parse_single_spread_expr()?,
+      TRIPLE_DOT if self.advance() => self.parse_single_spread_expr()?,
       _ => self.parse_dict_key_val_pair()?,
     };
 
@@ -265,7 +265,7 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_dict_key_val_pair(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
     // If we find the spread operator, then simply return a spread expression.
-    if match_tok![self, SPREAD] {
+    if match_tok![self, TRIPLE_DOT] {
       return self.parse_single_spread_expr();
     }
 
@@ -273,23 +273,23 @@ impl<'a> Parser<'a> {
       self.parse_tuple_literal_or_grouping_expr()?
     } else {
       let literal_or_ident = match curr_tk![self] {
-        IDENTIFIER if self.advance() => Identifier(self.current_pos),
-        STR_LIT if self.advance() => StringLiteral(self.current_pos),
+        IDENTIFIER if self.advance() => Identifier(self.current_pos.into()),
+        STR_LIT if self.advance() => StringLiteral(self.current_pos.into()),
         INT_LIT if self.advance() => Literal(ASTLiteralNode {
           value: self.parse_integer()?,
-          token_idx: self.current_pos,
+          token_idx: self.current_pos.into(),
         }),
         HEX_LIT if self.advance() => Literal(ASTLiteralNode {
           value: self.parse_int_from_base(16)?,
-          token_idx: self.current_pos,
+          token_idx: self.current_pos.into(),
         }),
         OCTAL_LIT if self.advance() => Literal(ASTLiteralNode {
           value: self.parse_int_from_base(8)?,
-          token_idx: self.current_pos,
+          token_idx: self.current_pos.into(),
         }),
         BINARY_LIT if self.advance() => Literal(ASTLiteralNode {
           value: self.parse_int_from_base(2)?,
-          token_idx: self.current_pos,
+          token_idx: self.current_pos.into(),
         }),
         L_BRACKET if self.advance() => {
           let expr = self.parse_expr()?;

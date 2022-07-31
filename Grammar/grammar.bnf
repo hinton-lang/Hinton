@@ -58,8 +58,8 @@ MATCH_PATTERN       ::= LITERAL_EXPR
                     | LITERAL_EXPR "if" EXPRESSION
                     | LITERAL_EXPR ("," MATCH_PATTERN)*
 
-WITH_AS_STMT        ::= "with" WITH_COND ("," WITH_COND)* BLOCK_STMT
-WITH_COND           ::= EXPRESSION "as" IDENTIFIER
+WITH_AS_STMT        ::= "with" WITH_STMT_HEAD ("," WITH_STMT_HEAD)* BLOCK_STMT
+WITH_STMT_HEAD      ::= EXPRESSION "as" IDENTIFIER
 
 TRY_STMT            ::= "try" BLOCK_STMT ((CATCH_PART* FINALLY_PART) | CATCH_PART+ | FINALLY_PART)
 CATCH_PART          ::= "catch" IDENTIFIER ("as" IDENTIFIER)? BLOCK_STMT
@@ -81,9 +81,10 @@ DESTRUCT_PATTERN    ::= "(" IDENTIFIER_LIST ")" // no wildcard
 
 ENUM_DECL           ::= "enum" IDENTIFIER "{" IDENTIFIER_LIST? "}"
 
-FUNC_DECL           ::= "async"? "func" "*"? IDENTIFIER "(" PARAMETERS ")" BLOCK_STMT
-PARAMETERS          ::= IDENTIFIER_LIST? DEFAULT_PARAMS? REST_PARAM?
-DEFAULT_PARAMS      ::= IDENTIFIER ":=" EXPRESSION ("," IDENTIFIER "=" EXPRESSION)*
+FUNC_DECL           ::= "async"? "func" "*"? IDENTIFIER "(" PARAMETERS? ")" BLOCK_STMT
+// TODO: The parser allows for an optional trailing comma. Define that here as well.
+PARAMETERS          ::= IDENTIFIER_LIST? NON_REQ_PARAMS? REST_PARAM?
+NON_REQ_PARAMS      ::= IDENTIFIER ("?" | (":=" EXPRESSION)) ("," IDENTIFIER ("?" | (":=" EXPRESSION)))*
 // Func declarations can only have one rest param (which must be at the end).
 // This becomes a dict with the "args" entry as a list of value arguments, and
 // "kwargs" for dict of named arguments.
@@ -153,17 +154,17 @@ INDEXING_EXPR       ::= "[" INDEXER ("," INDEXER)* "]"
 INDEXER             ::= EXPRESSION | SLICE
 SLICE               ::= EXPRESSION? ":" EXPRESSION?
 
-CALL_EXPR           ::= "(" EXPR_ARGUMENTS? REST_ARGUMENTS? NAMED_ARGUMENTS? ")"
-EXPR_ARGUMENTS      ::= EXPRESSION ("," EXPRESSION)*
-REST_ARGUMENTS      ::= SINGLE_SPREAD_EXPR ("," SINGLE_SPREAD_EXPR)*
-NAMED_ARGUMENTS     ::= IDENTIFIER ":=" EXPRESSION ("," NAMED_ARGUMENTS)*
+// TODO: The parser allows for an optional trailing comma. Define that here as well.
+CALL_EXPR           ::= "(" ((NON_VAL_ARGS | (EXPRESSION ("," EXPRESSION)*)) ("," NON_VAL_ARGS)*)? ")"
+NON_VAL_ARGS        ::= SINGLE_SPREAD_EXPR | NAMED_ARGS
+NAMED_ARGS          ::= IDENTIFIER ":=" EXPRESSION
 
 MEMBER_ACCESS_EXPR  ::= ("." | "?.") IDENTIFIER
 
 // To assign a return type to a lambda (in future version of Hinton), we will
-// follow the following syntax: `"|" PARAMETERS "|" -> IDENTIFIER? "=>" (EXPRESSION | BLOCK_EXPR_STMT)`
+// follow the following syntax: `"|" PARAMETERS "|" -> IDENTIFIER BLOCK_STMT`
 // Where the identifier represents the lambda's return type.
-LAMBDA_EXPR         ::= "|" PARAMETERS "|" "=>" (EXPRESSION | BLOCK_STMT)
+LAMBDA_EXPR         ::= "async"? "|" PARAMETERS? "|" (EXPRESSION | BLOCK_STMT)
 
 // Defaults to `null` if there is no `default` branch.
 MATCH_EXPR          ::= "match" EXPRESSION "{" MATCH_EXPR_ARM ("," MATCH_EXPR_ARM)* "}"
@@ -238,7 +239,7 @@ COMPACT_DICT        ::= COMPACT_FOR_LOOP+ (KEY_VAL_PAR | SINGLE_SPREAD_EXPR)
 KEY_VAL_PAR         ::= (("[" EXPRESSION "]") | IDENTIFIER | STRING_LITERAL | INTEGER_LITERAL
                         | HEX_LITERAL | OCT_LITERAL | BINARY_LITERAL | TUPLE_LITERAL |) ":" EXPRESSION
 
-SINGLE_SPREAD_EXPR    ::= "..." EXPRESSION
+SINGLE_SPREAD_EXPR  ::= "..." EXPRESSION
 
 // ********************************************** FIXED VALUES, SYMBOLS, AND CHAR SEQUENCES
 DIGIT               ::= "0" | DIGIT_NOT_ZERO

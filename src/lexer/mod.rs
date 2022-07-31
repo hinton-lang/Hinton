@@ -36,10 +36,7 @@ impl Lexer {
   /// let mut l = Lexer::lex("let x = 22;");
   /// ```
   pub fn lex(src: &str) -> Lexer {
-    let mut chars: Vec<char> = src.chars().collect();
-
-    // Attach the EOF character to the source vector
-    chars.push('\0');
+    let chars: Vec<char> = src.chars().collect();
 
     // Instantiate a new lexer
     let mut the_lexer = Self {
@@ -120,7 +117,7 @@ impl Lexer {
     true
   }
 
-  /// Advances to the next token.
+  /// Advances to the next char and returns consumed char.
   ///
   /// # Returns
   /// - `char`: The consumed character.
@@ -209,7 +206,7 @@ impl Lexer {
     while !self.is_at_end() {
       let c = self.get_current();
 
-      if c.is_alphabetic() || c.is_digit(10) || c == '_' {
+      if c.is_alphabetic() || c.is_ascii_digit() || c == '_' {
         self.advance();
       } else {
         break;

@@ -1,7 +1,26 @@
 use crate::lexer::tokens::{TokenIdx, TokenKind};
 use crate::objects::Object;
 
-pub type ASTNodeIdx = usize;
+#[derive(PartialEq)]
+pub struct ASTNodeIdx(pub usize);
+
+impl Into<usize> for ASTNodeIdx {
+  fn into(self) -> usize {
+    self.0
+  }
+}
+
+impl From<usize> for ASTNodeIdx {
+  fn from(x: usize) -> Self {
+    ASTNodeIdx(x)
+  }
+}
+
+impl Default for ASTNodeIdx {
+  fn default() -> Self {
+    usize::MAX.into()
+  }
+}
 
 pub struct ASTArena {
   arena: Vec<ASTArenaNode>,
@@ -10,19 +29,19 @@ pub struct ASTArena {
 impl Default for ASTArena {
   fn default() -> Self {
     Self {
-      arena: vec![ASTArenaNode::new(0, ASTNodeKind::Module(vec![]))],
+      arena: vec![ASTArenaNode::new(0.into(), ASTNodeKind::Module(vec![]))],
     }
   }
 }
 
 impl ASTArena {
   pub fn append(&mut self, val: ASTNodeKind) -> ASTNodeIdx {
-    self.arena.push(ASTArenaNode::new(self.arena.len(), val));
-    self.arena.len() - 1
+    self.arena.push(ASTArenaNode::new(self.arena.len().into(), val));
+    (self.arena.len() - 1).into()
   }
 
-  pub fn get(&self, idx: ASTNodeIdx) -> &ASTArenaNode {
-    &self.arena[idx]
+  pub fn get(&self, idx: &ASTNodeIdx) -> &ASTArenaNode {
+    &self.arena[idx.0]
   }
 
   pub fn attach_to_root(&mut self, child: ASTNodeIdx) {
@@ -55,12 +74,15 @@ impl ASTArenaNode {
 pub enum ASTNodeKind {
   Module(Vec<ASTNodeIdx>),
 
-  Reassignment(ASTReassignmentNode),
+  // Terminal Nodes
   Literal(ASTLiteralNode),
   StringLiteral(TokenIdx),
   SelfLiteral(TokenIdx),
   SuperLiteral(TokenIdx),
   Identifier(TokenIdx),
+
+  // Expression Nodes
+  Reassignment(ASTReassignmentNode),
   TernaryConditional(ASTTernaryConditionalNode),
   BinaryExpr(ASTBinaryExprNode),
   UnaryExpr(ASTUnaryExprNode),
@@ -75,7 +97,9 @@ pub enum ASTNodeKind {
   DictKeyValPair((ASTNodeIdx, ASTNodeIdx)),
   EvaluatedDictKey(ASTNodeIdx),
   CallExpr(ASTCallExprNode),
+  Lambda(ASTLambdaNode),
 
+  // Statement Nodes
   ExprStmt(ASTNodeIdx),
   BlockStmt(Vec<ASTNodeIdx>),
   LoopExprStmt(ASTLoopExprStmtNode),
@@ -87,14 +111,14 @@ pub enum ASTNodeKind {
   DelStmt(ASTNodeIdx),
   WhileLoop(ASTWhileLoopNode),
   ForLoop(ASTForLoopNode),
-  ForLoopHead(ASTForLoopHeadNode),
   CompactArrOrTpl(ASTCompactArrOrTplNode),
   CompactDict(ASTCompactDictNode),
-  CompactForLoop(ASTCompactForLoopNode),
   IfStmt(ASTIfStmtNode),
   VarConstDecl(ASTVarConsDeclNode),
   DestructingPattern(ASTDestructingPatternNode),
-  DestructingWildCard(Option<TokenIdx>),
+  DestructingWildCard(Option<ASTNodeIdx>),
+  WithStmt(ASTWithStmtNode),
+  FuncDecl(ASTFuncDeclNode),
 }
 
 pub struct ASTReassignmentNode {
@@ -221,7 +245,7 @@ impl BinaryExprKind {
 
   pub fn try_range(tk: &TokenKind) -> Option<Self> {
     match tk {
-      TokenKind::RANGE => Some(BinaryExprKind::Range),
+      TokenKind::DOUBLE_DOT => Some(BinaryExprKind::Range),
       TokenKind::RANGE_EQ => Some(BinaryExprKind::RangeEQ),
       _ => None,
     }
@@ -230,17 +254,18 @@ impl BinaryExprKind {
   pub fn try_term(tk: &TokenKind) -> Option<Self> {
     match tk {
       TokenKind::PLUS => Some(BinaryExprKind::Add),
-      TokenKind::MINUS => Some(BinaryExprKind::Subtract),
+      TokenKind::DASH => Some(BinaryExprKind::Subtract),
       _ => None,
     }
   }
 
   pub fn try_factor(tk: &TokenKind) -> Option<Self> {
     match tk {
-      TokenKind::STAR => Some(BinaryExprKind::Mult),
-      TokenKind::SLASH => Some(BinaryExprKind::Div),
       TokenKind::AT => Some(BinaryExprKind::MatMult),
-      TokenKind::MODULUS => Some(BinaryExprKind::Mod),
+      TokenKind::MOD_KW => Some(BinaryExprKind::Mod),
+      TokenKind::PERCENT => Some(BinaryExprKind::Mod),
+      TokenKind::SLASH => Some(BinaryExprKind::Div),
+      TokenKind::STAR => Some(BinaryExprKind::Mult),
       _ => None,
     }
   }
@@ -264,8 +289,8 @@ pub enum UnaryExprKind {
 impl UnaryExprKind {
   pub fn try_from_token(tk: &TokenKind) -> Option<Self> {
     match tk {
-      TokenKind::LOGIC_NOT => Some(UnaryExprKind::LogicNot),
-      TokenKind::MINUS => Some(UnaryExprKind::Negate),
+      TokenKind::BANG => Some(UnaryExprKind::LogicNot),
+      TokenKind::DASH => Some(UnaryExprKind::Negate),
       TokenKind::BIT_NOT => Some(UnaryExprKind::BitNot),
       TokenKind::NEW_KW => Some(UnaryExprKind::New),
       TokenKind::TYPEOF_KW => Some(UnaryExprKind::Typeof),
@@ -288,7 +313,7 @@ pub struct ASTArraySliceNode {
 pub struct ASTMemberAccessNode {
   pub is_safe: bool,
   pub target: ASTNodeIdx,
-  pub member: TokenIdx,
+  pub member: ASTNodeIdx, // id node
 }
 
 #[derive(Default)]
@@ -296,7 +321,15 @@ pub struct ASTCallExprNode {
   pub target: ASTNodeIdx,
   pub val_args: Vec<ASTNodeIdx>,
   pub rest_args: Vec<ASTNodeIdx>,
-  pub named_args: Vec<(TokenIdx, ASTNodeIdx)>,
+  pub named_args: Vec<(ASTNodeIdx, ASTNodeIdx)>, // (id node, value node)
+}
+
+pub struct ASTLambdaNode {
+  pub is_async: bool,
+  pub params: Vec<FuncParam>,
+  pub min_arity: u8,
+  pub max_arity: u8,
+  pub body: ASTNodeIdx, // This will always be a block stmt or single expression
 }
 
 pub struct ASTLiteralNode {
@@ -322,37 +355,33 @@ pub struct ASTLoopExprStmtNode {
 }
 
 pub struct ASTWhileLoopNode {
-  pub let_id: Option<TokenIdx>,
+  pub let_id: Option<ASTNodeIdx>,
   pub cond: ASTNodeIdx,
   pub body: ASTNodeIdx, // This will always be a block stmt
 }
 
 pub struct ASTForLoopNode {
-  pub head: ASTNodeIdx, // This will always be a for-loop head node
+  pub head: ForLoopHead,
   pub body: ASTNodeIdx, // This will always be a block stmt
 }
 
 pub struct ASTCompactArrOrTplNode {
-  // This will always be a list of compact
-  // for-loop nodes with at least one element
-  pub heads: Vec<ASTNodeIdx>,
+  pub heads: Vec<CompactForLoop>,
   pub body: ASTNodeIdx,
   pub is_tpl: bool,
 }
 
 pub struct ASTCompactDictNode {
-  // This will always be a list of compact
-  // for-loop nodes with at least one element
-  pub heads: Vec<ASTNodeIdx>,
+  pub heads: Vec<CompactForLoop>,
   pub body: ASTNodeIdx,
 }
 
-pub struct ASTCompactForLoopNode {
-  pub head: ASTNodeIdx,         // This will always be a for-loop head node
+pub struct CompactForLoop {
+  pub head: ForLoopHead,
   pub cond: Option<ASTNodeIdx>, // The if-part, it it exists
 }
 
-pub struct ASTForLoopHeadNode {
+pub struct ForLoopHead {
   pub id: ASTNodeIdx, // Can either be a single id node or destructuring pattern
   pub target: ASTNodeIdx,
 }
@@ -372,4 +401,36 @@ pub struct ASTVarConsDeclNode {
 pub struct ASTDestructingPatternNode {
   // List of identifier nodes, and optionally, at most one wild-card node.
   pub patterns: Vec<ASTNodeIdx>,
+}
+
+pub struct ASTWithStmtNode {
+  pub heads: Vec<WithStmtHead>,
+  pub body: ASTNodeIdx,
+}
+
+pub struct WithStmtHead {
+  pub expr: ASTNodeIdx,
+  pub id: ASTNodeIdx,
+}
+
+pub struct ASTFuncDeclNode {
+  pub is_async: bool,
+  pub name: ASTNodeIdx,
+  pub is_gen: bool,
+  pub params: Vec<FuncParam>,
+  pub min_arity: u8,
+  pub max_arity: u8,
+  pub body: ASTNodeIdx, // This will always be a block stmt
+}
+
+pub struct FuncParam {
+  pub name: ASTNodeIdx,
+  pub kind: FuncParamKind,
+}
+
+pub enum FuncParamKind {
+  Required,
+  Named(ASTNodeIdx),
+  Optional,
+  Rest,
 }

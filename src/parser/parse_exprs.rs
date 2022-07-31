@@ -1,10 +1,11 @@
 use crate::errors::ErrorReport;
+use crate::lexer::tokens::TokenIdx;
 use crate::lexer::tokens::TokenKind::*;
 use crate::objects::Object;
 use crate::parser::ast::ASTNodeKind::*;
 use crate::parser::ast::*;
 use crate::parser::Parser;
-use crate::{check_tok, curr_tk, match_tok};
+use crate::{check_tok, consume_id, curr_tk, match_tok};
 
 macro_rules! append_binary_expr {
   ($s:ident, $l:expr, $r:expr, $k:expr) => {
@@ -33,7 +34,7 @@ impl<'a> Parser<'a> {
     // Node span resolution gets the `col_start` of the left-most token in the node
     // and the `col_end` of the right-most token in the node. This way we can emit
     // error messages that are easier to understand.
-    let target_tok = self.current_pos - 1;
+    let target_tok = TokenIdx::from(self.current_pos - 1);
 
     if let Some(kind) = ASTReassignmentKind::try_from_token(self.get_curr_tk()) {
       self.advance(); // Consume the token
@@ -42,7 +43,7 @@ impl<'a> Parser<'a> {
       let value = self.parse_expr()?;
 
       // Returns the assignment expression of the corresponding type
-      return match &self.ast.get(target).kind {
+      return match &self.ast.get(&target).kind {
         // In the compiler, we simply check the kind of target we have
         // to emit the correct set of bytecode instructions.
         Identifier(_) | MemberAccess(_) | Indexing(_) => {
@@ -105,7 +106,7 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_logic_or(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
     let mut left = self.parse_logic_and()?;
 
-    while match_tok![self, LOGIC_OR] {
+    while match_tok![self, DOUBLE_VERT_BAR | OR_KW] {
       let right = self.parse_logic_and()?;
       left = append_binary_expr![self, left, right, BinaryExprKind::LogicOR];
     }
@@ -121,7 +122,7 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_logic_and(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
     let mut left = self.parse_bit_or()?;
 
-    while match_tok![self, LOGIC_AND] {
+    while match_tok![self, DOUBLE_AMPERSAND | AND_KW] {
       let right = self.parse_bit_or()?;
       left = append_binary_expr![self, left, right, BinaryExprKind::LogicAND];
     }
@@ -137,7 +138,7 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_bit_or(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
     let mut left = self.parse_bit_xor()?;
 
-    while match_tok![self, BIT_OR] {
+    while match_tok![self, VERT_BAR] {
       let right = self.parse_bit_xor()?;
       left = append_binary_expr![self, left, right, BinaryExprKind::BitOR];
     }
@@ -169,7 +170,7 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_bit_and(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
     let mut left = self.parse_equality()?;
 
-    while match_tok![self, BIT_AND] {
+    while match_tok![self, AMPERSAND] {
       let right = self.parse_equality()?;
       left = append_binary_expr![self, left, right, BinaryExprKind::BitAND];
     }
@@ -343,8 +344,10 @@ impl<'a> Parser<'a> {
   ///              | LARGE_EXPR (INDEXING_EXPR | CALL_EXPR | MEMBER_ACCESS_EXPR)*
   /// ```
   pub(super) fn parse_primary(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
-    if match_tok![self, BIT_OR] {
-      return self.parse_lambda_literal();
+    if match_tok![self, ASYNC_KW] {
+      return self.parse_lambda_literal(true);
+    } else if match_tok![self, VERT_BAR] || match_tok![self, DOUBLE_VERT_BAR] {
+      return self.parse_lambda_literal(false);
     }
 
     let mut expr = self.parse_large_expr()?;
@@ -364,10 +367,42 @@ impl<'a> Parser<'a> {
   /// Parses a lambda literal expression.
   ///
   /// ```bnf
-  /// LAMBDA_EXPR ::= "|" PARAMETERS "|" "=>" (EXPRESSION | BLOCK_STMT)
+  /// LAMBDA_EXPR ::= "async"? "|" PARAMETERS? "|" (EXPRESSION | BLOCK_STMT)
   /// ```
-  pub(super) fn parse_lambda_literal(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
-    todo!("Parse lambda literal body")
+  pub(super) fn parse_lambda_literal(&mut self, is_async: bool) -> Result<ASTNodeIdx, ErrorReport> {
+    let should_parse_params = if is_async {
+      if match_tok![self, DOUBLE_VERT_BAR] {
+        false
+      } else if match_tok![self, VERT_BAR] {
+        true
+      } else {
+        return Err(self.error_at_current("Expected '|' for async lambda parameters."));
+      }
+    } else {
+      matches!(self.get_prev_tk(), VERT_BAR)
+    };
+
+    let (min_arity, max_arity, params) = if should_parse_params {
+      let params = self.parse_func_params(true)?;
+      self.consume(&VERT_BAR, "Expected '|' after lambda parameter list.")?;
+      params
+    } else {
+      (0u8, 0u8, vec![])
+    };
+
+    let body = if match_tok![self, L_CURLY] {
+      self.parse_block_stmt()?
+    } else {
+      self.parse_expr()?
+    };
+
+    self.emit(Lambda(ASTLambdaNode {
+      is_async,
+      params,
+      min_arity,
+      max_arity,
+      body,
+    }))
   }
 
   /// Parses a large expression.
@@ -440,53 +475,43 @@ impl<'a> Parser<'a> {
   /// Parses a function call expression.
   ///
   /// ```bnf
-  /// CALL_EXPR        ::= "(" EXPR_ARGUMENTS? REST_ARGUMENTS? NAMED_ARGUMENTS? ")"
-  /// EXPR_ARGUMENTS   ::= EXPRESSION ("," EXPRESSION)*
-  /// REST_ARGUMENTS   ::= SINGLE_REST_EXPR ("," SINGLE_REST_EXPR)*
-  /// NAMED_ARGUMENTS  ::= IDENTIFIER ":=" EXPRESSION ("," NAMED_ARGUMENTS)*
+  /// CALL_EXPR     ::= "(" ((NON_VAL_ARGS | (EXPRESSION ("," EXPRESSION)*)) ("," NON_VAL_ARGS)*)? ")"
+  /// NON_VAL_ARGS  ::= SINGLE_SPREAD_EXPR | NAMED_ARGS
+  /// NAMED_ARGS    ::= IDENTIFIER ":=" EXPRESSION
   /// ```
   pub(super) fn parse_call_expr(&mut self, target: ASTNodeIdx) -> Result<ASTNodeIdx, ErrorReport> {
     if match_tok![self, R_PAREN] {
       return self.emit(CallExpr(ASTCallExprNode::default()));
     }
 
-    let mut has_rest_args = false;
-    let mut has_named_args = false;
+    let mut has_non_val_arg = false;
     let mut val_args = vec![];
     let mut rest_args = vec![];
     let mut named_args = vec![];
 
     loop {
       match curr_tk![self] {
-        SPREAD => {
-          if has_named_args {
-            return Err(self.error_at_current("Rest arguments must appear before named arguments."));
-          }
-
-          self.advance();
+        TRIPLE_DOT if self.advance() => {
           rest_args.push(self.parse_single_spread_expr()?);
-          has_rest_args = true;
+          has_non_val_arg = true;
         }
         IDENTIFIER if matches![self.get_next_tk(), COLON_EQUALS] => {
-          let tok_id = self.consume(&IDENTIFIER, "Expected identifier for named argument.")?;
+          let tok_id = consume_id![self, "Expected identifier for named argument."]?;
           self.consume(&COLON_EQUALS, "Expected ':=' for named argument.")?;
           named_args.push((tok_id, self.parse_expr()?));
-          has_named_args = true;
+          has_non_val_arg = true;
         }
         _ => {
-          if has_named_args {
-            return Err(self.error_at_current("Value arguments must appear before named arguments."));
-          }
-
-          if has_rest_args {
-            return Err(self.error_at_current("Value arguments must appear before rest arguments."));
-          }
-
           val_args.push(self.parse_expr()?);
+
+          if has_non_val_arg {
+            return Err(self.error_at_current("Value arguments cannot follow named or rest arguments."));
+          }
         }
       }
 
-      if !match_tok![self, COMMA] {
+      // Optional trailing comma
+      if !check_tok![self, COMMA] || (match_tok![self, COMMA] && check_tok![self, R_PAREN]) {
         break;
       }
     }
@@ -513,8 +538,7 @@ impl<'a> Parser<'a> {
       _ => unreachable!("Should have parsed either a `.` or `?.` by now."),
     };
 
-    let member = self.consume(&IDENTIFIER, "Expected member name after the dot.")?;
-
+    let member = consume_id![self, "Expected member name after the dot."]?;
     self.emit(MemberAccess(ASTMemberAccessNode { is_safe, target, member }))
   }
 
@@ -541,7 +565,7 @@ impl<'a> Parser<'a> {
       // Strings get converted to an Object during compilation to prevent
       // duplicating the same string (which may be very large) for both
       // the AST and the token vector.
-      STR_LIT => return self.emit(StringLiteral(self.current_pos - 1)),
+      STR_LIT => return self.emit(StringLiteral((self.current_pos - 1).into())),
 
       // Atomic literals
       TRUE_LIT => Object::Bool(true),
@@ -549,9 +573,9 @@ impl<'a> Parser<'a> {
       NONE_LIT => Object::None,
 
       // Symbolic literals
-      IDENTIFIER => return self.emit(Identifier(self.current_pos - 1)),
-      SELF_KW => return self.emit(SelfLiteral(self.current_pos - 1)),
-      SUPER_KW => return self.emit(SuperLiteral(self.current_pos - 1)),
+      IDENTIFIER => return self.emit(Identifier((self.current_pos - 1).into())),
+      SELF_KW => return self.emit(SelfLiteral((self.current_pos - 1).into())),
+      SUPER_KW => return self.emit(SuperLiteral((self.current_pos - 1).into())),
 
       // Collection literals
       L_BRACKET => return self.parse_array_literal(),
@@ -564,7 +588,7 @@ impl<'a> Parser<'a> {
 
     self.emit(Literal(ASTLiteralNode {
       value,
-      token_idx: self.current_pos - 1,
+      token_idx: (self.current_pos - 1).into(),
     }))
   }
 

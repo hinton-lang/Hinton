@@ -46,7 +46,7 @@ pub fn export(lexer: Option<&Lexer>, ast: Option<&ASTArena>, _module: Option<&Fu
     Some(p) => json!({
        "start": timers.2,
        "end": timers.3,
-       "ast": ast_to_json(&lexer.unwrap().tokens, p, &0, "")
+       "ast": ast_to_json(&lexer.unwrap().tokens, p, &0.into(), "")
     }),
     None => json!({}),
   };
@@ -76,18 +76,18 @@ pub fn export(lexer: Option<&Lexer>, ast: Option<&ASTArena>, _module: Option<&Fu
 }
 
 fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str) -> Value {
-  let (name, mut attributes, children) = match &arena.get(*idx).kind {
+  let (name, mut attributes, children) = match &arena.get(idx).kind {
     Module(x) => ("Module", json!({}), ast_list_to_json(tokens, arena, x, "")),
     Reassignment(_) => ("Reassignment", json!({}), vec![]),
     Literal(x) => (
-      tokens[x.token_idx].lexeme.as_str(),
+      tokens[x.token_idx.0].lexeme.as_str(),
       json!({ "kind": "literal" }),
       vec![],
     ),
     StringLiteral(_) => ("String", json!({}), vec![]),
     SelfLiteral(_) => ("Self", json!({}), vec![]),
     SuperLiteral(_) => ("Super", json!({}), vec![]),
-    Identifier(x) => (tokens[*x].lexeme.as_str(), json!({ "kind": "identifier" }), vec![]),
+    Identifier(x) => (tokens[x.0].lexeme.as_str(), json!({ "kind": "identifier" }), vec![]),
     TernaryConditional(_) => ("Ternary", json!({}), vec![]),
     BinaryExpr(x) => (
       "Binary",
@@ -106,12 +106,12 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
     ArraySlice(x) => {
       let mut children: Vec<Value> = vec![];
 
-      if let Some(upper) = x.upper {
-        children.push(ast_to_json(tokens, arena, &upper, "upper"))
+      if let Some(upper) = &x.upper {
+        children.push(ast_to_json(tokens, arena, upper, "upper"))
       }
 
-      if let Some(lower) = x.lower {
-        children.push(ast_to_json(tokens, arena, &lower, "lower"))
+      if let Some(lower) = &x.lower {
+        children.push(ast_to_json(tokens, arena, lower, "lower"))
       }
 
       ("Slice", json!({}), children)
@@ -143,14 +143,15 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
     DelStmt(_) => ("Del Stmt", json!({}), vec![]),
     WhileLoop(_) => ("While Loop Stmt", json!({}), vec![]),
     ForLoop(_) => ("For Loop Stmt", json!({}), vec![]),
-    ForLoopHead(_) => ("For Loop Head", json!({}), vec![]),
     CompactArrOrTpl(_) => ("Compact Arr or Tpl", json!({}), vec![]),
     CompactDict(_) => ("Compact Dict", json!({}), vec![]),
-    CompactForLoop(_) => ("Compact For Loop", json!({}), vec![]),
     IfStmt(_) => ("IfStmt", json!({}), vec![]),
     VarConstDecl(_) => ("VarConstDecl", json!({}), vec![]),
     DestructingPattern(_) => ("DestructingPattern", json!({}), vec![]),
     DestructingWildCard(_) => ("DestructingWildCard", json!({}), vec![]),
+    WithStmt(_) => ("WithStmt", json!({}), vec![]),
+    FuncDecl(_) => ("FuncDecl", json!({}), vec![]),
+    Lambda(_) => ("Lambda", json!({}), vec![]),
   };
 
   if !bname.is_empty() {

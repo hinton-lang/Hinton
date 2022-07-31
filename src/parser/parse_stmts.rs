@@ -1,9 +1,10 @@
 use crate::errors::ErrorReport;
+use crate::lexer::tokens::TokenIdx;
 use crate::lexer::tokens::TokenKind::*;
 use crate::parser::ast::ASTNodeKind::*;
 use crate::parser::ast::*;
 use crate::parser::Parser;
-use crate::{curr_tk, match_tok};
+use crate::{consume_id, curr_tk, match_tok};
 
 impl<'a> Parser<'a> {
   /// Parses a module.
@@ -38,7 +39,7 @@ impl<'a> Parser<'a> {
       // Private statement
       match self.parse_stmt() {
         Ok(node) => {
-          if node == 0 {
+          if node == 0.into() {
             // Because the first element of the AST Arena is the module node,
             // no child node should be able to reference it. We can use this fact
             // to ignore nodes in the tree (e.g., extra semicolons). So, If the
@@ -72,7 +73,7 @@ impl<'a> Parser<'a> {
       CONTINUE_KW if self.advance() => self.parse_continue_stmt(),
       RETURN_KW if self.advance() => self.parse_return_stmt(),
       YIELD_KW if self.advance() => self.parse_yield_stmt(),
-      WITH_KW if self.advance() => todo!("Parse with statement."),
+      WITH_KW if self.advance() => self.parse_with_as_stmt(),
       TRY_KW if self.advance() => todo!("Parse try statement."),
       THROW_KW if self.advance() => self.parse_throw_stmt(),
       DEL_KW if self.advance() => self.parse_del_stmt(),
@@ -83,10 +84,11 @@ impl<'a> Parser<'a> {
       ENUM_KW if self.advance() => todo!("Parse enum declaration."),
       IMPORT_KW if self.advance() => todo!("Parse import declaration."),
       AT if self.advance() => todo!("Parse decorator."),
-      FUNC_KW if self.advance() => todo!("Parse func declaration."),
+      FUNC_KW if self.advance() => self.parse_func_stmt(false),
+      ASYNC_KW if self.advance() => self.parse_func_stmt(true),
       CLASS_KW if self.advance() => todo!("Parse class declaration."),
       PUB_KW if self.advance() => Err(self.error_at_current("Keyword 'pub' not allowed here.")),
-      SEMICOLON if self.advance() => Ok(0), // See comments in `parse_module` method.
+      SEMICOLON if self.advance() => Ok(0.into()), // See comments in `parse_module` method.
       _ => self.parse_expr_stmt(),
     }
   }
@@ -137,7 +139,7 @@ impl<'a> Parser<'a> {
     let mut let_id = None;
 
     if match_tok![self, LET_KW] {
-      let_id = Some(self.consume(&IDENTIFIER, "Expected identifier for while-let statement.")?);
+      let_id = Some(consume_id![self, "Expected identifier for while-let statement."]?);
       self.consume(&EQUALS, "Expected '=' after while-let statement identifier.")?;
     }
 
@@ -165,17 +167,16 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// FOR_LOOP_HEAD ::= (IDENTIFIER | DESTRUCT_PATTERN) "in" EXPRESSION
   /// ```
-  pub(super) fn parse_for_loop_head(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_for_loop_head(&mut self) -> Result<ForLoopHead, ErrorReport> {
     let id = if match_tok![self, L_PAREN] {
       self.parse_destructing_pattern("'for' loop")?
     } else {
-      let id = self.consume(&IDENTIFIER, "Expected identifier in 'for' loop")?;
-      self.emit(Identifier(id))?
+      consume_id![self, "Expected identifier in 'for' loop"]?
     };
 
     self.consume(&IN_KW, "Expected keyword 'in' after for-loop identifiers.")?;
     let target = self.parse_expr()?;
-    self.emit(ForLoopHead(ASTForLoopHeadNode { id, target }))
+    Ok(ForLoopHead { id, target })
   }
 
   /// Parses a break statement.
@@ -246,10 +247,10 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_del_stmt(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
     let target = self.parse_expr()?;
     // TODO: Implement node span resolution and get the span of the target instead.
-    let target_tok = self.current_pos - 1;
+    let target_tok = TokenIdx::from(self.current_pos - 1);
 
     // Only IDENTIFIER, INDEXING_EXPR, or MEMBER_ACCESS_EXPR can be deleted.
-    let stmt = match &self.ast.get(target).kind {
+    let stmt = match &self.ast.get(&target).kind {
       Identifier(_) | Indexing(_) | MemberAccess(_) => target,
       _ => return Err(self.error_at_tok(target_tok, "Invalid del target.")),
     };
@@ -279,5 +280,34 @@ impl<'a> Parser<'a> {
 
     let node = ASTIfStmtNode { cond, true_branch, else_branch };
     self.emit(IfStmt(node))
+  }
+
+  /// Parses a with-as statement.
+  ///
+  /// ```bnf
+  /// WITH_AS_STMT ::= "with" WITH_STMT_HEAD ("," WITH_STMT_HEAD)* BLOCK_STMT
+  /// ```
+  pub(super) fn parse_with_as_stmt(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+    let mut heads = vec![self.parse_with_stmt_head()?];
+
+    while match_tok![self, COMMA] {
+      heads.push(self.parse_with_stmt_head()?);
+    }
+
+    self.consume(&L_CURLY, "Expected block as 'with' statement body.")?;
+    let body = self.parse_block_stmt()?;
+    self.emit(WithStmt(ASTWithStmtNode { heads, body }))
+  }
+
+  /// Parses a single with-as statement head.
+  ///
+  /// ```bnf
+  /// WITH_STMT_HEAD ::= EXPRESSION "as" IDENTIFIER
+  /// ```
+  pub(super) fn parse_with_stmt_head(&mut self) -> Result<WithStmtHead, ErrorReport> {
+    let expr = self.parse_expr()?;
+    self.consume(&AS_KW, "Expected 'as' keyword in 'with' statement head.")?;
+    let id = consume_id![self, "Expected identifier in 'with' statement head."]?;
+    Ok(WithStmtHead { expr, id })
   }
 }

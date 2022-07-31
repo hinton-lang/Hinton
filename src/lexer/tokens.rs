@@ -1,4 +1,22 @@
-pub type TokenIdx = usize;
+pub struct TokenIdx(pub usize);
+
+impl Into<usize> for TokenIdx {
+  fn into(self) -> usize {
+    self.0
+  }
+}
+
+impl From<usize> for TokenIdx {
+  fn from(x: usize) -> Self {
+    TokenIdx(x)
+  }
+}
+
+impl Default for TokenIdx {
+  fn default() -> Self {
+    usize::MAX.into()
+  }
+}
 
 // A token that represents a single unit of Hinton code.
 #[derive(Clone)]
@@ -21,64 +39,64 @@ pub struct Token {
 #[repr(u8)]
 pub enum TokenKind {
   // Symbol-based tokens
-  AT,              // @
-  AT_EQ,           // @=
-  BIT_AND,         // &
-  BIT_AND_EQ,      // &=
-  BIT_L_SHIFT,     // <<
-  BIT_L_SHIFT_EQ,  // <<=
-  BIT_NOT,         // ~
-  BIT_OR,          // |
-  BIT_OR_EQ,       // |=
-  BIT_R_SHIFT,     // >>
-  BIT_R_SHIFT_EQ,  // >>=
-  BIT_XOR,         // ^
-  BIT_XOR_EQ,      // ^=
-  COLON,           // :
-  COLON_EQUALS,    // :=
-  COMMA,           // ,
-  DOT,             // .
-  EQUALS,          // =
-  POW,             // **
-  POW_EQUALS,      // **=
-  GREATER_THAN,    // >
-  GREATER_THAN_EQ, // >=
-  LESS_THAN,       // <
-  LESS_THAN_EQ,    // <=
-  LOGIC_AND,       // &&, and
-  LOGIC_AND_EQ,    // &&=
-  LOGIC_EQ,        // ==
-  LOGIC_NOT,       // !
-  LOGIC_NOT_EQ,    // !=
-  LOGIC_OR,        // ||, or
-  LOGIC_OR_EQ,     // ||=
-  L_BRACKET,       // [
-  L_CURLY,         // {
-  L_PAREN,         // (
-  MINUS,           // -
-  MINUS_EQ,        // -=
-  MODULUS,         // %, mod
-  MOD_EQ,          // %=
-  NONISH,          // ??
-  NONISH_EQ,       // ??=
-  PIPE,            // |>
-  PLUS,            // +
-  PLUS_EQ,         // +=
-  QUESTION,        // ?
-  RANGE,           // ..
-  RANGE_EQ,        // ..= (NOTE: This is not an assignment operator)
-  R_BRACKET,       // ]
-  R_CURLY,         // }
-  R_PAREN,         // )
-  SAFE_ACCESS,     // ?.
-  SEMICOLON,       // ;
-  SLASH,           // /
-  SLASH_EQ,        // /=
-  SPREAD,          // ...
-  STAR,            // *
-  STAR_EQ,         // *=
-  THICK_ARROW,     // =>
-  THIN_ARROW,      // ->
+  AMPERSAND,        // &
+  AT,               // @
+  AT_EQ,            // @=
+  BANG,             // !
+  BIT_AND_EQ,       // &=
+  BIT_L_SHIFT,      // <<
+  BIT_L_SHIFT_EQ,   // <<=
+  BIT_NOT,          // ~
+  BIT_OR_EQ,        // |=
+  BIT_R_SHIFT,      // >>
+  BIT_R_SHIFT_EQ,   // >>=
+  BIT_XOR,          // ^
+  BIT_XOR_EQ,       // ^=
+  COLON,            // :
+  COLON_EQUALS,     // :=
+  COMMA,            // ,
+  DASH,             // -
+  DOT,              // .
+  DOUBLE_DOT,       // ..
+  EQUALS,           // =
+  GREATER_THAN,     // >
+  GREATER_THAN_EQ,  // >=
+  LESS_THAN,        // <
+  LESS_THAN_EQ,     // <=
+  DOUBLE_AMPERSAND, // &&
+  LOGIC_AND_EQ,     // &&=
+  LOGIC_EQ,         // ==
+  LOGIC_NOT_EQ,     // !=
+  DOUBLE_VERT_BAR,  // ||
+  LOGIC_OR_EQ,      // ||=
+  L_BRACKET,        // [
+  L_CURLY,          // {
+  L_PAREN,          // (
+  MINUS_EQ,         // -=
+  PERCENT,          // %
+  MOD_EQ,           // %=
+  NONISH,           // ??
+  NONISH_EQ,        // ??=
+  PIPE,             // |>
+  PLUS,             // +
+  PLUS_EQ,          // +=
+  POW,              // **
+  POW_EQUALS,       // **=
+  QUESTION,         // ?
+  RANGE_EQ,         // ..= (NOTE: This is not an assignment operator)
+  R_BRACKET,        // ]
+  R_CURLY,          // }
+  R_PAREN,          // )
+  SAFE_ACCESS,      // ?.
+  SEMICOLON,        // ;
+  SLASH,            // /
+  SLASH_EQ,         // /=
+  STAR,             // *
+  STAR_EQ,          // *=
+  THICK_ARROW,      // =>
+  THIN_ARROW,       // ->
+  TRIPLE_DOT,       // ...
+  VERT_BAR,         // |
 
   // Special Token for Str interpolation
   START_INTERPOL_STR,
@@ -124,6 +142,7 @@ pub enum TokenKind {
   LET_KW,
   LOOP_KW,
   MATCH_KW,
+  MOD_KW,
   NEW_KW,
   OVERRIDE_KW,
   PUB_KW,
@@ -137,6 +156,8 @@ pub enum TokenKind {
   WHILE_KW,
   WITH_KW,
   YIELD_KW,
+  OR_KW,
+  AND_KW,
 
   /// Other Tokens
   EOF,
@@ -176,7 +197,7 @@ impl TokenKind {
 pub fn make_identifier_kind(id: &str) -> TokenKind {
   match id {
     "abstract" => TokenKind::ABSTRACT_KW,
-    "and" => TokenKind::LOGIC_AND,
+    "and" => TokenKind::AND_KW,
     "as" => TokenKind::AS_KW,
     "async" => TokenKind::ASYNC_KW,
     "await" => TokenKind::AWAIT_KW,
@@ -200,9 +221,9 @@ pub fn make_identifier_kind(id: &str) -> TokenKind {
     "let" => TokenKind::LET_KW,
     "loop" => TokenKind::LOOP_KW,
     "match" => TokenKind::MATCH_KW,
-    "mod" => TokenKind::MODULUS,
+    "mod" => TokenKind::MOD_KW,
     "new" => TokenKind::NEW_KW,
-    "or" => TokenKind::LOGIC_OR,
+    "or" => TokenKind::OR_KW,
     "override" => TokenKind::OVERRIDE_KW,
     "pub" => TokenKind::PUB_KW,
     "return" => TokenKind::RETURN_KW,

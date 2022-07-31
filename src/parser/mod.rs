@@ -34,6 +34,14 @@ macro_rules! curr_tk {
   };
 }
 
+#[macro_export]
+macro_rules! consume_id {
+  ($s:ident, $err:expr) => {{
+    let tok_idx = $s.consume(&IDENTIFIER, $err)?;
+    $s.emit(Identifier(tok_idx.into()))
+  }};
+}
+
 /// Represents Hinton's parser, which converts source text into
 /// an Abstract Syntax Tree representation of the program.
 pub struct Parser<'a> {
@@ -122,7 +130,7 @@ impl<'a> Parser<'a> {
   fn consume(&mut self, tok_type: &TokenKind, message: &str) -> Result<TokenIdx, ErrorReport> {
     if self.check(tok_type) {
       self.advance();
-      return Ok(self.current_pos - 1);
+      return Ok((self.current_pos - 1).into());
     }
 
     if let SEMICOLON = tok_type {
@@ -161,7 +169,7 @@ impl<'a> Parser<'a> {
   /// # Parameters
   /// - `message`: The error message to display.
   fn error_at_current(&mut self, message: &str) -> ErrorReport {
-    self.error_at_tok(self.current_pos, message)
+    self.error_at_tok(self.current_pos.into(), message)
   }
 
   /// Emits a compiler error from the previous token.
@@ -169,7 +177,7 @@ impl<'a> Parser<'a> {
   /// # Parameters
   /// - `message`: The error message to display.
   fn error_at_previous(&mut self, message: &str) -> ErrorReport {
-    self.error_at_tok(self.current_pos - 1, message)
+    self.error_at_tok((self.current_pos - 1).into(), message)
   }
 
   pub fn emit(&mut self, node: ASTNodeKind) -> Result<ASTNodeIdx, ErrorReport> {
@@ -182,7 +190,7 @@ impl<'a> Parser<'a> {
   /// - `tok`: The token that caused the error.
   /// - `message`: The error message to display.
   fn error_at_tok(&mut self, tok_idx: TokenIdx, message: &str) -> ErrorReport {
-    let tok = &self.tokens[tok_idx];
+    let tok: &Token = &self.tokens[tok_idx.0];
 
     // Construct the error message.
     let msg = format!(

@@ -18,6 +18,7 @@ impl Lexer {
 
       // If we are at the end, return the EOF token.
       if self.is_at_end() {
+        self.make_eof_token();
         return;
       }
 
@@ -55,8 +56,6 @@ impl Lexer {
 
   fn next(&mut self) -> Token {
     match self.advance() {
-      '\0' => self.make_token(EOF),
-
       '(' => self.make_token(L_PAREN),
       ')' => self.make_token(R_PAREN),
       '[' => self.make_token(L_BRACKET),
@@ -74,7 +73,7 @@ impl Lexer {
       // "-", "-=", "->"
       '-' if self.matches('=') => self.make_token(MINUS_EQ),
       '-' if self.matches('>') => self.make_token(THIN_ARROW),
-      '-' => self.make_token(MINUS),
+      '-' => self.make_token(DASH),
 
       // "*", "*=", "**", "**="
       '*' if self.matches_two('*', '=') => self.make_token(POW_EQUALS),
@@ -88,7 +87,7 @@ impl Lexer {
 
       // "%", "%="
       '%' if self.matches('=') => self.make_token(MOD_EQ),
-      '%' => self.make_token(MODULUS),
+      '%' => self.make_token(PERCENT),
 
       // "@", "@="
       '@' if self.matches('=') => self.make_token(AT_EQ),
@@ -96,7 +95,7 @@ impl Lexer {
 
       // "!", "!="
       '!' if self.matches('=') => self.make_token(LOGIC_NOT_EQ),
-      '!' => self.make_token(LOGIC_NOT),
+      '!' => self.make_token(BANG),
 
       // "=", "==", "=>"
       '=' if self.matches('=') => self.make_token(LOGIC_EQ),
@@ -113,16 +112,16 @@ impl Lexer {
 
       // "&&", "&&=", "&", "&="
       '&' if self.matches_two('&', '=') => self.make_token(LOGIC_AND_EQ),
-      '&' if self.matches('&') => self.make_token(LOGIC_AND),
+      '&' if self.matches('&') => self.make_token(DOUBLE_AMPERSAND),
       '&' if self.matches('=') => self.make_token(BIT_AND_EQ),
-      '&' => self.make_token(BIT_AND),
+      '&' => self.make_token(AMPERSAND),
 
       // "|", "||", "||=", "|=", "|>"
       '|' if self.matches_two('|', '=') => self.make_token(LOGIC_OR_EQ),
-      '|' if self.matches('|') => self.make_token(LOGIC_OR),
+      '|' if self.matches('|') => self.make_token(DOUBLE_VERT_BAR),
       '|' if self.matches('=') => self.make_token(BIT_OR_EQ),
       '|' if self.matches('>') => self.make_token(PIPE),
-      '|' => self.make_token(BIT_OR),
+      '|' => self.make_token(VERT_BAR),
 
       // "?", "??", "??=", "?."
       '?' if self.matches_two('?', '=') => self.make_token(NONISH_EQ),
@@ -132,9 +131,9 @@ impl Lexer {
 
       // ".", "..", "..=", "...", <leading floating-point number>
       '.' if self.get_current().is_ascii_digit() => self.make_numeric_token(),
-      '.' if self.matches_two('.', '.') => self.make_token(SPREAD),
+      '.' if self.matches_two('.', '.') => self.make_token(TRIPLE_DOT),
       '.' if self.matches_two('.', '=') => self.make_token(RANGE_EQ),
-      '.' if self.matches('.') => self.make_token(RANGE),
+      '.' if self.matches('.') => self.make_token(DOUBLE_DOT),
       '.' => self.make_token(DOT),
 
       // "<", "<=", "<<", "<<="
@@ -160,5 +159,15 @@ impl Lexer {
       // Everything else is an error token
       _ => self.make_error_token("Unexpected character."),
     }
+  }
+
+  fn make_eof_token(&mut self) {
+    self.tokens.push(Token {
+      line_num: self.line_num,
+      column_start: self.current,
+      column_end: self.current,
+      kind: EOF,
+      lexeme: "\0".to_string(),
+    });
   }
 }
