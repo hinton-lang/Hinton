@@ -42,6 +42,16 @@ macro_rules! consume_id {
   }};
 }
 
+#[macro_export]
+macro_rules! guard_error_token {
+  ($s:ident) => {
+    if match_tok![$s, ERROR] {
+      let err_msg = $s.prev_tok().lexeme.to_string();
+      return Err($s.error_at_previous(&err_msg));
+    }
+  };
+}
+
 /// Represents Hinton's parser, which converts source text into
 /// an Abstract Syntax Tree representation of the program.
 pub struct Parser<'a> {

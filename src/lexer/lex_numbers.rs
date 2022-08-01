@@ -40,8 +40,10 @@ impl Lexer {
       ('0', 'x') | ('0', 'X') => expect_num_kind![self, 16, ExNumType::Hex],
       ('0', 'o') | ('0', 'O') => expect_num_kind![self, 8, ExNumType::Oct],
       ('0', 'b') | ('0', 'B') => expect_num_kind![self, 2, ExNumType::Bin],
-      ('0', '0') => return self.make_error_token("Too many leading zeros in numeric literal."),
-      ('0', b) if b.is_ascii_digit() => return self.make_error_token("Leading zeros not allowed in numeric literal."),
+      ('0', '0') => return self.make_error_token("Too many leading zeros in numeric literal.", true),
+      ('0', b) if b.is_ascii_digit() => {
+        return self.make_error_token("Leading zeros not allowed in numeric literal.", true)
+      }
       ('.', _) => (10, ExNumType::Flt),
       _ => (10, ExNumType::IntOrFlt),
     };
@@ -56,19 +58,19 @@ impl Lexer {
         }
 
         if is_scientific {
-          return self.make_error_token("The exponent of a scientific literal must be an integer.");
+          return self.make_error_token("The exponent of a scientific literal must be an integer.", true);
         }
 
         match num_kind {
-          ExNumType::Hex => return self.make_error_token("Unexpected '.' in hexadecimal literal."),
-          ExNumType::Oct => return self.make_error_token("Unexpected '.' in octal literal."),
-          ExNumType::Bin => return self.make_error_token("Unexpected '.' in binary literal."),
-          ExNumType::Flt => return self.make_error_token("Unexpected extra '.' in float literal."),
+          ExNumType::Hex => return self.make_error_token("Unexpected '.' in hexadecimal literal.", true),
+          ExNumType::Oct => return self.make_error_token("Unexpected '.' in octal literal.", true),
+          ExNumType::Bin => return self.make_error_token("Unexpected '.' in binary literal.", true),
+          ExNumType::Flt => return self.make_error_token("Unexpected extra '.' in float literal.", true),
           _ => {}
         };
 
         if has_period {
-          return self.make_error_token("Unexpected extra '.' in float literal.");
+          return self.make_error_token("Unexpected extra '.' in float literal.", true);
         } else {
           has_period = true;
         }
@@ -81,23 +83,23 @@ impl Lexer {
         }
 
         match self.get_previous() {
-          '_' => return self.make_error_token("Too many underscores in numeric literal separator."),
-          '.' => return self.make_error_token("Separator not allowed after floating point."),
+          '_' => return self.make_error_token("Too many underscores in numeric literal separator.", true),
+          '.' => return self.make_error_token("Separator not allowed after floating point.", true),
           _ => {}
         }
 
         if self.get_next() == '.' {
-          return self.make_error_token("Separator not allowed before floating point.");
+          return self.make_error_token("Separator not allowed before floating point.", true);
         }
       }
 
       if self.get_current() == 'e' || self.get_current() == 'E' {
         match num_kind {
-          ExNumType::Oct => return self.make_error_token("Unexpected character in octal literal."),
-          ExNumType::Bin => return self.make_error_token("Unexpected character in binary literal."),
+          ExNumType::Oct => return self.make_error_token("Unexpected character in octal literal.", true),
+          ExNumType::Bin => return self.make_error_token("Unexpected character in binary literal.", true),
           ExNumType::Flt | ExNumType::IntOrFlt => {
             if is_scientific {
-              return self.make_error_token("Unexpected extra 'e' in scientific literal.");
+              return self.make_error_token("Unexpected extra 'e' in scientific literal.", true);
             } else {
               is_scientific = true
             }

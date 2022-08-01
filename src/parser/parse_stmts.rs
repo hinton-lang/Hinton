@@ -4,7 +4,7 @@ use crate::lexer::tokens::TokenKind::*;
 use crate::parser::ast::ASTNodeKind::*;
 use crate::parser::ast::*;
 use crate::parser::Parser;
-use crate::{consume_id, curr_tk, match_tok};
+use crate::{check_tok, consume_id, curr_tk, guard_error_token, match_tok};
 
 impl<'a> Parser<'a> {
   /// Parses a module.
@@ -20,7 +20,8 @@ impl<'a> Parser<'a> {
         let pub_stmt = match curr_tk![self] {
           CONST_KW if self.advance() => self.parse_var_or_const_decl(true),
           ENUM_KW => todo!("Parse enum declaration."),
-          FUNC_KW => todo!("Parse func declaration."),
+          FUNC_KW => self.parse_func_stmt(false),
+          ASYNC_KW => self.parse_func_stmt(true),
           CLASS_KW => todo!("Parse class declaration."),
           _ => {
             let err = self.error_at_previous("Only 'func', 'class', 'const', and 'enum' declarations can be public.");
@@ -64,6 +65,8 @@ impl<'a> Parser<'a> {
   ///           | DECORATOR_STMT* (FUNC_DECL | CLASS_DECL) | EXPR_STMT | ";"
   /// ```
   pub(super) fn parse_stmt(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+    guard_error_token![self];
+
     match curr_tk![self] {
       L_CURLY if self.advance() => self.parse_block_stmt(),
       WHILE_KW if self.advance() => self.parse_while_loop_stmt(),
@@ -74,7 +77,7 @@ impl<'a> Parser<'a> {
       RETURN_KW if self.advance() => self.parse_return_stmt(),
       YIELD_KW if self.advance() => self.parse_yield_stmt(),
       WITH_KW if self.advance() => self.parse_with_as_stmt(),
-      TRY_KW if self.advance() => todo!("Parse try statement."),
+      TRY_KW if self.advance() => self.parse_try_stmt(),
       THROW_KW if self.advance() => self.parse_throw_stmt(),
       DEL_KW if self.advance() => self.parse_del_stmt(),
       IF_KW if self.advance() => self.parse_if_stmt(),
@@ -309,5 +312,86 @@ impl<'a> Parser<'a> {
     self.consume(&AS_KW, "Expected 'as' keyword in 'with' statement head.")?;
     let id = consume_id![self, "Expected identifier in 'with' statement head."]?;
     Ok(WithStmtHead { expr, id })
+  }
+
+  /// Parses a single with-as statement head.
+  ///
+  /// ```bnf
+  /// TRY_STMT            ::= "try" BLOCK_STMT NAMED_CATCH_PART+
+  ///                     | "try" BLOCK_STMT NAMED_CATCH_PART* (DEFAULT_CATCH_PART | FINALLY_PART)
+  ///                     | "try" BLOCK_STMT NAMED_CATCH_PART+ DEFAULT_CATCH_PART FINALLY_PART
+  /// NAMED_CATCH_PART    ::= "catch" IDENTIFIER ("as" IDENTIFIER)? BLOCK_STMT
+  /// DEFAULT_CATCH_PART  ::= "catch" BLOCK_STMT
+  /// FINALLY_PART        ::= "finally" BLOCK_STMT
+  /// ```
+  pub(super) fn parse_try_stmt(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+    self.consume(&L_CURLY, "Expected block as 'try' body.")?;
+    let body = self.parse_block_stmt()?;
+    let mut has_default_catch = false;
+
+    let mut catchers = vec![];
+    let mut finally = None;
+
+    loop {
+      match curr_tk![self] {
+        FINALLY_KW if self.advance() => {
+          if finally.is_some() {
+            return Err(self.error_at_previous("A try-catch-finally statement can only have one 'finally' block."));
+          }
+
+          self.consume(&L_CURLY, "Expected block as 'finally' body.")?;
+          finally = Some(self.parse_block_stmt()?);
+        }
+        CATCH_KW if self.advance() => {
+          if finally.is_some() {
+            return Err(self.error_at_previous("A 'catch' block cannot follow a 'finally' block."));
+          }
+
+          let catch_part = self.parse_catch_part(has_default_catch)?;
+          has_default_catch = catch_part.target.is_none();
+          catchers.push(catch_part);
+        }
+        _ if finally.is_none() && catchers.is_empty() => {
+          return Err(self.error_at_current("Expected 'catch' or 'finally' block after 'try' block."))
+        }
+        _ => break,
+      }
+    }
+
+    self.emit(TryCatchFinally(ASTTryCatchFinallyNode { body, catchers, finally }))
+  }
+
+  /// Parses a single with-as statement head.
+  ///
+  /// ```bnf
+  /// NAMED_CATCH_PART    ::= "catch" IDENTIFIER ("as" IDENTIFIER)? BLOCK_STMT
+  /// DEFAULT_CATCH_PART  ::= "catch" BLOCK_STMT
+  /// ```
+  pub(super) fn parse_catch_part(&mut self, has_default_catch: bool) -> Result<CatchPart, ErrorReport> {
+    if match_tok![self, L_CURLY] {
+      if has_default_catch {
+        return Err(self.error_at_previous("A try-catch-finally statement can only have one default 'catch' block."));
+      }
+
+      let body = self.parse_block_stmt()?;
+      Ok(CatchPart { body, target: None })
+    } else {
+      if has_default_catch {
+        return Err(self.error_at_previous("Non-default 'catch' block cannot follow default 'catch' block."));
+      }
+
+      let error_class = consume_id![self, "Expected error name in 'catch' block."]?;
+      let error_result = if match_tok![self, AS_KW] {
+        Some(consume_id![self, "Expected error class name in 'catch' block."]?)
+      } else {
+        None
+      };
+
+      let target = Some(CatchTarget { error_class, error_result });
+      self.consume(&L_CURLY, "Expected block as 'catch' body.")?;
+      let body = self.parse_block_stmt()?;
+
+      Ok(CatchPart { body, target })
+    }
   }
 }

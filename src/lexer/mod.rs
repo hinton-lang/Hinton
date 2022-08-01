@@ -1,6 +1,7 @@
+use std::cmp::{max, min};
+
 use crate::lexer::find_tokens::LexerMode;
 use crate::lexer::tokens::{Token, TokenKind};
-use std::cmp::{max, min};
 
 // Submodules
 pub mod find_tokens;
@@ -122,9 +123,8 @@ impl Lexer {
   /// # Returns
   /// - `char`: The consumed character.
   pub fn advance(&mut self) -> char {
-    let current = self.get_current();
     self.current += 1;
-    current
+    self.get_previous()
   }
 
   /// Skips whitespace-like characters from the source code.
@@ -240,6 +240,16 @@ impl Lexer {
     }
   }
 
+  fn make_eof_token(&mut self) {
+    self.tokens.push(Token {
+      line_num: self.line_num,
+      column_start: self.current - self.line_start,
+      column_end: self.current - self.line_start,
+      kind: TokenKind::EOF,
+      lexeme: "\0".to_string(),
+    });
+  }
+
   /// Generates an error at the current character with the provided message as its lexeme.
   ///
   /// # Parameters
@@ -247,7 +257,7 @@ impl Lexer {
   ///
   /// # Returns
   /// - `Token`: The generated error token.
-  pub fn make_error_token(&mut self, message: &str) -> Token {
+  pub fn make_error_token(&mut self, message: &str, advance: bool) -> Token {
     let tok = Token {
       line_num: self.line_num,
       column_start: self.current - self.line_start,
@@ -255,7 +265,11 @@ impl Lexer {
       kind: TokenKind::ERROR,
       lexeme: String::from(message),
     };
-    self.advance();
+
+    if advance {
+      self.advance();
+    }
+
     tok
   }
 
@@ -267,24 +281,6 @@ impl Lexer {
   /// # Returns
   /// - `Token`: The generated error token.
   pub fn make_error_token_at_prev(&self, message: &str) -> Token {
-    Token {
-      line_num: self.line_num,
-      column_start: self.current - self.line_start - 1,
-      column_end: self.current - self.line_start,
-      kind: TokenKind::ERROR,
-      lexeme: String::from(message),
-    }
-  }
-
-  /// Generates an error at the next character with the provided message as its lexeme.
-  ///
-  /// # Parameters
-  /// - `message`: A message for the error token. This will be used as the token's lexeme.
-  ///
-  /// # Returns
-  /// - `Token`: The generated error token.
-  #[allow(dead_code)]
-  pub fn make_error_token_at_next(&self, message: &str) -> Token {
     Token {
       line_num: self.line_num,
       column_start: self.current - self.line_start - 1,

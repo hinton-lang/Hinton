@@ -5,7 +5,7 @@ use crate::objects::Object;
 use crate::parser::ast::ASTNodeKind::*;
 use crate::parser::ast::*;
 use crate::parser::Parser;
-use crate::{check_tok, consume_id, curr_tk, match_tok};
+use crate::{check_tok, consume_id, curr_tk, guard_error_token, match_tok};
 
 macro_rules! append_binary_expr {
   ($s:ident, $l:expr, $r:expr, $k:expr) => {
@@ -20,6 +20,7 @@ impl<'a> Parser<'a> {
   /// EXPRESSION ::= ASSIGNMENT_EXPR
   /// ```
   pub(super) fn parse_expr(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+    guard_error_token![self];
     self.parse_reassignment()
   }
 

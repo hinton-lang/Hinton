@@ -157,17 +157,7 @@ impl Lexer {
       ch if ch.is_ascii_digit() => self.make_numeric_token(),
 
       // Everything else is an error token
-      _ => self.make_error_token("Unexpected character."),
+      _ => self.make_error_token("Unexpected character.", false),
     }
-  }
-
-  fn make_eof_token(&mut self) {
-    self.tokens.push(Token {
-      line_num: self.line_num,
-      column_start: self.current,
-      column_end: self.current,
-      kind: EOF,
-      lexeme: "\0".to_string(),
-    });
   }
 }

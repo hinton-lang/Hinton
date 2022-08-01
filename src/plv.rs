@@ -152,6 +152,7 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
     WithStmt(_) => ("WithStmt", json!({}), vec![]),
     FuncDecl(_) => ("FuncDecl", json!({}), vec![]),
     Lambda(_) => ("Lambda", json!({}), vec![]),
+    TryCatchFinally(_) => ("TryCatchFinally", json!({}), vec![]),
   };
 
   if !bname.is_empty() {

@@ -1,11 +1,5 @@
 pub struct TokenIdx(pub usize);
 
-impl Into<usize> for TokenIdx {
-  fn into(self) -> usize {
-    self.0
-  }
-}
-
 impl From<usize> for TokenIdx {
   fn from(x: usize) -> Self {
     TokenIdx(x)
@@ -34,7 +28,7 @@ pub struct Token {
 }
 
 /// The types of tokens in a Hinton program.
-#[allow(non_camel_case_types)]
+#[allow(non_camel_case_types, clippy::upper_case_acronyms)]
 #[derive(Debug, Clone)]
 #[repr(u8)]
 pub enum TokenKind {
@@ -210,6 +204,7 @@ pub fn make_identifier_kind(id: &str) -> TokenKind {
     "del" => TokenKind::DEL_KW,
     "else" => TokenKind::ELSE_KW,
     "enum" => TokenKind::ENUM_KW,
+    "false" => TokenKind::FALSE_LIT,
     "finally" => TokenKind::FINALLY_KW,
     "for" => TokenKind::FOR_KW,
     "from" => TokenKind::FROM_KW,
@@ -223,6 +218,7 @@ pub fn make_identifier_kind(id: &str) -> TokenKind {
     "match" => TokenKind::MATCH_KW,
     "mod" => TokenKind::MOD_KW,
     "new" => TokenKind::NEW_KW,
+    "none" => TokenKind::NONE_LIT,
     "or" => TokenKind::OR_KW,
     "override" => TokenKind::OVERRIDE_KW,
     "pub" => TokenKind::PUB_KW,
@@ -231,6 +227,7 @@ pub fn make_identifier_kind(id: &str) -> TokenKind {
     "static" => TokenKind::STATIC_KW,
     "super" => TokenKind::SUPER_KW,
     "throw" => TokenKind::THROW_KW,
+    "true" => TokenKind::TRUE_LIT,
     "try" => TokenKind::TRY_KW,
     "typeof" => TokenKind::TYPEOF_KW,
     "while" => TokenKind::WHILE_KW,

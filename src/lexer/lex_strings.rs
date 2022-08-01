@@ -15,7 +15,7 @@ impl Lexer {
 
     loop {
       if self.is_at_end() {
-        return self.make_error_token("Unterminated string.");
+        return self.make_error_token("Unterminated string.", false);
       }
 
       // If the string turns out to be interpolated, then finish the string literal

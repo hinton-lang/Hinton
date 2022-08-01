@@ -4,12 +4,6 @@ use crate::objects::Object;
 #[derive(PartialEq)]
 pub struct ASTNodeIdx(pub usize);
 
-impl Into<usize> for ASTNodeIdx {
-  fn into(self) -> usize {
-    self.0
-  }
-}
-
 impl From<usize> for ASTNodeIdx {
   fn from(x: usize) -> Self {
     ASTNodeIdx(x)
@@ -49,10 +43,6 @@ impl ASTArena {
       ASTNodeKind::Module(m) => m.push(child),
       _ => unreachable!("Root node should be a module node."),
     }
-  }
-
-  pub fn len(&self) -> usize {
-    self.arena.len()
   }
 }
 
@@ -119,6 +109,7 @@ pub enum ASTNodeKind {
   DestructingWildCard(Option<ASTNodeIdx>),
   WithStmt(ASTWithStmtNode),
   FuncDecl(ASTFuncDeclNode),
+  TryCatchFinally(ASTTryCatchFinallyNode),
 }
 
 pub struct ASTReassignmentNode {
@@ -433,4 +424,20 @@ pub enum FuncParamKind {
   Named(ASTNodeIdx),
   Optional,
   Rest,
+}
+
+pub struct ASTTryCatchFinallyNode {
+  pub body: ASTNodeIdx, // This will always be a block stmt
+  pub catchers: Vec<CatchPart>,
+  pub finally: Option<ASTNodeIdx>, // This will always be a block stmt
+}
+
+pub struct CatchPart {
+  pub body: ASTNodeIdx, // This will always be a block stmt,
+  pub target: Option<CatchTarget>,
+}
+
+pub struct CatchTarget {
+  pub error_class: ASTNodeIdx,          // This will always be an identifier stmt,
+  pub error_result: Option<ASTNodeIdx>, // This will always be an identifier stmt,
 }
