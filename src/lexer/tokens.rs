@@ -113,6 +113,7 @@ pub enum TokenKind {
 
   // Keywords
   ABSTRACT_KW,
+  AND_KW,
   ASYNC_KW,
   AS_KW,
   AWAIT_KW,
@@ -125,6 +126,7 @@ pub enum TokenKind {
   DEL_KW,
   ELSE_KW,
   ENUM_KW,
+  EXPORT_KW,
   FINALLY_KW,
   FOR_KW,
   FROM_KW,
@@ -138,6 +140,7 @@ pub enum TokenKind {
   MATCH_KW,
   MOD_KW,
   NEW_KW,
+  OR_KW,
   OVERRIDE_KW,
   PUB_KW,
   RETURN_KW,
@@ -150,8 +153,6 @@ pub enum TokenKind {
   WHILE_KW,
   WITH_KW,
   YIELD_KW,
-  OR_KW,
-  AND_KW,
 
   /// Other Tokens
   EOF,
@@ -204,6 +205,7 @@ pub fn make_identifier_kind(id: &str) -> TokenKind {
     "del" => TokenKind::DEL_KW,
     "else" => TokenKind::ELSE_KW,
     "enum" => TokenKind::ENUM_KW,
+    "export" => TokenKind::EXPORT_KW,
     "false" => TokenKind::FALSE_LIT,
     "finally" => TokenKind::FINALLY_KW,
     "for" => TokenKind::FOR_KW,

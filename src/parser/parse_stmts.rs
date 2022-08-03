@@ -1,3 +1,5 @@
+use std::ops::ControlFlow;
+
 use crate::errors::ErrorReport;
 use crate::lexer::tokens::TokenIdx;
 use crate::lexer::tokens::TokenKind::*;
@@ -71,7 +73,6 @@ impl<'a> Parser<'a> {
       L_CURLY if self.advance() => self.parse_block_stmt(),
       WHILE_KW if self.advance() => self.parse_while_loop_stmt(),
       FOR_KW if self.advance() => self.parse_for_loop_stmt(),
-      LOOP_KW if self.advance() => self.parse_loop_expr_stmt(false),
       BREAK_KW if self.advance() => self.parse_break_stmt(),
       CONTINUE_KW if self.advance() => self.parse_continue_stmt(),
       RETURN_KW if self.advance() => self.parse_return_stmt(),
@@ -85,7 +86,8 @@ impl<'a> Parser<'a> {
       LET_KW if self.advance() => self.parse_var_or_const_decl(false),
       CONST_KW if self.advance() => self.parse_var_or_const_decl(true),
       ENUM_KW if self.advance() => todo!("Parse enum declaration."),
-      IMPORT_KW if self.advance() => todo!("Parse import declaration."),
+      IMPORT_KW if self.advance() => self.parse_import_export_decl(false),
+      EXPORT_KW if self.advance() => self.parse_import_export_decl(true),
       AT if self.advance() => todo!("Parse decorator."),
       FUNC_KW if self.advance() => self.parse_func_stmt(false),
       ASYNC_KW if self.advance() => self.parse_func_stmt(true),
@@ -120,17 +122,6 @@ impl<'a> Parser<'a> {
     }
 
     self.emit(BlockStmt(stmts))
-  }
-
-  /// Parses a loop expression or loop statement.
-  ///
-  /// ```bnf
-  /// LOOP_EXPR_STMT ::= "loop" BLOCK_STMT
-  /// ```
-  pub(super) fn parse_loop_expr_stmt(&mut self, is_expr: bool) -> Result<ASTNodeIdx, ErrorReport> {
-    self.consume(&L_CURLY, "Expected '{' after 'loop' keyword.")?;
-    let body = self.parse_block_stmt()?;
-    self.emit(LoopExprStmt(ASTLoopExprStmtNode { body, is_expr }))
   }
 
   /// Parses a while-loop statement.
@@ -393,5 +384,92 @@ impl<'a> Parser<'a> {
 
       Ok(CatchPart { body, target })
     }
+  }
+
+  /// Parses an import statement or an export statement.
+  ///
+  /// ```bnf
+  /// IMPORT_EXPORT_DECL ::= ("import" | "export") ((GRANULAR_IMPORT | "..." IDENTIFIER) "from")? STRING_LITERAL ";"
+  ///                    | ("import" | "export") GRANULAR_IMPORT "," "..." IDENTIFIER "from" STRING_LITERAL ";"
+  ///                    | ("import" | "export") "..." IDENTIFIER "," GRANULAR_IMPORT "from" STRING_LITERAL ";"
+  /// ```
+  pub(super) fn parse_import_export_decl(&mut self, is_export: bool) -> Result<ASTNodeIdx, ErrorReport> {
+    let decl_name = if is_export { "export" } else { "import" };
+
+    let mut members = vec![];
+    let mut wildcard = None;
+
+    if !check_tok![self, STR_LIT] {
+      // Match first wildcard or granular import
+      match curr_tk![self] {
+        L_CURLY if self.advance() => members = self.parse_granular_import(decl_name)?,
+        TRIPLE_DOT if self.advance() => {
+          let err_msg = &format!("Expected identifier for wildcard {}.", decl_name);
+          wildcard = Some(consume_id![self, err_msg]?)
+        }
+        _ => return Err(self.error_at_current(&format!("Expected {} declaration body.", decl_name))),
+      }
+
+      // Then, if next is a comma, match another wildcard or granular import
+      if match_tok![self, COMMA] {
+        if !members.is_empty() && !check_tok![self, TRIPLE_DOT] {
+          let err_msg = &format!("Expected wildcard {} after granular {}.", decl_name, decl_name);
+          return Err(self.error_at_current(err_msg));
+        } else if wildcard.is_some() && !check_tok![self, L_CURLY] {
+          let err_msg = &format!("Expected granular {} after wildcard {}.", decl_name, decl_name);
+          return Err(self.error_at_current(err_msg));
+        }
+
+        if match_tok![self, L_CURLY] {
+          members = self.parse_granular_import(decl_name)?;
+        } else if match_tok![self, TRIPLE_DOT] {
+          let err_msg = &format!("Expected identifier for wildcard {}.", decl_name);
+          wildcard = Some(consume_id![self, err_msg]?)
+        }
+      }
+
+      // Finally, consume the "from" keyword
+      let err_msg = &format!("Expected keyword 'from' for {} declaration.", decl_name);
+      self.consume(&FROM_KW, err_msg)?;
+    }
+
+    let err_msg = &format!("Expected module path for {} declaration.", decl_name);
+    self.consume(&STR_LIT, err_msg)?;
+    let path = self.emit(StringLiteral((self.current_pos - 1).into()))?;
+
+    self.consume(&SEMICOLON, &format!("Expected ';' after {} declaration.", decl_name))?;
+
+    let node = ASTImportExportNode { members, wildcard, path };
+    self.emit(if is_export { ExportDecl(node) } else { ImportDecl(node) })
+  }
+
+  /// Parses the body of a granular import or export.
+  ///
+  /// ```bnf
+  /// GRANULAR_IMPORT ::= "{" IDENTIFIER ("as" IDENTIFIER)? ("," IDENTIFIER ("as" IDENTIFIER)?)* ","? "}"
+  /// ```
+  pub(super) fn parse_granular_import(&mut self, decl_name: &str) -> Result<Vec<ImportExportMember>, ErrorReport> {
+    let mut members = vec![];
+
+    loop {
+      let member = consume_id![self, &format!("Expected identifier to {}.", decl_name)]?;
+
+      // Maybe parse alias
+      let alias = if match_tok![self, AS_KW] {
+        let err_msg = &format!("Expected identifier for {} alias.", decl_name);
+        Some(consume_id![self, err_msg]?)
+      } else {
+        None
+      };
+
+      members.push(ImportExportMember { member, alias });
+
+      // Optional trailing comma
+      if (match_tok![self, COMMA] && match_tok![self, R_CURLY]) || match_tok![self, R_CURLY] {
+        break;
+      }
+    }
+
+    Ok(members)
   }
 }

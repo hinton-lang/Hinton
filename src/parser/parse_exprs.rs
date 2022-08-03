@@ -414,7 +414,7 @@ impl<'a> Parser<'a> {
   pub fn parse_large_expr(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
     match curr_tk![self] {
       MATCH_KW if self.advance() => todo!("Parse `match` expression."),
-      LOOP_KW if self.advance() => self.parse_loop_expr_stmt(true),
+      LOOP_KW if self.advance() => self.parse_loop_expr(),
       _ => self.parse_literal(),
     }
   }
@@ -541,6 +541,17 @@ impl<'a> Parser<'a> {
 
     let member = consume_id![self, "Expected member name after the dot."]?;
     self.emit(MemberAccess(ASTMemberAccessNode { is_safe, target, member }))
+  }
+
+  /// Parses a loop expression or loop statement.
+  ///
+  /// ```bnf
+  /// LOOP_EXPR ::= "loop" BLOCK_STMT
+  /// ```
+  pub(super) fn parse_loop_expr(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+    self.consume(&L_CURLY, "Expected '{' after 'loop' keyword.")?;
+    let body = self.parse_block_stmt()?;
+    self.emit(LoopExpr(body))
   }
 
   /// Parses a literal expression.

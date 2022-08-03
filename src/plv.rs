@@ -79,12 +79,11 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
   let (name, mut attributes, children) = match &arena.get(idx).kind {
     Module(x) => ("Module", json!({}), ast_list_to_json(tokens, arena, x, "")),
     Reassignment(_) => ("Reassignment", json!({}), vec![]),
-    Literal(x) => (
-      tokens[x.token_idx.0].lexeme.as_str(),
-      json!({ "kind": "literal" }),
-      vec![],
-    ),
-    StringLiteral(_) => ("String", json!({}), vec![]),
+    Literal(x) => {
+      let pos = tokens[x.token_idx.0].lexeme.as_str();
+      (pos, json!({ "kind": "literal" }), vec![])
+    }
+    StringLiteral(x) => ("String", json!({ "value": tokens[x.0].lexeme.to_string() }), vec![]),
     SelfLiteral(_) => ("Self", json!({}), vec![]),
     SuperLiteral(_) => ("Super", json!({}), vec![]),
     Identifier(x) => (tokens[x.0].lexeme.as_str(), json!({ "kind": "identifier" }), vec![]),
@@ -132,9 +131,9 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
       //
       ("Call", json!({}), children)
     }
-    ExprStmt(_) => ("Expr Stmt", json!({}), vec![]),
+    ExprStmt(x) => ("Expr Stmt", json!({}), vec![ast_to_json(tokens, arena, x, "")]),
     BlockStmt(_) => ("Block Stmt", json!({}), vec![]),
-    LoopExprStmt(_) => ("Loop Stmt", json!({}), vec![]),
+    LoopExpr(_) => ("Loop Stmt", json!({}), vec![]),
     BreakStmt(_) => ("Break Stmt", json!({}), vec![]),
     ContinueStmt => ("Continue Stmt", json!({}), vec![]),
     ReturnStmt(_) => ("Return Stmt", json!({}), vec![]),
@@ -153,6 +152,8 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
     FuncDecl(_) => ("FuncDecl", json!({}), vec![]),
     Lambda(_) => ("Lambda", json!({}), vec![]),
     TryCatchFinally(_) => ("TryCatchFinally", json!({}), vec![]),
+    ImportDecl(_) => ("ImportDecl", json!({}), vec![]),
+    ExportDecl(_) => ("ExportDecl", json!({}), vec![]),
   };
 
   if !bname.is_empty() {

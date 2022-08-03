@@ -88,11 +88,11 @@ pub enum ASTNodeKind {
   EvaluatedDictKey(ASTNodeIdx),
   CallExpr(ASTCallExprNode),
   Lambda(ASTLambdaNode),
+  LoopExpr(ASTNodeIdx), // This will always be a block stmt
 
   // Statement Nodes
   ExprStmt(ASTNodeIdx),
   BlockStmt(Vec<ASTNodeIdx>),
-  LoopExprStmt(ASTLoopExprStmtNode),
   BreakStmt(Option<ASTNodeIdx>),
   ContinueStmt,
   ReturnStmt(ASTNodeIdx),
@@ -110,6 +110,8 @@ pub enum ASTNodeKind {
   WithStmt(ASTWithStmtNode),
   FuncDecl(ASTFuncDeclNode),
   TryCatchFinally(ASTTryCatchFinallyNode),
+  ImportDecl(ASTImportExportNode),
+  ExportDecl(ASTImportExportNode),
 }
 
 pub struct ASTReassignmentNode {
@@ -340,11 +342,6 @@ pub enum RepeatLiteralKind {
   Tuple,
 }
 
-pub struct ASTLoopExprStmtNode {
-  pub body: ASTNodeIdx, // This will always be a block stmt
-  pub is_expr: bool,
-}
-
 pub struct ASTWhileLoopNode {
   pub let_id: Option<ASTNodeIdx>,
   pub cond: ASTNodeIdx,
@@ -438,6 +435,17 @@ pub struct CatchPart {
 }
 
 pub struct CatchTarget {
-  pub error_class: ASTNodeIdx,          // This will always be an identifier stmt,
-  pub error_result: Option<ASTNodeIdx>, // This will always be an identifier stmt,
+  pub error_class: ASTNodeIdx,          // This will always be an identifier node
+  pub error_result: Option<ASTNodeIdx>, // This will always be an identifier node
+}
+
+pub struct ASTImportExportNode {
+  pub members: Vec<ImportExportMember>,
+  pub wildcard: Option<ASTNodeIdx>, // This will always be an identifier node,
+  pub path: ASTNodeIdx,             // This will always be a string literal node,
+}
+
+pub struct ImportExportMember {
+  pub member: ASTNodeIdx,        // This will always be an identifier node
+  pub alias: Option<ASTNodeIdx>, // This will always be an identifier node
 }
