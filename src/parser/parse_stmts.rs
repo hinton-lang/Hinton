@@ -1,5 +1,3 @@
-use std::ops::ControlFlow;
-
 use crate::errors::ErrorReport;
 use crate::lexer::tokens::TokenIdx;
 use crate::lexer::tokens::TokenKind::*;
@@ -8,50 +6,28 @@ use crate::parser::ast::*;
 use crate::parser::Parser;
 use crate::{check_tok, consume_id, curr_tk, guard_error_token, match_tok};
 
+pub enum ParsingLevel {
+  Module,
+  Block,
+}
+
 impl<'a> Parser<'a> {
   /// Parses a module.
   ///
   /// ```bnf
-  /// // Only function, constant, class, and enum declaration statements can be exported.
-  /// MODULE ::= ("pub"? STATEMENT)* EOF
+  /// MODULE ::= STATEMENT* EOF
   /// ```
   pub(super) fn parse_module(&mut self) {
     while !match_tok![self, EOF] {
-      // Public statement
-      if match_tok![self, PUB_KW] {
-        let pub_stmt = match curr_tk![self] {
-          CONST_KW if self.advance() => self.parse_var_or_const_decl(true),
-          ENUM_KW => todo!("Parse enum declaration."),
-          FUNC_KW => self.parse_func_stmt(false),
-          ASYNC_KW => self.parse_func_stmt(true),
-          CLASS_KW => todo!("Parse class declaration."),
-          _ => {
-            let err = self.error_at_previous("Only 'func', 'class', 'const', and 'enum' declarations can be public.");
-            self.errors.push(err);
-            continue;
-          }
-        };
-
-        match pub_stmt {
-          Ok(node) => self.ast.attach_to_root(node),
-          Err(e) => self.errors.push(e),
-        }
-        continue;
-      }
-
-      // Private statement
-      match self.parse_stmt() {
-        Ok(node) => {
-          if node == 0.into() {
-            // Because the first element of the AST Arena is the module node,
-            // no child node should be able to reference it. We can use this fact
-            // to ignore nodes in the tree (e.g., extra semicolons). So, If the
-            // `parse_stmt` method returns 0, we can ignore the associated node(s).
-            continue;
-          } else {
-            self.ast.attach_to_root(node)
-          }
-        }
+      match self.parse_stmt(ParsingLevel::Module, vec![]) {
+        // Because the first element of the AST Arena is the module node,
+        // no child node should be able to reference it. We can use this fact
+        // to ignore nodes in the tree (e.g., extra semicolons). So, If the
+        // `parse_stmt` method returns 0, we can ignore the associated node(s).
+        Ok(n) if n.0 == 0 => continue,
+        // Attach the statement to the module
+        Ok(node) => self.ast.attach_to_root(node),
+        // Save the error report
         Err(e) => self.errors.push(e),
       }
     }
@@ -60,42 +36,69 @@ impl<'a> Parser<'a> {
   /// Parses a general statement.
   ///
   /// ```bnf
-  /// STATEMENT ::= BLOCK_STMT | WHILE_LOOP_STMT | FOR_LOOP_STMT | LOOP_EXPR_STMT
-  ///           | BREAK_STMT | CONTINUE_STMT | RETURN_STMT | YIELD_STMT
-  ///           | WITH_AS_STMT | TRY_STMT | THROW_STMT | DEL_STMT | IF_STMT
-  ///           | MATCH_STMT | VAR_DECL | CONST_DECL | ENUM_DECL | IMPORT_DECL
-  ///           | DECORATOR_STMT* (FUNC_DECL | CLASS_DECL) | EXPR_STMT | ";"
+  /// STATEMENT ::= BLOCK_STMT | WHILE_LOOP_STMT | FOR_LOOP_STMT | LOOP_EXPR | BREAK_STMT
+  ///           | CONTINUE_STMT | RETURN_STMT | YIELD_STMT | WITH_AS_STMT | TRY_STMT
+  ///           | THROW_STMT | DEL_STMT  IF_STMT | MATCH_EXPR_STMT | VAR_DECL
+  ///           | "pub"? (CONST_DECL | ENUM_DECL) | IMPORT_EXPORT_DECL
+  ///           | DECORATOR_STMT* "pub"? (FUNC_DECL | CLASS_DECL) | EXPR_STMT
+  ///           | ";" // ignored
   /// ```
-  pub(super) fn parse_stmt(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_stmt(&mut self, level: ParsingLevel, decor: Vec<Decorator>) -> Result<ASTNodeIdx, ErrorReport> {
     guard_error_token![self];
 
-    match curr_tk![self] {
-      L_CURLY if self.advance() => self.parse_block_stmt(),
-      WHILE_KW if self.advance() => self.parse_while_loop_stmt(),
-      FOR_KW if self.advance() => self.parse_for_loop_stmt(),
-      BREAK_KW if self.advance() => self.parse_break_stmt(),
-      CONTINUE_KW if self.advance() => self.parse_continue_stmt(),
-      RETURN_KW if self.advance() => self.parse_return_stmt(),
-      YIELD_KW if self.advance() => self.parse_yield_stmt(),
-      WITH_KW if self.advance() => self.parse_with_as_stmt(),
-      TRY_KW if self.advance() => self.parse_try_stmt(),
-      THROW_KW if self.advance() => self.parse_throw_stmt(),
-      DEL_KW if self.advance() => self.parse_del_stmt(),
-      IF_KW if self.advance() => self.parse_if_stmt(),
-      MATCH_KW if self.advance() => todo!("Parse match block."),
-      LET_KW if self.advance() => self.parse_var_or_const_decl(false),
-      CONST_KW if self.advance() => self.parse_var_or_const_decl(true),
-      ENUM_KW if self.advance() => todo!("Parse enum declaration."),
-      IMPORT_KW if self.advance() => self.parse_import_export_decl(false),
-      EXPORT_KW if self.advance() => self.parse_import_export_decl(true),
-      AT if self.advance() => todo!("Parse decorator."),
-      FUNC_KW if self.advance() => self.parse_func_stmt(false),
-      ASYNC_KW if self.advance() => self.parse_func_stmt(true),
-      CLASS_KW if self.advance() => todo!("Parse class declaration."),
-      PUB_KW if self.advance() => Err(self.error_at_current("Keyword 'pub' not allowed here.")),
-      SEMICOLON if self.advance() => Ok(0.into()), // See comments in `parse_module` method.
-      _ => self.parse_expr_stmt(),
+    let is_pub = if match_tok![self, PUB_KW] {
+      // Verify the statement can be public
+      if let ParsingLevel::Module = level {
+        if !check_tok![self, FUNC_KW | CLASS_KW | CONST_KW | ENUM_KW] {
+          return Err(self.error_at_previous("Only 'func', 'class', 'const', and 'enum' declarations can be public."));
+        }
+      } else {
+        return Err(self.error_at_previous("Keyword 'pub' not allowed here."));
+      }
+
+      true
+    } else {
+      false
+    };
+
+    // Verify the statement can be decorated
+    if !decor.is_empty() && !check_tok![self, FUNC_KW | CLASS_KW] {
+      return Err(self.error_at_previous("Expected 'func' or 'class' declaration as decoration target."));
     }
+
+    let stmt = match curr_tk![self] {
+      L_CURLY if self.advance() => self.parse_block_stmt()?,
+      WHILE_KW if self.advance() => self.parse_while_loop_stmt()?,
+      FOR_KW if self.advance() => self.parse_for_loop_stmt()?,
+      BREAK_KW if self.advance() => self.parse_break_stmt()?,
+      CONTINUE_KW if self.advance() => self.parse_continue_stmt()?,
+      RETURN_KW if self.advance() => self.parse_return_stmt()?,
+      YIELD_KW if self.advance() => self.parse_yield_stmt()?,
+      WITH_KW if self.advance() => self.parse_with_as_stmt()?,
+      TRY_KW if self.advance() => self.parse_try_stmt()?,
+      THROW_KW if self.advance() => self.parse_throw_stmt()?,
+      DEL_KW if self.advance() => self.parse_del_stmt()?,
+      IF_KW if self.advance() => self.parse_if_stmt()?,
+      MATCH_KW if self.advance() => todo!("Parse match block."),
+      LET_KW if self.advance() => self.parse_var_or_const_decl(false)?,
+      CONST_KW if self.advance() => self.parse_var_or_const_decl(true)?,
+      ENUM_KW if self.advance() => todo!("Parse enum declaration."),
+      IMPORT_KW if self.advance() => self.parse_import_export_decl(false)?,
+      EXPORT_KW if self.advance() => self.parse_import_export_decl(true)?,
+      HASHTAG if self.advance() => self.parse_decorator_stmt(level)?,
+      FUNC_KW if self.advance() => self.parse_func_stmt(false, decor)?,
+      ASYNC_KW if self.advance() => self.parse_func_stmt(true, decor)?,
+      CLASS_KW if self.advance() => todo!("Parse class declaration."),
+      SEMICOLON if self.advance() => Ok(0.into())?, // See comments in `parse_module` method.
+      _ => self.parse_expr_stmt()?,
+    };
+
+    // Add statement to the list of public members
+    if is_pub {
+      self.ast.add_pub_to_root(stmt.0.into());
+    }
+
+    Ok(stmt)
   }
 
   /// Parses an expression statement.
@@ -118,7 +121,7 @@ impl<'a> Parser<'a> {
     let mut stmts = vec![];
 
     while !match_tok![self, R_CURLY] {
-      stmts.push(self.parse_stmt()?);
+      stmts.push(self.parse_stmt(ParsingLevel::Block, vec![])?);
     }
 
     self.emit(BlockStmt(stmts))
@@ -471,5 +474,53 @@ impl<'a> Parser<'a> {
     }
 
     Ok(members)
+  }
+
+  /// Parses a decorator statement.
+  ///
+  /// ```bnf
+  /// DECORATOR_STMT ::= "#" (DECORATOR_BDY | "[" DECORATOR_BDY ("," DECORATOR_BDY)* ","? "]")
+  /// ```
+  pub(super) fn parse_decorator_stmt(&mut self, level: ParsingLevel) -> Result<ASTNodeIdx, ErrorReport> {
+    let mut decorators = vec![];
+
+    loop {
+      if match_tok![self, L_BRACKET] {
+        loop {
+          decorators.push(self.parse_decorator_body()?);
+
+          // Optional trailing comma
+          if (match_tok![self, COMMA] && match_tok![self, R_BRACKET]) || match_tok![self, R_BRACKET] {
+            break;
+          }
+        }
+      } else {
+        decorators.push(self.parse_decorator_body()?);
+      }
+
+      if !match_tok![self, HASHTAG] {
+        break;
+      }
+    }
+
+    // Match a function or class declaration after the decorators.
+    self.parse_stmt(level, decorators)
+  }
+
+  /// Parses a decorator body.
+  ///
+  /// ```bnf
+  /// DECORATOR_BDY ::= IDENTIFIER | CALL_EXPR
+  /// ```
+  pub(super) fn parse_decorator_body(&mut self) -> Result<Decorator, ErrorReport> {
+    let expr = self.parse_expr()?;
+
+    let decorator = match self.ast.get(&expr).kind {
+      Identifier(_) | CallExpr(_) => expr,
+      // TODO: Implement node span resolution and get the span of the target instead.
+      _ => return Err(self.error_at_previous("Expected identifier or function call as decorator.")),
+    };
+
+    Ok(Decorator(decorator))
   }
 }

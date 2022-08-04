@@ -8,10 +8,10 @@
 ///    all cases. This allows for better readability and a more expressive syntax.
 
 // ********************************************** The root of a Hinton program
-// Only function, constant, class, and enum declaration statements can be exported.
-MODULE              ::= ("pub"? STATEMENT)* EOF
+MODULE              ::= STATEMENT* EOF
 
 // ********************************************** STATEMENTS
+// The "pub" keyword is only allowed at the module or class level.
 STATEMENT           ::= BLOCK_STMT
                     | WHILE_LOOP_STMT
                     | FOR_LOOP_STMT
@@ -25,11 +25,11 @@ STATEMENT           ::= BLOCK_STMT
                     | THROW_STMT
                     | DEL_STMT
                     | IF_STMT
-                    | MATCH_STMT
-                    | VAR_CONST_DECL
-                    | ENUM_DECL
+                    | MATCH_EXPR_STMT
+                    | VAR_DECL
+                    | "pub"? (CONST_DECL | ENUM_DECL)
                     | IMPORT_EXPORT_DECL
-                    | DECORATOR_STMT* (FUNC_DECL | CLASS_DECL)
+                    | DECORATOR_STMT* "pub"? (FUNC_DECL | CLASS_DECL)
                     | EXPR_STMT
                     | ";" // ignored
 
@@ -50,11 +50,13 @@ DEL_STMT            ::= "del" EXPRESSION ";"
 
 IF_STMT             ::= "if" EXPRESSION BLOCK_STMT ("else" (BLOCK_STMT | IF_STMT))?
 
-MATCH_STMT          ::= "match" EXPRESSION "{" MATCH_ARM ("," MATCH_ARM)* "}"
-MATCH_ARM           ::= (MATCH_PATTERN | "default") "=>" (EXPRESSION | BLOCK_STMT)
-MATCH_PATTERN       ::= LITERAL_EXPR
-                    | LITERAL_EXPR "if" EXPRESSION
-                    | LITERAL_EXPR ("," MATCH_PATTERN)*
+// TODO: Add support for match expression statements in the future.
+// Defaults to `null` if there is no `default` branch.
+// The `return` keyword will be allowed inside match blocks when used in the context of expressions
+// to return a value out of the block. However, match expression statements do not capture UpValues.
+MATCH_EXPR_STMT     ::= "match" EXPRESSION "{" (MATCH_PATT_ARM ("," MATCH_PATT_ARM)* ("," DEFAULT_ARM)? | DEFAULT_ARM ) "}"
+MATCH_PATT_ARM      ::= LITERAL_EXPR ("if" EXPRESSION)? ("," LITERAL_EXPR ("if" EXPRESSION)?)* "=>" (EXPRESSION | BLOCK_STMT)
+DEFAULT_ARM         ::= "default" "=>" (EXPRESSION | BLOCK_STMT)
 
 WITH_AS_STMT        ::= "with" WITH_STMT_HEAD ("," WITH_STMT_HEAD)* BLOCK_STMT
 WITH_STMT_HEAD      ::= EXPRESSION "as" IDENTIFIER
@@ -71,10 +73,11 @@ EXPR_STMT           ::= EXPRESSION ";"
 // ********************************************** DECLARATION STATEMENTS
 IDENTIFIER_LIST     ::= IDENTIFIER ("," IDENTIFIER)*
 
-DECORATOR_STMT      ::= "@" (DECORATOR_BDY | "[" DECORATOR_BDY ("," DECORATOR_BDY)* "]")
+DECORATOR_STMT      ::= "#" (DECORATOR_BDY | "[" DECORATOR_BDY ("," DECORATOR_BDY)* ","? "]")
 DECORATOR_BDY       ::= IDENTIFIER | CALL_EXPR
 
-VAR_CONST_DECL      ::= ("let" | "const") (IDENTIFIER | DESTRUCT_PATTERN) "=" EXPRESSION ";"
+VAR_DECL            ::= "let" (IDENTIFIER | DESTRUCT_PATTERN) "=" EXPRESSION ";"
+CONST_DECL          ::= "const" (IDENTIFIER | DESTRUCT_PATTERN) "=" EXPRESSION ";"
 DESTRUCT_PATTERN    ::= "(" IDENTIFIER_LIST ")" // no wildcard
                     |   "(" IDENTIFIER_LIST "," "..." IDENTIFIER? ")" // tail wildcard
                     |   "(" IDENTIFIER_LIST "," "..." IDENTIFIER? "," IDENTIFIER_LIST ")" // middle wildcard
@@ -95,7 +98,7 @@ CLASS_DECL          ::= "abstract"? "class" IDENTIFIER CLASS_EXTEND? CLASS_IMPL?
 CLASS_EXTEND        ::= "->" IDENTIFIER_LIST
 CLASS_IMPL          ::= "impl" IDENTIFIER_LIST
 CLASS_BODY          ::= "{" CLASS_MEMBER* "}"
-CLASS_MEMBER        ::= DECORATOR_STMT* "pub"? "override"? "static"? (VAR_CONST_DECL | FUNC_DECL)
+CLASS_MEMBER        ::= DECORATOR_STMT* "pub"? "override"? "static"? (VAR_DECL | CONST_DECL | FUNC_DECL)
                     | OPERATOR_OVERLOAD
 
 OPERATOR_OVERLOAD   ::= "pub" "self" BNRY_OVERLOAD_OPR IDENTIFIER BLOCK_STMT
@@ -145,7 +148,7 @@ UNARY_EXPR          ::= (UNARY_OPR | "new" | "await" | "typeof") UNARY_EXPR
 PRIMARY_EXPR        ::= LAMBDA_EXPR
                     | LARGE_EXPR (INDEXING_EXPR | CALL_EXPR | MEMBER_ACCESS_EXPR)*
 
-LARGE_EXPR          ::= LITERAL_EXPR | MATCH_EXPR | LOOP_EXPR
+LARGE_EXPR          ::= LITERAL_EXPR | MATCH_EXPR_STMT | LOOP_EXPR
 
 // Array indexing works just like in Python. You can pass a comma separated list
 // of expressions or slices. This list is implicitly converted to a tuple so programmers
@@ -167,10 +170,6 @@ MEMBER_ACCESS_EXPR  ::= ("." | "?.") IDENTIFIER
 // follow the following syntax: `"|" PARAMETERS "|" -> IDENTIFIER BLOCK_STMT`
 // Where the identifier represents the lambda's return type.
 LAMBDA_EXPR         ::= "async"? "|" PARAMETERS? "|" (EXPRESSION | BLOCK_STMT)
-
-// Defaults to `null` if there is no `default` branch.
-MATCH_EXPR          ::= "match" EXPRESSION "{" MATCH_EXPR_ARM ("," MATCH_EXPR_ARM)* "}"
-MATCH_EXPR_ARM      ::= (MATCH_PATTERN | "default") "=>" EXPRESSION
 
 // Defaults to `null` if the loop breaks with no value.
 LOOP_EXPR           ::= "loop" BLOCK_STMT

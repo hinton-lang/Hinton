@@ -409,7 +409,7 @@ impl<'a> Parser<'a> {
   /// Parses a large expression.
   ///
   /// ```bnf
-  /// LARGE_EXPR ::= LITERAL_EXPR | MATCH_EXPR | LOOP_EXPR_STMT
+  /// LARGE_EXPR ::= LITERAL_EXPR | MATCH_EXPR_STMT | LOOP_EXPR_STMT
   /// ```
   pub fn parse_large_expr(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
     match curr_tk![self] {

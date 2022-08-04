@@ -65,6 +65,7 @@ impl Lexer {
       ';' => self.make_token(SEMICOLON),
       ',' => self.make_token(COMMA),
       '~' => self.make_token(BIT_NOT),
+      '#' => self.make_token(HASHTAG),
 
       // "+", "+="
       '+' if self.matches('=') => self.make_token(PLUS_EQ),

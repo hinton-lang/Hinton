@@ -17,10 +17,8 @@ impl<'a> Parser<'a> {
     let id = if match_tok![self, L_PAREN] {
       self.parse_destructing_pattern(&format!("'{}' declaration", decl_name))?
     } else {
-      let id = self.consume(
-        &IDENTIFIER,
-        &format!("Expected identifier for '{}' declaration.", decl_name),
-      )?;
+      let err_msg = &format!("Expected identifier for '{}' declaration.", decl_name);
+      let id = self.consume(&IDENTIFIER, err_msg)?;
       self.emit(Identifier(id))?
     };
 
@@ -89,7 +87,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// FUNC_DECL ::= "async"? "func" "*"? IDENTIFIER "(" PARAMETERS ")" BLOCK_STMT
   /// ```
-  pub(super) fn parse_func_stmt(&mut self, is_async: bool) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_func_stmt(&mut self, is_async: bool, decor: Vec<Decorator>) -> Result<ASTNodeIdx, ErrorReport> {
     if is_async {
       self.consume(&FUNC_KW, "Expected 'func' keyword for async function declaration.")?;
     }
@@ -105,6 +103,7 @@ impl<'a> Parser<'a> {
     let body = self.parse_block_stmt()?;
 
     self.emit(FuncDecl(ASTFuncDeclNode {
+      decor,
       is_async,
       is_gen,
       name,

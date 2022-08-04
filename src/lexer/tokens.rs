@@ -51,26 +51,27 @@ pub enum TokenKind {
   COMMA,            // ,
   DASH,             // -
   DOT,              // .
+  DOUBLE_AMPERSAND, // &&
   DOUBLE_DOT,       // ..
+  DOUBLE_VERT_BAR,  // ||
   EQUALS,           // =
   GREATER_THAN,     // >
   GREATER_THAN_EQ,  // >=
+  HASHTAG,          // #
   LESS_THAN,        // <
   LESS_THAN_EQ,     // <=
-  DOUBLE_AMPERSAND, // &&
   LOGIC_AND_EQ,     // &&=
   LOGIC_EQ,         // ==
   LOGIC_NOT_EQ,     // !=
-  DOUBLE_VERT_BAR,  // ||
   LOGIC_OR_EQ,      // ||=
   L_BRACKET,        // [
   L_CURLY,          // {
   L_PAREN,          // (
   MINUS_EQ,         // -=
-  PERCENT,          // %
   MOD_EQ,           // %=
   NONISH,           // ??
   NONISH_EQ,        // ??=
+  PERCENT,          // %
   PIPE,             // |>
   PLUS,             // +
   PLUS_EQ,          // +=

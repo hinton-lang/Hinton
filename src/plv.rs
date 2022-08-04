@@ -77,7 +77,7 @@ pub fn export(lexer: Option<&Lexer>, ast: Option<&ASTArena>, _module: Option<&Fu
 
 fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str) -> Value {
   let (name, mut attributes, children) = match &arena.get(idx).kind {
-    Module(x) => ("Module", json!({}), ast_list_to_json(tokens, arena, x, "")),
+    Module(x) => ("Module", json!({}), ast_list_to_json(tokens, arena, &x.children, "")),
     Reassignment(_) => ("Reassignment", json!({}), vec![]),
     Literal(x) => {
       let pos = tokens[x.token_idx.0].lexeme.as_str();

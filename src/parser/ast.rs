@@ -22,8 +22,13 @@ pub struct ASTArena {
 
 impl Default for ASTArena {
   fn default() -> Self {
+    let root = ASTNodeKind::Module(ASTModuleNode {
+      children: vec![],
+      public_members: vec![],
+    });
+
     Self {
-      arena: vec![ASTArenaNode::new(0.into(), ASTNodeKind::Module(vec![]))],
+      arena: vec![ASTArenaNode::new(0.into(), root)],
     }
   }
 }
@@ -40,7 +45,14 @@ impl ASTArena {
 
   pub fn attach_to_root(&mut self, child: ASTNodeIdx) {
     match &mut self.arena[0].kind {
-      ASTNodeKind::Module(m) => m.push(child),
+      ASTNodeKind::Module(m) => m.children.push(child),
+      _ => unreachable!("Root node should be a module node."),
+    }
+  }
+
+  pub fn add_pub_to_root(&mut self, child: ASTNodeIdx) {
+    match &mut self.arena[0].kind {
+      ASTNodeKind::Module(m) => m.public_members.push(child),
       _ => unreachable!("Root node should be a module node."),
     }
   }
@@ -62,7 +74,7 @@ impl ASTArenaNode {
 // with the exact same signature as the one to be inserted. If a such node already
 // exist, return its ASTNodeIdx and do not insert a new one.
 pub enum ASTNodeKind {
-  Module(Vec<ASTNodeIdx>),
+  Module(ASTModuleNode),
 
   // Terminal Nodes
   Literal(ASTLiteralNode),
@@ -112,6 +124,13 @@ pub enum ASTNodeKind {
   TryCatchFinally(ASTTryCatchFinallyNode),
   ImportDecl(ASTImportExportNode),
   ExportDecl(ASTImportExportNode),
+}
+
+pub struct ASTModuleNode {
+  pub children: Vec<ASTNodeIdx>,
+  // We store the ASTNodeIdx of public declarations so
+  // we can obtain their names during compile time.
+  pub public_members: Vec<ASTNodeIdx>,
 }
 
 pub struct ASTReassignmentNode {
@@ -402,6 +421,7 @@ pub struct WithStmtHead {
 }
 
 pub struct ASTFuncDeclNode {
+  pub decor: Vec<Decorator>,
   pub is_async: bool,
   pub name: ASTNodeIdx,
   pub is_gen: bool,
@@ -422,6 +442,9 @@ pub enum FuncParamKind {
   Optional,
   Rest,
 }
+
+// This will always be an identifier or function call expression.
+pub struct Decorator(pub ASTNodeIdx);
 
 pub struct ASTTryCatchFinallyNode {
   pub body: ASTNodeIdx, // This will always be a block stmt

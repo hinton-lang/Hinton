@@ -13,17 +13,15 @@ mod parse_stmts;
 
 #[macro_export]
 macro_rules! match_tok {
-   ($s:expr, $id:ident $(| $ids:ident)* ) => {
-      $s.matches(&$id)
-      $(|| $s.matches(&$ids) )*
+   ($s:expr, $id:ident $(| $ids:ident)*) => {
+      $s.matches(&$id) $(|| $s.matches(&$ids))*
    }
 }
 
 #[macro_export]
 macro_rules! check_tok {
-   ($s:expr, $id:ident $(| $ids:ident)* ) => {
-      $s.check(&$id)
-      $(|| $s.check(&$ids) )*
+   ($s:expr, $id:ident $(| $ids:ident)*) => {
+      $s.check(&$id) $(|| $s.check(&$ids))*
    }
 }
 
