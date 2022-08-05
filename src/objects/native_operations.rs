@@ -1,4 +1,5 @@
-use crate::errors::ObjectOprErrType;
+use core::errors::ObjectOprErrType;
+
 use crate::objects::{obj_vectors_equal, Object};
 
 macro_rules! binary_opr_error_msg {

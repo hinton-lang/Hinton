@@ -1,9 +1,10 @@
 // #[cfg(feature = "show_bytecode")]
+use num_traits::FromPrimitive;
+
+// #[cfg(feature = "show_bytecode")]
 use crate::core::chunk::Chunk;
 // #[cfg(feature = "show_bytecode")]
 use crate::objects::Object;
-// #[cfg(feature = "show_bytecode")]
-use num_traits::FromPrimitive;
 
 /// The set of instructions supported by the virtual machine.
 ///

@@ -1,14 +1,14 @@
-use crate::errors::ErrorReport;
-use crate::lexer::tokens::TokenIdx;
-use crate::lexer::tokens::TokenKind::*;
-use crate::parser::ast::ASTNodeKind::*;
-use crate::parser::ast::*;
-use crate::parser::Parser;
-use crate::{check_tok, consume_id, curr_tk, guard_error_token, match_tok};
+use core::ast::ASTNodeKind::*;
+use core::ast::*;
+use core::errors::ErrorReport;
+use core::tokens::TokenIdx;
+use core::tokens::TokenKind::*;
+
+use crate::{check_tok, consume_id, curr_tk, guard_error_token, match_tok, Parser};
 
 macro_rules! append_binary_expr {
   ($s:ident, $l:expr, $r:expr, $k:expr) => {
-    $s.ast.append(BinaryExpr(ASTBinaryExprNode { left: $l, right: $r, kind: $k }))
+    $s.ast.push(BinaryExpr(ASTBinaryExprNode { left: $l, right: $r, kind: $k }))
   };
 }
 
@@ -43,7 +43,7 @@ impl<'a> Parser<'a> {
       let value = self.parse_expr()?;
 
       // Returns the assignment expression of the corresponding type
-      return match &self.ast.get(&target).kind {
+      return match &self.ast.get(&target) {
         // In the compiler, we simply check the kind of target we have
         // to emit the correct set of bytecode instructions.
         Identifier(_) | MemberAccess(_) | Indexing(_) => {

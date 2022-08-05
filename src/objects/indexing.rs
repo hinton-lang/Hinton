@@ -1,6 +1,7 @@
-use crate::errors::ObjectOprErrType;
-use crate::objects::dictionary_obj::DictObject;
+use core::errors::ObjectOprErrType;
+
 use crate::objects::{Object, RangeObject};
+use crate::objects::dictionary_obj::DictObject;
 
 impl Object {
   /// Defines the indexing operation of Hinton objects.

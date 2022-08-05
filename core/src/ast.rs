@@ -1,5 +1,6 @@
-use crate::lexer::tokens::{TokenIdx, TokenKind};
+use crate::tokens::{TokenIdx, TokenKind};
 
+/// Represents the index of an AST Node in the ASTArena.
 #[derive(PartialEq)]
 pub struct ASTNodeIdx(pub usize);
 
@@ -15,119 +16,134 @@ impl Default for ASTNodeIdx {
   }
 }
 
+/// Abstract syntax tree in the form
+/// of an Arena data structure.
 pub struct ASTArena {
-  arena: Vec<ASTArenaNode>,
+  arena: Vec<ASTNodeKind>,
 }
 
 impl Default for ASTArena {
+  /// The default AST Arena, which comes with an empty module node as root.
   fn default() -> Self {
     let root = ASTNodeKind::Module(ASTModuleNode {
       children: vec![],
       public_members: vec![],
     });
 
-    Self {
-      arena: vec![ASTArenaNode::new(0.into(), root)],
-    }
+    Self { arena: vec![root] }
   }
 }
 
 impl ASTArena {
-  pub fn append(&mut self, val: ASTNodeKind) -> ASTNodeIdx {
-    self.arena.push(ASTArenaNode::new(self.arena.len().into(), val));
+  /// Pushes a new node to the arena.
+  ///
+  /// # Arguments
+  ///
+  /// * `val`: The node to insert into the arena.
+  ///
+  /// # Returns:
+  /// ```ASTNodeIdx```
+  pub fn push(&mut self, val: ASTNodeKind) -> ASTNodeIdx {
+    self.arena.push(val);
     (self.arena.len() - 1).into()
   }
 
-  pub fn get(&self, idx: &ASTNodeIdx) -> &ASTArenaNode {
+  /// Gets an ASTNode in the arena from its ASTNodeIdx. Can also
+  /// use a `usize` and convert it to an `ASTNodeIdx` with `.into()`.
+  ///
+  /// # Arguments
+  ///
+  /// * `idx`: The ASTNodeIdx of the node.
+  ///
+  /// # Returns:
+  /// ```&ASTArenaNode```
+  pub fn get(&self, idx: &ASTNodeIdx) -> &ASTNodeKind {
     &self.arena[idx.0]
   }
 
+  /// Attaches a node to the root module node.
+  ///
+  /// # Arguments
+  ///
+  /// * `child`: The node to be attached to the root module node.
+  ///
+  /// # Returns:
+  /// ```()```
   pub fn attach_to_root(&mut self, child: ASTNodeIdx) {
-    match &mut self.arena[0].kind {
+    match &mut self.arena[0] {
       ASTNodeKind::Module(m) => m.children.push(child),
       _ => unreachable!("Root node should be a module node."),
     }
   }
 
+  /// Adds the name of a public member declaration to the root node.
+  ///
+  /// # Arguments
+  ///
+  /// * `child`: The ASTNodeIdx of the public member declaration.
+  ///
+  ///  # Returns:
+  /// ```()```
   pub fn add_pub_to_root(&mut self, child: ASTNodeIdx) {
-    match &mut self.arena[0].kind {
+    match &mut self.arena[0] {
       ASTNodeKind::Module(m) => m.public_members.push(child),
       _ => unreachable!("Root node should be a module node."),
     }
   }
 }
 
-pub struct ASTArenaNode {
-  pub idx: ASTNodeIdx,
-  pub kind: ASTNodeKind,
-}
-
-impl ASTArenaNode {
-  fn new(idx: ASTNodeIdx, kind: ASTNodeKind) -> Self {
-    Self { idx, kind }
-  }
-}
-
-// TODO: Prevent node duplication.
-// When inserting new nodes, check that the arena doesn't already contain a node
-// with the exact same signature as the one to be inserted. If a such node already
-// exist, return its ASTNodeIdx and do not insert a new one.
 pub enum ASTNodeKind {
   Module(ASTModuleNode),
 
-  // Terminal Nodes
-  NumLiteral(TokenIdx),
-  TrueLiteral(TokenIdx),
-  FalseLiteral(TokenIdx),
-  NoneLiteral(TokenIdx),
-  StringLiteral(TokenIdx),
-  SelfLiteral(TokenIdx),
-  SuperLiteral(TokenIdx),
-  Identifier(TokenIdx),
-
-  // Expression Nodes
-  Reassignment(ASTReassignmentNode),
-  TernaryConditional(ASTTernaryConditionalNode),
-  BinaryExpr(ASTBinaryExprNode),
-  UnaryExpr(ASTUnaryExprNode),
-  Indexing(ASTIndexingNode),
-  ArraySlice(ASTArraySliceNode),
-  MemberAccess(ASTMemberAccessNode),
   ArrayLiteral(Vec<ASTNodeIdx>),
-  TupleLiteral(Vec<ASTNodeIdx>),
-  RepeatLiteral(ASTRepeatLiteralNode),
-  SpreadExpr(ASTNodeIdx),
-  DictLiteral(Vec<ASTNodeIdx>),
-  DictKeyValPair((ASTNodeIdx, ASTNodeIdx)),
-  EvaluatedDictKey(ASTNodeIdx),
-  CallExpr(ASTCallExprNode),
-  Lambda(ASTLambdaNode),
-  LoopExpr(ASTNodeIdx), // This will always be a block stmt
-
-  // Statement Nodes
-  ExprStmt(ASTNodeIdx),
+  ArraySlice(ASTArraySliceNode),
+  BinaryExpr(ASTBinaryExprNode),
   BlockStmt(Vec<ASTNodeIdx>),
   BreakStmt(Option<ASTNodeIdx>),
-  ContinueStmt,
-  ReturnStmt(ASTNodeIdx),
-  YieldStmt(ASTNodeIdx),
-  ThrowStmt(ASTNodeIdx),
-  DelStmt(ASTNodeIdx),
-  WhileLoop(ASTWhileLoopNode),
-  ForLoop(ASTForLoopNode),
+  CallExpr(ASTCallExprNode),
   CompactArrOrTpl(ASTCompactArrOrTplNode),
   CompactDict(ASTCompactDictNode),
-  IfStmt(ASTIfStmtNode),
-  VarConstDecl(ASTVarConsDeclNode),
+  ContinueStmt,
+  DelStmt(ASTNodeIdx),
   DestructingPattern(ASTDestructingPatternNode),
   DestructingWildCard(Option<ASTNodeIdx>),
-  WithStmt(ASTWithStmtNode),
-  FuncDecl(ASTFuncDeclNode),
-  TryCatchFinally(ASTTryCatchFinallyNode),
-  ImportDecl(ASTImportExportNode),
+  DictKeyValPair((ASTNodeIdx, ASTNodeIdx)),
+  DictLiteral(Vec<ASTNodeIdx>),
+  EvaluatedDictKey(ASTNodeIdx),
   ExportDecl(ASTImportExportNode),
+  ExprStmt(ASTNodeIdx),
+  FalseLiteral(TokenIdx),
+  ForLoop(ASTForLoopNode),
+  FuncDecl(ASTFuncDeclNode),
+  Identifier(TokenIdx),
+  IfStmt(ASTIfStmtNode),
+  ImportDecl(ASTImportExportNode),
+  Indexing(ASTIndexingNode),
+  Lambda(ASTLambdaNode),
+  LoopExpr(ASTNodeIdx), // This will always be a block stmt
+  MemberAccess(ASTMemberAccessNode),
+  NoneLiteral(TokenIdx),
+  NumLiteral(TokenIdx),
+  Reassignment(ASTReassignmentNode),
+  RepeatLiteral(ASTRepeatLiteralNode),
+  ReturnStmt(ASTNodeIdx),
+  SelfLiteral(TokenIdx),
+  SpreadExpr(ASTNodeIdx),
+  StringLiteral(TokenIdx),
+  SuperLiteral(TokenIdx),
+  TernaryConditional(ASTTernaryConditionalNode),
+  ThrowStmt(ASTNodeIdx),
+  TrueLiteral(TokenIdx),
+  TryCatchFinally(ASTTryCatchFinallyNode),
+  TupleLiteral(Vec<ASTNodeIdx>),
+  UnaryExpr(ASTUnaryExprNode),
+  VarConstDecl(ASTVarConsDeclNode),
+  WhileLoop(ASTWhileLoopNode),
+  WithStmt(ASTWithStmtNode),
+  YieldStmt(ASTNodeIdx),
 }
 
+/// An AST Module node.
 pub struct ASTModuleNode {
   pub children: Vec<ASTNodeIdx>,
   // We store the ASTNodeIdx of public declarations so
@@ -135,12 +151,14 @@ pub struct ASTModuleNode {
   pub public_members: Vec<ASTNodeIdx>,
 }
 
+/// An AST Reassignment Node
 pub struct ASTReassignmentNode {
   pub target: ASTNodeIdx,
   pub kind: ASTReassignmentKind,
   pub value: ASTNodeIdx,
 }
 
+#[derive(Debug)]
 #[repr(u8)]
 pub enum ASTReassignmentKind {
   Assign,   // a = b
@@ -162,6 +180,14 @@ pub enum ASTReassignmentKind {
 }
 
 impl ASTReassignmentKind {
+  /// Tries to create a ReassignmentKind from a TokenKind.
+  ///
+  /// # Arguments
+  ///
+  /// * `tk`: The TokenKind to be converted.
+  ///
+  /// # Returns:
+  /// ```Option<ASTReassignmentKind>```
   pub fn try_from_token(tk: &TokenKind) -> Option<Self> {
     match tk {
       TokenKind::AT_EQ => Some(ASTReassignmentKind::MatMul),
@@ -185,12 +211,14 @@ impl ASTReassignmentKind {
   }
 }
 
+/// An AST Ternary Conditional Node
 pub struct ASTTernaryConditionalNode {
   pub condition: ASTNodeIdx,
   pub branch_true: ASTNodeIdx,
   pub branch_false: ASTNodeIdx,
 }
 
+/// An AST Binary Expression Node
 pub struct ASTBinaryExprNode {
   pub left: ASTNodeIdx,
   pub right: ASTNodeIdx,
@@ -229,7 +257,15 @@ pub enum BinaryExprKind {
 }
 
 impl BinaryExprKind {
-  pub fn try_equality(tk: &TokenKind) -> Option<Self> {
+  /// Tries to create a Binary Equality Operator from a TokenKind.
+  ///
+  /// # Arguments
+  ///
+  /// * `tk`: The TokenKind to be converted.
+  ///
+  /// # Returns:
+  /// ```Option<BinaryExprKind>```
+  pub fn try_equality(tk: &TokenKind) -> Option<BinaryExprKind> {
     match tk {
       TokenKind::LOGIC_EQ => Some(BinaryExprKind::Equals),
       TokenKind::LOGIC_NOT_EQ => Some(BinaryExprKind::NotEquals),
@@ -237,7 +273,15 @@ impl BinaryExprKind {
     }
   }
 
-  pub fn try_relation(tk: &TokenKind) -> Option<Self> {
+  /// Tries to create a Relation Operator from a TokenKind.
+  ///
+  /// # Arguments
+  ///
+  /// * `tk`: The TokenKind to be converted.
+  ///
+  /// # Returns:
+  /// ```Option<BinaryExprKind>```
+  pub fn try_relation(tk: &TokenKind) -> Option<BinaryExprKind> {
     match tk {
       TokenKind::GREATER_THAN => Some(BinaryExprKind::GreaterThan),
       TokenKind::GREATER_THAN_EQ => Some(BinaryExprKind::GreaterThanEQ),
@@ -249,7 +293,15 @@ impl BinaryExprKind {
     }
   }
 
-  pub fn try_bit_shift(tk: &TokenKind) -> Option<Self> {
+  /// Tries to create a Bit Shift Operator from a TokenKind.
+  ///
+  /// # Arguments
+  ///
+  /// * `tk`: The TokenKind to be converted.
+  ///
+  /// # Returns:
+  /// ```Option<BinaryExprKind>```
+  pub fn try_bit_shift(tk: &TokenKind) -> Option<BinaryExprKind> {
     match tk {
       TokenKind::BIT_L_SHIFT => Some(BinaryExprKind::BitShiftLeft),
       TokenKind::BIT_R_SHIFT => Some(BinaryExprKind::BitShiftRight),
@@ -257,7 +309,15 @@ impl BinaryExprKind {
     }
   }
 
-  pub fn try_range(tk: &TokenKind) -> Option<Self> {
+  /// Tries to create a Range Operator from a TokenKind.
+  ///
+  /// # Arguments
+  ///
+  /// * `tk`: The TokenKind to be converted.
+  ///
+  /// # Returns:
+  /// ```Option<BinaryExprKind>```
+  pub fn try_range(tk: &TokenKind) -> Option<BinaryExprKind> {
     match tk {
       TokenKind::DOUBLE_DOT => Some(BinaryExprKind::Range),
       TokenKind::RANGE_EQ => Some(BinaryExprKind::RangeEQ),
@@ -265,7 +325,15 @@ impl BinaryExprKind {
     }
   }
 
-  pub fn try_term(tk: &TokenKind) -> Option<Self> {
+  /// Tries to create a Term Operator from a TokenKind.
+  ///
+  /// # Arguments
+  ///
+  /// * `tk`: The TokenKind to be converted.
+  ///
+  /// # Returns:
+  /// ```Option<BinaryExprKind>```
+  pub fn try_term(tk: &TokenKind) -> Option<BinaryExprKind> {
     match tk {
       TokenKind::PLUS => Some(BinaryExprKind::Add),
       TokenKind::DASH => Some(BinaryExprKind::Subtract),
@@ -273,7 +341,15 @@ impl BinaryExprKind {
     }
   }
 
-  pub fn try_factor(tk: &TokenKind) -> Option<Self> {
+  /// Tries to create a Factor Operator from a TokenKind.
+  ///
+  /// # Arguments
+  ///
+  /// * `tk`: The TokenKind to be converted.
+  ///
+  /// # Returns:
+  /// ```Option<BinaryExprKind>```
+  pub fn try_factor(tk: &TokenKind) -> Option<BinaryExprKind> {
     match tk {
       TokenKind::AT => Some(BinaryExprKind::MatMult),
       TokenKind::MOD_KW => Some(BinaryExprKind::Mod),
@@ -285,6 +361,7 @@ impl BinaryExprKind {
   }
 }
 
+/// An AST Unary Expression Node
 pub struct ASTUnaryExprNode {
   pub kind: UnaryExprKind,
   pub operand: ASTNodeIdx,
@@ -301,7 +378,15 @@ pub enum UnaryExprKind {
 }
 
 impl UnaryExprKind {
-  pub fn try_from_token(tk: &TokenKind) -> Option<Self> {
+  /// Tries to create a Unary Operator from a TokenKind.
+  ///
+  /// # Arguments
+  ///
+  /// * `tk`: The TokenKind to be converted.
+  ///
+  /// # Returns:
+  /// ```Option<UnaryExprKind>```
+  pub fn try_from_token(tk: &TokenKind) -> Option<UnaryExprKind> {
     match tk {
       TokenKind::BANG => Some(UnaryExprKind::LogicNot),
       TokenKind::DASH => Some(UnaryExprKind::Negate),
@@ -314,22 +399,26 @@ impl UnaryExprKind {
   }
 }
 
+/// An AST Indexing Node
 pub struct ASTIndexingNode {
   pub target: ASTNodeIdx,
   pub indexers: Vec<ASTNodeIdx>,
 }
 
+/// An AST Slice Node
 pub struct ASTArraySliceNode {
   pub upper: Option<ASTNodeIdx>,
   pub lower: Option<ASTNodeIdx>,
 }
 
+/// An AST Member Access Node
 pub struct ASTMemberAccessNode {
   pub is_safe: bool,
   pub target: ASTNodeIdx,
   pub member: ASTNodeIdx, // id node
 }
 
+/// An AST Call Expression Node
 #[derive(Default)]
 pub struct ASTCallExprNode {
   pub target: ASTNodeIdx,
@@ -338,6 +427,7 @@ pub struct ASTCallExprNode {
   pub named_args: Vec<(ASTNodeIdx, ASTNodeIdx)>, // (id node, value node)
 }
 
+/// An AST Lambda Expression Node
 pub struct ASTLambdaNode {
   pub is_async: bool,
   pub params: Vec<FuncParam>,
@@ -346,77 +436,91 @@ pub struct ASTLambdaNode {
   pub body: ASTNodeIdx, // This will always be a block stmt or single expression
 }
 
+/// An AST Repeat Literal Node
 pub struct ASTRepeatLiteralNode {
   pub kind: RepeatLiteralKind,
   pub value: ASTNodeIdx,
   pub count: ASTNodeIdx,
 }
 
+#[derive(Debug)]
 #[repr(u8)]
 pub enum RepeatLiteralKind {
   Array,
   Tuple,
 }
 
+/// An AST While Loop Node
 pub struct ASTWhileLoopNode {
   pub let_id: Option<ASTNodeIdx>,
   pub cond: ASTNodeIdx,
   pub body: ASTNodeIdx, // This will always be a block stmt
 }
 
+/// An AST For Loop Node
 pub struct ASTForLoopNode {
   pub head: ForLoopHead,
   pub body: ASTNodeIdx, // This will always be a block stmt
 }
 
+/// An AST Compact Array/Tuple Node
 pub struct ASTCompactArrOrTplNode {
   pub heads: Vec<CompactForLoop>,
   pub body: ASTNodeIdx,
   pub is_tpl: bool,
 }
 
+/// An AST Compact Dict Node
 pub struct ASTCompactDictNode {
   pub heads: Vec<CompactForLoop>,
   pub body: ASTNodeIdx,
 }
 
+/// An AST Compact For Loop Node
 pub struct CompactForLoop {
   pub head: ForLoopHead,
   pub cond: Option<ASTNodeIdx>, // The if-part, it it exists
 }
 
+/// The Head of a For-loop (both compact and statement)
 pub struct ForLoopHead {
   pub id: ASTNodeIdx, // Can either be a single id node or destructuring pattern
   pub target: ASTNodeIdx,
 }
 
+/// An AST If-Else-If Statement Node
 pub struct ASTIfStmtNode {
   pub cond: ASTNodeIdx,
   pub true_branch: ASTNodeIdx,
   pub else_branch: Option<ASTNodeIdx>,
 }
 
+/// An AST Variable/Constant declaration Node
 pub struct ASTVarConsDeclNode {
   pub is_const: bool,
   pub id: ASTNodeIdx, // Can either be a single id node or destructuring pattern
   pub val: ASTNodeIdx,
 }
 
+/// An AST Destructing Pattern Node
 pub struct ASTDestructingPatternNode {
   // List of identifier nodes, and optionally, at most one wild-card node.
   pub patterns: Vec<ASTNodeIdx>,
 }
 
+/// An AST With-As Statement Node
 pub struct ASTWithStmtNode {
   pub heads: Vec<WithStmtHead>,
   pub body: ASTNodeIdx,
 }
 
+/// The head of a With-As Statement
 pub struct WithStmtHead {
   pub expr: ASTNodeIdx,
   pub id: ASTNodeIdx,
 }
 
+/// An AST Function Declaration Node
 pub struct ASTFuncDeclNode {
   pub decor: Vec<Decorator>,
   pub is_async: bool,
@@ -428,6 +532,7 @@ pub struct ASTFuncDeclNode {
   pub body: ASTNodeIdx, // This will always be a block stmt
 }
 
+/// A Function Parameter
 pub struct FuncParam {
   pub name: ASTNodeIdx,
   pub kind: FuncParamKind,
@@ -440,31 +545,37 @@ pub enum FuncParamKind {
   Rest,
 }
 
+/// A Class or Function Decorator (note that this is not an AST node).
 // This will always be an identifier or function call expression.
 pub struct Decorator(pub ASTNodeIdx);
 
+/// An AST Try-Catch-Finally Statement Node
 pub struct ASTTryCatchFinallyNode {
   pub body: ASTNodeIdx, // This will always be a block stmt
   pub catchers: Vec<CatchPart>,
   pub finally: Option<ASTNodeIdx>, // This will always be a block stmt
 }
 
+/// The "catch" Part of a Try-Catch-Finally Statement.
 pub struct CatchPart {
   pub body: ASTNodeIdx, // This will always be a block stmt,
   pub target: Option<CatchTarget>,
 }
 
+/// The Target For the `catch` Part of a Try-Catch-Finally Statement.
 pub struct CatchTarget {
   pub error_class: ASTNodeIdx,          // This will always be an identifier node
   pub error_result: Option<ASTNodeIdx>, // This will always be an identifier node
 }
 
+/// An AST Import/Export Declaration Node
 pub struct ASTImportExportNode {
   pub members: Vec<ImportExportMember>,
   pub wildcard: Option<ASTNodeIdx>, // This will always be an identifier node,
   pub path: ASTNodeIdx,             // This will always be a string literal node,
 }
 
+/// A single Import/Export Member.
 pub struct ImportExportMember {
   pub member: ASTNodeIdx,        // This will always be an identifier node
   pub alias: Option<ASTNodeIdx>, // This will always be an identifier node

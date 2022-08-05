@@ -1,22 +1,21 @@
-extern crate serde_json;
-
 use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
 use hashbrown::HashMap;
 
+use core::errors::{report_errors_list, ErrorReport, RuntimeErrorType};
+use core::tokens::TokenList;
+use core::{InterpretResult, RuntimeResult};
+use lexer::Lexer;
+use parser::Parser;
+
 use crate::built_in::BuiltIn;
 use crate::core::bytecode::OpCode;
-use crate::errors::{report_errors_list, ErrorReport, RuntimeErrorType};
-use crate::lexer::tokens::TokenList;
-use crate::lexer::Lexer;
 use crate::objects::class_obj::{BoundMethod, InstanceObject};
 use crate::objects::{ClosureObject, FuncObject, Object, UpValRef};
-use crate::parser::Parser;
-use crate::plv::get_time_millis;
 use crate::virtual_machine::call_frame::{CallFrame, CallFrameType};
-use crate::{plv, FRAMES_MAX};
+use crate::FRAMES_MAX;
 
 // Submodules
 pub mod call_frame;
@@ -39,21 +38,6 @@ pub struct VM {
   pub(crate) built_in: BuiltIn,
 }
 
-/// The types of results the interpreter can return.
-pub enum InterpretResult {
-  CompileError,
-  Ok,
-  ParseError,
-  RuntimeError,
-}
-
-/// Represents the internal state of the interpreter after some computation.
-pub enum RuntimeResult {
-  Error { error: RuntimeErrorType, message: String },
-  EndOK,
-  Continue,
-}
-
 impl VM {
   /// Interprets the source text of a file.
   ///
@@ -70,7 +54,7 @@ impl VM {
       built_in: BuiltIn::default(),
     };
 
-    let bytecode = match _self.run_with_plv(source) {
+    match _self.run_with_plv(source) {
       Ok(x) => x,
       Err(e) => {
         report_errors_list(&_self.filepath, e, source);
@@ -111,15 +95,15 @@ impl VM {
 
   fn run_with_plv(&self, source: &[char]) -> Result<FuncObject, Vec<ErrorReport>> {
     // Convert the source file into a flat list of tokens
-    let lexer_start = get_time_millis();
+    let lexer_start = plv::get_time_millis();
     let lexer = Lexer::lex(source);
-    let lexer_end = get_time_millis();
+    let lexer_end = plv::get_time_millis();
     let tokens_list = TokenList::new(source, &lexer);
 
     // Parses the program into an AST and aborts if there are any parsing errors.
-    let parser_start = get_time_millis();
+    let parser_start = plv::get_time_millis();
     let parser = Parser::parse(&tokens_list);
-    let parser_end = get_time_millis();
+    let parser_end = plv::get_time_millis();
 
     for e in parser.get_errors_list() {
       println!("{}", e.message)
@@ -148,7 +132,7 @@ impl VM {
     // );
 
     let timers = (lexer_start, lexer_end, parser_start, parser_end, 0, 0);
-    plv::export(&tokens_list, &parser.ast, None, timers);
+    plv::export(&tokens_list, &parser.ast, &[], timers);
     Ok(FuncObject::default())
   }
 

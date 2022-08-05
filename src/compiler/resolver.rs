@@ -1,8 +1,9 @@
-use crate::compiler::symbols::{Symbol, SymbolType, SL};
+use core::errors::CompilerErrorType;
+
 use crate::compiler::{Compiler, UpValue};
+use crate::compiler::symbols::{SL, Symbol, SymbolType};
 use crate::core::bytecode::OpCode;
-use crate::errors::CompilerErrorType;
-use crate::lexer::legacy_tokens::Token;
+use crate::core::legacy_tokens::Token;
 use crate::objects::Object;
 
 impl Compiler {

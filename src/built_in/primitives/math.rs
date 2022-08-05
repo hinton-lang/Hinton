@@ -1,11 +1,15 @@
-use crate::built_in::primitives::HTPrimitive;
+use std::f64::consts::{E, FRAC_1_SQRT_2, LN_10, LN_2, LOG10_E, LOG2_E, PI, SQRT_2, TAU};
+
+use hashbrown::HashMap;
+
+use core::errors::RuntimeErrorType;
+use core::RuntimeResult;
+
 use crate::built_in::NativeBoundMethod;
-use crate::errors::RuntimeErrorType;
+use crate::built_in::primitives::HTPrimitive;
 use crate::objects::class_obj::{ClassField, ClassObject};
 use crate::objects::Object;
-use crate::virtual_machine::{RuntimeResult, VM};
-use hashbrown::HashMap;
-use std::f64::consts::{E, FRAC_1_SQRT_2, LN_10, LN_2, LOG10_E, LOG2_E, PI, SQRT_2, TAU};
+use crate::virtual_machine::VM;
 
 /// Represents the Hinton `Math` built-in class.
 pub struct MathClass(ClassObject);

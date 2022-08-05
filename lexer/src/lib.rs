@@ -1,12 +1,17 @@
-use crate::lexer::find_tokens::LexerMode;
-use crate::lexer::tokens::{ErrorTokenKind, Token, TokenKind};
+use core::tokens;
+use core::tokens::{ErrorTokenKind, Token, TokenKind};
 
 // Submodules
-pub mod find_tokens;
-pub mod legacy_tokens;
-pub mod lex_numbers;
+mod find_tokens;
+mod lex_numbers;
 mod lex_strings;
-pub mod tokens;
+
+#[derive(Debug)]
+pub enum LexerMode {
+  Default,
+  StrInterpol,
+  InterpolBlockExpr,
+}
 
 /// Struct that represents the scanner.
 pub struct Lexer<'a> {
@@ -134,20 +139,16 @@ impl<'a> Lexer<'a> {
         break;
       }
 
-      let c = self.get_current();
-
-      if c == ' ' || c == '\r' || c == '\t' {
-        self.advance();
-      } else if c == '\n' {
-        self.line_num += 1;
-        self.line_start = self.current + 1;
-        self.advance();
-      } else if c == '/' && self.get_next() == '/' {
-        self.skip_single_line_comments();
-      } else if c == '/' && self.get_next() == '*' {
-        self.skip_block_comments();
-      } else {
-        break;
+      match self.get_current() {
+        ' ' | '\r' | '\t' => self.current += 1,
+        '/' if self.get_next() == '/' => self.skip_single_line_comments(),
+        '/' if self.get_next() == '*' => self.skip_block_comments(),
+        '\n' => {
+          self.line_num += 1;
+          self.line_start = self.current + 1;
+          self.advance();
+        }
+        _ => break,
       }
     }
   }

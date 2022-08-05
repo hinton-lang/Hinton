@@ -1,9 +1,10 @@
-use crate::compiler::symbols::SymbolType;
+use core::errors::CompilerErrorType;
+
 use crate::compiler::{BreakScope, Compiler, LoopScope, LoopType};
+use crate::compiler::symbols::SymbolType;
 use crate::core::bytecode::OpCode;
-use crate::errors::CompilerErrorType;
-use crate::lexer::legacy_tokens::Token;
-use crate::parser::legacy_ast::*;
+use crate::core::legacy_ast::*;
+use crate::core::legacy_tokens::Token;
 
 impl Compiler {
   /// Compiles a `while` statement.

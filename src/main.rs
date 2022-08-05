@@ -4,16 +4,15 @@ extern crate num_derive;
 use std::io::ErrorKind;
 use std::{env, fs};
 
-use crate::virtual_machine::{InterpretResult, VM};
+use ::core::InterpretResult;
+
+use crate::virtual_machine::VM;
 
 mod built_in;
 mod compiler;
 mod core;
 mod errors;
-mod lexer;
 mod objects;
-mod parser;
-mod plv;
 mod virtual_machine;
 
 #[cfg(test)]

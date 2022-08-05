@@ -1,11 +1,15 @@
-use crate::built_in::primitives::HTPrimitive;
+use std::rc::Rc;
+
+use hashbrown::HashMap;
+
+use core::errors::RuntimeErrorType;
+use core::RuntimeResult;
+
 use crate::built_in::NativeBoundMethod;
-use crate::errors::RuntimeErrorType;
+use crate::built_in::primitives::HTPrimitive;
 use crate::objects::class_obj::{ClassField, ClassObject};
 use crate::objects::Object;
-use crate::virtual_machine::{RuntimeResult, VM};
-use hashbrown::HashMap;
-use std::rc::Rc;
+use crate::virtual_machine::VM;
 
 /// Represents the Hinton `Array` primitive class.
 pub struct ArrayClass(ClassObject);

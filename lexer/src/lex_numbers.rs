@@ -1,7 +1,8 @@
-use crate::lexer::tokens::ErrorTokenKind::*;
-use crate::lexer::tokens::Token;
-use crate::lexer::tokens::TokenKind::*;
-use crate::lexer::Lexer;
+use core::tokens::ErrorTokenKind::*;
+use core::tokens::Token;
+use core::tokens::TokenKind::*;
+
+use crate::Lexer;
 
 /// The types of number we can expect to lex.
 enum ExNumType {

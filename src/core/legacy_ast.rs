@@ -1,4 +1,4 @@
-use crate::lexer::legacy_tokens::Token;
+use crate::core::legacy_tokens::Token;
 use crate::objects::Object;
 
 #[derive(Clone)]

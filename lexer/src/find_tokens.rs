@@ -1,13 +1,7 @@
-use crate::lexer::tokens::TokenKind::*;
-use crate::lexer::tokens::{ErrorTokenKind, Token};
-use crate::lexer::Lexer;
+use core::tokens::{ErrorTokenKind, Token};
+use core::tokens::TokenKind::*;
 
-#[derive(Debug)]
-pub enum LexerMode {
-  Default,
-  StrInterpol,
-  InterpolBlockExpr,
-}
+use crate::{Lexer, LexerMode};
 
 impl<'a> Lexer<'a> {
   /// Scans the next token in the source file.

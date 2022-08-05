@@ -1,16 +1,19 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
+use hashbrown::HashMap;
+
+use core::errors::RuntimeErrorType;
+use core::RuntimeResult;
+
+use crate::built_in::NativeBoundMethod;
 use crate::built_in::primitives::array::ArrayClass;
 use crate::built_in::primitives::int::IntClass;
 use crate::built_in::primitives::math::MathClass;
 use crate::built_in::primitives::string::StringClass;
 use crate::built_in::primitives::tuple::TupleClass;
-use crate::built_in::NativeBoundMethod;
-use crate::errors::RuntimeErrorType;
-use crate::objects::class_obj::{ClassField, ClassObject};
 use crate::objects::{NativeMethodObj, Object};
-use crate::virtual_machine::RuntimeResult;
-use hashbrown::HashMap;
-use std::cell::RefCell;
-use std::rc::Rc;
+use crate::objects::class_obj::{ClassField, ClassObject};
 
 // Submodules
 mod array;

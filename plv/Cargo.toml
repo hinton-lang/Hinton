@@ -1,0 +1,9 @@
+[package]
+name = "plv"
+version = "0.1.0"
+authors = ["Fausto German <fgermanj@gmail.com>"]
+edition = "2021"
+
+[dependencies]
+core = { path = "../core" }
+serde_json = "1.0.82"

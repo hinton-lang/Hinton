@@ -1,7 +1,9 @@
+use core::RuntimeResult;
+
 use crate::built_in::natives::Natives;
 use crate::built_in::primitives::Primitives;
 use crate::objects::{NativeFuncObj, NativeMethodObj, Object};
-use crate::virtual_machine::{RuntimeResult, VM};
+use crate::virtual_machine::VM;
 
 // Submodules
 pub mod natives;

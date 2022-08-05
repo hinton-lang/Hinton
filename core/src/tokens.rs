@@ -32,8 +32,8 @@ impl<'a> TokenList<'a> {
     Self { src, tokens }
   }
 
-  pub fn lexeme(&self, idx: usize) -> String {
-    let tok = &self[idx];
+  pub fn lexeme(&self, idx: &TokenIdx) -> String {
+    let tok = &self[idx.0];
 
     match &tok.kind {
       TokenKind::ERROR(e) => e.to_str().to_string(),
@@ -41,6 +41,18 @@ impl<'a> TokenList<'a> {
       _ => self.src[tok.span.0..tok.span.1].iter().collect(),
     }
   }
+
+  pub fn location(&self, idx: &TokenIdx) -> TokenLoc {
+    self[idx.0].get_location()
+  }
+}
+
+pub struct TokenLoc {
+  pub line_num: usize,
+  pub col_start: usize,
+  pub col_end: usize,
+  pub span: (usize, usize),
+  pub line_start: usize,
 }
 
 // A token that represents a single unit of Hinton code.
@@ -54,6 +66,18 @@ pub struct Token {
   pub span: (usize, usize),
   /// The token's type
   pub kind: TokenKind,
+}
+
+impl Token {
+  pub fn get_location(&self) -> TokenLoc {
+    TokenLoc {
+      line_num: self.line_num,
+      col_start: self.span.0 - self.line_start,
+      col_end: self.span.0 - self.line_start,
+      span: self.span,
+      line_start: self.line_start,
+    }
+  }
 }
 
 /// The types of tokens in a Hinton program.

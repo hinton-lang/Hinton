@@ -3,16 +3,18 @@ use std::rc::Rc;
 
 use hashbrown::HashMap;
 
+use core::errors::RuntimeErrorType;
+use core::RuntimeResult;
+
 use crate::built_in::BuiltIn;
 use crate::core::bytecode::OpCode;
-use crate::errors::RuntimeErrorType;
+use crate::core::legacy_ast::{BinaryExprType, UnaryExprType};
 use crate::objects::class_obj::{ClassField, ClassObject};
 use crate::objects::dictionary_obj::DictObject;
 use crate::objects::indexing::to_bounded_index;
 use crate::objects::iter_obj::{get_next_in_iter, make_iter};
 use crate::objects::*;
-use crate::parser::legacy_ast::{BinaryExprType, UnaryExprType};
-use crate::virtual_machine::{RuntimeResult, VM};
+use crate::virtual_machine::VM;
 
 impl VM {
   /// Executes the instructions in a chunk.

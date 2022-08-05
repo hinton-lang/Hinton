@@ -1,9 +1,9 @@
-use crate::errors::ErrorReport;
-use crate::lexer::tokens::TokenKind::*;
-use crate::parser::ast::ASTNodeKind::*;
-use crate::parser::ast::*;
-use crate::parser::Parser;
-use crate::{check_tok, curr_tk, match_tok};
+use core::ast::ASTNodeKind::*;
+use core::ast::*;
+use core::errors::ErrorReport;
+use core::tokens::TokenKind::*;
+
+use crate::{check_tok, curr_tk, match_tok, Parser};
 
 impl<'a> Parser<'a> {
   /// Parses an array literal expression.
@@ -284,7 +284,7 @@ impl<'a> Parser<'a> {
         _ => return Err(self.error_at_current("Invalid key for dict literal.")),
       };
 
-      self.ast.append(literal_or_ident)
+      self.ast.push(literal_or_ident)
     };
 
     self.consume(&COLON, "Expected ':' in dict key-value pair.")?;

@@ -1,11 +1,12 @@
-use crate::compiler::symbols::{Symbol, SymbolTable, SymbolType};
+use core::errors::CompilerErrorType;
+
 use crate::compiler::{Compiler, CompilerCtx, FunctionScope, UpValue};
+use crate::compiler::symbols::{Symbol, SymbolTable, SymbolType};
 use crate::core::bytecode::OpCode;
 use crate::core::chunk::Chunk;
-use crate::errors::CompilerErrorType;
-use crate::lexer::legacy_tokens::Token;
+use crate::core::legacy_ast::*;
+use crate::core::legacy_tokens::Token;
 use crate::objects::{FuncObject, Object};
-use crate::parser::legacy_ast::*;
 
 impl Compiler {
   /// Compiles a function declaration statement.

@@ -1,11 +1,14 @@
-use crate::errors::ObjectOprErrType;
-use crate::objects::Object;
-use crate::virtual_machine::RuntimeResult;
-use hashbrown::HashMap;
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Formatter;
 use std::rc::Rc;
+
+use hashbrown::HashMap;
+
+use core::errors::ObjectOprErrType;
+use core::RuntimeResult;
+
+use crate::objects::Object;
 
 /// Represents a Hinton dictionary object.
 #[derive(Clone)]

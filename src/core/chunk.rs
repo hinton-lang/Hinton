@@ -1,6 +1,7 @@
+use num_traits::FromPrimitive;
+
 use crate::core::bytecode::OpCode;
 use crate::objects::Object;
-use num_traits::FromPrimitive;
 
 /// Contains all the necessary information about
 /// the instructions to be executed.

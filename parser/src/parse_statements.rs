@@ -1,10 +1,10 @@
-use crate::errors::ErrorReport;
-use crate::lexer::tokens::TokenIdx;
-use crate::lexer::tokens::TokenKind::*;
-use crate::parser::ast::ASTNodeKind::*;
-use crate::parser::ast::*;
-use crate::parser::Parser;
-use crate::{check_tok, consume_id, curr_tk, guard_error_token, match_tok};
+use core::ast::ASTNodeKind::*;
+use core::ast::*;
+use core::errors::ErrorReport;
+use core::tokens::TokenIdx;
+use core::tokens::TokenKind::*;
+
+use crate::{check_tok, consume_id, curr_tk, guard_error_token, match_tok, Parser};
 
 pub enum ParsingLevel {
   Module,
@@ -247,7 +247,7 @@ impl<'a> Parser<'a> {
     let target_tok = TokenIdx::from(self.current_pos - 1);
 
     // Only IDENTIFIER, INDEXING_EXPR, or MEMBER_ACCESS_EXPR can be deleted.
-    let stmt = match &self.ast.get(&target).kind {
+    let stmt = match &self.ast.get(&target) {
       Identifier(_) | Indexing(_) | MemberAccess(_) => target,
       _ => return Err(self.error_at_tok(target_tok, "Invalid del target.")),
     };
@@ -515,7 +515,7 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_decorator_body(&mut self) -> Result<Decorator, ErrorReport> {
     let expr = self.parse_expr()?;
 
-    let decorator = match self.ast.get(&expr).kind {
+    let decorator = match self.ast.get(&expr) {
       Identifier(_) | CallExpr(_) => expr,
       // TODO: Implement node span resolution and get the span of the target instead.
       _ => return Err(self.error_at_previous("Expected identifier or function call as decorator.")),

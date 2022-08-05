@@ -1,15 +1,12 @@
-use crate::errors::ErrorReport;
-use crate::lexer::tokens::TokenKind::*;
-use crate::lexer::tokens::*;
-use crate::parser::ast::*;
+use core::ast::*;
+use core::errors::ErrorReport;
+use core::tokens::TokenKind::*;
+use core::tokens::*;
 
-// Submodules
-pub mod ast;
-pub mod legacy_ast;
-mod parse_clctns;
-mod parse_decls;
-mod parse_exprs;
-mod parse_stmts;
+mod parse_collections;
+mod parse_declarations;
+mod parse_expressions;
+mod parse_statements;
 
 #[macro_export]
 macro_rules! match_tok {
@@ -188,7 +185,7 @@ impl<'a> Parser<'a> {
   }
 
   pub fn emit(&mut self, node: ASTNodeKind) -> Result<ASTNodeIdx, ErrorReport> {
-    Ok(self.ast.append(node))
+    Ok(self.ast.push(node))
   }
 
   /// Emits a compiler error from the given token.

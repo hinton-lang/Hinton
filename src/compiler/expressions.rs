@@ -1,11 +1,12 @@
-use crate::compiler::symbols::SL;
+use core::errors::CompilerErrorType;
+
 use crate::compiler::Compiler;
 use crate::compiler::CompilerCtx;
+use crate::compiler::symbols::SL;
 use crate::core::bytecode::OpCode;
-use crate::errors::CompilerErrorType;
-use crate::lexer::legacy_tokens::Token;
+use crate::core::legacy_ast::*;
+use crate::core::legacy_tokens::Token;
 use crate::objects::Object;
-use crate::parser::legacy_ast::*;
 
 impl Compiler {
   /// Compiles a literal expression.

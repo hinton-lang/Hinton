@@ -1,10 +1,12 @@
-use crate::errors::RuntimeErrorType;
-use crate::objects::Object;
-use crate::virtual_machine::RuntimeResult;
 use std::cell::RefCell;
 use std::fmt;
 use std::fmt::Formatter;
 use std::rc::Rc;
+
+use core::errors::RuntimeErrorType;
+use core::RuntimeResult;
+
+use crate::objects::Object;
 
 /// Represents a Hinton iterator object.
 pub struct IterObject {

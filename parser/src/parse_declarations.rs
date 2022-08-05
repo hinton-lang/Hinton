@@ -1,9 +1,9 @@
-use crate::errors::ErrorReport;
-use crate::lexer::tokens::TokenKind::*;
-use crate::parser::ast::ASTNodeKind::*;
-use crate::parser::ast::*;
-use crate::parser::Parser;
-use crate::{check_tok, consume_id, curr_tk, match_tok};
+use core::ast::ASTNodeKind::*;
+use core::ast::*;
+use core::errors::ErrorReport;
+use core::tokens::TokenKind::*;
+
+use crate::{check_tok, consume_id, curr_tk, match_tok, Parser};
 
 impl<'a> Parser<'a> {
   /// Parses a variable or constant declaration statement.

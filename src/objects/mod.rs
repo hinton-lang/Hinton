@@ -1,12 +1,13 @@
+use std::cell::RefCell;
+use std::fmt;
+use std::fmt::Formatter;
+use std::rc::Rc;
+
 use crate::built_in::{NativeBoundMethod, NativeFn};
 use crate::core::chunk::Chunk;
 use crate::objects::class_obj::*;
 use crate::objects::dictionary_obj::*;
 use crate::objects::iter_obj::IterObject;
-use std::cell::RefCell;
-use std::fmt;
-use std::fmt::Formatter;
-use std::rc::Rc;
 
 // Submodules
 pub mod class_obj;

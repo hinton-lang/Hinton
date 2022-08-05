@@ -1,6 +1,6 @@
-use crate::lexer::find_tokens::LexerMode;
-use crate::lexer::tokens::{ErrorTokenKind, Token, TokenKind::*};
-use crate::lexer::Lexer;
+use core::tokens::{ErrorTokenKind, Token, TokenKind::*};
+
+use crate::{Lexer, LexerMode};
 
 impl<'a> Lexer<'a> {
   /// Makes a string literal.

@@ -1,11 +1,15 @@
-use crate::errors::RuntimeErrorType;
-use crate::objects::{ClosureObject, Object};
-use crate::virtual_machine::call_frame::CallFrameType;
-use crate::virtual_machine::{RuntimeResult, VM};
-use hashbrown::HashMap;
 use std::cell::RefCell;
 use std::fmt;
 use std::rc::Rc;
+
+use hashbrown::HashMap;
+
+use core::errors::RuntimeErrorType;
+use core::RuntimeResult;
+
+use crate::objects::{ClosureObject, Object};
+use crate::virtual_machine::call_frame::CallFrameType;
+use crate::virtual_machine::VM;
 
 /// Represents a Hinton class object.
 #[derive(Clone)]

@@ -1,8 +1,9 @@
+use std::cell::RefCell;
+use std::rc::Rc;
+
 use crate::core::bytecode::OpCode;
 use crate::objects::class_obj::BoundMethod;
 use crate::objects::{ClosureObject, FuncObject, Object};
-use std::cell::RefCell;
-use std::rc::Rc;
 
 #[derive(Clone)]
 pub enum CallFrameType {
