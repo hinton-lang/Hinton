@@ -47,16 +47,16 @@ macro_rules! guard_error_token {
   };
 }
 
-/// Represents Hinton's parser, which converts source text into
+/// Represents Hinton's Parser, which converts source text into
 /// an Abstract Syntax Tree representation of the program.
 pub struct Parser<'a> {
-  /// The lexer used in this parser.
+  /// The Lexer used in this Parser.
   tokens: &'a TokenList<'a>,
-  /// The position of the parser in the list of tokens.
+  /// The position of the Parser in the list of tokens.
   current_pos: usize,
   /// The program's AST as an ArenaTree
   pub ast: ASTArena,
-  /// Whether the parser is in error-recovery mode or not.
+  /// Whether the Parser is in error-recovery mode or not.
   is_in_panic: bool,
   /// A list of reported errors generated while parsing.
   errors: Vec<ErrorReport>,
@@ -110,7 +110,7 @@ impl<'a> Parser<'a> {
     }
   }
 
-  /// Advances the parser to the next token.
+  /// Advances the Parser to the next token.
   fn advance(&mut self) -> bool {
     self.current_pos += 1;
     true

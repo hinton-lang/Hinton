@@ -88,8 +88,8 @@ impl VM {
   }
 
   // fn run_without_plv(&self, source: &str) ->  Result<FuncObject, Vec<ErrorReport>> {
-  //    let lexer = Lexer::lex(source);
-  //    let ast = Parser::parse(lexer.tokens)?;
+  //    let Lexer = Lexer::lex(source);
+  //    let ast = Parser::parse(Lexer.tokens)?;
   //    Compiler::compile_ast(&self.filepath, &ast, &self.built_in)
   // }
 
@@ -117,8 +117,8 @@ impl VM {
     // };
     // let compiler_end = get_time_millis();
     //
-    // plv::Plv::export(
-    //    &lexer,
+    // PLV::Plv::export(
+    //    &Lexer,
     //    &ast,
     //    &module,
     //    (

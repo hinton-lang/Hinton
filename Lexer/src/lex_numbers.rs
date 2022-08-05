@@ -47,7 +47,7 @@ impl<'a> Lexer<'a> {
 
     while !self.is_at_end() && self.is_digit_char(radix) {
       if self.get_current() == '.' {
-        // If the lexer encounters double periods, then the current
+        // If the Lexer encounters double periods, then the current
         // expression is actually a Range, therefore, only consider
         // the first part of the range operand as numeric literal.
         if self.get_next() == '.' {

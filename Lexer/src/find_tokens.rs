@@ -1,5 +1,5 @@
-use core::tokens::{ErrorTokenKind, Token};
 use core::tokens::TokenKind::*;
+use core::tokens::{ErrorTokenKind, Token};
 
 use crate::{Lexer, LexerMode};
 
@@ -29,7 +29,7 @@ impl<'a> Lexer<'a> {
           // handled by the `lex_interpolated_string` function.
           LexerMode::StrInterpol => return,
           // In this case, we close the block's loop and return the
-          // lexer to its previous mode. Notice that we can only enter
+          // Lexer to its previous mode. Notice that we can only enter
           // `InterpolBlockExpr` mode after entering `StrInterpol` mode.
           LexerMode::InterpolBlockExpr => {
             self.tokens.push(next_token);

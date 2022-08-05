@@ -7,7 +7,7 @@ use core::ast::*;
 use core::tokens::{Token, TokenIdx, TokenKind, TokenList};
 use core::utils::*;
 
-/// The start and end times for the lexer, parser, and compiler respectively.
+/// The start and end times for the Lexer, Parser, and compiler respectively.
 pub type PLVTimers = (u64, u64, u64, u64, u64, u64);
 
 /// Get the current unix epoch time in milliseconds.
@@ -35,7 +35,7 @@ fn map_tok_to_json(tok: (usize, &Token), tokens_list: &TokenList) -> Value {
   })
 }
 
-/// Exports the lexer, parser, and compiler as JSON file that can be
+/// Exports the Lexer, Parser, and compiler as JSON file that can be
 /// uploaded to the Hinton Program Lifecycle Visualizer for inspection.
 ///
 /// # Arguments
@@ -43,7 +43,7 @@ fn map_tok_to_json(tok: (usize, &Token), tokens_list: &TokenList) -> Value {
 /// * `tokens_list`: The TokenList were the lexed tokens are stored.
 /// * `arena`: The ASTArena where the AST nodes are stored.
 /// * `_bytecode`: The compiled bytecode.
-/// * `timers`: The times it took the lexer, parser, and compiler to execute.
+/// * `timers`: The times it took the Lexer, Parser, and compiler to execute.
 ///
 /// # Returns:
 /// ```()```
@@ -75,8 +75,8 @@ pub fn export(tokens_list: &TokenList, arena: &ASTArena, _bytecode: &[u8], timer
   let report = json!({
      "date": get_time_millis(),
      "run_type": if cfg!(debug_assertions) { "DEV" } else { "RELEASE" },
-     "lexer": lex,
-     "parser": pars
+     "Lexer": lex,
+     "Parser": pars
   });
 
   // Save the file

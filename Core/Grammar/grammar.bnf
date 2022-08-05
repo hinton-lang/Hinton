@@ -2,7 +2,7 @@
 
 /// Notes on design choices
 /// 1) Hinton requires semicolons, which make block expressions possible
-///    without much ambiguity in the scanner, parser, or the user's code.
+///    without much ambiguity in the scanner, Parser, or the user's code.
 /// 2) Unlike Javascript, Hinton does not require parenthesis in while and for loops,
 ///    as well as in if-else-if-expressions, but *does* require a block expression in
 ///    all cases. This allows for better readability and a more expressive syntax.
@@ -86,7 +86,7 @@ DESTRUCT_PATTERN    ::= "(" IDENTIFIER_LIST ")" // no wildcard
 ENUM_DECL           ::= "enum" IDENTIFIER "{" IDENTIFIER_LIST? "}"
 
 FUNC_DECL           ::= "async"? "func" "*"? IDENTIFIER "(" PARAMETERS? ")" BLOCK_STMT
-// TODO: The parser allows for an optional trailing comma. Define that here as well.
+// TODO: The Parser allows for an optional trailing comma. Define that here as well.
 PARAMETERS          ::= IDENTIFIER_LIST? NON_REQ_PARAMS? REST_PARAM?
 NON_REQ_PARAMS      ::= IDENTIFIER ("?" | (":=" EXPRESSION)) ("," IDENTIFIER ("?" | (":=" EXPRESSION)))*
 // Func declarations can only have one rest param (which must be at the end).
@@ -117,7 +117,7 @@ GRANULAR_IMPORT     ::= "{" IDENTIFIER ("as" IDENTIFIER)? ("," IDENTIFIER ("as" 
 // TODO: What about chained operations (like in python)?
 EXPRESSION          ::= REASSIGNMENT_EXPR
 
-// The parser checks that the lhs of the assignment is one of IDENTIFIER,
+// The Parser checks that the lhs of the assignment is one of IDENTIFIER,
 // INDEXING_EXPR, or MEMBER_ACCESS_EXPR before proceeding. Unlike Rust,
 // MATCH_EXPR_STMT, and LOOP_EXPR_STMT are not allowed for assignment because,
 // in Hinton, the program would have to make too many assumptions to proceed.
@@ -159,7 +159,7 @@ INDEXING_EXPR       ::= "[" INDEXER ("," INDEXER)* "]"
 INDEXER             ::= EXPRESSION | SLICE
 SLICE               ::= EXPRESSION? ":" EXPRESSION?
 
-// TODO: The parser allows for an optional trailing comma. Define that here as well.
+// TODO: The Parser allows for an optional trailing comma. Define that here as well.
 CALL_EXPR           ::= "(" ((NON_VAL_ARGS | (EXPRESSION ("," EXPRESSION)*)) ("," NON_VAL_ARGS)*)? ")"
 NON_VAL_ARGS        ::= SINGLE_SPREAD_EXPR | NAMED_ARGS
 NAMED_ARGS          ::= IDENTIFIER ":=" EXPRESSION
