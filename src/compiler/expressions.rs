@@ -3,7 +3,7 @@ use crate::compiler::Compiler;
 use crate::compiler::CompilerCtx;
 use crate::core::bytecode::OpCode;
 use crate::errors::CompilerErrorType;
-use crate::lexer::tokens::Token;
+use crate::lexer::legacy_tokens::Token;
 use crate::objects::Object;
 use crate::parser::legacy_ast::*;
 

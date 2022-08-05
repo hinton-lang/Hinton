@@ -1,20 +1,19 @@
-use std::cmp::{max, min};
-
 use crate::lexer::find_tokens::LexerMode;
-use crate::lexer::tokens::{Token, TokenKind};
+use crate::lexer::tokens::{ErrorTokenKind, Token, TokenKind};
 
 // Submodules
 pub mod find_tokens;
+pub mod legacy_tokens;
 pub mod lex_numbers;
 mod lex_strings;
 pub mod tokens;
 
 /// Struct that represents the scanner.
-pub struct Lexer {
+pub struct Lexer<'a> {
   /// A flat list of characters from the source file.
-  source: Vec<char>,
+  source: &'a [char],
   /// The list of tokens found in the source file.
-  pub tokens: Vec<Token>,
+  tokens: Vec<Token>,
   /// The index of the current character.
   current: usize,
   /// The current line index.
@@ -27,7 +26,7 @@ pub struct Lexer {
   token_start: usize,
 }
 
-impl Lexer {
+impl<'a> Lexer<'a> {
   /// An initialized instance of the lexer.
   /// # Parameters
   /// - `src` - the source file
@@ -36,12 +35,10 @@ impl Lexer {
   /// ```
   /// let mut l = Lexer::lex("let x = 22;");
   /// ```
-  pub fn lex(src: &str) -> Lexer {
-    let chars: Vec<char> = src.chars().collect();
-
+  pub fn lex(source: &[char]) -> Vec<Token> {
     // Instantiate a new lexer
-    let mut the_lexer = Self {
-      source: chars,
+    let mut the_lexer = Lexer {
+      source,
       tokens: vec![],
       current: 0,
       line_num: 1,
@@ -49,8 +46,11 @@ impl Lexer {
       token_start: 0,
     };
 
+    // Find tokens in the source
     the_lexer.find_tokens(LexerMode::Default);
-    the_lexer
+
+    // Only return the tokens
+    the_lexer.tokens
   }
 
   /// Gets the previously consumed character.
@@ -221,32 +221,24 @@ impl Lexer {
 
   /// Generates a token with the current state of the scanner.
   pub fn make_token(&self, token_kind: TokenKind) -> Token {
-    let col_start = match token_kind {
-      TokenKind::EOF => max(self.line_start, self.current) - min(self.line_start, self.current),
-      _ => self.token_start - self.line_start,
-    };
-
-    let lexeme = match token_kind {
-      TokenKind::EOF => String::from("\0"),
-      _ => self.source[(self.token_start)..(self.current)].iter().collect(),
-    };
+    let token_span = (self.token_start, self.current);
 
     Token {
       line_num: self.line_num,
-      column_start: col_start,
-      column_end: self.current,
+      line_start: self.line_start,
+      span: token_span,
       kind: token_kind,
-      lexeme,
     }
   }
 
   fn make_eof_token(&mut self) {
+    let token_span = (self.token_start + 1, self.current);
+
     self.tokens.push(Token {
       line_num: self.line_num,
-      column_start: self.current - self.line_start,
-      column_end: self.current - self.line_start,
+      line_start: self.line_start,
+      span: token_span,
       kind: TokenKind::EOF,
-      lexeme: "\0".to_string(),
     });
   }
 
@@ -257,13 +249,14 @@ impl Lexer {
   ///
   /// # Returns
   /// - `Token`: The generated error token.
-  pub fn make_error_token(&mut self, message: &str, advance: bool) -> Token {
+  pub fn make_error_token(&mut self, err: ErrorTokenKind, advance: bool) -> Token {
+    let token_span = (self.token_start, self.current);
+
     let tok = Token {
       line_num: self.line_num,
-      column_start: self.current - self.line_start,
-      column_end: self.current - self.line_start + 1,
-      kind: TokenKind::ERROR,
-      lexeme: String::from(message),
+      line_start: self.line_start,
+      span: token_span,
+      kind: TokenKind::ERROR(err),
     };
 
     if advance {
@@ -275,18 +268,16 @@ impl Lexer {
 
   /// Generates an error at the previous character with the provided message as its lexeme.
   ///
-  /// # Parameters
-  /// - `message`: A message for the error token. This will be used as the token's lexeme.
-  ///
   /// # Returns
   /// - `Token`: The generated error token.
-  pub fn make_error_token_at_prev(&self, message: &str) -> Token {
+  pub fn make_error_token_at_prev(&self, err: ErrorTokenKind) -> Token {
+    let token_span = (self.token_start, self.current);
+
     Token {
       line_num: self.line_num,
-      column_start: self.current - self.line_start - 1,
-      column_end: self.current - self.line_start,
-      kind: TokenKind::ERROR,
-      lexeme: String::from(message),
+      line_start: self.line_start,
+      span: token_span,
+      kind: TokenKind::ERROR(err),
     }
   }
 }

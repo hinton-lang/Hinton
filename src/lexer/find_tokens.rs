@@ -1,5 +1,5 @@
-use crate::lexer::tokens::Token;
 use crate::lexer::tokens::TokenKind::*;
+use crate::lexer::tokens::{ErrorTokenKind, Token};
 use crate::lexer::Lexer;
 
 #[derive(Debug)]
@@ -9,7 +9,7 @@ pub enum LexerMode {
   InterpolBlockExpr,
 }
 
-impl Lexer {
+impl<'a> Lexer<'a> {
   /// Scans the next token in the source file.
   pub fn find_tokens(&mut self, mode: LexerMode) {
     loop {
@@ -45,7 +45,7 @@ impl Lexer {
         }
       }
 
-      if matches!(&next_token.kind, L_CURLY) && matches!(mode, LexerMode::StrInterpol) {
+      if matches![&next_token.kind, L_CURLY] && matches![mode, LexerMode::StrInterpol] {
         self.tokens.push(next_token);
         self.find_tokens(LexerMode::InterpolBlockExpr);
       } else {
@@ -158,7 +158,7 @@ impl Lexer {
       ch if ch.is_ascii_digit() => self.make_numeric_token(),
 
       // Everything else is an error token
-      _ => self.make_error_token("Unexpected character.", false),
+      _ => self.make_error_token(ErrorTokenKind::InvalidChar, false),
     }
   }
 }

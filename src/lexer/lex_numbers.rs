@@ -1,3 +1,4 @@
+use crate::lexer::tokens::ErrorTokenKind::*;
 use crate::lexer::tokens::Token;
 use crate::lexer::tokens::TokenKind::*;
 use crate::lexer::Lexer;
@@ -23,7 +24,7 @@ macro_rules! expect_num_kind {
   }};
 }
 
-impl Lexer {
+impl<'a> Lexer<'a> {
   /// Makes a numeric literal. This includes Binary, Octal, Decimal,
   /// Floating-Point, and Hexadecimal numbers.
   ///
@@ -33,17 +34,12 @@ impl Lexer {
     let mut has_period = false;
     let mut is_scientific = false;
 
-    // TODO: Lex exponential literals
-
     // Check which type of numeric literal we are lexing
     let (radix, num_kind): (u8, ExNumType) = match (self.get_previous(), self.get_current()) {
       ('0', 'x') | ('0', 'X') => expect_num_kind![self, 16, ExNumType::Hex],
       ('0', 'o') | ('0', 'O') => expect_num_kind![self, 8, ExNumType::Oct],
       ('0', 'b') | ('0', 'B') => expect_num_kind![self, 2, ExNumType::Bin],
-      ('0', '0') => return self.make_error_token("Too many leading zeros in numeric literal.", true),
-      ('0', b) if b.is_ascii_digit() => {
-        return self.make_error_token("Leading zeros not allowed in numeric literal.", true)
-      }
+      ('0', b) if b.is_ascii_digit() => return self.make_error_token(NoLeadZerosInNum, true),
       ('.', _) => (10, ExNumType::Flt),
       _ => (10, ExNumType::IntOrFlt),
     };
@@ -58,19 +54,19 @@ impl Lexer {
         }
 
         if is_scientific {
-          return self.make_error_token("The exponent of a scientific literal must be an integer.", true);
+          return self.make_error_token(ExpectedIntExpo, true);
         }
 
         match num_kind {
-          ExNumType::Hex => return self.make_error_token("Unexpected '.' in hexadecimal literal.", true),
-          ExNumType::Oct => return self.make_error_token("Unexpected '.' in octal literal.", true),
-          ExNumType::Bin => return self.make_error_token("Unexpected '.' in binary literal.", true),
-          ExNumType::Flt => return self.make_error_token("Unexpected extra '.' in float literal.", true),
+          ExNumType::Hex => return self.make_error_token(DotInHex, true),
+          ExNumType::Oct => return self.make_error_token(DotInOct, true),
+          ExNumType::Bin => return self.make_error_token(DotInBin, true),
+          ExNumType::Flt => return self.make_error_token(ExtraDotInFloat, true),
           _ => {}
         };
 
         if has_period {
-          return self.make_error_token("Unexpected extra '.' in float literal.", true);
+          return self.make_error_token(ExtraDotInFloat, true);
         } else {
           has_period = true;
         }
@@ -83,23 +79,23 @@ impl Lexer {
         }
 
         match self.get_previous() {
-          '_' => return self.make_error_token("Too many underscores in numeric literal separator.", true),
-          '.' => return self.make_error_token("Separator not allowed after floating point.", true),
+          '_' => return self.make_error_token(ExtraSepInNum, true),
+          '.' => return self.make_error_token(SepAfterFloat, true),
           _ => {}
         }
 
         if self.get_next() == '.' {
-          return self.make_error_token("Separator not allowed before floating point.", true);
+          return self.make_error_token(SepBeforeFloat, true);
         }
       }
 
       if self.get_current() == 'e' || self.get_current() == 'E' {
         match num_kind {
-          ExNumType::Oct => return self.make_error_token("Unexpected character in octal literal.", true),
-          ExNumType::Bin => return self.make_error_token("Unexpected character in binary literal.", true),
+          ExNumType::Oct => return self.make_error_token(NonOctChar, true),
+          ExNumType::Bin => return self.make_error_token(NonBinChar, true),
           ExNumType::Flt | ExNumType::IntOrFlt => {
             if is_scientific {
-              return self.make_error_token("Unexpected extra 'e' in scientific literal.", true);
+              return self.make_error_token(ExtraEInScientific, true);
             } else {
               is_scientific = true
             }
@@ -112,11 +108,11 @@ impl Lexer {
     }
 
     if self.get_previous() == '_' {
-      return self.make_error_token_at_prev("Separator not allowed at the end of numeric literal.");
+      return self.make_error_token_at_prev(SepAtEndOfNum);
     }
 
     if self.get_previous() == 'e' || self.get_previous() == 'E' {
-      return self.make_error_token_at_prev("Expected an integer as exponent for scientific literal.");
+      return self.make_error_token_at_prev(ExpectedIntExpo);
     }
 
     match num_kind {

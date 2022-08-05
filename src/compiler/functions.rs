@@ -3,7 +3,7 @@ use crate::compiler::{Compiler, CompilerCtx, FunctionScope, UpValue};
 use crate::core::bytecode::OpCode;
 use crate::core::chunk::Chunk;
 use crate::errors::CompilerErrorType;
-use crate::lexer::tokens::Token;
+use crate::lexer::legacy_tokens::Token;
 use crate::objects::{FuncObject, Object};
 use crate::parser::legacy_ast::*;
 

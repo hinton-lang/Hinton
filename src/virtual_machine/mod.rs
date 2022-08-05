@@ -7,17 +7,16 @@ use std::rc::Rc;
 use hashbrown::HashMap;
 
 use crate::built_in::BuiltIn;
-use crate::compiler::Compiler;
 use crate::core::bytecode::OpCode;
-use crate::errors::{report_errors_list, report_runtime_error, ErrorReport, RuntimeErrorType};
+use crate::errors::{report_errors_list, ErrorReport, RuntimeErrorType};
+use crate::lexer::tokens::TokenList;
 use crate::lexer::Lexer;
 use crate::objects::class_obj::{BoundMethod, InstanceObject};
 use crate::objects::{ClosureObject, FuncObject, Object, UpValRef};
 use crate::parser::Parser;
-use crate::{plv, FRAMES_MAX};
-// use crate::plv::get_time_millis;
 use crate::plv::get_time_millis;
 use crate::virtual_machine::call_frame::{CallFrame, CallFrameType};
+use crate::{plv, FRAMES_MAX};
 
 // Submodules
 pub mod call_frame;
@@ -60,7 +59,7 @@ impl VM {
   ///
   /// # Returns
   /// - `InterpretResult`: The result of the source interpretation.
-  pub fn interpret(filepath: PathBuf, source: &str) -> InterpretResult {
+  pub fn interpret(filepath: PathBuf, source: &[char]) -> InterpretResult {
     // Creates a new virtual machine
     let mut _self = VM {
       stack: Vec::with_capacity(256),
@@ -110,15 +109,16 @@ impl VM {
   //    Compiler::compile_ast(&self.filepath, &ast, &self.built_in)
   // }
 
-  fn run_with_plv(&self, source: &str) -> Result<FuncObject, Vec<ErrorReport>> {
+  fn run_with_plv(&self, source: &[char]) -> Result<FuncObject, Vec<ErrorReport>> {
     // Convert the source file into a flat list of tokens
     let lexer_start = get_time_millis();
     let lexer = Lexer::lex(source);
     let lexer_end = get_time_millis();
+    let tokens_list = TokenList::new(source, &lexer);
 
     // Parses the program into an AST and aborts if there are any parsing errors.
     let parser_start = get_time_millis();
-    let parser = Parser::parse(&lexer.tokens);
+    let parser = Parser::parse(&tokens_list);
     let parser_end = get_time_millis();
 
     for e in parser.get_errors_list() {
@@ -148,7 +148,7 @@ impl VM {
     // );
 
     let timers = (lexer_start, lexer_end, parser_start, parser_end, 0, 0);
-    plv::export(Some(&lexer), Some(&parser.ast), None, timers);
+    plv::export(&tokens_list, &parser.ast, None, timers);
     Ok(FuncObject::default())
   }
 

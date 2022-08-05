@@ -2,7 +2,7 @@ use crate::compiler::symbols::SymbolType;
 use crate::compiler::{BreakScope, Compiler, LoopScope, LoopType};
 use crate::core::bytecode::OpCode;
 use crate::errors::CompilerErrorType;
-use crate::lexer::tokens::Token;
+use crate::lexer::legacy_tokens::Token;
 use crate::parser::legacy_ast::*;
 
 impl Compiler {

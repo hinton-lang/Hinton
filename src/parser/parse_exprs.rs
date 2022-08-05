@@ -1,7 +1,6 @@
 use crate::errors::ErrorReport;
 use crate::lexer::tokens::TokenIdx;
 use crate::lexer::tokens::TokenKind::*;
-use crate::objects::Object;
 use crate::parser::ast::ASTNodeKind::*;
 use crate::parser::ast::*;
 use crate::parser::Parser;
@@ -564,124 +563,32 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_literal(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
     self.advance();
+    let prev_tok = TokenIdx::from(self.current_pos - 1);
 
-    let value = match self.get_prev_tk() {
+    match self.get_prev_tk() {
       // Numeric literals
-      INT_LIT => self.parse_integer()?,
-      FLOAT_LIT => self.parse_float()?,
-      HEX_LIT => self.parse_int_from_base(16)?,
-      OCTAL_LIT => self.parse_int_from_base(8)?,
-      BINARY_LIT => self.parse_int_from_base(2)?,
-      SCIENTIFIC_LIT => self.parse_scientific_literal()?,
+      INT_LIT | FLOAT_LIT | HEX_LIT | OCTAL_LIT | BINARY_LIT | SCIENTIFIC_LIT => self.emit(NumLiteral(prev_tok)),
 
-      // Strings get converted to an Object during compilation to prevent
-      // duplicating the same string (which may be very large) for both
-      // the AST and the token vector.
-      STR_LIT => return self.emit(StringLiteral((self.current_pos - 1).into())),
+      // String literals
+      STR_LIT => self.emit(StringLiteral(prev_tok)),
 
       // Atomic literals
-      TRUE_LIT => Object::Bool(true),
-      FALSE_LIT => Object::Bool(false),
-      NONE_LIT => Object::None,
+      TRUE_LIT => self.emit(TrueLiteral(prev_tok)),
+      FALSE_LIT => self.emit(FalseLiteral(prev_tok)),
+      NONE_LIT => self.emit(NoneLiteral(prev_tok)),
 
-      // Symbolic literals
-      IDENTIFIER => return self.emit(Identifier((self.current_pos - 1).into())),
-      SELF_KW => return self.emit(SelfLiteral((self.current_pos - 1).into())),
-      SUPER_KW => return self.emit(SuperLiteral((self.current_pos - 1).into())),
+      // Symbolic reference literals
+      IDENTIFIER => self.emit(Identifier(prev_tok)),
+      SELF_KW => self.emit(SelfLiteral(prev_tok)),
+      SUPER_KW => self.emit(SuperLiteral(prev_tok)),
 
       // Collection literals
-      L_BRACKET => return self.parse_array_literal(),
-      L_PAREN => return self.parse_tuple_literal_or_grouping_expr(),
-      L_CURLY => return self.parse_dict_literal(),
+      L_BRACKET => self.parse_array_literal(),
+      L_PAREN => self.parse_tuple_literal_or_grouping_expr(),
+      L_CURLY => self.parse_dict_literal(),
 
       // Unknown expression
-      _ => return Err(self.error_at_previous("Unexpected token.")),
-    };
-
-    self.emit(Literal(ASTLiteralNode {
-      value,
-      token_idx: (self.current_pos - 1).into(),
-    }))
-  }
-
-  /// Parses an integer literal.
-  ///
-  /// ```bnf
-  /// INTEGER_LITERAL ::= DIGIT_NOT_ZERO ("_" DIGIT+)*
-  /// ```
-  pub(super) fn parse_integer(&mut self) -> Result<Object, ErrorReport> {
-    // Removes the underscores from the lexeme
-    let lexeme = self.prev_tok().lexeme.replace('_', "");
-
-    // Parses the lexeme into a float
-    match lexeme.parse::<i64>() {
-      Ok(x) => Ok(Object::Int(x)),
-      Err(_) => Err(self.error_at_previous("Could not make integer.")),
+      _ => Err(self.error_at_previous("Unexpected token.")),
     }
-  }
-
-  /// Parses a float literal.
-  ///
-  /// ```bnf
-  /// FLOAT_LITERAL ::= (DIGIT+ "." DIGIT*) | (DIGIT* "." DIGIT+)
-  /// ```
-  pub(super) fn parse_float(&mut self) -> Result<Object, ErrorReport> {
-    // Removes the underscores from the lexeme
-    let lexeme = self.prev_tok().lexeme.replace('_', "");
-
-    // Parses the lexeme into a float
-    match lexeme.parse::<f64>() {
-      Ok(x) => Ok(Object::Float(x)),
-      Err(_) => Err(self.error_at_previous("Could not make float.")),
-    }
-  }
-
-  /// Parses a hex, octal, and binary literal.
-  ///
-  /// ```bnf
-  /// HEX_LITERAL      ::= ("0x" | "0X") HEX_DIGIT+ ("_" HEX_DIGIT+)*
-  /// HEX_DIGIT        ::= DIGIT
-  ///                  | ("a" | "b" | "c" | "d" | "e" | "f")
-  ///                  | ("A" | "B" | "C" | "D" | "E" | "F")
-  /// OCT_LITERAL      ::= ("0o" | "0O") OCT_DIGIT+ ("_" OCT_DIGIT+)*
-  /// OCT_DIGIT        ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7"
-  /// BINARY_LITERAL   ::= ("0b" | "0B") BINARY_DIGIT+ ("_" BINARY_DIGIT+)*
-  /// BINARY_DIGIT     ::= "0" | "1"
-  /// ```
-  pub(super) fn parse_int_from_base(&mut self, radix: u32) -> Result<Object, ErrorReport> {
-    // Removes the underscores from the lexeme
-    let lexeme = self.prev_tok().lexeme.replace('_', "");
-
-    // Parses the lexeme into an integer
-    match i64::from_str_radix(&lexeme[2..], radix) {
-      Ok(x) => Ok(Object::Int(x)),
-      Err(_) => Err(self.error_at_previous("Could not parse to int.")),
-    }
-  }
-
-  /// Parses a scientific-notation literal.
-  ///
-  /// ```bnf
-  /// SCIENTIFIC_LITERAL ::= (FLOAT_LITERAL | INTEGER_LITERAL) ("e" | "E") "-"? INTEGER_LITERAL
-  /// ```
-  pub(super) fn parse_scientific_literal(&mut self) -> Result<Object, ErrorReport> {
-    // Removes the underscores from the lexeme
-    let lexeme = self.prev_tok().lexeme.replace('_', "");
-    // Split into base and exponent
-    let lexemes: Vec<&str> = lexeme.split(&['e', 'E']).collect();
-
-    // Parses the base into a float
-    let base = match lexemes[0].parse::<f64>() {
-      Ok(x) => x,
-      Err(_) => return Err(self.error_at_previous("Could not parse base to float.")),
-    };
-
-    // Parses the exponent into a float
-    let exponent = match lexemes[1].parse::<f64>() {
-      Ok(x) => x,
-      Err(_) => return Err(self.error_at_previous("Could not parse exponent to float.")),
-    };
-
-    Ok(Object::Float(base * 10f64.powf(exponent)))
   }
 }

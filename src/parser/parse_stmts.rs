@@ -19,7 +19,7 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_module(&mut self) {
     while !match_tok![self, EOF] {
-      match self.parse_stmt(ParsingLevel::Module, vec![]) {
+      match self.parse_stmt(ParsingLevel::Module, Vec::with_capacity(0)) {
         // Because the first element of the AST Arena is the module node,
         // no child node should be able to reference it. We can use this fact
         // to ignore nodes in the tree (e.g., extra semicolons). So, If the
@@ -121,7 +121,7 @@ impl<'a> Parser<'a> {
     let mut stmts = vec![];
 
     while !match_tok![self, R_CURLY] {
-      stmts.push(self.parse_stmt(ParsingLevel::Block, vec![])?);
+      stmts.push(self.parse_stmt(ParsingLevel::Block, Vec::with_capacity(0))?);
     }
 
     self.emit(BlockStmt(stmts))

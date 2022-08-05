@@ -1,3 +1,5 @@
+use std::ops::Index;
+
 pub struct TokenIdx(pub usize);
 
 impl From<usize> for TokenIdx {
@@ -12,19 +14,46 @@ impl Default for TokenIdx {
   }
 }
 
+pub struct TokenList<'a> {
+  pub tokens: &'a [Token],
+  pub src: &'a [char],
+}
+
+impl<'a> Index<usize> for TokenList<'a> {
+  type Output = Token;
+
+  fn index(&self, index: usize) -> &Self::Output {
+    &self.tokens[index]
+  }
+}
+
+impl<'a> TokenList<'a> {
+  pub fn new(src: &'a [char], tokens: &'a [Token]) -> Self {
+    Self { src, tokens }
+  }
+
+  pub fn lexeme(&self, idx: usize) -> String {
+    let tok = &self[idx];
+
+    match &tok.kind {
+      TokenKind::ERROR(e) => e.to_str().to_string(),
+      TokenKind::EOF => "\0".to_string(),
+      _ => self.src[tok.span.0..tok.span.1].iter().collect(),
+    }
+  }
+}
+
 // A token that represents a single unit of Hinton code.
 #[derive(Clone)]
 pub struct Token {
   /// The token's line number
   pub line_num: usize,
-  /// The token's column start
-  pub column_start: usize,
-  /// The token's column end
-  pub column_end: usize,
+  /// The beginning of this token's line in the source.
+  pub line_start: usize,
+  /// The token's lexeme span (column start, column end)
+  pub span: (usize, usize),
   /// The token's type
   pub kind: TokenKind,
-  /// The token's lexeme
-  pub lexeme: String,
 }
 
 /// The types of tokens in a Hinton program.
@@ -157,7 +186,7 @@ pub enum TokenKind {
 
   /// Other Tokens
   EOF,
-  ERROR,
+  ERROR(ErrorTokenKind),
   // **** For Future Implementation
   // IMPL_KW,
   // INTERFACE_KW
@@ -251,5 +280,61 @@ pub fn make_identifier_kind(id: &str) -> TokenKind {
     // "Str"   => TokenType::STR_TYPE,
     // "Void"  => TokenType::VOID_TYPE,
     _ => TokenKind::IDENTIFIER,
+  }
+}
+
+#[derive(Debug, Clone)]
+pub enum ErrorTokenKind {
+  /// Invalid Character.
+  InvalidChar,
+  /// Unterminated String.
+  UnterminatedStr,
+  /// Leading zeros not allowed in numeric literal.
+  NoLeadZerosInNum,
+  /// The exponent of a scientific literal must be an integer.
+  ExpectedIntExpo,
+  /// Unexpected '.' in hexadecimal literal.
+  DotInHex,
+  /// Unexpected '.' in octal literal.
+  DotInOct,
+  /// Unexpected '.' in binary literal.
+  DotInBin,
+  /// Unexpected extra '.' in float literal.
+  ExtraDotInFloat,
+  /// Too many underscores in numeric literal separator.
+  ExtraSepInNum,
+  /// Separator not allowed after floating point.
+  SepAfterFloat,
+  /// Separator not allowed before floating point.
+  SepBeforeFloat,
+  /// Unexpected character in octal literal.
+  NonOctChar,
+  /// Unexpected character in binary literal.
+  NonBinChar,
+  /// Unexpected extra 'e' in scientific literal.
+  ExtraEInScientific,
+  /// Separator not allowed at the end of numeric literal.
+  SepAtEndOfNum,
+}
+
+impl ErrorTokenKind {
+  pub fn to_str(&self) -> &str {
+    match self {
+      ErrorTokenKind::InvalidChar => "Invalid Character.",
+      ErrorTokenKind::UnterminatedStr => "Unterminated String",
+      ErrorTokenKind::NoLeadZerosInNum => "Leading zeros not allowed in numeric literal",
+      ErrorTokenKind::ExpectedIntExpo => "The exponent of a scientific literal must be an integer",
+      ErrorTokenKind::DotInHex => "Unexpected '.' in hexadecimal literal",
+      ErrorTokenKind::DotInOct => "Unexpected '.' in octal literal",
+      ErrorTokenKind::DotInBin => "Unexpected '.' in binary literal.",
+      ErrorTokenKind::ExtraDotInFloat => "Unexpected extra '.' in float literal.",
+      ErrorTokenKind::ExtraSepInNum => "Too many underscores in numeric literal separator.",
+      ErrorTokenKind::SepAfterFloat => "Separator not allowed after floating point.",
+      ErrorTokenKind::SepBeforeFloat => "Separator not allowed before floating point.",
+      ErrorTokenKind::NonOctChar => "Unexpected character in octal literal.",
+      ErrorTokenKind::NonBinChar => "Unexpected character in binary literal.",
+      ErrorTokenKind::ExtraEInScientific => "Unexpected extra 'e' in scientific literal.",
+      ErrorTokenKind::SepAtEndOfNum => "Separator not allowed at the end of numeric literal.",
+    }
   }
 }

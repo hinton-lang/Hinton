@@ -43,9 +43,9 @@ macro_rules! consume_id {
 #[macro_export]
 macro_rules! guard_error_token {
   ($s:ident) => {
-    if match_tok![$s, ERROR] {
-      let err_msg = $s.prev_tok().lexeme.to_string();
-      return Err($s.error_at_previous(&err_msg));
+    match curr_tk![$s] {
+      ERROR(e) => return Err($s.error_at_previous(e.to_str())),
+      _ => {}
     }
   };
 }
@@ -54,11 +54,11 @@ macro_rules! guard_error_token {
 /// an Abstract Syntax Tree representation of the program.
 pub struct Parser<'a> {
   /// The lexer used in this parser.
-  tokens: &'a [Token],
+  tokens: &'a TokenList<'a>,
   /// The position of the parser in the list of tokens.
   current_pos: usize,
   /// The program's AST as an ArenaTree
-  pub(crate) ast: ASTArena,
+  pub ast: ASTArena,
   /// Whether the parser is in error-recovery mode or not.
   is_in_panic: bool,
   /// A list of reported errors generated while parsing.
@@ -67,13 +67,12 @@ pub struct Parser<'a> {
 
 impl<'a> Parser<'a> {
   /// Parses a string of source text into a Hinton AST.
-  pub fn parse(tokens: &'a [Token]) -> Parser<'a> {
+  pub fn parse(tokens: &'a TokenList) -> Parser<'a> {
     let mut parser = Parser {
       tokens,
       current_pos: 0,
       is_in_panic: false,
       errors: vec![],
-      // Comes with a root `module` node.
       ast: ASTArena::default(),
     };
 
@@ -198,18 +197,18 @@ impl<'a> Parser<'a> {
   /// - `tok`: The token that caused the error.
   /// - `message`: The error message to display.
   fn error_at_tok(&mut self, tok_idx: TokenIdx, message: &str) -> ErrorReport {
-    let tok: &Token = &self.tokens[tok_idx.0];
+    let tok = &self.tokens[tok_idx.0];
 
     // Construct the error message.
     let msg = format!(
       "\x1b[31;1mSyntaxError\x1b[0m\x1b[1m at [{}:{}]: {}\x1b[0m",
-      tok.line_num, tok.column_start, message
+      tok.line_num, tok.span.0, message
     );
 
     ErrorReport {
       line: tok.line_num,
-      column: tok.column_start,
-      lexeme_len: tok.column_end - tok.column_start,
+      column: tok.span.0,
+      lexeme_len: tok.span.1 - tok.span.0,
       message: msg,
     }
   }

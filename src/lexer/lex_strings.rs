@@ -1,8 +1,8 @@
 use crate::lexer::find_tokens::LexerMode;
-use crate::lexer::tokens::{Token, TokenKind::*};
+use crate::lexer::tokens::{ErrorTokenKind, Token, TokenKind::*};
 use crate::lexer::Lexer;
 
-impl Lexer {
+impl<'a> Lexer<'a> {
   /// Makes a string literal.
   pub fn make_string_token(&mut self) -> Token {
     // The opener single or double quote.
@@ -15,7 +15,7 @@ impl Lexer {
 
     loop {
       if self.is_at_end() {
-        return self.make_error_token("Unterminated string.", false);
+        return self.make_error_token(ErrorTokenKind::UnterminatedStr, false);
       }
 
       // If the string turns out to be interpolated, then finish the string literal

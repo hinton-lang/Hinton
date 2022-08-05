@@ -107,7 +107,8 @@ fn run_file(filename: &str) {
   };
 
   // Interprets the source contents in the VM
-  let result = VM::interpret(filepath, &contents);
+  let source_vec: Vec<char> = contents.chars().collect();
+  let result = VM::interpret(filepath, &source_vec);
 
   // Exit the interpreter with the appropriate code
   match result {

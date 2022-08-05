@@ -1,5 +1,4 @@
 use crate::lexer::tokens::{TokenIdx, TokenKind};
-use crate::objects::Object;
 
 #[derive(PartialEq)]
 pub struct ASTNodeIdx(pub usize);
@@ -77,7 +76,10 @@ pub enum ASTNodeKind {
   Module(ASTModuleNode),
 
   // Terminal Nodes
-  Literal(ASTLiteralNode),
+  NumLiteral(TokenIdx),
+  TrueLiteral(TokenIdx),
+  FalseLiteral(TokenIdx),
+  NoneLiteral(TokenIdx),
   StringLiteral(TokenIdx),
   SelfLiteral(TokenIdx),
   SuperLiteral(TokenIdx),
@@ -342,11 +344,6 @@ pub struct ASTLambdaNode {
   pub min_arity: u8,
   pub max_arity: u8,
   pub body: ASTNodeIdx, // This will always be a block stmt or single expression
-}
-
-pub struct ASTLiteralNode {
-  pub value: Object,
-  pub token_idx: TokenIdx,
 }
 
 pub struct ASTRepeatLiteralNode {

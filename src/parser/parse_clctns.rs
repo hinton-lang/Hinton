@@ -275,22 +275,7 @@ impl<'a> Parser<'a> {
       let literal_or_ident = match curr_tk![self] {
         IDENTIFIER if self.advance() => Identifier(self.current_pos.into()),
         STR_LIT if self.advance() => StringLiteral(self.current_pos.into()),
-        INT_LIT if self.advance() => Literal(ASTLiteralNode {
-          value: self.parse_integer()?,
-          token_idx: self.current_pos.into(),
-        }),
-        HEX_LIT if self.advance() => Literal(ASTLiteralNode {
-          value: self.parse_int_from_base(16)?,
-          token_idx: self.current_pos.into(),
-        }),
-        OCTAL_LIT if self.advance() => Literal(ASTLiteralNode {
-          value: self.parse_int_from_base(8)?,
-          token_idx: self.current_pos.into(),
-        }),
-        BINARY_LIT if self.advance() => Literal(ASTLiteralNode {
-          value: self.parse_int_from_base(2)?,
-          token_idx: self.current_pos.into(),
-        }),
+        INT_LIT | HEX_LIT | OCTAL_LIT | BINARY_LIT if self.advance() => NumLiteral(self.current_pos.into()),
         L_BRACKET if self.advance() => {
           let expr = self.parse_expr()?;
           self.consume(&R_BRACKET, "Expected ']' for evaluated dict key name.")?;

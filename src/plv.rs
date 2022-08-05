@@ -2,8 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde_json::{json, Value};
 
-use crate::lexer::tokens::Token;
-use crate::lexer::Lexer;
+use crate::lexer::tokens::{Token, TokenList};
 use crate::objects::FuncObject;
 use crate::parser::ast::ASTNodeKind::*;
 use crate::parser::ast::*;
@@ -20,45 +19,36 @@ fn ast_list_to_json(tokens: &[Token], arena: &ASTArena, nodes: &[ASTNodeIdx], bn
 
 pub type PLVTimers = (u64, u64, u64, u64, u64, u64);
 
-pub fn export(lexer: Option<&Lexer>, ast: Option<&ASTArena>, _module: Option<&FuncObject>, timers: PLVTimers) {
+pub fn export(toks: &TokenList, ast: &ASTArena, _module: Option<&FuncObject>, timers: PLVTimers) {
+  fn map_tok_to_json(tok: (usize, &Token), toks: &TokenList) -> Value {
+    json!({
+       "name": format!("{:0>20?}", tok.1.kind),
+       "line_num": tok.1.line_num,
+       "column": tok.1.span.0,
+       "lexeme": toks.lexeme(tok.0)
+    })
+  }
   // Lex the source file
-  let lex = match lexer {
-    Some(l) => {
-      fn map_tok_to_json(t: &Token) -> Value {
-        json!({
-           "name": format!("{:0>20?}", t.kind),
-           "line_num": t.line_num,
-           "column": t.column_start,
-           "lexeme": t.lexeme
-        })
-      }
+  let lex = json!({
+     "start": timers.0,
+     "end": timers.1,
+     "tokens": toks.tokens.iter().enumerate().map(|t| map_tok_to_json(t, toks)).collect::<Vec<Value>>()
+  });
 
-      json!({
-         "start": timers.0,
-         "end": timers.1,
-         "tokens": l.tokens.iter().map(map_tok_to_json).collect::<Vec<Value>>()
-      })
-    }
-    None => json!({}),
-  };
-
-  let pars = match ast {
-    Some(p) => json!({
-       "start": timers.2,
-       "end": timers.3,
-       "ast": ast_to_json(&lexer.unwrap().tokens, p, &0.into(), "")
-    }),
-    None => json!({}),
-  };
+  let pars = json!({
+     "start": timers.2,
+     "end": timers.3,
+     "ast": ast_to_json(toks.tokens, ast, &0.into(), "")
+  });
 
   // let comp = if let Some(m) = module {
-  //    json!({
-  //       "start": timers.4,
-  //       "end": timers.5,
-  //       "raw_bytes": m.chunk.get_instructions_list().clone()
-  //    })
+  //   json!({
+  //      "start": timers.4,
+  //      "end": timers.5,
+  //      "raw_bytes": m.chunk.get_instructions_list().clone()
+  //   })
   // } else {
-  //    json!({})
+  //   json!({})
   // };
 
   // Compose the JSON report
@@ -79,14 +69,14 @@ fn ast_to_json(tokens: &[Token], arena: &ASTArena, idx: &ASTNodeIdx, bname: &str
   let (name, mut attributes, children) = match &arena.get(idx).kind {
     Module(x) => ("Module", json!({}), ast_list_to_json(tokens, arena, &x.children, "")),
     Reassignment(_) => ("Reassignment", json!({}), vec![]),
-    Literal(x) => {
-      let pos = tokens[x.token_idx.0].lexeme.as_str();
-      (pos, json!({ "kind": "literal" }), vec![])
-    }
-    StringLiteral(x) => ("String", json!({ "value": tokens[x.0].lexeme.to_string() }), vec![]),
+    NumLiteral(_) => ("Num Literal", json!({ "kind": "literal" }), vec![]),
+    TrueLiteral(_) => ("true", json!({ "kind": "literal" }), vec![]),
+    FalseLiteral(_) => ("false", json!({ "kind": "literal" }), vec![]),
+    NoneLiteral(_) => ("none", json!({ "kind": "literal" }), vec![]),
+    StringLiteral(_) => ("String", json!({ "value": "::todo::" }), vec![]),
     SelfLiteral(_) => ("Self", json!({}), vec![]),
     SuperLiteral(_) => ("Super", json!({}), vec![]),
-    Identifier(x) => (tokens[x.0].lexeme.as_str(), json!({ "kind": "identifier" }), vec![]),
+    Identifier(_) => ("id", json!({ "kind": "identifier" }), vec![]),
     TernaryConditional(_) => ("Ternary", json!({}), vec![]),
     BinaryExpr(x) => (
       "Binary",

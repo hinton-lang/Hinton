@@ -2,7 +2,7 @@ use crate::compiler::symbols::{Symbol, SymbolTable, SymbolType};
 use crate::compiler::{ClassScope, Compiler, CompilerCtx};
 use crate::core::bytecode::OpCode;
 use crate::errors::CompilerErrorType;
-use crate::lexer::tokens::Token;
+use crate::lexer::legacy_tokens::Token;
 use crate::objects::Object;
 use crate::parser::legacy_ast::*;
 use std::borrow::Borrow;

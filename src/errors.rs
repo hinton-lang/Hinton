@@ -79,8 +79,9 @@ impl ObjectOprErrType {
 /// - `filepath`: The file path of where the errors occurred.
 /// - `errors`: An `ErrorList` containing the errors.
 /// - `source`: A reference to the source contents.
-pub fn report_errors_list(filepath: &Path, errors: Vec<ErrorReport>, source: &str) {
-  let source_lines: Vec<&str> = source.split('\n').collect();
+pub fn report_errors_list(filepath: &Path, errors: Vec<ErrorReport>, source: &[char]) {
+  let source_str = source.iter().collect::<String>();
+  let source_lines: Vec<&str> = source_str.split('\n').collect();
 
   for error in errors.iter() {
     eprintln!("{}", error.message);

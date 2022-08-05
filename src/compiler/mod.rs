@@ -3,7 +3,7 @@ use crate::compiler::symbols::{Symbol, SymbolTable, SymbolType};
 use crate::core::bytecode::OpCode;
 use crate::core::chunk::Chunk;
 use crate::errors::{CompilerErrorType, ErrorReport};
-use crate::lexer::tokens::Token;
+use crate::lexer::legacy_tokens::Token;
 use crate::objects::{FuncObject, Object};
 use crate::parser::legacy_ast::{ASTNode, ModuleNode};
 use std::convert::TryFrom;
