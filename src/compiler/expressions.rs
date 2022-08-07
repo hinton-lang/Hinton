@@ -1,8 +1,8 @@
 use core::errors::CompilerErrorType;
 
+use crate::compiler::symbols::SL;
 use crate::compiler::Compiler;
 use crate::compiler::CompilerCtx;
-use crate::compiler::symbols::SL;
 use crate::core::bytecode::OpCode;
 use crate::core::legacy_ast::*;
 use crate::core::legacy_tokens::Token;

@@ -1,10 +1,9 @@
-use core::ast::ASTNodeKind::*;
 use core::ast::*;
-use core::errors::ErrorReport;
+use core::ast::ASTNodeKind::*;
 use core::tokens::TokenIdx;
 use core::tokens::TokenKind::*;
 
-use crate::{check_tok, consume_id, curr_tk, guard_error_token, match_tok, Parser};
+use crate::{check_tok, consume_id, curr_tk, guard_error_token, match_tok, NodeResult, Parser};
 
 macro_rules! append_binary_expr {
   ($s:ident, $l:expr, $r:expr, $k:expr) => {
@@ -18,7 +17,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// EXPRESSION ::= ASSIGNMENT_EXPR
   /// ```
-  pub(super) fn parse_expr(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_expr(&mut self) -> NodeResult<ASTNodeIdx> {
     guard_error_token![self];
     self.parse_reassignment()
   }
@@ -28,7 +27,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// REASSIGNMENT_EXPR ::= TERNARY_EXPR (ASSIGNMENT_OPR EXPRESSION)?
   /// ```
-  pub(super) fn parse_reassignment(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_reassignment(&mut self) -> NodeResult<ASTNodeIdx> {
     let target = self.parse_ternary_expr()?;
     // TODO: Implement node span resolution and get the span of the target instead.
     // Node span resolution gets the `col_start` of the left-most token in the node
@@ -62,7 +61,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// TERNARY_EXPR ::= NONE_COALESCE_EXPR ("?" EXPRESSION ":" EXPRESSION)?
   /// ```
-  pub(super) fn parse_ternary_expr(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_ternary_expr(&mut self) -> NodeResult<ASTNodeIdx> {
     let condition = self.parse_nonish_coalescing()?;
 
     if match_tok![self, QUESTION] {
@@ -87,7 +86,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// NONE_COALESCE_EXPR ::= LOGIC_OR_EXPR ("??" LOGIC_OR_EXPR)*
   /// ```
-  pub(super) fn parse_nonish_coalescing(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_nonish_coalescing(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_logic_or()?;
 
     while match_tok![self, NONISH] {
@@ -103,7 +102,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// LOGIC_OR_EXPR ::= LOGIC_AND_EXPR (("||" | "or") LOGIC_AND_EXPR)*
   /// ```
-  pub(super) fn parse_logic_or(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_logic_or(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_logic_and()?;
 
     while match_tok![self, DOUBLE_VERT_BAR | OR_KW] {
@@ -119,7 +118,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// LOGIC_AND_EXPR ::= BITWISE_OR_EXPR (("&&" | "and") BITWISE_OR_EXPR)*
   /// ```
-  pub(super) fn parse_logic_and(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_logic_and(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_bit_or()?;
 
     while match_tok![self, DOUBLE_AMPERSAND | AND_KW] {
@@ -135,7 +134,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// BITWISE_OR_EXPR ::= BITWISE_XOR_EXPR ("|" BITWISE_XOR_EXPR)*
   /// ```
-  pub(super) fn parse_bit_or(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_bit_or(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_bit_xor()?;
 
     while match_tok![self, VERT_BAR] {
@@ -151,7 +150,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// BITWISE_XOR_EXPR ::= BITWISE_AND_EXPR ("^" BITWISE_AND_EXPR)*
   /// ```
-  pub(super) fn parse_bit_xor(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_bit_xor(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_bit_and()?;
 
     while match_tok![self, BIT_XOR] {
@@ -167,7 +166,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// BITWISE_AND_EXPR ::= EQUALITY_EXPR ("&" EQUALITY_EXPR)*
   /// ```
-  pub(super) fn parse_bit_and(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_bit_and(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_equality()?;
 
     while match_tok![self, AMPERSAND] {
@@ -183,7 +182,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// EQUALITY_EXPR ::= RELATION_EXPR (("!=" | "==") RELATION_EXPR)*
   /// ```
-  pub(super) fn parse_equality(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_equality(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_relation()?;
 
     // ==, !=
@@ -201,7 +200,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// RELATION_EXPR ::= BITWISE_SHIFT ((">" | ">=" | "<" | "<=" | "in" | "instof") BITWISE_SHIFT)*
   /// ```
-  pub(super) fn parse_relation(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_relation(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_bit_shift()?;
 
     // >, >=, <, <=, in, instof
@@ -219,7 +218,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// BITWISE_SHIFT ::= RANGE_EXPR (("<<" | ">>") RANGE_EXPR)*
   /// ```
-  pub(super) fn parse_bit_shift(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_bit_shift(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_range()?;
 
     // >>, <<
@@ -237,7 +236,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// RANGE_EXPR ::= TERM_EXPR ((".." | "..=") TERM_EXPR)?
   /// ```
-  pub(super) fn parse_range(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_range(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_term()?;
 
     // .., ..=
@@ -255,7 +254,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// TERM_EXPR ::= FACTOR_EXPR (( "-" | "+") FACTOR_EXPR)*
   /// ```
-  pub(super) fn parse_term(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_term(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_factor()?;
 
     // +, -
@@ -273,7 +272,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// FACTOR_EXPR ::= POW_EXPR (( "/" | "*" | "%" | "mod" | "@") POW_EXPR)*
   /// ```
-  pub(super) fn parse_factor(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_factor(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_pow()?;
 
     // *, %, mod, /, @
@@ -291,7 +290,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// POW_EXPR ::= PIPE_EXPR ("**" PIPE_EXPR)*
   /// ```
-  pub(super) fn parse_pow(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_pow(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_pipe()?;
 
     while match_tok![self, POW] {
@@ -307,7 +306,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// PIPE_EXPR ::= UNARY_EXPR ("|>" UNARY_EXPR)*
   /// ```
-  pub(super) fn parse_pipe(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_pipe(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut left = self.parse_unary()?;
 
     while match_tok![self, PIPE] {
@@ -324,7 +323,7 @@ impl<'a> Parser<'a> {
   /// UNARY_EXPR ::= (UNARY_OPR | "new" | "await" | "typeof") UNARY_EXPR
   ///            | PRIMARY_EXPR
   /// ```
-  pub(super) fn parse_unary(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_unary(&mut self) -> NodeResult<ASTNodeIdx> {
     // !, ~, -, new, typeof, await
     if let Some(kind) = UnaryExprKind::try_from_token(self.get_curr_tk()) {
       self.advance(); // Consume the token
@@ -343,7 +342,7 @@ impl<'a> Parser<'a> {
   /// PRIMARY_EXPR ::= LAMBDA_EXPR
   ///              | LARGE_EXPR (INDEXING_EXPR | CALL_EXPR | MEMBER_ACCESS_EXPR)*
   /// ```
-  pub(super) fn parse_primary(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_primary(&mut self) -> NodeResult<ASTNodeIdx> {
     if match_tok![self, ASYNC_KW] {
       return self.parse_lambda_literal(true);
     } else if match_tok![self, VERT_BAR] || match_tok![self, DOUBLE_VERT_BAR] {
@@ -369,7 +368,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// LAMBDA_EXPR ::= "async"? "|" PARAMETERS? "|" (EXPRESSION | BLOCK_STMT)
   /// ```
-  pub(super) fn parse_lambda_literal(&mut self, is_async: bool) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_lambda_literal(&mut self, is_async: bool) -> NodeResult<ASTNodeIdx> {
     let should_parse_params = if is_async {
       if match_tok![self, DOUBLE_VERT_BAR] {
         false
@@ -410,7 +409,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// LARGE_EXPR ::= LITERAL_EXPR | MATCH_EXPR_STMT | LOOP_EXPR_STMT
   /// ```
-  pub fn parse_large_expr(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub fn parse_large_expr(&mut self) -> NodeResult<ASTNodeIdx> {
     match curr_tk![self] {
       MATCH_KW if self.advance() => todo!("Parse `match` expression."),
       LOOP_KW if self.advance() => self.parse_loop_expr(),
@@ -423,7 +422,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// INDEXING_EXPR ::= "[" INDEXER ("," INDEXER)* "]"
   /// ```
-  pub(super) fn parse_indexing_expr(&mut self, target: ASTNodeIdx) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_indexing_expr(&mut self, target: ASTNodeIdx) -> NodeResult<ASTNodeIdx> {
     let mut indexers = vec![self.parse_indexer()?];
 
     while match_tok![self, COMMA] {
@@ -440,7 +439,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// INDEXER ::= EXPRESSION | SLICE
   /// ```
-  pub(super) fn parse_indexer(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_indexer(&mut self) -> NodeResult<ASTNodeIdx> {
     if match_tok![self, COLON] {
       // The indexer is a slice of the form `[:]` or `[:b]`
       self.parse_slice(None)
@@ -462,7 +461,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// SLICE ::= EXPRESSION? ":" EXPRESSION?
   /// ```
-  pub(super) fn parse_slice(&mut self, lower: Option<ASTNodeIdx>) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_slice(&mut self, lower: Option<ASTNodeIdx>) -> NodeResult<ASTNodeIdx> {
     let upper = if !check_tok![self, COMMA | R_BRACKET] {
       Some(self.parse_expr()?)
     } else {
@@ -479,7 +478,7 @@ impl<'a> Parser<'a> {
   /// NON_VAL_ARGS  ::= SINGLE_SPREAD_EXPR | NAMED_ARGS
   /// NAMED_ARGS    ::= IDENTIFIER ":=" EXPRESSION
   /// ```
-  pub(super) fn parse_call_expr(&mut self, target: ASTNodeIdx) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_call_expr(&mut self, target: ASTNodeIdx) -> NodeResult<ASTNodeIdx> {
     if match_tok![self, R_PAREN] {
       return self.emit(CallExpr(ASTCallExprNode::default()));
     }
@@ -531,7 +530,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// MEMBER_ACCESS_EXPR ::= ("." | "?.") IDENTIFIER
   /// ```
-  pub(super) fn parse_member_access_expr(&mut self, target: ASTNodeIdx) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_member_access_expr(&mut self, target: ASTNodeIdx) -> NodeResult<ASTNodeIdx> {
     let is_safe = match self.get_prev_tk() {
       DOT => false,
       SAFE_ACCESS => true,
@@ -547,7 +546,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// LOOP_EXPR ::= "loop" BLOCK_STMT
   /// ```
-  pub(super) fn parse_loop_expr(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_loop_expr(&mut self) -> NodeResult<ASTNodeIdx> {
     self.consume(&L_CURLY, "Expected '{' after 'loop' keyword.")?;
     let body = self.parse_block_stmt()?;
     self.emit(LoopExpr(body))
@@ -561,7 +560,7 @@ impl<'a> Parser<'a> {
   ///               | TUPLE_LITERAL | DICT_LITERAL | TRUE_LITERAL | FALSE_LITERAL | NONE_LITERAL
   ///               | SELF_LITERAL | SUPER_LITERAL | "(" EXPRESSION ")"
   /// ```
-  pub(super) fn parse_literal(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_literal(&mut self) -> NodeResult<ASTNodeIdx> {
     self.advance();
     let prev_tok = TokenIdx::from(self.current_pos - 1);
 
@@ -588,7 +587,7 @@ impl<'a> Parser<'a> {
       L_CURLY => self.parse_dict_literal(),
 
       // Unknown expression
-      _ => Err(self.error_at_previous("Unexpected token.")),
+      _ => Err(self.error_at_prev("Unexpected token.")),
     }
   }
 }

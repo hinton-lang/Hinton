@@ -1,7 +1,7 @@
 use core::errors::CompilerErrorType;
 
-use crate::compiler::{Compiler, CompilerCtx, FunctionScope, UpValue};
 use crate::compiler::symbols::{Symbol, SymbolTable, SymbolType};
+use crate::compiler::{Compiler, CompilerCtx, FunctionScope, UpValue};
 use crate::core::bytecode::OpCode;
 use crate::core::chunk::Chunk;
 use crate::core::legacy_ast::*;

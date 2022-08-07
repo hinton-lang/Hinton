@@ -7,8 +7,8 @@ use core::errors::RuntimeErrorType;
 use core::RuntimeResult;
 
 use crate::built_in::NativeFn;
-use crate::objects::{NativeFuncObj, Object};
 use crate::objects::iter_obj::{get_next_in_iter, make_iter};
+use crate::objects::{NativeFuncObj, Object};
 use crate::virtual_machine::VM;
 
 /// Represents the list of native functions available through a Hinton program.

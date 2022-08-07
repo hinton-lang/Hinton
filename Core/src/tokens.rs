@@ -1,5 +1,6 @@
 use std::ops::Index;
 
+/// Represents the index of a Token in the TokenList.
 pub struct TokenIdx(pub usize);
 
 impl From<usize> for TokenIdx {
@@ -14,6 +15,7 @@ impl Default for TokenIdx {
   }
 }
 
+/// List of Tokens found in the source code.
 pub struct TokenList<'a> {
   pub tokens: &'a [Token],
   pub src: &'a [char],
@@ -21,17 +23,33 @@ pub struct TokenList<'a> {
 
 impl<'a> Index<usize> for TokenList<'a> {
   type Output = Token;
-
   fn index(&self, index: usize) -> &Self::Output {
     &self.tokens[index]
   }
 }
 
 impl<'a> TokenList<'a> {
+  /// Generates a new Tokens List.
+  ///
+  /// # Arguments
+  ///
+  /// * `src`: A reference to the source list of characters.
+  /// * `tokens`: A reference to the source list of lexed tokens.
+  ///
+  /// # Returns:
+  /// ```TokenList```
   pub fn new(src: &'a [char], tokens: &'a [Token]) -> Self {
     Self { src, tokens }
   }
 
+  /// Gets the lexeme of a token based on it's location information.
+  ///
+  /// # Arguments
+  ///
+  /// * `idx`: The index of the token in the list of tokens.
+  ///
+  /// # Returns:
+  /// ```String```
   pub fn lexeme(&self, idx: &TokenIdx) -> String {
     let tok = &self[idx.0];
 
@@ -42,11 +60,20 @@ impl<'a> TokenList<'a> {
     }
   }
 
+  /// Gets the source-code location information of a token.
+  ///
+  /// # Arguments
+  ///
+  /// * `idx`: The index of the token in the list of tokens.
+  ///
+  /// # Returns:
+  /// ```TokenLoc```
   pub fn location(&self, idx: &TokenIdx) -> TokenLoc {
     self[idx.0].get_location()
   }
 }
 
+/// The source-code location information for a Token.
 pub struct TokenLoc {
   pub line_num: usize,
   pub col_start: usize,
@@ -69,6 +96,7 @@ pub struct Token {
 }
 
 impl Token {
+  /// Gets the source-code location information of a token.
   pub fn get_location(&self) -> TokenLoc {
     TokenLoc {
       line_num: self.line_num,
@@ -186,7 +214,9 @@ pub enum TokenKind {
   FROM_KW,
   FUNC_KW,
   IF_KW,
+  IMPL_KW,
   IMPORT_KW,
+  INIT_KW,
   INSTOF_KW,
   IN_KW,
   LET_KW,
@@ -212,7 +242,6 @@ pub enum TokenKind {
   EOF,
   ERROR(ErrorTokenKind),
   // **** For Future Implementation
-  // IMPL_KW,
   // INTERFACE_KW
   // ANY_TYPE,
   // ARRAY_TYPE,
@@ -266,8 +295,10 @@ pub fn make_identifier_kind(id: &str) -> TokenKind {
     "from" => TokenKind::FROM_KW,
     "func" => TokenKind::FUNC_KW,
     "if" => TokenKind::IF_KW,
+    "impl" => TokenKind::IMPL_KW,
     "import" => TokenKind::IMPORT_KW,
     "in" => TokenKind::IN_KW,
+    "init" => TokenKind::INIT_KW,
     "instof" => TokenKind::INSTOF_KW,
     "let" => TokenKind::LET_KW,
     "loop" => TokenKind::LOOP_KW,
@@ -292,7 +323,6 @@ pub fn make_identifier_kind(id: &str) -> TokenKind {
 
     // **** For Future Implementation
     // "interface" => TokenType::INTERFACE_KEYWORD,
-    // "impl"      => TokenType::IMPL_KW,
     // "Any"   => TokenType::ANY_TYPE,
     // "Array" => TokenType::ARRAY_TYPE,
     // "Bool"  => TokenType::BOOL_TYPE,
@@ -342,6 +372,7 @@ pub enum ErrorTokenKind {
 }
 
 impl ErrorTokenKind {
+  /// Converts an error token to its string message representation.
   pub fn to_str(&self) -> &str {
     match self {
       ErrorTokenKind::InvalidChar => "Invalid Character.",

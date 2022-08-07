@@ -6,8 +6,8 @@ use hashbrown::HashMap;
 use core::errors::RuntimeErrorType;
 use core::RuntimeResult;
 
-use crate::built_in::NativeBoundMethod;
 use crate::built_in::primitives::HTPrimitive;
+use crate::built_in::NativeBoundMethod;
 use crate::objects::class_obj::{ClassField, ClassObject};
 use crate::objects::Object;
 use crate::virtual_machine::VM;

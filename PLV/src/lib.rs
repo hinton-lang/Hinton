@@ -75,8 +75,8 @@ pub fn export(tokens_list: &TokenList, arena: &ASTArena, _bytecode: &[u8], timer
   let report = json!({
      "date": get_time_millis(),
      "run_type": if cfg!(debug_assertions) { "DEV" } else { "RELEASE" },
-     "Lexer": lex,
-     "Parser": pars
+     "lexer": lex,
+     "parser": pars
   });
 
   // Save the file
@@ -125,53 +125,54 @@ impl<'a> PLVJsonGenerator<'a> {
   /// ```Value```
   fn ast_to_json(&self, idx: &ASTNodeIdx, branch_name: &str) -> Value {
     let (name, mut attributes, children) = match &self.arena.get(idx) {
-      Module(x) => self.module_node_to_json(x),
-      TrueLiteral(_) => ("true".into(), json!({ "kind": "literal" }), vec![]),
-      FalseLiteral(_) => ("false".into(), json!({ "kind": "literal" }), vec![]),
-      NoneLiteral(_) => ("none".into(), json!({ "kind": "literal" }), vec![]),
-      SelfLiteral(_) => ("self".into(), json!({ "kind": "literal" }), vec![]),
-      SuperLiteral(_) => ("super".into(), json!({ "kind": "literal" }), vec![]),
-      Reassignment(x) => self.reassignment_node_to_json(x),
-      NumLiteral(x) => self.numeric_literal_to_json(x),
-      StringLiteral(x) => self.string_literal_to_json(x),
-      Identifier(x) => self.identifier_to_json(x),
-      TernaryConditional(x) => self.ternary_to_json(x),
-      BinaryExpr(x) => self.binary_to_json(x),
-      UnaryExpr(x) => self.unary_to_json(x),
-      Indexing(x) => self.indexing_to_json(x),
-      ArraySlice(x) => self.array_slice_to_json(x),
-      MemberAccess(x) => self.member_access_to_json(x),
       ArrayLiteral(x) => self.array_literal_to_json(x),
-      TupleLiteral(x) => self.tuple_literal_to_json(x),
-      RepeatLiteral(x) => self.repeat_literal_to_json(x),
-      SpreadExpr(x) => self.spread_expr_to_json(x),
-      DictLiteral(_) => self.dict_literal_to_json(),
-      DictKeyValPair(x) => self.dict_key_val_par_to_json(x),
-      EvaluatedDictKey(x) => self.evaluated_dict_key_to_json(x),
-      CallExpr(x) => self.call_expr_to_json(&x),
-      ExprStmt(x) => self.expr_stmt_to_json(x),
+      ArraySlice(x) => self.array_slice_to_json(x),
+      BinaryExpr(x) => self.binary_to_json(x),
       BlockStmt(x) => self.block_stmt_to_json(x),
-      LoopExpr(x) => self.loop_expr_to_json(x),
       BreakStmt(x) => self.break_stmt_to_json(x),
-      ContinueStmt => self.continue_stmt_to_json(),
-      ReturnStmt(x) => self.return_stmt_to_json(x),
-      YieldStmt(x) => self.yield_stmt_to_json(x),
-      ThrowStmt(x) => self.throw_stmt_to_json(x),
-      DelStmt(x) => self.del_stmt_to_json(x),
-      WhileLoop(x) => self.while_loop_to_json(x),
-      ForLoop(x) => self.for_loop_to_json(x),
+      CallExpr(x) => self.call_expr_to_json(&x),
+      ClassDecl(x) => self.class_decl_to_json(x),
       CompactArrOrTpl(x) => self.compact_arr_or_tpl_to_json(x),
       CompactDict(x) => self.compact_dict_to_json(x),
-      IfStmt(x) => self.if_stmt_to_json(x),
-      VarConstDecl(x) => self.var_const_decl_to_json(x),
+      ContinueStmt => self.continue_stmt_to_json(),
+      DelStmt(x) => self.del_stmt_to_json(x),
       DestructingPattern(x) => self.destructing_pattern_to_json(x),
       DestructingWildCard(x) => self.destructing_wild_card_to_json(x),
-      WithStmt(x) => self.with_stmt_to_json(x),
-      FuncDecl(x) => self.func_decl_to_json(x),
-      Lambda(x) => self.lambda_to_json(x),
-      TryCatchFinally(x) => self.try_catch_finally_stmt_to_json(x),
-      ImportDecl(x) => self.import_decl_to_json(x),
+      DictKeyValPair(x) => self.dict_key_val_par_to_json(x),
+      DictLiteral(_) => self.dict_literal_to_json(),
+      EvaluatedDictKey(x) => self.evaluated_dict_key_to_json(x),
       ExportDecl(x) => self.export_decl_to_json(x),
+      ExprStmt(x) => self.expr_stmt_to_json(x),
+      FalseLiteral(_) => ("false".into(), json!({ "kind": "literal" }), vec![]),
+      ForLoop(x) => self.for_loop_to_json(x),
+      FuncDecl(x) => self.func_decl_to_json(x),
+      Identifier(x) => self.identifier_to_json(x),
+      IfStmt(x) => self.if_stmt_to_json(x),
+      ImportDecl(x) => self.import_decl_to_json(x),
+      Indexing(x) => self.indexing_to_json(x),
+      Lambda(x) => self.lambda_to_json(x),
+      LoopExpr(x) => self.loop_expr_to_json(x),
+      MemberAccess(x) => self.member_access_to_json(x),
+      Module(x) => self.module_node_to_json(x),
+      NoneLiteral(_) => ("none".into(), json!({ "kind": "literal" }), vec![]),
+      NumLiteral(x) => self.numeric_literal_to_json(x),
+      Reassignment(x) => self.reassignment_node_to_json(x),
+      RepeatLiteral(x) => self.repeat_literal_to_json(x),
+      ReturnStmt(x) => self.return_stmt_to_json(x),
+      SelfLiteral(_) => ("self".into(), json!({ "kind": "literal" }), vec![]),
+      SpreadExpr(x) => self.spread_expr_to_json(x),
+      StringLiteral(x) => self.string_literal_to_json(x),
+      SuperLiteral(_) => ("super".into(), json!({ "kind": "literal" }), vec![]),
+      TernaryConditional(x) => self.ternary_to_json(x),
+      ThrowStmt(x) => self.throw_stmt_to_json(x),
+      TrueLiteral(_) => ("true".into(), json!({ "kind": "literal" }), vec![]),
+      TryCatchFinally(x) => self.try_catch_finally_stmt_to_json(x),
+      TupleLiteral(x) => self.tuple_literal_to_json(x),
+      UnaryExpr(x) => self.unary_to_json(x),
+      VarConstDecl(x) => self.var_const_decl_to_json(x),
+      WhileLoop(x) => self.while_loop_to_json(x),
+      WithStmt(x) => self.with_stmt_to_json(x),
+      YieldStmt(x) => self.yield_stmt_to_json(x),
     };
 
     if !branch_name.is_empty() {
@@ -469,5 +470,10 @@ impl<'a> PLVJsonGenerator<'a> {
   /// Converts an AST expression statement node into its JSON representation.
   fn expr_stmt_to_json(&self, x: &ASTNodeIdx) -> JSONNodeData {
     ("Expr Stmt".into(), json!({}), vec![self.ast_to_json(x, "operand")])
+  }
+
+  fn class_decl_to_json(&self, _x: &ASTClassIdx) -> JSONNodeData {
+    // TODO: PLV Class Decl
+    ("Class Decl".into(), json!({}), vec![])
   }
 }

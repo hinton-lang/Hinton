@@ -1,7 +1,7 @@
 use core::errors::CompilerErrorType;
 
-use crate::compiler::{BreakScope, Compiler, LoopScope, LoopType};
 use crate::compiler::symbols::SymbolType;
+use crate::compiler::{BreakScope, Compiler, LoopScope, LoopType};
 use crate::core::bytecode::OpCode;
 use crate::core::legacy_ast::*;
 use crate::core::legacy_tokens::Token;

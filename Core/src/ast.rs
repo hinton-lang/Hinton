@@ -16,10 +16,31 @@ impl Default for ASTNodeIdx {
   }
 }
 
+/// Represents the index of an Class Declaration Node
+/// in the `classes` section of the ASTArena.
+#[derive(PartialEq)]
+pub struct ASTClassIdx(pub usize);
+
+impl From<usize> for ASTClassIdx {
+  fn from(x: usize) -> Self {
+    ASTClassIdx(x)
+  }
+}
+
+impl Default for ASTClassIdx {
+  fn default() -> Self {
+    usize::MAX.into()
+  }
+}
+
 /// Abstract syntax tree in the form
 /// of an Arena data structure.
 pub struct ASTArena {
   arena: Vec<ASTNodeKind>,
+  /// Because class nodes are very heavy and used rarely,
+  /// we store them in a separate section so that the
+  ///`ASTNodeKind` enum is not penalized by their weight.
+  classes: Vec<ASTClassDeclNode>,
 }
 
 impl Default for ASTArena {
@@ -30,7 +51,10 @@ impl Default for ASTArena {
       public_members: vec![],
     });
 
-    Self { arena: vec![root] }
+    Self {
+      arena: vec![root],
+      classes: vec![],
+    }
   }
 }
 
@@ -48,6 +72,19 @@ impl ASTArena {
     (self.arena.len() - 1).into()
   }
 
+  /// Pushes a new class node to the `class` section of the arena.
+  ///
+  /// # Arguments
+  ///
+  /// * `val`: The node to insert into the arena.
+  ///
+  /// # Returns:
+  /// ```ASTNodeIdx```
+  pub fn push_class(&mut self, val: ASTClassDeclNode) -> ASTClassIdx {
+    self.classes.push(val);
+    (self.classes.len() - 1).into()
+  }
+
   /// Gets an ASTNode in the arena from its ASTNodeIdx. Can also
   /// use a `usize` and convert it to an `ASTNodeIdx` with `.into()`.
   ///
@@ -59,6 +96,20 @@ impl ASTArena {
   /// ```&ASTArenaNode```
   pub fn get(&self, idx: &ASTNodeIdx) -> &ASTNodeKind {
     &self.arena[idx.0]
+  }
+
+  /// Gets an Class declaration node from the class section of the arena
+  /// from its ASTClassIdx. Can also use a `usize` and convert it to
+  /// an `ASTClassIdx` with `.into()`.
+  ///
+  /// # Arguments
+  ///
+  /// * `idx`: The ASTClassIdx of the node.
+  ///
+  /// # Returns:
+  /// ```&ASTClassDeclNode```
+  pub fn get_class(&self, idx: &ASTClassIdx) -> &ASTClassDeclNode {
+    &self.classes[idx.0]
   }
 
   /// Attaches a node to the root module node.
@@ -101,6 +152,7 @@ pub enum ASTNodeKind {
   BlockStmt(Vec<ASTNodeIdx>),
   BreakStmt(Option<ASTNodeIdx>),
   CallExpr(ASTCallExprNode),
+  ClassDecl(ASTClassIdx),
   CompactArrOrTpl(ASTCompactArrOrTplNode),
   CompactDict(ASTCompactDictNode),
   ContinueStmt,
@@ -430,7 +482,7 @@ pub struct ASTCallExprNode {
 /// An AST Lambda Expression Node
 pub struct ASTLambdaNode {
   pub is_async: bool,
-  pub params: Vec<FuncParam>,
+  pub params: Vec<SingleParam>,
   pub min_arity: u8,
   pub max_arity: u8,
   pub body: ASTNodeIdx, // This will always be a block stmt or single expression
@@ -520,35 +572,6 @@ pub struct WithStmtHead {
   pub id: ASTNodeIdx,
 }
 
-/// An AST Function Declaration Node
-pub struct ASTFuncDeclNode {
-  pub decor: Vec<Decorator>,
-  pub is_async: bool,
-  pub name: ASTNodeIdx,
-  pub is_gen: bool,
-  pub params: Vec<FuncParam>,
-  pub min_arity: u8,
-  pub max_arity: u8,
-  pub body: ASTNodeIdx, // This will always be a block stmt
-}
-
-/// A Function Parameter
-pub struct FuncParam {
-  pub name: ASTNodeIdx,
-  pub kind: FuncParamKind,
-}
-
-pub enum FuncParamKind {
-  Required,
-  Named(ASTNodeIdx),
-  Optional,
-  Rest,
-}
-
-/// A Class or Function Decorator (note that this is not an AST node).
-// This will always be an identifier or function call expression.
-pub struct Decorator(pub ASTNodeIdx);
-
 /// An AST Try-Catch-Finally Statement Node
 pub struct ASTTryCatchFinallyNode {
   pub body: ASTNodeIdx, // This will always be a block stmt
@@ -579,4 +602,92 @@ pub struct ASTImportExportNode {
 pub struct ImportExportMember {
   pub member: ASTNodeIdx,        // This will always be an identifier node
   pub alias: Option<ASTNodeIdx>, // This will always be an identifier node
+}
+
+pub trait SingleParamLike {
+  fn get_kind(&self) -> &SingleParamKind;
+}
+
+// A Single Parameter (For Classes or Functions)
+pub enum SingleParamKind {
+  Required,
+  Named(ASTNodeIdx),
+  Optional,
+  Rest,
+}
+
+/// An AST Function Declaration Node
+pub struct ASTFuncDeclNode {
+  pub decor: Vec<Decorator>,
+  pub is_async: bool,
+  pub name: ASTNodeIdx,
+  pub is_gen: bool,
+  pub params: Vec<SingleParam>,
+  pub min_arity: u8,
+  pub max_arity: u8,
+  pub body: ASTNodeIdx, // This will always be a block stmt
+}
+
+/// A Function Parameter
+pub struct SingleParam {
+  pub name: ASTNodeIdx,
+  pub kind: SingleParamKind,
+}
+
+impl SingleParamLike for SingleParam {
+  fn get_kind(&self) -> &SingleParamKind {
+    &self.kind
+  }
+}
+
+/// A Class or Function Decorator (note that this is not an AST node).
+// This will always be an identifier or function call expression.
+pub struct Decorator(pub ASTNodeIdx);
+
+// An AST Class Declaration Node
+pub struct ASTClassDeclNode {
+  pub decor: Vec<Decorator>,
+  pub is_abstract: bool,
+  pub name: ASTNodeIdx,
+  pub params: Vec<ClassParam>,
+  pub min_arity: u8,
+  pub max_arity: u8,
+  pub extends: Vec<ASTNodeIdx>, // This will always be a list of identifier nodes
+  pub impls: Vec<ASTNodeIdx>,   // This will always be a list of identifier nodes
+  pub init: Option<ASTNodeIdx>, // This will always be a block statement
+  pub members: Vec<ClassMember>,
+}
+
+// A Class Parameter
+pub struct ClassParam {
+  pub decor: Vec<Decorator>,
+  pub is_pub: bool,
+  pub is_const: bool,
+  pub param: SingleParam,
+}
+
+impl SingleParamLike for ClassParam {
+  fn get_kind(&self) -> &SingleParamKind {
+    &self.param.kind
+  }
+}
+
+// A Class Member
+pub struct ClassMember {
+  pub mode: ClassMemberMode,
+  pub member: ClassMemberKind,
+}
+
+// The Mode of a Class Member
+pub struct ClassMemberMode {
+  pub is_public: bool,
+  pub is_static: bool,
+  pub is_override: bool,
+}
+
+// The Kinds of Class Members
+pub enum ClassMemberKind {
+  Var(Vec<Decorator>, ASTNodeIdx),
+  Const(Vec<Decorator>, ASTNodeIdx),
+  Func(ASTNodeIdx),
 }

@@ -6,14 +6,14 @@ use hashbrown::HashMap;
 use core::errors::RuntimeErrorType;
 use core::RuntimeResult;
 
-use crate::built_in::NativeBoundMethod;
 use crate::built_in::primitives::array::ArrayClass;
 use crate::built_in::primitives::int::IntClass;
 use crate::built_in::primitives::math::MathClass;
 use crate::built_in::primitives::string::StringClass;
 use crate::built_in::primitives::tuple::TupleClass;
-use crate::objects::{NativeMethodObj, Object};
+use crate::built_in::NativeBoundMethod;
 use crate::objects::class_obj::{ClassField, ClassObject};
+use crate::objects::{NativeMethodObj, Object};
 
 // Submodules
 mod array;

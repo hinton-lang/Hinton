@@ -1,9 +1,8 @@
-use core::ast::ASTNodeKind::*;
 use core::ast::*;
-use core::errors::ErrorReport;
+use core::ast::ASTNodeKind::*;
 use core::tokens::TokenKind::*;
 
-use crate::{check_tok, curr_tk, match_tok, Parser};
+use crate::{check_tok, curr_tk, match_tok, NodeResult, Parser};
 
 impl<'a> Parser<'a> {
   /// Parses an array literal expression.
@@ -12,7 +11,7 @@ impl<'a> Parser<'a> {
   /// ARRAY_LITERAL ::= "[" ARR_TPL_BODY? "]"
   /// ARR_TPL_BODY  ::= ARR_TPL_LIST | ARR_TPL_REPEAT | COMPACT_FOR_LOOP
   /// ```
-  pub(super) fn parse_array_literal(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_array_literal(&mut self) -> NodeResult<ASTNodeIdx> {
     // If we match a for-keyword at the start the array literal, then we
     // know we have an array comprehension so we can go ahead and parse it.
     if match_tok![self, FOR_KW] {
@@ -55,7 +54,7 @@ impl<'a> Parser<'a> {
   /// TUPLE_LITERAL ::= "(" ARR_TPL_BODY? ")"
   /// ARR_TPL_BODY  ::= ARR_TPL_LIST | ARR_TPL_REPEAT | COMPACT_FOR_LOOP
   /// ```
-  pub(super) fn parse_tuple_literal_or_grouping_expr(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_tuple_literal_or_grouping_expr(&mut self) -> NodeResult<ASTNodeIdx> {
     // If we match a for-keyword at the start the tuple literal, then we
     // know we have a tuple comprehension so we can go ahead and parse it.
     if match_tok![self, FOR_KW] {
@@ -106,7 +105,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// SINGLE_SPREAD_EXPR ::= "..." EXPRESSION
   /// ```
-  pub(super) fn parse_single_spread_expr(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_single_spread_expr(&mut self) -> NodeResult<ASTNodeIdx> {
     let expr = self.parse_expr()?;
     self.emit(SpreadExpr(expr))
   }
@@ -116,7 +115,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// ARR_TPL_REPEAT ::= EXPRESSION ";" EXPRESSION
   /// ```
-  pub(super) fn parse_repeat_arr_or_tpl(&mut self, value: ASTNodeIdx, is_tup: bool) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_repeat_arr_or_tpl(&mut self, value: ASTNodeIdx, is_tup: bool) -> NodeResult<ASTNodeIdx> {
     let count = self.parse_expr()?;
 
     let kind = if is_tup {
@@ -136,7 +135,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// ARR_TPL_LIST ::= (EXPRESSION | SINGLE_SPREAD_EXPR) ("," (EXPRESSION | SINGLE_SPREAD_EXPR))*
   /// ```
-  pub(super) fn parse_array_or_tuple_list(&mut self, is_tpl: bool) -> Result<Vec<ASTNodeIdx>, ErrorReport> {
+  pub(super) fn parse_array_or_tuple_list(&mut self, is_tpl: bool) -> NodeResult<Vec<ASTNodeIdx>> {
     let mut values: Vec<ASTNodeIdx> = vec![];
 
     while match_tok![self, COMMA] {
@@ -158,7 +157,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// COMPACT_ARR_TPL ::= COMPACT_FOR_LOOP+ (EXPRESSION | SINGLE_SPREAD_EXPR)
   /// ```
-  pub(super) fn parse_compact_arr_or_tpl(&mut self, is_tpl: bool) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_compact_arr_or_tpl(&mut self, is_tpl: bool) -> NodeResult<ASTNodeIdx> {
     let mut heads = vec![];
 
     loop {
@@ -182,7 +181,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// COMPACT_FOR_LOOP ::= "for" "(" FOR_LOOP_HEAD ")" ("if" "(" EXPRESSION ")")?
   /// ```
-  pub(super) fn parse_compact_for_loop(&mut self) -> Result<CompactForLoop, ErrorReport> {
+  pub(super) fn parse_compact_for_loop(&mut self) -> NodeResult<CompactForLoop> {
     self.consume(&L_PAREN, "Expected '(' after 'for' keyword in compact for-loop.")?;
     let head = self.parse_for_loop_head()?;
     self.consume(&R_PAREN, "Expected ')' after loop head in compact for-loop.")?;
@@ -204,7 +203,7 @@ impl<'a> Parser<'a> {
   /// DICT_BODY     ::= (KEY_VAL_PAR | SINGLE_SPREAD_EXPR) ("," (KEY_VAL_PAR | SINGLE_SPREAD_EXPR))*
   ///               | COMPACT_DICT_LOOP
   /// ```
-  pub(super) fn parse_dict_literal(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_dict_literal(&mut self) -> NodeResult<ASTNodeIdx> {
     // If we match a for-keyword at the start the dict literal, then we
     // know we have a dict comprehension so we can go ahead and parse it.
     if match_tok![self, FOR_KW] {
@@ -238,7 +237,7 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// COMPACT_DICT ::= COMPACT_FOR_LOOP+ (KEY_VAL_PAR | SINGLE_SPREAD_EXPR)
   /// ```
-  pub(super) fn parse_compact_dict(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_compact_dict(&mut self) -> NodeResult<ASTNodeIdx> {
     let mut heads = vec![];
 
     loop {
@@ -263,7 +262,7 @@ impl<'a> Parser<'a> {
   /// KEY_VAL_PAR ::= (("[" EXPRESSION "]") | IDENTIFIER | STRING_LITERAL | INTEGER_LITERAL
   ///             | HEX_LITERAL | OCT_LITERAL | BINARY_LITERAL | TUPLE_LITERAL |) ":" EXPRESSION
   /// ```
-  pub(super) fn parse_dict_key_val_pair(&mut self) -> Result<ASTNodeIdx, ErrorReport> {
+  pub(super) fn parse_dict_key_val_pair(&mut self) -> NodeResult<ASTNodeIdx> {
     // If we find the spread operator, then simply return a spread expression.
     if match_tok![self, TRIPLE_DOT] {
       return self.parse_single_spread_expr();

@@ -88,25 +88,22 @@ ENUM_DECL           ::= "enum" IDENTIFIER "{" IDENTIFIER_LIST? "}"
 FUNC_DECL           ::= "async"? "func" "*"? IDENTIFIER "(" PARAMETERS? ")" BLOCK_STMT
 // TODO: The Parser allows for an optional trailing comma. Define that here as well.
 PARAMETERS          ::= IDENTIFIER_LIST? NON_REQ_PARAMS? REST_PARAM?
-NON_REQ_PARAMS      ::= IDENTIFIER ("?" | (":=" EXPRESSION)) ("," IDENTIFIER ("?" | (":=" EXPRESSION)))*
+NON_REQ_PARAMS      ::= IDENTIFIER NON_REQ_BODY ("," IDENTIFIER NON_REQ_BODY)*
+NON_REQ_BODY        ::= "?" | (":=" EXPRESSION)
 // Func declarations can only have one rest param (which must be at the end).
 // This becomes a dict with the "args" entry as a list of value arguments, and
 // "kwargs" for dict of named arguments.
 REST_PARAM          ::= "..." IDENTIFIER
 
-CLASS_DECL          ::= "abstract"? "class" IDENTIFIER CLASS_EXTEND? CLASS_IMPL? CLASS_BODY
-CLASS_EXTEND        ::= "->" IDENTIFIER_LIST
-CLASS_IMPL          ::= "impl" IDENTIFIER_LIST
-CLASS_BODY          ::= "{" CLASS_MEMBER* "}"
-CLASS_MEMBER        ::= DECORATOR_STMT* "pub"? "override"? "static"? (VAR_DECL | CONST_DECL | FUNC_DECL)
-                    | OPERATOR_OVERLOAD
-
-OPERATOR_OVERLOAD   ::= "pub" "self" BNRY_OVERLOAD_OPR IDENTIFIER BLOCK_STMT
-                    | "pub" "self" "init" "(" PARAMETERS ")" BLOCK_STMT // "init" is an identifier, not a kw
-                    | "pub" UNARY_OPR "self" BLOCK_STMT
-                    | "pub" "self" "[" (("..." IDENTIFIER) | (IDENTIFIER? ":" IDENTIFIER?)) "]" BLOCK_STMT
-                    | "pub" "self" "with" "in" BLOCK_STMT
-                    | "pub" "self" "with" "out" "(" PARAMETERS ")" BLOCK_STMT // "out" is an identifier, not a kw
+CLASS_DECL          ::= "abstract"? "class" IDENTIFIER CLS_PARAMS? CLS_EXTEND? CLS_IMPL? "{" CLS_MEMBER* "}"
+CLS_PARAMS          ::= "(" CLS_PARAM_ID_LIST? CLS_NON_REQ_PARAMS? REST_PARAM? ")"
+CLS_PARAM_ID_LIST   ::= CLS_PARAM_MODE? IDENTIFIER ("," CLS_PARAM_MODE? IDENTIFIER)*
+CLS_NON_REQ_PARAMS  ::= CLS_PARAM_MODE? IDENTIFIER NON_REQ_BODY ("," CLS_PARAM_MODE? IDENTIFIER NON_REQ_BODY)*
+CLS_PARAM_MODE      ::= DECORATOR_STMT* "pub"? "const"?
+CLS_EXTEND          ::= "->" IDENTIFIER_LIST
+CLS_IMPL            ::= "impl" IDENTIFIER_LIST
+CLS_MEMBER          ::= DECORATOR_STMT* "pub"? "override"? "static"? (VAR_DECL | CONST_DECL | FUNC_DECL)
+                    | "init" BLOCK_STMT // only one init block per class
 
 IMPORT_EXPORT_DECL  ::= ("import" | "export") ((GRANULAR_IMPORT | "..." IDENTIFIER) "from")? STRING_LITERAL ";"
                     | ("import" | "export") GRANULAR_IMPORT "," "..." IDENTIFIER "from" STRING_LITERAL ";"
@@ -263,9 +260,5 @@ UNARY_OPR           ::= "!" | "-" | "~"
 ASSIGNMENT_OPR      ::= "=" | "+=" | "-=" | "**=" | "*=" | "/="
                     | "%=" | "<<=" | ">>=" | "&=" | "^=" | "|="
                     | "&&=" | "||=" | "??=" | "@="
-
-BNRY_OVERLOAD_OPR   ::= "+" | "-" | "*" | "**"| "/" | "%" | "mod"
-                    | "<<" | ">>" | "&" | "|" | "^" | "@" | "<"
-                    | "<=" | ">" | ">=" | "==" | "!="
 
 EOF                 ::= "\0"

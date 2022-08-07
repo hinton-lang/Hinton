@@ -1,7 +1,7 @@
 use core::errors::CompilerErrorType;
 
+use crate::compiler::symbols::{Symbol, SymbolType, SL};
 use crate::compiler::{Compiler, UpValue};
-use crate::compiler::symbols::{SL, Symbol, SymbolType};
 use crate::core::bytecode::OpCode;
 use crate::core::legacy_tokens::Token;
 use crate::objects::Object;
