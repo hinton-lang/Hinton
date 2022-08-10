@@ -11,7 +11,10 @@ use lexer::Lexer;
 use parser::Parser;
 
 use crate::built_in::BuiltIn;
+use crate::compiler::Compiler;
 use crate::core::bytecode::OpCode;
+use crate::core::legacy_ast;
+use crate::errors::report_runtime_error;
 use crate::objects::class_obj::{BoundMethod, InstanceObject};
 use crate::objects::{ClosureObject, FuncObject, Object, UpValRef};
 use crate::virtual_machine::call_frame::{CallFrame, CallFrameType};
@@ -45,7 +48,7 @@ impl VM {
   /// - `InterpretResult`: The result of the source interpretation.
   pub fn interpret(filepath: PathBuf, source: &[char]) -> InterpretResult {
     // Creates a new virtual machine
-    let mut _self = VM {
+    let mut interpreter = VM {
       stack: Vec::with_capacity(256),
       frames: Vec::with_capacity(256),
       filepath,
@@ -54,85 +57,105 @@ impl VM {
       built_in: BuiltIn::default(),
     };
 
-    match _self.run_with_plv(source) {
+    let bytecode = interpreter.compile_source(source);
+    #[cfg(feature = "PLV")]
+    let bytecode = interpreter.compile_source_with_plv(source);
+
+    let main_fn = match bytecode {
       Ok(x) => x,
       Err(e) => {
-        report_errors_list(&_self.filepath, e, source);
+        report_errors_list(&interpreter.filepath, e, source);
         return InterpretResult::CompileError;
       }
     };
 
     InterpretResult::Ok
 
-    // let f = Rc::new(RefCell::new(bytecode));
-    // _self.stack.push(Object::Function(f.clone()));
-    //
-    // match _self.call_function(f, 0) {
-    //    RuntimeResult::Continue => {
-    //       // Runs the program.
-    //       match _self.run() {
-    //          RuntimeResult::EndOK => InterpretResult::Ok,
-    //          RuntimeResult::Error { error, message } => {
-    //             report_runtime_error(&_self, error, message, source);
-    //             InterpretResult::RuntimeError
-    //          }
-    //          RuntimeResult::Continue => unreachable!(),
+    // let f = Rc::new(RefCell::new(main_fn));
+    // interpreter.stack.push(Object::Function(f.clone()));
+
+    // match interpreter.call_function(f, 0) {
+    //   RuntimeResult::Continue => {
+    //     // Runs the program.
+    //     match interpreter.run() {
+    //       RuntimeResult::EndOK => InterpretResult::Ok,
+    //       RuntimeResult::Error { error, message } => {
+    //         report_runtime_error(&interpreter, error, message, source);
+    //         InterpretResult::RuntimeError
     //       }
-    //    }
-    //    RuntimeResult::Error { error, message } => {
-    //       report_runtime_error(&_self, error, message, source);
-    //       InterpretResult::RuntimeError
-    //    }
-    //    RuntimeResult::EndOK => unreachable!(),
+    //       RuntimeResult::Continue => unreachable!(),
+    //     }
+    //   }
+    //   RuntimeResult::Error { error, message } => {
+    //     report_runtime_error(&interpreter, error, message, source);
+    //     InterpretResult::RuntimeError
+    //   }
+    //   RuntimeResult::EndOK => unreachable!(),
     // }
   }
 
-  // fn run_without_plv(&self, source: &str) ->  Result<FuncObject, Vec<ErrorReport>> {
-  //    let Lexer = Lexer::lex(source);
-  //    let ast = Parser::parse(Lexer.tokens)?;
-  //    Compiler::compile_ast(&self.filepath, &ast, &self.built_in)
-  // }
+  /// Compiles the given source program to Hinton bytecode.
+  ///
+  /// # Arguments
+  ///
+  /// * `source`: The source vector of characters.
+  ///
+  /// # Returns:
+  /// ```Result<FuncObject, Vec<ErrorReport, Global>>```
 
-  fn run_with_plv(&self, source: &[char]) -> Result<FuncObject, Vec<ErrorReport>> {
-    // Convert the source file into a flat list of tokens
-    let lexer_start = plv::get_time_millis();
+  fn compile_source(&self, source: &[char]) -> Result<FuncObject, Vec<ErrorReport>> {
     let lexer = Lexer::lex(source);
-    let lexer_end = plv::get_time_millis();
+    let tokens_list = TokenList::new(source, &lexer);
+    let _parser = Parser::parse(&tokens_list)?;
+
+    // TODO: Transition the compiler to new source
+    Compiler::compile_ast(
+      &self.filepath,
+      &legacy_ast::ASTNode::Module(legacy_ast::ModuleNode {
+        body: vec![].into_boxed_slice(),
+      }),
+      &self.built_in,
+    )?;
+
+    Ok(FuncObject::default())
+  }
+
+  /// Compiles the given source program to bytecode, and also generates
+  /// a Hinton Program Lifecycle Visualizer JSON file.
+  ///
+  /// # Arguments
+  ///
+  /// * `source`: The source vector of characters
+  ///
+  /// # Returns:
+  /// ```Result<FuncObject, Vec<ErrorReport, Global>>```
+  #[cfg(feature = "PLV")]
+  fn compile_source_with_plv(&self, source: &[char]) -> Result<FuncObject, Vec<ErrorReport>> {
+    // Convert the source file into a flat list of tokens
+    let l_start = plv::get_time_millis();
+    let lexer = Lexer::lex(source);
+    let l_end = plv::get_time_millis();
     let tokens_list = TokenList::new(source, &lexer);
 
     // Parses the program into an AST and aborts if there are any parsing errors.
-    let parser_start = plv::get_time_millis();
-    let parser = Parser::parse(&tokens_list);
-    let parser_end = plv::get_time_millis();
+    let p_start = plv::get_time_millis();
+    let ast = Parser::parse(&tokens_list)?;
+    let p_end = plv::get_time_millis();
 
-    for e in parser.get_errors_list() {
-      println!("{}", e.message)
-    }
+    // Compiles the program into bytecode and aborts if there are any compiling errors.
+    let c_start = plv::get_time_millis();
+    // TODO: Transition the compiler to new source
+    Compiler::compile_ast(
+      &self.filepath,
+      &legacy_ast::ASTNode::Module(legacy_ast::ModuleNode {
+        body: vec![].into_boxed_slice(),
+      }),
+      &self.built_in,
+    )?;
+    let c_end = plv::get_time_millis();
 
-    // // Compiles the program into bytecode and aborts if there are any compiling errors.
-    // let compiler_start = get_time_millis();
-    // let module = match Compiler::compile_ast(&self.filepath, &ast, &self.built_in) {
-    //    Ok(x) => x,
-    //    Err(e) => return Err(e),
-    // };
-    // let compiler_end = get_time_millis();
-    //
-    // PLV::Plv::export(
-    //    &Lexer,
-    //    &ast,
-    //    &module,
-    //    (
-    //       lexer_start,
-    //       lexer_end,
-    //       parser_start,
-    //       parser_end,
-    //       compiler_start,
-    //       compiler_end,
-    //    ),
-    // );
-
-    let timers = (lexer_start, lexer_end, parser_start, parser_end, 0, 0);
-    plv::export(&tokens_list, &parser.ast, &[], timers);
+    let timers = (l_start, l_end, p_start, p_end, c_start, c_end);
+    plv::export(&tokens_list, &ast, &[], timers);
     Ok(FuncObject::default())
   }
 

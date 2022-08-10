@@ -63,7 +63,7 @@ macro_rules! consume_id_list {
 macro_rules! guard_error_token {
   ($s:ident) => {
     if let ERROR(e) = curr_tk![$s] {
-      return Err($s.error_at_prev(e.to_str()));
+      return Err($s.error_at_prev_tok(e.to_str()));
     }
   };
 }
@@ -80,8 +80,6 @@ pub struct Parser<'a> {
   current_pos: usize,
   /// The program's AST as an ArenaTree
   pub ast: ASTArena,
-  /// Whether the Parser is in error-recovery mode or not.
-  is_in_panic: bool,
   /// A list of reported errors generated while parsing.
   errors: Vec<ErrorReport>,
 }
@@ -95,11 +93,10 @@ impl<'a> Parser<'a> {
   ///
   /// # Returns:
   /// ```Parser```
-  pub fn parse(tokens: &'a TokenList) -> Parser<'a> {
+  pub fn parse(tokens: &'a TokenList) -> Result<ASTArena, Vec<ErrorReport>> {
     let mut parser = Parser {
       tokens,
       current_pos: 0,
-      is_in_panic: false,
       errors: vec![],
       ast: ASTArena::default(),
     };
@@ -108,7 +105,11 @@ impl<'a> Parser<'a> {
     parser.parse_module();
 
     // Return the parse
-    parser
+    if parser.errors.is_empty() {
+      Ok(parser.ast)
+    } else {
+      Err(parser.errors)
+    }
   }
 
   /// Gets a reference to the previous token.
@@ -191,9 +192,9 @@ impl<'a> Parser<'a> {
     }
 
     if let SEMICOLON = tk {
-      Err(self.error_at_prev(message))
+      Err(self.error_at_prev_tok(message))
     } else {
-      Err(self.error_at_current(message))
+      Err(self.error_at_current_tok(message))
     }
   }
 
@@ -206,11 +207,16 @@ impl<'a> Parser<'a> {
     Ok(self.ast.push(node))
   }
 
+  /// Gets the list of generated errors.
+  pub fn get_errors_list(&self) -> &[ErrorReport] {
+    &self.errors
+  }
+
   /// Emits a syntax error from the current token.
   ///
   /// # Parameters
   /// - `message`: The error message to display.
-  fn error_at_current(&mut self, message: &str) -> ErrorReport {
+  fn error_at_current_tok(&mut self, message: &str) -> ErrorReport {
     self.error_at_tok(self.current_pos.into(), message)
   }
 
@@ -218,7 +224,7 @@ impl<'a> Parser<'a> {
   ///
   /// # Parameters
   /// - `message`: The error message to display.
-  fn error_at_prev(&mut self, message: &str) -> ErrorReport {
+  fn error_at_prev_tok(&mut self, message: &str) -> ErrorReport {
     self.error_at_tok((self.current_pos - 1).into(), message)
   }
 
@@ -226,49 +232,20 @@ impl<'a> Parser<'a> {
   ///
   /// # Parameters
   /// - `tok`: The token that caused the error.
-  /// - `message`: The error message to display.
-  fn error_at_tok(&mut self, tok_idx: TokenIdx, message: &str) -> ErrorReport {
-    let tok = &self.tokens[tok_idx.0];
+  /// - `msg`: The error message to display.
+  fn error_at_tok(&mut self, tok_idx: TokenIdx, msg: &str) -> ErrorReport {
+    let tok = &self.tokens[tok_idx.0].get_location();
+    let ln = tok.line_num;
+    let cs = tok.col_start;
 
     // Construct the error message.
-    let msg = format!(
-      "\x1b[31;1mSyntaxError\x1b[0m\x1b[1m at [{}:{}]: {}\x1b[0m",
-      tok.line_num, tok.span.0, message
-    );
+    let msg = format!("\x1b[31;1mSyntaxError\x1b[0m\x1b[1m at [{}:{}]: {}\x1b[0m", ln, cs, msg);
 
     ErrorReport {
-      line: tok.line_num,
-      column: tok.span.0,
-      lexeme_len: tok.span.1 - tok.span.0,
+      line_num: ln,
+      line_start: tok.line_start,
+      span: tok.span,
       message: msg,
-    }
-  }
-
-  /// Gets the list of generated errors.
-  pub fn get_errors_list(&self) -> &[ErrorReport] {
-    &self.errors
-  }
-
-  /// Synchronizes the parser when it has found an error.
-  /// This method helps minimize the number of cascading errors the compiler emits
-  /// when it finds a parsing error. After an error, it skips tokens until it find
-  /// a synchronization point, like the keyword for a statement.
-  fn synchronize(&mut self) {
-    self.is_in_panic = false;
-
-    while !self.get_curr_tk().type_match(&EOF) {
-      if let SEMICOLON = self.get_prev_tk() {
-        return;
-      }
-
-      if matches![
-        self.get_curr_tk(),
-        CLASS_KW | FUNC_KW | LET_KW | FOR_KW | IF_KW | WHILE_KW | RETURN_KW
-      ] {
-        return;
-      }
-
-      self.advance();
     }
   }
 }

@@ -9,7 +9,8 @@ use core::errors::{print_error_snippet, RuntimeErrorType};
 /// - `error`: The generated error.
 /// - `message`: The error message to be displayed.
 /// - `source`: The program's source text.
-pub fn report_runtime_error(vm: &VM, error: RuntimeErrorType, message: String, source: &str) {
+pub fn report_runtime_error(vm: &VM, error: RuntimeErrorType, message: String, source: &[char]) {
+  let source: String = source.iter().collect();
   let source_lines: Vec<&str> = source.split('\n').collect();
 
   let frame = vm.current_frame();
@@ -37,7 +38,7 @@ pub fn report_runtime_error(vm: &VM, error: RuntimeErrorType, message: String, s
   eprintln!("\x1b[31;1m{}:\x1b[0m\x1b[1m {}\x1b[0m", error_name, message);
 
   let src_line = source_lines.get(line.0 - 1).unwrap();
-  print_error_snippet(line.0, line.1, 1, src_line);
+  print_error_snippet(line.0, line.1, (0, 1), src_line);
 
   // Print stack trace
   println!("Traceback (most recent call last):");

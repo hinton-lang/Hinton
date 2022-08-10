@@ -1,5 +1,5 @@
-use core::ast::*;
 use core::ast::ASTNodeKind::*;
+use core::ast::*;
 use core::tokens::TokenIdx;
 use core::tokens::TokenKind::*;
 
@@ -29,10 +29,6 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_reassignment(&mut self) -> NodeResult<ASTNodeIdx> {
     let target = self.parse_ternary_expr()?;
-    // TODO: Implement node span resolution and get the span of the target instead.
-    // Node span resolution gets the `col_start` of the left-most token in the node
-    // and the `col_end` of the right-most token in the node. This way we can emit
-    // error messages that are easier to understand.
     let target_tok = TokenIdx::from(self.current_pos - 1);
 
     if let Some(kind) = ASTReassignmentKind::try_from_token(self.get_curr_tk()) {
@@ -375,7 +371,7 @@ impl<'a> Parser<'a> {
       } else if match_tok![self, VERT_BAR] {
         true
       } else {
-        return Err(self.error_at_current("Expected '|' for async lambda parameters."));
+        return Err(self.error_at_current_tok("Expected '|' for async lambda parameters."));
       }
     } else {
       matches!(self.get_prev_tk(), VERT_BAR)
@@ -480,7 +476,12 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_call_expr(&mut self, target: ASTNodeIdx) -> NodeResult<ASTNodeIdx> {
     if match_tok![self, R_PAREN] {
-      return self.emit(CallExpr(ASTCallExprNode::default()));
+      return self.emit(CallExpr(ASTCallExprNode {
+        target,
+        val_args: vec![],
+        rest_args: vec![],
+        named_args: vec![],
+      }));
     }
 
     let mut has_non_val_arg = false;
@@ -501,11 +502,13 @@ impl<'a> Parser<'a> {
           has_non_val_arg = true;
         }
         _ => {
-          val_args.push(self.parse_expr()?);
+          let arg = self.parse_expr()?;
 
           if has_non_val_arg {
-            return Err(self.error_at_current("Value arguments cannot follow named or rest arguments."));
+            return Err(self.error_at_prev_tok("Value arguments cannot follow named or rest arguments."));
           }
+
+          val_args.push(arg);
         }
       }
 
@@ -561,33 +564,36 @@ impl<'a> Parser<'a> {
   ///               | SELF_LITERAL | SUPER_LITERAL | "(" EXPRESSION ")"
   /// ```
   pub(super) fn parse_literal(&mut self) -> NodeResult<ASTNodeIdx> {
-    self.advance();
-    let prev_tok = TokenIdx::from(self.current_pos - 1);
+    fn prev_tok(s: &Parser) -> TokenIdx {
+      (s.current_pos - 1).into()
+    }
 
-    match self.get_prev_tk() {
+    match curr_tk![self] {
       // Numeric literals
-      INT_LIT | FLOAT_LIT | HEX_LIT | OCTAL_LIT | BINARY_LIT | SCIENTIFIC_LIT => self.emit(NumLiteral(prev_tok)),
+      INT_LIT | FLOAT_LIT | HEX_LIT | OCTAL_LIT | BINARY_LIT | SCIENTIFIC_LIT if self.advance() => {
+        self.emit(NumLiteral(prev_tok(self)))
+      }
 
       // String literals
-      STR_LIT => self.emit(StringLiteral(prev_tok)),
+      STR_LIT if self.advance() => self.emit(StringLiteral(prev_tok(self))),
 
       // Atomic literals
-      TRUE_LIT => self.emit(TrueLiteral(prev_tok)),
-      FALSE_LIT => self.emit(FalseLiteral(prev_tok)),
-      NONE_LIT => self.emit(NoneLiteral(prev_tok)),
+      TRUE_LIT if self.advance() => self.emit(TrueLiteral(prev_tok(self))),
+      FALSE_LIT if self.advance() => self.emit(FalseLiteral(prev_tok(self))),
+      NONE_LIT if self.advance() => self.emit(NoneLiteral(prev_tok(self))),
 
       // Symbolic reference literals
-      IDENTIFIER => self.emit(Identifier(prev_tok)),
-      SELF_KW => self.emit(SelfLiteral(prev_tok)),
-      SUPER_KW => self.emit(SuperLiteral(prev_tok)),
+      IDENTIFIER if self.advance() => self.emit(Identifier(prev_tok(self))),
+      SELF_KW if self.advance() => self.emit(SelfLiteral(prev_tok(self))),
+      SUPER_KW if self.advance() => self.emit(SuperLiteral(prev_tok(self))),
 
       // Collection literals
-      L_BRACKET => self.parse_array_literal(),
-      L_PAREN => self.parse_tuple_literal_or_grouping_expr(),
-      L_CURLY => self.parse_dict_literal(),
+      L_BRACKET if self.advance() => self.parse_array_literal(),
+      L_PAREN if self.advance() => self.parse_tuple_literal_or_grouping_expr(),
+      L_CURLY if self.advance() => self.parse_dict_literal(),
 
       // Unknown expression
-      _ => Err(self.error_at_prev("Unexpected token.")),
+      _ => Err(self.error_at_current_tok("Unexpected token.")),
     }
   }
 }

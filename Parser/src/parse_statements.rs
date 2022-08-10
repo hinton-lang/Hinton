@@ -27,7 +27,27 @@ impl<'a> Parser<'a> {
         // Attach the statement to the module
         Ok(node) => self.ast.attach_to_root(node),
         // Save the error report
-        Err(e) => self.errors.push(e),
+        Err(e) => {
+          self.errors.push(e);
+
+          // Synchronizes the parser when it has found an error.
+          // This method helps minimize the number of cascading errors the parser emits
+          // when it finds a parsing error. After an error, it skips tokens until it finds
+          // a synchronization point, like the keyword for a statement.
+          // NOTE: The condition was split into multiple `check_tok!` macros to fit in less lines.
+          while !check_tok![self, EOF | PUB_KW | HASHTAG | WHILE_KW | FOR_KW]
+            && !check_tok![self, BREAK_KW | CONTINUE_KW | RETURN_KW | YIELD_KW | WITH_KW]
+            && !check_tok![self, TRY_KW | THROW_KW | DEL_KW | IF_KW | MATCH_KW]
+            && !check_tok![self, LET_KW | CONST_KW | ENUM_KW | IMPORT_KW | EXPORT_KW]
+            && !check_tok![self, FUNC_KW | ASYNC_KW | CLASS_KW | ABSTRACT_KW | INIT_KW]
+          {
+            if match_tok![self, SEMICOLON | R_CURLY] {
+              break;
+            }
+
+            self.advance();
+          }
+        }
       }
     }
   }
@@ -61,10 +81,10 @@ impl<'a> Parser<'a> {
       if let ParsingLevel::Module = level {
         if !check_tok![self, FUNC_KW | CLASS_KW | CONST_KW | ENUM_KW] {
           let err_msg = "Expected 'func', 'class', 'const', or 'enum' keyword for public declaration.";
-          return Err(self.error_at_prev(err_msg));
+          return Err(self.error_at_current_tok(err_msg));
         }
       } else {
-        return Err(self.error_at_prev("Keyword 'pub' not allowed here."));
+        return Err(self.error_at_prev_tok("Keyword 'pub' not allowed here."));
       }
 
       true
@@ -74,7 +94,7 @@ impl<'a> Parser<'a> {
 
     // Verify the statement can be decorated
     if !decorators.is_empty() && !check_tok![self, FUNC_KW | CLASS_KW] {
-      return Err(self.error_at_prev("Expected 'func' or 'class' declaration as decoration target."));
+      return Err(self.error_at_current_tok("Expected 'func' or 'class' declaration as decoration target."));
     }
 
     let stmt = match curr_tk![self] {
@@ -281,7 +301,7 @@ impl<'a> Parser<'a> {
       else_branch = match curr_tk![self] {
         IF_KW if self.advance() => Some(self.parse_if_stmt()?),
         L_CURLY if self.advance() => Some(self.parse_block_stmt()?),
-        _ => return Err(self.error_at_current("Expected block or 'if' statement after 'else' keyword.")),
+        _ => return Err(self.error_at_current_tok("Expected block or 'if' statement after 'else' keyword.")),
       }
     }
 
@@ -340,7 +360,7 @@ impl<'a> Parser<'a> {
       match curr_tk![self] {
         FINALLY_KW if self.advance() => {
           if finally.is_some() {
-            return Err(self.error_at_prev("A try-catch-finally statement can only have one 'finally' block."));
+            return Err(self.error_at_prev_tok("A try-catch-finally statement can only have one 'finally' block."));
           }
 
           self.consume(&L_CURLY, "Expected block as 'finally' body.")?;
@@ -348,7 +368,7 @@ impl<'a> Parser<'a> {
         }
         CATCH_KW if self.advance() => {
           if finally.is_some() {
-            return Err(self.error_at_prev("A 'catch' block cannot follow a 'finally' block."));
+            return Err(self.error_at_prev_tok("A 'catch' block cannot follow a 'finally' block."));
           }
 
           let catch_part = self.parse_catch_part(has_default_catch)?;
@@ -356,7 +376,7 @@ impl<'a> Parser<'a> {
           catchers.push(catch_part);
         }
         _ if finally.is_none() && catchers.is_empty() => {
-          return Err(self.error_at_current("Expected 'catch' or 'finally' block after 'try' block."))
+          return Err(self.error_at_current_tok("Expected 'catch' or 'finally' block after 'try' block."))
         }
         _ => break,
       }
@@ -374,14 +394,14 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_catch_part(&mut self, has_default_catch: bool) -> NodeResult<CatchPart> {
     if match_tok![self, L_CURLY] {
       if has_default_catch {
-        return Err(self.error_at_prev("A try-catch-finally statement can only have one default 'catch' block."));
+        return Err(self.error_at_prev_tok("A try-catch-finally statement can only have one default 'catch' block."));
       }
 
       let body = self.parse_block_stmt()?;
       Ok(CatchPart { body, target: None })
     } else {
       if has_default_catch {
-        return Err(self.error_at_prev("Non-default 'catch' block cannot follow default 'catch' block."));
+        return Err(self.error_at_prev_tok("Non-default 'catch' block cannot follow default 'catch' block."));
       }
 
       let error_class = consume_id![self, "Expected error name in 'catch' block."]?;
@@ -420,17 +440,17 @@ impl<'a> Parser<'a> {
           let err_msg = &format!("Expected identifier for wildcard {}.", decl_name);
           wildcard = Some(consume_id![self, err_msg]?)
         }
-        _ => return Err(self.error_at_current(&format!("Expected {} declaration body.", decl_name))),
+        _ => return Err(self.error_at_current_tok(&format!("Expected {} declaration body.", decl_name))),
       }
 
       // Then, if next is a comma, match another wildcard or granular import
       if match_tok![self, COMMA] {
         if !members.is_empty() && !check_tok![self, TRIPLE_DOT] {
           let err_msg = &format!("Expected wildcard {} after granular {}.", decl_name, decl_name);
-          return Err(self.error_at_current(err_msg));
+          return Err(self.error_at_current_tok(err_msg));
         } else if wildcard.is_some() && !check_tok![self, L_CURLY] {
           let err_msg = &format!("Expected granular {} after wildcard {}.", decl_name, decl_name);
-          return Err(self.error_at_current(err_msg));
+          return Err(self.error_at_current_tok(err_msg));
         }
 
         if match_tok![self, L_CURLY] {
@@ -528,7 +548,7 @@ impl<'a> Parser<'a> {
     let decorator = match self.ast.get(&expr) {
       Identifier(_) | CallExpr(_) => expr,
       // TODO: Implement node span resolution and get the span of the target instead.
-      _ => return Err(self.error_at_prev("Expected identifier or function call as decorator.")),
+      _ => return Err(self.error_at_prev_tok("Expected identifier or function call as decorator.")),
     };
 
     Ok(Decorator(decorator))

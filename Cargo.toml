@@ -3,6 +3,9 @@
 [workspace]
 members = ["Core", "PLV", "Lexer", "Parser"]
 
+[features]
+PLV = []
+
 [package]
 name = "hinton"
 version = "0.1.0"

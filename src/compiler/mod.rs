@@ -494,9 +494,10 @@ impl Compiler {
     );
 
     self.errors.push(ErrorReport {
-      line: token.line_num,
-      column: token.column_start,
-      lexeme_len: token.lexeme.len(),
+      line_num: token.line_num,
+      // TODO: Should be the line start, not column start.
+      line_start: token.column_start,
+      span: (token.column_start, token.column_end),
       message: msg,
     });
   }

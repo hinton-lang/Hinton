@@ -1,6 +1,7 @@
 use crate::core::legacy_tokens::Token;
 use crate::objects::Object;
 
+#[allow(dead_code)]
 #[derive(Clone)]
 pub enum ASTNode {
   Module(ModuleNode),
@@ -97,6 +98,7 @@ pub struct UnaryExprNode {
 }
 
 #[derive(Clone, Debug)]
+#[allow(clippy::enum_variant_names)]
 pub enum UnaryExprType {
   ArithmeticNeg,
   LogicNeg,
@@ -111,6 +113,7 @@ pub struct BinaryExprNode {
   pub opr_type: BinaryExprType,
 }
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum BinaryExprType {
   Addition,
@@ -163,6 +166,7 @@ pub struct VariableDeclNode {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub enum ReassignmentType {
   Plus,   // a += b
   Minus,  // a -= b
@@ -276,6 +280,7 @@ pub struct ClassDeclNode {
 }
 
 #[derive(Clone)]
+#[allow(dead_code)]
 pub enum ClassMemberDecl {
   Var(VariableDeclNode),
   Const(ConstantDeclNode),

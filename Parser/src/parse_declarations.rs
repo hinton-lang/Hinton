@@ -43,7 +43,7 @@ impl<'a> Parser<'a> {
     loop {
       let pattern = match curr_tk![self] {
         TRIPLE_DOT if has_rest => {
-          return Err(self.error_at_current("Can only have one wildcard expression in destructing pattern."));
+          return Err(self.error_at_current_tok("Can only have one wildcard expression in destructing pattern."));
         }
         TRIPLE_DOT if self.advance() => {
           has_rest = true;
@@ -70,7 +70,7 @@ impl<'a> Parser<'a> {
     }
 
     if has_rest && patterns.len() == 1 {
-      return Err(self.error_at_current("Cannot have destructing pattern with only a wildcard expression."));
+      return Err(self.error_at_current_tok("Cannot have destructing pattern with only a wildcard expression."));
     }
 
     self.consume(&R_PAREN, "Expected ')' after destructing pattern.")?;
@@ -124,7 +124,7 @@ impl<'a> Parser<'a> {
 
     while !check_tok![self, closing_tok] {
       if params.len() >= 255 {
-        return Err(self.error_at_current("Can't have more than 255 parameters."));
+        return Err(self.error_at_current_tok("Can't have more than 255 parameters."));
       }
 
       let param = self.parse_single_param(&params)?;
@@ -170,17 +170,16 @@ impl<'a> Parser<'a> {
       SingleParam { name, kind }
     };
 
-    // TODO: Should use node span resolution, and emit errors at the appropriate nodes.
     if !params.is_empty() {
       let prev_kind = &params.last().unwrap().get_kind();
 
       if let SingleParamKind::Rest = prev_kind {
-        return Err(self.error_at_prev("Rest parameter must be last in parameter list."));
+        return Err(self.error_at_prev_tok("Rest parameter must be last in parameter list."));
       }
 
       if let SingleParamKind::Required = param.kind {
         if !matches![prev_kind, SingleParamKind::Required] {
-          return Err(self.error_at_current("Required parameters cannot follow optional or named parameters."));
+          return Err(self.error_at_current_tok("Required parameters cannot follow optional or named parameters."));
         }
       }
     }

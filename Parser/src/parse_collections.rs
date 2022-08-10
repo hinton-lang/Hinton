@@ -1,5 +1,5 @@
-use core::ast::*;
 use core::ast::ASTNodeKind::*;
+use core::ast::*;
 use core::tokens::TokenKind::*;
 
 use crate::{check_tok, curr_tk, match_tok, NodeResult, Parser};
@@ -280,7 +280,7 @@ impl<'a> Parser<'a> {
           self.consume(&R_BRACKET, "Expected ']' for evaluated dict key name.")?;
           EvaluatedDictKey(expr)
         }
-        _ => return Err(self.error_at_current("Invalid key for dict literal.")),
+        _ => return Err(self.error_at_current_tok("Invalid key for dict literal.")),
       };
 
       self.ast.push(literal_or_ident)

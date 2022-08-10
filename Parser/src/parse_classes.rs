@@ -51,7 +51,7 @@ impl<'a> Parser<'a> {
       match curr_tk![self] {
         INIT_KW if self.advance() => {
           if init.is_some() {
-            return Err(self.error_at_prev("Can only have one 'init' block per class."));
+            return Err(self.error_at_prev_tok("Can only have one 'init' block per class."));
           }
           self.consume(&L_CURLY, "Expected block as 'init' body.")?;
           init = Some(self.parse_block_stmt()?)
@@ -91,7 +91,7 @@ impl<'a> Parser<'a> {
 
     while !check_tok![self, R_PAREN] {
       if params.len() >= 255 {
-        return Err(self.error_at_current("Can't have more than 255 parameters."));
+        return Err(self.error_at_current_tok("Can't have more than 255 parameters."));
       }
 
       let decor = if match_tok![self, HASHTAG] {
@@ -139,7 +139,7 @@ impl<'a> Parser<'a> {
       CONST_KW if self.advance() => ClassMemberKind::Const(decorators, self.parse_var_or_const_decl(true)?),
       FUNC_KW if self.advance() => ClassMemberKind::Func(self.parse_func_stmt(false, decorators)?),
       ASYNC_KW if self.advance() => ClassMemberKind::Func(self.parse_func_stmt(true, decorators)?),
-      _ => return Err(self.error_at_current("Expected 'let', 'const', or 'func' declaration.")),
+      _ => return Err(self.error_at_current_tok("Expected 'let', 'const', or 'func' declaration.")),
     };
 
     Ok(ClassMember { mode, member })
@@ -160,27 +160,27 @@ impl<'a> Parser<'a> {
       match curr_tk![self] {
         PUB_KW if self.advance() => {
           if is_public {
-            return Err(self.error_at_prev("Class member already marked as public."));
+            return Err(self.error_at_prev_tok("Class member already marked as public."));
           } else if is_override {
-            return Err(self.error_at_prev("Keyword 'pub' must precede the 'override' keyword."));
+            return Err(self.error_at_prev_tok("Keyword 'pub' must precede the 'override' keyword."));
           } else if is_static {
-            return Err(self.error_at_prev("Keyword 'pub' must precede the 'static' keyword."));
+            return Err(self.error_at_prev_tok("Keyword 'pub' must precede the 'static' keyword."));
           } else {
             is_public = true
           }
         }
         OVERRIDE_KW if self.advance() => {
           if is_override {
-            return Err(self.error_at_prev("Class member already marked as override."));
+            return Err(self.error_at_prev_tok("Class member already marked as override."));
           } else if is_static {
-            return Err(self.error_at_prev("Keyword 'override' must precede the 'static' keyword."));
+            return Err(self.error_at_prev_tok("Keyword 'override' must precede the 'static' keyword."));
           } else {
             is_override = true
           }
         }
         STATIC_KW if self.advance() => {
           if is_static {
-            return Err(self.error_at_prev("Class member already marked as static."));
+            return Err(self.error_at_prev_tok("Class member already marked as static."));
           } else {
             is_static = true
           }
