@@ -1,6 +1,7 @@
 # The Hinton Language
 
-![Hinton Logo](Assets/Logos/Logo-wide.png)
+![Hinton Logo](_assets/logos/banner_light_mode.png#gh-light-mode-only)
+![Hinton Logo](_assets/logos/banner_dark_mode.png#gh-dark-mode-only)
 
 This is a stack-based, multi-pass, bytecode interpreter written in Rust for a programming language called Hinton. The project is an extension of the code found in the book [Crafting Interpreters](https://craftinginterpreters.com/) by Bob Nystrom.
 

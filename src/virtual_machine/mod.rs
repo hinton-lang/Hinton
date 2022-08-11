@@ -132,7 +132,6 @@ impl VM {
   /// ```Result<FuncObject, Vec<ErrorReport, Global>>```
   #[cfg(PLV)]
   fn compile_source_with_plv(&self, source: &[char]) -> Result<FuncObject, Vec<ErrorReport>> {
-    println!("running this");
     // Convert the source file into a flat list of tokens
     let l_start = plv::get_time_millis();
     let lexer = Lexer::lex(source);
