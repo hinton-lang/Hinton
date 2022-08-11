@@ -181,6 +181,7 @@ pub enum ASTNodeKind {
   ReturnStmt(ASTNodeIdx),
   SelfLiteral(TokenIdx),
   SpreadExpr(ASTNodeIdx),
+  StringInterpol(Vec<ASTNodeIdx>),
   StringLiteral(TokenIdx),
   SuperLiteral(TokenIdx),
   TernaryConditional(ASTTernaryConditionalNode),

@@ -20,30 +20,28 @@ impl<'a> Lexer<'a> {
       self.token_start = self.current;
 
       // Get the next token
-      let next_token = self.next();
+      let lexed_token = self.next();
 
-      if let &R_CURLY = &next_token.kind {
-        match mode {
-          // In this case, the right-curly-bracket becomes the
-          // closing token for the string interpolation. This is
-          // handled by the `lex_interpolated_string` function.
-          LexerMode::StrInterpol => return,
-          // In this case, we close the block's loop and return the
-          // Lexer to its previous mode. Notice that we can only enter
-          // `InterpolBlockExpr` mode after entering `StrInterpol` mode.
-          LexerMode::InterpolBlockExpr => {
-            self.tokens.push(next_token);
-            return;
-          }
-          _ => {}
-        }
+      // In this case, the right-curly-bracket becomes the closing token for the string interpolation.
+      if matches![lexed_token.kind, R_CURLY] && matches![mode, LexerMode::StrInterpol] {
+        self.tokens.push(self.make_token(END_INTERPOL_EXPR));
+        self.token_start = self.current;
+        return;
       }
 
-      if matches![&next_token.kind, L_CURLY] && matches![mode, LexerMode::StrInterpol] {
-        self.tokens.push(next_token);
+      // In this case, we close the block's loop and return the Lexer to its previous mode. Notice
+      // that we can only enter `InterpolBlockExpr` mode *after* entering `StrInterpol` mode.
+      if matches![lexed_token.kind, R_CURLY] && matches![mode, LexerMode::InterpolBlockExpr] {
+        self.tokens.push(lexed_token);
+        return;
+      }
+
+      // Enter InterpolBlockExpr mode iff the current state is StrInterpol.
+      if matches![&lexed_token.kind, L_CURLY] && matches![mode, LexerMode::StrInterpol] {
+        self.tokens.push(lexed_token);
         self.find_tokens(LexerMode::InterpolBlockExpr);
       } else {
-        self.tokens.push(next_token);
+        self.tokens.push(lexed_token);
       }
     }
   }

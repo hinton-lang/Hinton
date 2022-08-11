@@ -6,7 +6,7 @@ use hashbrown::HashMap;
 
 use core::errors::{report_errors_list, ErrorReport, RuntimeErrorType};
 use core::tokens::TokenList;
-use core::{InterpretResult, RuntimeResult};
+use core::{ast::ASTArena, InterpretResult, RuntimeResult};
 use lexer::Lexer;
 use parser::Parser;
 
@@ -57,8 +57,9 @@ impl VM {
       built_in: BuiltIn::default(),
     };
 
+    #[cfg(not(PLV))]
     let bytecode = interpreter.compile_source(source);
-    #[cfg(feature = "PLV")]
+    #[cfg(PLV)]
     let bytecode = interpreter.compile_source_with_plv(source);
 
     let main_fn = match bytecode {
@@ -102,7 +103,7 @@ impl VM {
   ///
   /// # Returns:
   /// ```Result<FuncObject, Vec<ErrorReport, Global>>```
-
+  #[cfg(not(PLV))]
   fn compile_source(&self, source: &[char]) -> Result<FuncObject, Vec<ErrorReport>> {
     let lexer = Lexer::lex(source);
     let tokens_list = TokenList::new(source, &lexer);
@@ -129,8 +130,9 @@ impl VM {
   ///
   /// # Returns:
   /// ```Result<FuncObject, Vec<ErrorReport, Global>>```
-  #[cfg(feature = "PLV")]
+  #[cfg(PLV)]
   fn compile_source_with_plv(&self, source: &[char]) -> Result<FuncObject, Vec<ErrorReport>> {
+    println!("running this");
     // Convert the source file into a flat list of tokens
     let l_start = plv::get_time_millis();
     let lexer = Lexer::lex(source);

@@ -2,6 +2,7 @@ use core::ast::ASTNodeKind::*;
 use core::ast::*;
 use core::tokens::TokenIdx;
 use core::tokens::TokenKind::*;
+use std::ops::Not;
 
 use crate::{check_tok, consume_id, curr_tk, guard_error_token, match_tok, NodeResult, Parser};
 
@@ -576,6 +577,7 @@ impl<'a> Parser<'a> {
 
       // String literals
       STR_LIT if self.advance() => self.emit(StringLiteral(prev_tok(self))),
+      START_INTERPOL_STR if self.advance() => self.parse_str_interpolation(),
 
       // Atomic literals
       TRUE_LIT if self.advance() => self.emit(TrueLiteral(prev_tok(self))),
@@ -595,5 +597,33 @@ impl<'a> Parser<'a> {
       // Unknown expression
       _ => Err(self.error_at_current_tok("Unexpected token.")),
     }
+  }
+
+  /// Parses a string interpolation expression.
+  ///
+  /// ```bnf
+  /// STRING_LITERAL    ::= ('"' STRING_SEQUENCE* '"') | ("'" STRING_SEQUENCE* "'")
+  /// STRING_SEQUENCE   ::= ALMOST_ANY_CHAR
+  ///                   | ESCAPED_CHAR
+  ///                   | "$" "{" EXPRESSION "}"
+  /// ```
+  fn parse_str_interpolation(&mut self) -> NodeResult<ASTNodeIdx> {
+    let mut interpolated_parts = vec![];
+
+    while !match_tok![self, END_INTERPOL_STR] {
+      let interpol_part = match curr_tk![self] {
+        STR_LIT if self.advance() => self.emit(StringLiteral((self.current_pos - 1).into()))?,
+        START_INTERPOL_EXPR if self.advance() => {
+          let expr = self.parse_expr()?;
+          self.consume(&END_INTERPOL_EXPR, "Expected '}' after string interpolation.")?;
+          expr
+        }
+        _ => return Err(self.error_at_current_tok("Invalid interpolation part.")),
+      };
+
+      interpolated_parts.push(interpol_part);
+    }
+
+    self.emit(StringInterpol(interpolated_parts))
   }
 }

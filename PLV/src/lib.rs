@@ -57,7 +57,6 @@ pub fn export(tokens_list: &TokenList, arena: &ASTArena, _bytecode: &[u8], timer
     .map(|t| map_tok_to_json(t, tokens_list))
     .collect::<Vec<Value>>();
 
-  // Lex the source file
   let lex = json!({
      "start": timers.0,
      "end": timers.1,
@@ -161,6 +160,7 @@ impl<'a> PLVJsonGenerator<'a> {
       ReturnStmt(x) => self.return_stmt_to_json(x),
       SelfLiteral(_) => ("self".into(), json!({ "kind": "literal" }), vec![]),
       SpreadExpr(x) => self.spread_expr_to_json(x),
+      StringInterpol(x) => self.string_interpolation_to_json(x),
       StringLiteral(x) => self.string_literal_to_json(x),
       SuperLiteral(_) => ("super".into(), json!({ "kind": "literal" }), vec![]),
       TernaryConditional(x) => self.ternary_to_json(x),
@@ -475,5 +475,9 @@ impl<'a> PLVJsonGenerator<'a> {
   fn class_decl_to_json(&self, _x: &ASTClassIdx) -> JSONNodeData {
     // TODO: PLV Class Decl
     ("Class Decl".into(), json!({}), vec![])
+  }
+
+  fn string_interpolation_to_json(&self, x: &[ASTNodeIdx]) -> JSONNodeData {
+    ("Str Interpolation".into(), json!({}), self.ast_list_to_json(x, ""))
   }
 }
