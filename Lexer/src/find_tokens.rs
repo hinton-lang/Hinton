@@ -1,7 +1,7 @@
 use core::tokens::TokenKind::*;
 use core::tokens::{ErrorTokenKind, Token};
 
-use crate::{Lexer, LexerMode};
+use crate::{char_is_ident_start, Lexer, LexerMode};
 
 impl<'a> Lexer<'a> {
   /// Scans the next token in the source file.
@@ -144,7 +144,7 @@ impl<'a> Lexer<'a> {
       '"' | '\'' => self.make_string_token(),
 
       // Generates an identifier/keyword if the current character is alphanumeric
-      ch if ch.is_alphabetic() || ch == '_' || ch == '$' => self.make_identifier_token(),
+      ch if char_is_ident_start![ch] => self.make_identifier_token(),
 
       // Generates a numeric literal if the current character is a digit
       ch if ch.is_ascii_digit() => self.make_numeric_token(),

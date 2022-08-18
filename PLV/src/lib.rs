@@ -30,8 +30,8 @@ fn map_tok_to_json(tok: (usize, &Token), tokens_list: &TokenList) -> Value {
   json!({
      "name": format!("{:0>20?}", tok.1.kind),
      "line_num": tok.1.line_num,
-     "column": tokens_list.location(&tok.0.into()).col_start,
-     "lexeme": tokens_list.lexeme(&tok.0.into())
+     "column": tokens_list.location(tok.0).col_start,
+     "lexeme": tokens_list.lexeme(tok.0)
   })
 }
 
@@ -67,7 +67,7 @@ pub fn export(tokens_list: &TokenList, arena: &ASTArena, _bytecode: &[u8], timer
   let pars = json!({
      "start": timers.2,
      "end": timers.3,
-     "ast": plv_generator.ast_to_json(&0.into(), "root")
+     "ast": plv_generator.ast_to_json(0, "root")
   });
 
   // Compose the JSON report
@@ -110,7 +110,7 @@ impl<'a> PLVJsonGenerator<'a> {
   /// # Returns:
   /// ```Vec<Value, Global>```
   fn ast_list_to_json(&self, nodes: &[ASTNodeIdx], branch_name: &str) -> Vec<Value> {
-    nodes.iter().map(|x| self.ast_to_json(x, branch_name)).collect()
+    nodes.iter().map(|x| self.ast_to_json(*x, branch_name)).collect()
   }
 
   /// Converts an AST node and its children to JSON.
@@ -122,7 +122,7 @@ impl<'a> PLVJsonGenerator<'a> {
   ///
   /// # Returns:
   /// ```Value```
-  fn ast_to_json(&self, idx: &ASTNodeIdx, branch_name: &str) -> Value {
+  fn ast_to_json(&self, idx: ASTNodeIdx, branch_name: &str) -> Value {
     let (name, mut attributes, children) = match &self.arena.get(idx) {
       ArrayLiteral(x) => self.array_literal_to_json(x),
       ArraySlice(x) => self.array_slice_to_json(x),
@@ -133,19 +133,17 @@ impl<'a> PLVJsonGenerator<'a> {
       ClassDecl(x) => self.class_decl_to_json(x),
       CompactArrOrTpl(x) => self.compact_arr_or_tpl_to_json(x),
       CompactDict(x) => self.compact_dict_to_json(x),
-      ContinueStmt => self.continue_stmt_to_json(),
-      DelStmt(x) => self.del_stmt_to_json(x),
-      DestructingPattern(x) => self.destructing_pattern_to_json(x),
-      DestructingWildCard(x) => self.destructing_wild_card_to_json(x),
+      ContinueStmt(x) => self.continue_stmt_to_json(),
+      DelStmt(x) => self.del_stmt_to_json(*x),
       DictKeyValPair(x) => self.dict_key_val_par_to_json(x),
       DictLiteral(_) => self.dict_literal_to_json(),
-      EvaluatedDictKey(x) => self.evaluated_dict_key_to_json(x),
+      EvaluatedDictKey(x) => self.evaluated_dict_key_to_json(*x),
       ExportDecl(x) => self.export_decl_to_json(x),
-      ExprStmt(x) => self.expr_stmt_to_json(x),
+      ExprStmt(x) => self.expr_stmt_to_json(*x),
       FalseLiteral(_) => ("false".into(), json!({ "kind": "literal" }), vec![]),
       ForLoop(x) => self.for_loop_to_json(x),
       FuncDecl(x) => self.func_decl_to_json(x),
-      Identifier(x) => self.identifier_to_json(x),
+      IdLiteral(x) => self.identifier_to_json(*x),
       IfStmt(x) => self.if_stmt_to_json(x),
       ImportDecl(x) => self.import_decl_to_json(x),
       Indexing(x) => self.indexing_to_json(x),
@@ -154,17 +152,17 @@ impl<'a> PLVJsonGenerator<'a> {
       MemberAccess(x) => self.member_access_to_json(x),
       Module(x) => self.module_node_to_json(x),
       NoneLiteral(_) => ("none".into(), json!({ "kind": "literal" }), vec![]),
-      NumLiteral(x) => self.numeric_literal_to_json(x),
+      NumLiteral(x) => self.numeric_literal_to_json(*x),
       Reassignment(x) => self.reassignment_node_to_json(x),
       RepeatLiteral(x) => self.repeat_literal_to_json(x),
       ReturnStmt(x) => self.return_stmt_to_json(x),
       SelfLiteral(_) => ("self".into(), json!({ "kind": "literal" }), vec![]),
-      SpreadExpr(x) => self.spread_expr_to_json(x),
+      SpreadExpr(x) => self.spread_expr_to_json(*x),
       StringInterpol(x) => self.string_interpolation_to_json(x),
-      StringLiteral(x) => self.string_literal_to_json(x),
+      StringLiteral(x) => self.string_literal_to_json(*x),
       SuperLiteral(_) => ("super".into(), json!({ "kind": "literal" }), vec![]),
       TernaryConditional(x) => self.ternary_to_json(x),
-      ThrowStmt(x) => self.throw_stmt_to_json(x),
+      ThrowStmt(x) => self.throw_stmt_to_json(*x),
       TrueLiteral(_) => ("true".into(), json!({ "kind": "literal" }), vec![]),
       TryCatchFinally(x) => self.try_catch_finally_stmt_to_json(x),
       TupleLiteral(x) => self.tuple_literal_to_json(x),
@@ -172,7 +170,7 @@ impl<'a> PLVJsonGenerator<'a> {
       VarConstDecl(x) => self.var_const_decl_to_json(x),
       WhileLoop(x) => self.while_loop_to_json(x),
       WithStmt(x) => self.with_stmt_to_json(x),
-      YieldStmt(x) => self.yield_stmt_to_json(x),
+      YieldStmt(x) => self.yield_stmt_to_json(*x),
     };
 
     if !branch_name.is_empty() {
@@ -194,10 +192,7 @@ impl<'a> PLVJsonGenerator<'a> {
 
   /// Converts an AST reassignment node into its JSON representation.
   fn reassignment_node_to_json(self, x: &ASTReassignmentNode) -> JSONNodeData {
-    let children = vec![
-      self.ast_to_json(&x.target, "target"),
-      self.ast_to_json(&x.value, "value"),
-    ];
+    let children = vec![self.ast_to_json(x.target, "target"), self.ast_to_json(x.value, "value")];
 
     (
       "Reassignment".into(),
@@ -207,10 +202,10 @@ impl<'a> PLVJsonGenerator<'a> {
   }
 
   /// Converts an AST numeric literal node into its JSON representation.
-  fn numeric_literal_to_json(self, x: &TokenIdx) -> JSONNodeData {
+  fn numeric_literal_to_json(self, x: TokenIdx) -> JSONNodeData {
     let lexeme = self.tokens_list.lexeme(x);
 
-    let val = match self.tokens_list[x.0].kind {
+    let val = match self.tokens_list[x].kind {
       TokenKind::INT_LIT => parse_int_lexeme(lexeme).expect("Count not convert to int").to_string(),
       TokenKind::FLOAT_LIT => parse_float_lexeme(lexeme).expect("Count not convert to float").to_string(),
       TokenKind::HEX_LIT => parse_int_from_lexeme_base(lexeme, 16).expect("Count not convert hex to int").to_string(),
@@ -227,41 +222,41 @@ impl<'a> PLVJsonGenerator<'a> {
   }
 
   /// Converts an AST string literal node into its JSON representation.
-  fn string_literal_to_json(self, x: &TokenIdx) -> JSONNodeData {
+  fn string_literal_to_json(self, x: TokenIdx) -> JSONNodeData {
     let lexeme = self.tokens_list.lexeme(x);
     ("Str".into(), json!({ "value": lexeme }), vec![])
   }
 
   /// Converts an AST identifier node into its JSON representation.
-  fn identifier_to_json(self, x: &TokenIdx) -> JSONNodeData {
+  fn identifier_to_json(self, x: TokenIdx) -> JSONNodeData {
     let lexeme = self.tokens_list.lexeme(x);
     (lexeme, json!({ "kind": "identifier" }), vec![])
   }
 
   /// Converts an AST ternary conditional node into its JSON representation.
   fn ternary_to_json(self, x: &ASTTernaryConditionalNode) -> JSONNodeData {
-    let cond = self.ast_to_json(&x.condition, "condition");
-    let b_true = self.ast_to_json(&x.branch_true, "true");
-    let b_false = self.ast_to_json(&x.branch_false, "false");
+    let cond = self.ast_to_json(x.condition, "condition");
+    let b_true = self.ast_to_json(x.branch_true, "true");
+    let b_false = self.ast_to_json(x.branch_false, "false");
 
     ("Ternary".into(), json!({}), vec![cond, b_true, b_false])
   }
 
   /// Converts an AST binary expression node into its JSON representation.
   fn binary_to_json(self, x: &ASTBinaryExprNode) -> JSONNodeData {
-    let branches = vec![self.ast_to_json(&x.left, "left"), self.ast_to_json(&x.right, "right")];
+    let branches = vec![self.ast_to_json(x.left, "left"), self.ast_to_json(x.right, "right")];
     let opr = format!("{:?}", x.kind);
     ("Binary".into(), json!({ "operator": opr }), branches)
   }
 
   /// Converts an AST unary expression node into its JSON representation.
   fn unary_to_json(self, x: &ASTUnaryExprNode) -> JSONNodeData {
-    ("Unary".into(), json!({}), vec![self.ast_to_json(&x.operand, "operand")])
+    ("Unary".into(), json!({}), vec![self.ast_to_json(x.operand, "operand")])
   }
 
   /// Converts an AST indexing expression node into its JSON representation.
   fn indexing_to_json(self, x: &ASTIndexingNode) -> JSONNodeData {
-    let mut children = vec![self.ast_to_json(&x.target, "target")];
+    let mut children = vec![self.ast_to_json(x.target, "target")];
     children.append(&mut self.ast_list_to_json(&x.indexers, "indexer"));
 
     ("Indexing".into(), json!({}), children)
@@ -271,11 +266,11 @@ impl<'a> PLVJsonGenerator<'a> {
   fn array_slice_to_json(self, x: &ASTArraySliceNode) -> JSONNodeData {
     let mut children: Vec<Value> = vec![];
 
-    if let Some(upper) = &x.upper {
+    if let Some(upper) = x.upper {
       children.push(self.ast_to_json(upper, "upper"))
     }
 
-    if let Some(lower) = &x.lower {
+    if let Some(lower) = x.lower {
       children.push(self.ast_to_json(lower, "lower"))
     }
 
@@ -286,18 +281,6 @@ impl<'a> PLVJsonGenerator<'a> {
   fn lambda_to_json(&self, _x: &ASTLambdaNode) -> JSONNodeData {
     // TODO: PLV Lambda Lit
     ("Lambda".into(), json!({}), vec![])
-  }
-
-  /// Converts an AST destructing wild card node into its JSON representation.
-  fn destructing_wild_card_to_json(&self, _x: &Option<ASTNodeIdx>) -> JSONNodeData {
-    // TODO: PLV Destruct Wild Card
-    ("DestructingWildCard".into(), json!({}), vec![])
-  }
-
-  /// Converts an AST destructing pattern node into its JSON representation.
-  fn destructing_pattern_to_json(&self, _x: &ASTDestructingPatternNode) -> JSONNodeData {
-    // TODO: PLV Destruct Pattern
-    ("DestructingPattern".into(), json!({}), vec![])
   }
 
   /// Converts an AST compact dict literal node into its JSON representation.
@@ -325,7 +308,7 @@ impl<'a> PLVJsonGenerator<'a> {
   }
 
   /// Converts an AST loop expression node into its JSON representation.
-  fn loop_expr_to_json(&self, _x: &ASTNodeIdx) -> JSONNodeData {
+  fn loop_expr_to_json(&self, _x: &ASTLoopExprNode) -> JSONNodeData {
     // TODO: PLV Loop Expr
     ("Loop".into(), json!({}), vec![])
   }
@@ -373,23 +356,23 @@ impl<'a> PLVJsonGenerator<'a> {
   }
 
   /// Converts an AST del statement node into its JSON representation.
-  fn del_stmt_to_json(&self, x: &ASTNodeIdx) -> JSONNodeData {
+  fn del_stmt_to_json(&self, x: ASTNodeIdx) -> JSONNodeData {
     ("Del".into(), json!({}), vec![self.ast_to_json(x, "value")])
   }
 
   /// Converts an AST throw statement node into its JSON representation.
-  fn throw_stmt_to_json(&self, x: &ASTNodeIdx) -> JSONNodeData {
+  fn throw_stmt_to_json(&self, x: ASTNodeIdx) -> JSONNodeData {
     ("Throw".into(), json!({}), vec![self.ast_to_json(x, "value")])
   }
 
   /// Converts an AST yield statement node into its JSON representation.
-  fn yield_stmt_to_json(&self, x: &ASTNodeIdx) -> JSONNodeData {
+  fn yield_stmt_to_json(&self, x: ASTNodeIdx) -> JSONNodeData {
     ("Yield".into(), json!({}), vec![self.ast_to_json(x, "value")])
   }
 
   /// Converts an AST return statement node into its JSON representation.
-  fn return_stmt_to_json(&self, x: &ASTNodeIdx) -> JSONNodeData {
-    ("Return".into(), json!({}), vec![self.ast_to_json(x, "value")])
+  fn return_stmt_to_json(&self, x: &ASTReturnStmtNode) -> JSONNodeData {
+    ("Return".into(), json!({}), vec![self.ast_to_json(x.val, "value")])
   }
 
   /// Converts an AST continue statement node into its JSON representation.
@@ -398,28 +381,32 @@ impl<'a> PLVJsonGenerator<'a> {
   }
 
   /// Converts an AST with statement node into its JSON representation.
-  fn break_stmt_to_json(&self, x: &Option<ASTNodeIdx>) -> JSONNodeData {
-    let val = if let Some(v) = x { vec![self.ast_to_json(v, "value")] } else { vec![] };
+  fn break_stmt_to_json(&self, x: &ASTBreakStmtNode) -> JSONNodeData {
+    let val = if let Some(v) = x.val {
+      vec![self.ast_to_json(v, "value")]
+    } else {
+      vec![]
+    };
     ("<BREAK>".into(), json!({}), val)
   }
 
   /// Converts an AST block statement node into its JSON representation.
-  fn block_stmt_to_json(&self, x: &[ASTNodeIdx]) -> JSONNodeData {
-    ("Block Stmt".into(), json!({}), self.ast_list_to_json(x, ""))
+  fn block_stmt_to_json(&self, x: &BlockNode) -> JSONNodeData {
+    ("Block Stmt".into(), json!({}), self.ast_list_to_json(&x.0, ""))
   }
 
   /// Converts an AST call expression node into its JSON representation.
   fn call_expr_to_json(&self, x: &&ASTCallExprNode) -> JSONNodeData {
-    let mut children = vec![self.ast_to_json(&x.target, "target")];
-    children.append(&mut self.ast_list_to_json(&x.val_args, "value arg"));
-    children.append(&mut self.ast_list_to_json(&x.rest_args, "rest arg"));
+    let children = vec![self.ast_to_json(x.target, "target")];
+    // children.append(&mut self.ast_list_to_json(&x.val_args, "value arg"));
+    // children.append(&mut self.ast_list_to_json(&x.rest_args, "rest arg"));
     // children.append(&mut ast_list_to_json(tokens, arena, &x.named_args, "named arg"));
 
     ("Call".into(), json!({}), children)
   }
 
   /// Converts an AST evaluated dict key node into its JSON representation.
-  fn evaluated_dict_key_to_json(&self, _x: &ASTNodeIdx) -> JSONNodeData {
+  fn evaluated_dict_key_to_json(&self, _x: ASTNodeIdx) -> JSONNodeData {
     // TODO: PLV Dict Literal
     ("EvaluatedDictKey".into(), json!({}), vec![])
   }
@@ -437,14 +424,14 @@ impl<'a> PLVJsonGenerator<'a> {
   }
 
   /// Converts an AST spread expression node into its JSON representation.
-  fn spread_expr_to_json(&self, x: &ASTNodeIdx) -> JSONNodeData {
+  fn spread_expr_to_json(&self, x: ASTNodeIdx) -> JSONNodeData {
     ("Spread".into(), json!({}), vec![self.ast_to_json(x, "target")])
   }
 
   /// Converts an AST repeat literal node into its JSON representation.
   fn repeat_literal_to_json(&self, x: &ASTRepeatLiteralNode) -> JSONNodeData {
-    let value = self.ast_to_json(&x.value, "value");
-    let count = self.ast_to_json(&x.count, "count");
+    let value = self.ast_to_json(x.value, "value");
+    let count = self.ast_to_json(x.count, "count");
     let kind = format!("{:?}", x.kind);
     ("Repeat".into(), json!({ "kind": kind }), vec![value, count])
   }
@@ -462,13 +449,13 @@ impl<'a> PLVJsonGenerator<'a> {
   /// Converts an AST member access node into its JSON representation.
   fn member_access_to_json(&self, x: &ASTMemberAccessNode) -> JSONNodeData {
     let is_safe = if x.is_safe { "true" } else { "false" };
-    let target = self.ast_to_json(&x.target, "target");
-    let member = self.ast_to_json(&x.member, "member");
-    ("Member".into(), json!({ "is safe": is_safe }), vec![target, member])
+    let target = self.ast_to_json(x.target, "target");
+    // let member = self.ast_to_json(&x.member, "member");
+    ("Member".into(), json!({ "is safe": is_safe }), vec![target])
   }
 
   /// Converts an AST expression statement node into its JSON representation.
-  fn expr_stmt_to_json(&self, x: &ASTNodeIdx) -> JSONNodeData {
+  fn expr_stmt_to_json(&self, x: ASTNodeIdx) -> JSONNodeData {
     ("Expr Stmt".into(), json!({}), vec![self.ast_to_json(x, "operand")])
   }
 

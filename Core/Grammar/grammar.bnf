@@ -154,7 +154,7 @@ LARGE_EXPR          ::= LITERAL_EXPR | MATCH_EXPR_STMT | LOOP_EXPR
 // built-in data structure can be indexed by anything other than a single integer or slice.
 INDEXING_EXPR       ::= "[" INDEXER ("," INDEXER)* "]"
 INDEXER             ::= EXPRESSION | SLICE
-SLICE               ::= EXPRESSION? ":" EXPRESSION?
+SLICE               ::= EXPRESSION? ":" EXPRESSION? (":" EXPRESSION?)?
 
 // TODO: The Parser allows for an optional trailing comma. Define that here as well.
 CALL_EXPR           ::= "(" ((NON_VAL_ARGS | (EXPRESSION ("," EXPRESSION)*)) ("," NON_VAL_ARGS)*)? ")"
@@ -169,7 +169,7 @@ MEMBER_ACCESS_EXPR  ::= ("." | "?.") IDENTIFIER
 LAMBDA_EXPR         ::= "async"? "|" PARAMETERS? "|" (EXPRESSION | BLOCK_STMT)
 
 // Defaults to `null` if the loop breaks with no value.
-LOOP_EXPR           ::= "loop" BLOCK_STMT
+LOOP_EXPR           ::= "loop" ("as" IDENTIFIER)? BLOCK_STMT
 
 // ********************************************** LITERAL EXPRESSIONS
 LITERAL_EXPR        ::= IDENTIFIER

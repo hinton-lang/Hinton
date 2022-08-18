@@ -1,10 +1,8 @@
 use core::ast::ASTNodeKind::*;
 use core::ast::*;
-use core::tokens::TokenIdx;
 use core::tokens::TokenKind::*;
-use std::ops::Not;
 
-use crate::{check_tok, consume_id, curr_tk, guard_error_token, match_tok, NodeResult, Parser};
+use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, NodeResult, Parser};
 
 macro_rules! append_binary_expr {
   ($s:ident, $l:expr, $r:expr, $k:expr) => {
@@ -30,7 +28,7 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_reassignment(&mut self) -> NodeResult<ASTNodeIdx> {
     let target = self.parse_ternary_expr()?;
-    let target_tok = TokenIdx::from(self.current_pos - 1);
+    let target_tok = self.current_pos - 1;
 
     if let Some(kind) = ASTReassignmentKind::try_from_token(self.get_curr_tk()) {
       self.advance(); // Consume the token
@@ -39,14 +37,19 @@ impl<'a> Parser<'a> {
       let value = self.parse_expr()?;
 
       // Returns the assignment expression of the corresponding type
-      return match &self.ast.get(&target) {
+      return match &self.ast.get(target) {
         // In the compiler, we simply check the kind of target we have
         // to emit the correct set of bytecode instructions.
-        Identifier(_) | MemberAccess(_) | Indexing(_) => {
+        IdLiteral(_) | MemberAccess(_) | Indexing(_) => {
           let node = ASTReassignmentNode { target, kind, value };
           self.emit(Reassignment(node))
         }
-        _ => Err(self.error_at_tok(target_tok, "Invalid assignment target.")),
+        _ => Err(error_at_tok(
+          self.tokens,
+          target_tok,
+          "SyntaxError",
+          "Invalid assignment target.",
+        )),
       };
     }
 
@@ -387,9 +390,9 @@ impl<'a> Parser<'a> {
     };
 
     let body = if match_tok![self, L_CURLY] {
-      self.parse_block_stmt()?
+      LambdaBody::Block(self.parse_block_stmt()?)
     } else {
-      self.parse_expr()?
+      LambdaBody::Expr(self.parse_expr()?)
     };
 
     self.emit(Lambda(ASTLambdaNode {
@@ -438,13 +441,13 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_indexer(&mut self) -> NodeResult<ASTNodeIdx> {
     if match_tok![self, COLON] {
-      // The indexer is a slice of the form `[:]` or `[:b]`
+      // The indexer is a slice with no lower bound
       self.parse_slice(None)
     } else {
       let expr = self.parse_expr()?;
 
       if match_tok![self, COLON] {
-        // The indexer is a slice of the form `[a:]` or `[a:b]`
+        // The indexer is a slice with a lower bound
         self.parse_slice(Some(expr))
       } else {
         // The indexer is an expression of the form `[a]`
@@ -456,7 +459,7 @@ impl<'a> Parser<'a> {
   /// Parses a slice in an indexing expression.
   ///
   /// ```bnf
-  /// SLICE ::= EXPRESSION? ":" EXPRESSION?
+  /// SLICE ::= EXPRESSION? ":" EXPRESSION? (":" EXPRESSION?)?
   /// ```
   pub(super) fn parse_slice(&mut self, lower: Option<ASTNodeIdx>) -> NodeResult<ASTNodeIdx> {
     let upper = if !check_tok![self, COMMA | R_BRACKET] {
@@ -465,7 +468,13 @@ impl<'a> Parser<'a> {
       None
     };
 
-    self.emit(ArraySlice(ASTArraySliceNode { upper, lower }))
+    let step = if match_tok![self, COLON] && !check_tok![self, COMMA | R_BRACKET] {
+      Some(self.parse_expr()?)
+    } else {
+      None
+    };
+
+    self.emit(ArraySlice(ASTArraySliceNode { lower, upper, step }))
   }
 
   /// Parses a function call expression.
@@ -477,30 +486,26 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_call_expr(&mut self, target: ASTNodeIdx) -> NodeResult<ASTNodeIdx> {
     if match_tok![self, R_PAREN] {
-      return self.emit(CallExpr(ASTCallExprNode {
-        target,
-        val_args: vec![],
-        rest_args: vec![],
-        named_args: vec![],
-      }));
+      return self.emit(CallExpr(ASTCallExprNode { target, args: vec![] }));
     }
 
     let mut has_non_val_arg = false;
-    let mut val_args = vec![];
-    let mut rest_args = vec![];
-    let mut named_args = vec![];
+    let mut args = vec![];
 
     loop {
-      match curr_tk![self] {
+      args.push(match curr_tk![self] {
         TRIPLE_DOT if self.advance() => {
-          rest_args.push(self.parse_single_spread_expr()?);
           has_non_val_arg = true;
+          CallArg::Rest(self.parse_single_spread_expr()?)
         }
         IDENTIFIER if matches![self.get_next_tk(), COLON_EQUALS] => {
-          let tok_id = consume_id![self, "Expected identifier for named argument."]?;
+          let tok_id = consume_id![self, "Expected identifier for named argument."];
           self.consume(&COLON_EQUALS, "Expected ':=' for named argument.")?;
-          named_args.push((tok_id, self.parse_expr()?));
           has_non_val_arg = true;
+          CallArg::Named {
+            name: tok_id,
+            value: self.parse_expr()?,
+          }
         }
         _ => {
           let arg = self.parse_expr()?;
@@ -509,9 +514,9 @@ impl<'a> Parser<'a> {
             return Err(self.error_at_prev_tok("Value arguments cannot follow named or rest arguments."));
           }
 
-          val_args.push(arg);
+          CallArg::Val(arg)
         }
-      }
+      });
 
       // Optional trailing comma
       if !check_tok![self, COMMA] || (match_tok![self, COMMA] && check_tok![self, R_PAREN]) {
@@ -520,13 +525,7 @@ impl<'a> Parser<'a> {
     }
 
     self.consume(&R_PAREN, "Expected ')' for function call.")?;
-
-    self.emit(CallExpr(ASTCallExprNode {
-      target,
-      val_args,
-      rest_args,
-      named_args,
-    }))
+    self.emit(CallExpr(ASTCallExprNode { target, args }))
   }
 
   /// Parses a member access expression.
@@ -541,19 +540,27 @@ impl<'a> Parser<'a> {
       _ => unreachable!("Should have parsed either a `.` or `?.` by now."),
     };
 
-    let member = consume_id![self, "Expected member name after the dot."]?;
+    let member = consume_id![self, "Expected member name after the dot."];
     self.emit(MemberAccess(ASTMemberAccessNode { is_safe, target, member }))
   }
 
   /// Parses a loop expression or loop statement.
   ///
   /// ```bnf
-  /// LOOP_EXPR ::= "loop" BLOCK_STMT
+  /// LOOP_EXPR ::= "loop" ("as" IDENTIFIER)? BLOCK_STMT
   /// ```
   pub(super) fn parse_loop_expr(&mut self) -> NodeResult<ASTNodeIdx> {
-    self.consume(&L_CURLY, "Expected '{' after 'loop' keyword.")?;
+    let count = if match_tok![self, AS_KW] {
+      let err_msg = "Expected identifier after 'as' keyword in 'loop' expression.";
+      Some(consume_id![self, err_msg])
+    } else {
+      None
+    };
+
+    self.consume(&L_CURLY, "Expected block as 'loop' body.")?;
     let body = self.parse_block_stmt()?;
-    self.emit(LoopExpr(body))
+    let node = ASTLoopExprNode { body, count };
+    self.emit(LoopExpr(node))
   }
 
   /// Parses a literal expression.
@@ -565,29 +572,25 @@ impl<'a> Parser<'a> {
   ///               | SELF_LITERAL | SUPER_LITERAL | "(" EXPRESSION ")"
   /// ```
   pub(super) fn parse_literal(&mut self) -> NodeResult<ASTNodeIdx> {
-    fn prev_tok(s: &Parser) -> TokenIdx {
-      (s.current_pos - 1).into()
-    }
-
     match curr_tk![self] {
       // Numeric literals
       INT_LIT | FLOAT_LIT | HEX_LIT | OCTAL_LIT | BINARY_LIT | SCIENTIFIC_LIT if self.advance() => {
-        self.emit(NumLiteral(prev_tok(self)))
+        self.emit(NumLiteral(self.current_pos - 1))
       }
 
       // String literals
-      STR_LIT if self.advance() => self.emit(StringLiteral(prev_tok(self))),
+      STR_LIT if self.advance() => self.emit(StringLiteral(self.current_pos - 1)),
       START_INTERPOL_STR if self.advance() => self.parse_str_interpolation(),
 
       // Atomic literals
-      TRUE_LIT if self.advance() => self.emit(TrueLiteral(prev_tok(self))),
-      FALSE_LIT if self.advance() => self.emit(FalseLiteral(prev_tok(self))),
-      NONE_LIT if self.advance() => self.emit(NoneLiteral(prev_tok(self))),
+      TRUE_LIT if self.advance() => self.emit(TrueLiteral(self.current_pos - 1)),
+      FALSE_LIT if self.advance() => self.emit(FalseLiteral(self.current_pos - 1)),
+      NONE_LIT if self.advance() => self.emit(NoneLiteral(self.current_pos - 1)),
 
       // Symbolic reference literals
-      IDENTIFIER if self.advance() => self.emit(Identifier(prev_tok(self))),
-      SELF_KW if self.advance() => self.emit(SelfLiteral(prev_tok(self))),
-      SUPER_KW if self.advance() => self.emit(SuperLiteral(prev_tok(self))),
+      IDENTIFIER if self.advance() => self.emit(IdLiteral(self.current_pos - 1)),
+      SELF_KW if self.advance() => self.emit(SelfLiteral(self.current_pos - 1)),
+      SUPER_KW if self.advance() => self.emit(SuperLiteral(self.current_pos - 1)),
 
       // Collection literals
       L_BRACKET if self.advance() => self.parse_array_literal(),
@@ -612,7 +615,7 @@ impl<'a> Parser<'a> {
 
     while !match_tok![self, END_INTERPOL_STR] {
       let interpol_part = match curr_tk![self] {
-        STR_LIT if self.advance() => self.emit(StringLiteral((self.current_pos - 1).into()))?,
+        STR_LIT if self.advance() => self.emit(StringLiteral(self.current_pos - 1))?,
         START_INTERPOL_EXPR if self.advance() => {
           let expr = self.parse_expr()?;
           self.consume(&END_INTERPOL_EXPR, "Expected '}' after string interpolation.")?;

@@ -2,6 +2,7 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
+use analyzers::symbols::SymbolTableArena;
 use hashbrown::HashMap;
 
 use core::errors::{report_errors_list, ErrorReport, RuntimeErrorType};
@@ -48,7 +49,7 @@ impl VM {
   /// - `InterpretResult`: The result of the source interpretation.
   pub fn interpret(filepath: PathBuf, source: &[char]) -> InterpretResult {
     // Creates a new virtual machine
-    let mut interpreter = VM {
+    let interpreter = VM {
       stack: Vec::with_capacity(256),
       frames: Vec::with_capacity(256),
       filepath,
@@ -57,12 +58,12 @@ impl VM {
       built_in: BuiltIn::default(),
     };
 
-    #[cfg(not(PLV))]
+    #[cfg(not(feature = "PLV"))]
     let bytecode = interpreter.compile_source(source);
-    #[cfg(PLV)]
+    #[cfg(feature = "PLV")]
     let bytecode = interpreter.compile_source_with_plv(source);
 
-    let main_fn = match bytecode {
+    match bytecode {
       Ok(x) => x,
       Err(e) => {
         report_errors_list(&interpreter.filepath, e, source);
@@ -103,11 +104,12 @@ impl VM {
   ///
   /// # Returns:
   /// ```Result<FuncObject, Vec<ErrorReport, Global>>```
-  #[cfg(not(PLV))]
+  #[cfg(not(feature = "PLV"))]
   fn compile_source(&self, source: &[char]) -> Result<FuncObject, Vec<ErrorReport>> {
     let lexer = Lexer::lex(source);
     let tokens_list = TokenList::new(source, &lexer);
-    let _parser = Parser::parse(&tokens_list)?;
+    let ast = Parser::parse(&tokens_list)?;
+    SymbolTableArena::tables_from(&tokens_list, &ast)?;
 
     // TODO: Transition the compiler to new source
     Compiler::compile_ast(
@@ -130,7 +132,7 @@ impl VM {
   ///
   /// # Returns:
   /// ```Result<FuncObject, Vec<ErrorReport, Global>>```
-  #[cfg(PLV)]
+  #[cfg(feature = "PLV")]
   fn compile_source_with_plv(&self, source: &[char]) -> Result<FuncObject, Vec<ErrorReport>> {
     // Convert the source file into a flat list of tokens
     let l_start = plv::get_time_millis();
@@ -142,6 +144,9 @@ impl VM {
     let p_start = plv::get_time_millis();
     let ast = Parser::parse(&tokens_list)?;
     let p_end = plv::get_time_millis();
+
+    // Generates a collection of symbol tables from the parsed AST.
+    SymbolTableArena::tables_from(&tokens_list, &ast)?;
 
     // Compiles the program into bytecode and aborts if there are any compiling errors.
     let c_start = plv::get_time_millis();

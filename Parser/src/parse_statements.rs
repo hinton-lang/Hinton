@@ -1,9 +1,8 @@
 use core::ast::ASTNodeKind::*;
 use core::ast::*;
-use core::tokens::TokenIdx;
 use core::tokens::TokenKind::*;
 
-use crate::{check_tok, consume_id, curr_tk, guard_error_token, match_tok, NodeResult, Parser};
+use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, NodeResult, Parser};
 
 pub enum ParsingLevel {
   Module,
@@ -19,14 +18,8 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_module(&mut self) {
     while !match_tok![self, EOF] {
       match self.parse_stmt(ParsingLevel::Module) {
-        // Because the first element of the AST Arena is the module node,
-        // no child node should be able to reference it. We can use this fact
-        // to ignore nodes in the tree (e.g., extra semicolons). So, If the
-        // `parse_stmt` method returns 0, we can ignore the associated node(s).
-        Ok(n) if n.0 == 0 => continue,
-        // Attach the statement to the module
-        Ok(node) => self.ast.attach_to_root(node),
-        // Save the error report
+        Ok(Some(node)) => self.ast.attach_to_root(node),
+        Ok(None) => continue, // Ignore semicolons
         Err(e) => {
           self.errors.push(e);
 
@@ -41,7 +34,12 @@ impl<'a> Parser<'a> {
             && !check_tok![self, LET_KW | CONST_KW | ENUM_KW | IMPORT_KW | EXPORT_KW]
             && !check_tok![self, FUNC_KW | ASYNC_KW | CLASS_KW | ABSTRACT_KW | INIT_KW]
           {
-            if match_tok![self, SEMICOLON | R_CURLY] {
+            // Skip nested semicolons and right-curly braces.
+            if check_tok![self, SEMICOLON | R_CURLY] {
+              while check_tok![self, SEMICOLON | R_CURLY] {
+                self.advance();
+              }
+
               break;
             }
 
@@ -62,12 +60,16 @@ impl<'a> Parser<'a> {
   ///           | DECORATOR_STMT* "pub"? (FUNC_DECL | CLASS_DECL) | EXPR_STMT
   ///           | ";" // ignored
   /// ```
-  pub(super) fn parse_stmt(&mut self, level: ParsingLevel) -> NodeResult<ASTNodeIdx> {
+  pub(super) fn parse_stmt(&mut self, level: ParsingLevel) -> NodeResult<Option<ASTNodeIdx>> {
     guard_error_token![self];
 
-    // See comments in `parse_module` method.
-    if match_tok![self, SEMICOLON] {
-      return Ok(0.into());
+    // Skip semicolons at the start of new statements.
+    if check_tok![self, SEMICOLON] {
+      while check_tok![self, SEMICOLON] {
+        self.advance();
+      }
+
+      return Ok(None);
     }
 
     let decorators = if match_tok![self, HASHTAG] {
@@ -97,8 +99,11 @@ impl<'a> Parser<'a> {
       return Err(self.error_at_current_tok("Expected 'func' or 'class' declaration as decoration target."));
     }
 
-    let stmt = match curr_tk![self] {
-      L_CURLY if self.advance() => self.parse_block_stmt()?,
+    let stmt_idx = match curr_tk![self] {
+      L_CURLY if self.advance() => {
+        let node = self.parse_block_stmt()?;
+        self.emit(BlockStmt(node))?
+      }
       WHILE_KW if self.advance() => self.parse_while_loop_stmt()?,
       FOR_KW if self.advance() => self.parse_for_loop_stmt()?,
       BREAK_KW if self.advance() => self.parse_break_stmt()?,
@@ -125,10 +130,10 @@ impl<'a> Parser<'a> {
 
     // Add statement to the list of public members
     if is_pub {
-      self.ast.add_pub_to_root(stmt.0.into());
+      self.ast.add_pub_to_root(stmt_idx);
     }
 
-    Ok(stmt)
+    Ok(Some(stmt_idx))
   }
 
   /// Parses an expression statement.
@@ -147,14 +152,17 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// BLOCK_STMT ::= "{" STATEMENT* "}"
   /// ```
-  pub(super) fn parse_block_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
+  pub(super) fn parse_block_stmt(&mut self) -> NodeResult<BlockNode> {
     let mut stmts = vec![];
 
     while !match_tok![self, R_CURLY] {
-      stmts.push(self.parse_stmt(ParsingLevel::Block)?);
+      match self.parse_stmt(ParsingLevel::Block)? {
+        Some(stmt) => stmts.push(stmt),
+        None => continue, // Ignore semicolons
+      }
     }
 
-    self.emit(BlockStmt(stmts))
+    Ok(BlockNode(stmts))
   }
 
   /// Parses a while-loop statement.
@@ -166,7 +174,7 @@ impl<'a> Parser<'a> {
     let mut let_id = None;
 
     if match_tok![self, LET_KW] {
-      let_id = Some(consume_id![self, "Expected identifier for while-let statement."]?);
+      let_id = Some(consume_id![self, "Expected identifier for while-let statement."]);
       self.consume(&EQUALS, "Expected '=' after while-let statement identifier.")?;
     }
 
@@ -196,9 +204,9 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_for_loop_head(&mut self) -> NodeResult<ForLoopHead> {
     let id = if match_tok![self, L_PAREN] {
-      self.parse_destructing_pattern("'for' loop")?
+      CompoundIdDecl::Destruct(self.parse_destructing_pattern("'for' loop")?)
     } else {
-      consume_id![self, "Expected identifier in 'for' loop"]?
+      CompoundIdDecl::Single(consume_id![self, "Expected identifier in 'for' loop"])
     };
 
     self.consume(&IN_KW, "Expected keyword 'in' after for-loop identifiers.")?;
@@ -212,7 +220,9 @@ impl<'a> Parser<'a> {
   /// BREAK_STMT ::= "break" EXPRESSION? ";"
   /// ```
   pub(super) fn parse_break_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
-    let value = if !match_tok![self, SEMICOLON] {
+    let token = self.current_pos - 1;
+
+    let val = if !match_tok![self, SEMICOLON] {
       let val = Some(self.parse_expr()?);
       self.consume(&SEMICOLON, "Expected ';' after break statement.")?;
       val
@@ -220,7 +230,8 @@ impl<'a> Parser<'a> {
       None
     };
 
-    self.emit(BreakStmt(value))
+    let node = ASTBreakStmtNode { token, val };
+    self.emit(BreakStmt(node))
   }
 
   /// Parses a continue statement.
@@ -229,8 +240,9 @@ impl<'a> Parser<'a> {
   /// CONTINUE_STMT ::= "continue" ";"
   /// ```
   pub(super) fn parse_continue_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
+    let token = self.current_pos - 1;
     self.consume(&SEMICOLON, "Expected ';' after continue statement.")?;
-    self.emit(ContinueStmt)
+    self.emit(ContinueStmt(token))
   }
 
   /// Parses a return statement.
@@ -239,9 +251,10 @@ impl<'a> Parser<'a> {
   /// RETURN_STMT ::= "return" EXPRESSION ";"
   /// ```
   pub(super) fn parse_return_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
-    let stmt = ReturnStmt(self.parse_expr()?);
+    let token = self.current_pos - 1;
+    let val = self.parse_expr()?;
     self.consume(&SEMICOLON, "Expected ';' after return statement.")?;
-    self.emit(stmt)
+    self.emit(ReturnStmt(ASTReturnStmtNode { token, val }))
   }
 
   /// Parses a yield statement.
@@ -274,12 +287,19 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_del_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
     let target = self.parse_expr()?;
     // TODO: Implement node span resolution and get the span of the target instead.
-    let target_tok = TokenIdx::from(self.current_pos - 1);
+    let target_tok = self.current_pos - 1;
 
     // Only IDENTIFIER, INDEXING_EXPR, or MEMBER_ACCESS_EXPR can be deleted.
-    let stmt = match &self.ast.get(&target) {
-      Identifier(_) | Indexing(_) | MemberAccess(_) => target,
-      _ => return Err(self.error_at_tok(target_tok, "Invalid del target.")),
+    let stmt = match &self.ast.get(target) {
+      IdLiteral(_) | Indexing(_) | MemberAccess(_) => target,
+      _ => {
+        return Err(error_at_tok(
+          self.tokens,
+          target_tok,
+          "SyntaxError",
+          "Invalid del target.",
+        ))
+      }
     };
 
     self.consume(&SEMICOLON, "Expected ';' after del statement.")?;
@@ -295,12 +315,12 @@ impl<'a> Parser<'a> {
     let cond = self.parse_expr()?;
     self.consume(&L_CURLY, "Expected block as 'if' statement body")?;
     let true_branch = self.parse_block_stmt()?;
-    let mut else_branch = None;
+    let mut else_branch = ElseBranch::None;
 
     if match_tok![self, ELSE_KW] {
       else_branch = match curr_tk![self] {
-        IF_KW if self.advance() => Some(self.parse_if_stmt()?),
-        L_CURLY if self.advance() => Some(self.parse_block_stmt()?),
+        IF_KW if self.advance() => ElseBranch::IfStmt(self.parse_if_stmt()?),
+        L_CURLY if self.advance() => ElseBranch::Block(self.parse_block_stmt()?),
         _ => return Err(self.error_at_current_tok("Expected block or 'if' statement after 'else' keyword.")),
       }
     }
@@ -334,7 +354,7 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_with_stmt_head(&mut self) -> NodeResult<WithStmtHead> {
     let expr = self.parse_expr()?;
     self.consume(&AS_KW, "Expected 'as' keyword in 'with' statement head.")?;
-    let id = consume_id![self, "Expected identifier in 'with' statement head."]?;
+    let id = consume_id![self, "Expected identifier in 'with' statement head."];
     Ok(WithStmtHead { expr, id })
   }
 
@@ -404,9 +424,9 @@ impl<'a> Parser<'a> {
         return Err(self.error_at_prev_tok("Non-default 'catch' block cannot follow default 'catch' block."));
       }
 
-      let error_class = consume_id![self, "Expected error name in 'catch' block."]?;
+      let error_class = consume_id![self, "Expected error name in 'catch' block."];
       let error_result = if match_tok![self, AS_KW] {
-        Some(consume_id![self, "Expected error class name in 'catch' block."]?)
+        Some(consume_id![self, "Expected error class name in 'catch' block."])
       } else {
         None
       };
@@ -438,7 +458,7 @@ impl<'a> Parser<'a> {
         L_CURLY if self.advance() => members = self.parse_granular_import(decl_name)?,
         TRIPLE_DOT if self.advance() => {
           let err_msg = &format!("Expected identifier for wildcard {}.", decl_name);
-          wildcard = Some(consume_id![self, err_msg]?)
+          wildcard = Some(consume_id![self, err_msg])
         }
         _ => return Err(self.error_at_current_tok(&format!("Expected {} declaration body.", decl_name))),
       }
@@ -457,7 +477,7 @@ impl<'a> Parser<'a> {
           members = self.parse_granular_import(decl_name)?;
         } else if match_tok![self, TRIPLE_DOT] {
           let err_msg = &format!("Expected identifier for wildcard {}.", decl_name);
-          wildcard = Some(consume_id![self, err_msg]?)
+          wildcard = Some(consume_id![self, err_msg])
         }
       }
 
@@ -468,7 +488,7 @@ impl<'a> Parser<'a> {
 
     let err_msg = &format!("Expected module path for {} declaration.", decl_name);
     self.consume(&STR_LIT, err_msg)?;
-    let path = self.emit(StringLiteral((self.current_pos - 1).into()))?;
+    let path = self.emit(StringLiteral(self.current_pos - 1))?;
 
     self.consume(&SEMICOLON, &format!("Expected ';' after {} declaration.", decl_name))?;
 
@@ -485,12 +505,12 @@ impl<'a> Parser<'a> {
     let mut members = vec![];
 
     loop {
-      let member = consume_id![self, &format!("Expected identifier to {}.", decl_name)]?;
+      let member = consume_id![self, &format!("Expected identifier to {}.", decl_name)];
 
       // Maybe parse alias
       let alias = if match_tok![self, AS_KW] {
         let err_msg = &format!("Expected identifier for {} alias.", decl_name);
-        Some(consume_id![self, err_msg]?)
+        Some(consume_id![self, err_msg])
       } else {
         None
       };
@@ -545,8 +565,8 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_decorator_body(&mut self) -> NodeResult<Decorator> {
     let expr = self.parse_expr()?;
 
-    let decorator = match self.ast.get(&expr) {
-      Identifier(_) | CallExpr(_) => expr,
+    let decorator = match self.ast.get(expr) {
+      IdLiteral(_) | CallExpr(_) => expr,
       // TODO: Implement node span resolution and get the span of the target instead.
       _ => return Err(self.error_at_prev_tok("Expected identifier or function call as decorator.")),
     };

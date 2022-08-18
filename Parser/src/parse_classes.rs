@@ -18,7 +18,7 @@ impl<'a> Parser<'a> {
     }
 
     // Parse the class name
-    let name = consume_id![self, "Expected identifier for function name."]?;
+    let name = consume_id![self, "Expected identifier for class name."];
 
     // Parse class parameters
     let (min_arity, max_arity, params) = if match_tok![self, L_PAREN] {

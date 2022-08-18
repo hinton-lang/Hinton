@@ -272,9 +272,9 @@ impl<'a> Parser<'a> {
       self.parse_tuple_literal_or_grouping_expr()?
     } else {
       let literal_or_ident = match curr_tk![self] {
-        IDENTIFIER if self.advance() => Identifier(self.current_pos.into()),
-        STR_LIT if self.advance() => StringLiteral(self.current_pos.into()),
-        INT_LIT | HEX_LIT | OCTAL_LIT | BINARY_LIT if self.advance() => NumLiteral(self.current_pos.into()),
+        IDENTIFIER if self.advance() => IdLiteral(self.current_pos),
+        STR_LIT if self.advance() => StringLiteral(self.current_pos),
+        INT_LIT | HEX_LIT | OCTAL_LIT | BINARY_LIT if self.advance() => NumLiteral(self.current_pos),
         L_BRACKET if self.advance() => {
           let expr = self.parse_expr()?;
           self.consume(&R_BRACKET, "Expected ']' for evaluated dict key name.")?;

@@ -1,5 +1,5 @@
 use core::ast::*;
-use core::errors::ErrorReport;
+use core::errors::{error_at_tok, ErrorReport};
 use core::tokens::TokenKind::*;
 use core::tokens::*;
 
@@ -35,24 +35,22 @@ macro_rules! curr_tk {
   };
 }
 
-/// Consume an identifier token and emit an identifier node.
+/// Consume an identifier token and returns its token index.
 #[macro_export]
 macro_rules! consume_id {
-  ($s:ident, $err:expr) => {{
-    let tok_idx = $s.consume(&IDENTIFIER, $err)?;
-    $s.emit(Identifier(tok_idx.into()))
-  }};
+  ($s:ident, $err:expr) => {
+    $s.consume(&IDENTIFIER, $err)?
+  };
 }
 
-/// Consume a list of comma-separated identifiers, emit their
-/// respective identifier nodes, and return a list of with
-/// the ASTNodeIdx's of each emitted identifier node.
+/// Consume a list of comma-separated identifiers, and
+/// returns a list with the consumed token indices.
 #[macro_export]
 macro_rules! consume_id_list {
   ($s:ident,$err_msg:expr) => {{
-    let mut ids = vec![consume_id![$s, $err_msg]?];
+    let mut ids = vec![consume_id![$s, $err_msg]];
     while match_tok![$s, COMMA] {
-      ids.push(consume_id![$s, $err_msg]?);
+      ids.push(consume_id![$s, $err_msg]);
     }
     ids
   }};
@@ -63,7 +61,7 @@ macro_rules! consume_id_list {
 macro_rules! guard_error_token {
   ($s:ident) => {
     if let ERROR(e) = curr_tk![$s] {
-      return Err($s.error_at_prev_tok(e.to_str()));
+      return Err($s.error_at_current_tok(e.to_str()));
     }
   };
 }
@@ -188,7 +186,7 @@ impl<'a> Parser<'a> {
   fn consume(&mut self, tk: &TokenKind, message: &str) -> NodeResult<TokenIdx> {
     if self.check(tk) {
       self.advance();
-      return Ok((self.current_pos - 1).into());
+      return Ok(self.current_pos - 1);
     }
 
     if let SEMICOLON = tk {
@@ -217,7 +215,7 @@ impl<'a> Parser<'a> {
   /// # Parameters
   /// - `message`: The error message to display.
   fn error_at_current_tok(&mut self, message: &str) -> ErrorReport {
-    self.error_at_tok(self.current_pos.into(), message)
+    error_at_tok(self.tokens, self.current_pos, "SyntaxError", message)
   }
 
   /// Emits a compiler error from the previous token.
@@ -225,27 +223,6 @@ impl<'a> Parser<'a> {
   /// # Parameters
   /// - `message`: The error message to display.
   fn error_at_prev_tok(&mut self, message: &str) -> ErrorReport {
-    self.error_at_tok((self.current_pos - 1).into(), message)
-  }
-
-  /// Emits a compiler error from the given token.
-  ///
-  /// # Parameters
-  /// - `tok`: The token that caused the error.
-  /// - `msg`: The error message to display.
-  fn error_at_tok(&mut self, tok_idx: TokenIdx, msg: &str) -> ErrorReport {
-    let tok = &self.tokens[tok_idx.0].get_location();
-    let ln = tok.line_num;
-    let cs = tok.col_start;
-
-    // Construct the error message.
-    let msg = format!("\x1b[31;1mSyntaxError\x1b[0m\x1b[1m at [{}:{}]: {}\x1b[0m", ln, cs, msg);
-
-    ErrorReport {
-      line_num: ln,
-      line_start: tok.line_start,
-      span: tok.span,
-      message: msg,
-    }
+    error_at_tok(self.tokens, self.current_pos - 1, "SyntaxError", message)
   }
 }

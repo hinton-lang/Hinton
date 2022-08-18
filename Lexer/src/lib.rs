@@ -6,6 +6,11 @@ mod find_tokens;
 mod lex_numbers;
 mod lex_strings;
 
+#[macro_export]
+macro_rules! char_is_ident_start {
+    ($ch:expr) => {{$ch.is_alphabetic() || $ch == '_' || $ch == '$'}};
+}
+
 #[derive(Debug)]
 pub enum LexerMode {
   Default,

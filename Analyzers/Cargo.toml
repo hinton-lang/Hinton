@@ -3,3 +3,6 @@ name = "analyzers"
 version = "0.1.0"
 authors = ["Fausto German <fgermanj@gmail.com>"]
 edition = "2021"
+
+[dependencies]
+core = { path = "../Core" }

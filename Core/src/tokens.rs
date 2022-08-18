@@ -1,19 +1,7 @@
 use std::ops::Index;
 
 /// Represents the index of a Token in the TokenList.
-pub struct TokenIdx(pub usize);
-
-impl From<usize> for TokenIdx {
-  fn from(x: usize) -> Self {
-    TokenIdx(x)
-  }
-}
-
-impl Default for TokenIdx {
-  fn default() -> Self {
-    usize::MAX.into()
-  }
-}
+pub type TokenIdx = usize;
 
 /// List of Tokens found in the source code.
 pub struct TokenList<'a> {
@@ -50,8 +38,8 @@ impl<'a> TokenList<'a> {
   ///
   /// # Returns:
   /// ```String```
-  pub fn lexeme(&self, idx: &TokenIdx) -> String {
-    let tok = &self[idx.0];
+  pub fn lexeme(&self, idx: TokenIdx) -> String {
+    let tok = &self[idx];
 
     match &tok.kind {
       TokenKind::ERROR(e) => e.to_str().to_string(),
@@ -68,8 +56,8 @@ impl<'a> TokenList<'a> {
   ///
   /// # Returns:
   /// ```TokenLoc```
-  pub fn location(&self, idx: &TokenIdx) -> TokenLoc {
-    self[idx.0].get_location()
+  pub fn location(&self, idx: TokenIdx) -> TokenLoc {
+    self[idx].get_location()
   }
 }
 

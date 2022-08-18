@@ -1,37 +1,11 @@
 use crate::tokens::{TokenIdx, TokenKind};
 
 /// Represents the index of an AST Node in the ASTArena.
-#[derive(PartialEq)]
-pub struct ASTNodeIdx(pub usize);
-
-impl From<usize> for ASTNodeIdx {
-  fn from(x: usize) -> Self {
-    ASTNodeIdx(x)
-  }
-}
-
-impl Default for ASTNodeIdx {
-  fn default() -> Self {
-    usize::MAX.into()
-  }
-}
+pub type ASTNodeIdx = usize;
 
 /// Represents the index of an Class Declaration Node
 /// in the `classes` section of the ASTArena.
-#[derive(PartialEq)]
-pub struct ASTClassIdx(pub usize);
-
-impl From<usize> for ASTClassIdx {
-  fn from(x: usize) -> Self {
-    ASTClassIdx(x)
-  }
-}
-
-impl Default for ASTClassIdx {
-  fn default() -> Self {
-    usize::MAX.into()
-  }
-}
+pub type ASTClassIdx = usize;
 
 /// Abstract syntax tree in the form
 /// of an Arena data structure.
@@ -39,7 +13,7 @@ pub struct ASTArena {
   arena: Vec<ASTNodeKind>,
   /// Because class nodes are very heavy and used rarely,
   /// we store them in a separate section so that the
-  ///`ASTNodeKind` enum is not penalized by their weight.
+  /// `ASTNodeKind` enum is not penalized by their weight.
   classes: Vec<ASTClassDeclNode>,
 }
 
@@ -69,7 +43,7 @@ impl ASTArena {
   /// ```ASTNodeIdx```
   pub fn push(&mut self, val: ASTNodeKind) -> ASTNodeIdx {
     self.arena.push(val);
-    (self.arena.len() - 1).into()
+    self.arena.len() - 1
   }
 
   /// Pushes a new class node to the `class` section of the arena.
@@ -82,7 +56,7 @@ impl ASTArena {
   /// ```ASTNodeIdx```
   pub fn push_class(&mut self, val: ASTClassDeclNode) -> ASTClassIdx {
     self.classes.push(val);
-    (self.classes.len() - 1).into()
+    self.classes.len() - 1
   }
 
   /// Gets an ASTNode in the arena from its ASTNodeIdx. Can also
@@ -94,8 +68,8 @@ impl ASTArena {
   ///
   /// # Returns:
   /// ```&ASTArenaNode```
-  pub fn get(&self, idx: &ASTNodeIdx) -> &ASTNodeKind {
-    &self.arena[idx.0]
+  pub fn get(&self, idx: ASTNodeIdx) -> &ASTNodeKind {
+    &self.arena[idx]
   }
 
   /// Gets an Class declaration node from the class section of the arena
@@ -108,8 +82,8 @@ impl ASTArena {
   ///
   /// # Returns:
   /// ```&ASTClassDeclNode```
-  pub fn get_class(&self, idx: &ASTClassIdx) -> &ASTClassDeclNode {
-    &self.classes[idx.0]
+  pub fn get_class(&self, idx: ASTClassIdx) -> &ASTClassDeclNode {
+    &self.classes[idx]
   }
 
   /// Attaches a node to the root module node.
@@ -149,16 +123,14 @@ pub enum ASTNodeKind {
   ArrayLiteral(Vec<ASTNodeIdx>),
   ArraySlice(ASTArraySliceNode),
   BinaryExpr(ASTBinaryExprNode),
-  BlockStmt(Vec<ASTNodeIdx>),
-  BreakStmt(Option<ASTNodeIdx>),
+  BlockStmt(BlockNode),
+  BreakStmt(ASTBreakStmtNode),
   CallExpr(ASTCallExprNode),
   ClassDecl(ASTClassIdx),
   CompactArrOrTpl(ASTCompactArrOrTplNode),
   CompactDict(ASTCompactDictNode),
-  ContinueStmt,
+  ContinueStmt(TokenIdx),
   DelStmt(ASTNodeIdx),
-  DestructingPattern(ASTDestructingPatternNode),
-  DestructingWildCard(Option<ASTNodeIdx>),
   DictKeyValPair((ASTNodeIdx, ASTNodeIdx)),
   DictLiteral(Vec<ASTNodeIdx>),
   EvaluatedDictKey(ASTNodeIdx),
@@ -167,18 +139,18 @@ pub enum ASTNodeKind {
   FalseLiteral(TokenIdx),
   ForLoop(ASTForLoopNode),
   FuncDecl(ASTFuncDeclNode),
-  Identifier(TokenIdx),
+  IdLiteral(TokenIdx),
   IfStmt(ASTIfStmtNode),
   ImportDecl(ASTImportExportNode),
   Indexing(ASTIndexingNode),
   Lambda(ASTLambdaNode),
-  LoopExpr(ASTNodeIdx), // This will always be a block stmt
+  LoopExpr(ASTLoopExprNode),
   MemberAccess(ASTMemberAccessNode),
   NoneLiteral(TokenIdx),
   NumLiteral(TokenIdx),
   Reassignment(ASTReassignmentNode),
   RepeatLiteral(ASTRepeatLiteralNode),
-  ReturnStmt(ASTNodeIdx),
+  ReturnStmt(ASTReturnStmtNode),
   SelfLiteral(TokenIdx),
   SpreadExpr(ASTNodeIdx),
   StringInterpol(Vec<ASTNodeIdx>),
@@ -203,6 +175,9 @@ pub struct ASTModuleNode {
   // we can obtain their names during compile time.
   pub public_members: Vec<ASTNodeIdx>,
 }
+
+/// An AST Block Node.
+pub struct BlockNode(pub Vec<ASTNodeIdx>);
 
 /// An AST Reassignment Node
 pub struct ASTReassignmentNode {
@@ -462,22 +437,27 @@ pub struct ASTIndexingNode {
 pub struct ASTArraySliceNode {
   pub upper: Option<ASTNodeIdx>,
   pub lower: Option<ASTNodeIdx>,
+  pub step: Option<ASTNodeIdx>,
 }
 
 /// An AST Member Access Node
 pub struct ASTMemberAccessNode {
   pub is_safe: bool,
   pub target: ASTNodeIdx,
-  pub member: ASTNodeIdx, // id node
+  pub member: TokenIdx,
 }
 
 /// An AST Call Expression Node
 #[derive(Default)]
 pub struct ASTCallExprNode {
   pub target: ASTNodeIdx,
-  pub val_args: Vec<ASTNodeIdx>,
-  pub rest_args: Vec<ASTNodeIdx>,
-  pub named_args: Vec<(ASTNodeIdx, ASTNodeIdx)>, // (id node, value node)
+  pub args: Vec<CallArg>,
+}
+
+pub enum CallArg {
+  Val(ASTNodeIdx),
+  Rest(ASTNodeIdx),
+  Named { name: TokenIdx, value: ASTNodeIdx },
 }
 
 /// An AST Lambda Expression Node
@@ -486,7 +466,13 @@ pub struct ASTLambdaNode {
   pub params: Vec<SingleParam>,
   pub min_arity: u8,
   pub max_arity: u8,
-  pub body: ASTNodeIdx, // This will always be a block stmt or single expression
+  pub body: LambdaBody,
+}
+
+/// The body of a lambda literal node
+pub enum LambdaBody {
+  Expr(ASTNodeIdx),
+  Block(BlockNode),
 }
 
 /// An AST Repeat Literal Node
@@ -497,23 +483,54 @@ pub struct ASTRepeatLiteralNode {
 }
 
 #[derive(Debug)]
-#[repr(u8)]
 pub enum RepeatLiteralKind {
   Array,
   Tuple,
 }
 
+/// An AST Loop Expression Node
+pub struct ASTLoopExprNode {
+  pub body: BlockNode,
+  pub count: Option<TokenIdx>,
+}
+
 /// An AST While Loop Node
 pub struct ASTWhileLoopNode {
-  pub let_id: Option<ASTNodeIdx>,
+  pub let_id: Option<TokenIdx>,
   pub cond: ASTNodeIdx,
-  pub body: ASTNodeIdx, // This will always be a block stmt
+  pub body: BlockNode,
 }
 
 /// An AST For Loop Node
 pub struct ASTForLoopNode {
   pub head: ForLoopHead,
-  pub body: ASTNodeIdx, // This will always be a block stmt
+  pub body: BlockNode,
+}
+
+/// The Head of a For-loop (both compact and statement)
+pub struct ForLoopHead {
+  pub id: CompoundIdDecl,
+  pub target: ASTNodeIdx,
+}
+
+/// A compound identifier declaration, which can be either
+/// a single identifier or a destructing pattern.
+pub enum CompoundIdDecl {
+  Single(TokenIdx),
+  Destruct(Vec<DestructPatternMember>),
+}
+
+/// A single member of a destructing patter.
+pub enum DestructPatternMember {
+  Id(TokenIdx),
+  NamedWildcard(TokenIdx),
+  EmptyWildcard,
+}
+
+/// An AST Break Statement Node
+pub struct ASTBreakStmtNode {
+  pub token: TokenIdx,
+  pub val: Option<ASTNodeIdx>,
 }
 
 /// An AST Compact Array/Tuple Node
@@ -535,84 +552,80 @@ pub struct CompactForLoop {
   pub cond: Option<ASTNodeIdx>, // The if-part, it it exists
 }
 
-/// The Head of a For-loop (both compact and statement)
-pub struct ForLoopHead {
-  pub id: ASTNodeIdx, // Can either be a single id node or destructuring pattern
-  pub target: ASTNodeIdx,
-}
-
 /// An AST If-Else-If Statement Node
 pub struct ASTIfStmtNode {
   pub cond: ASTNodeIdx,
-  pub true_branch: ASTNodeIdx,
-  pub else_branch: Option<ASTNodeIdx>,
+  pub true_branch: BlockNode,
+  pub else_branch: ElseBranch,
+}
+
+/// The 'else' branch of an 'if' statement.
+pub enum ElseBranch {
+  None,
+  Block(BlockNode),
+  IfStmt(ASTNodeIdx),
 }
 
 /// An AST Variable/Constant declaration Node
 pub struct ASTVarConsDeclNode {
   pub is_const: bool,
-  pub id: ASTNodeIdx, // Can either be a single id node or destructuring pattern
+  pub id: CompoundIdDecl,
   pub val: ASTNodeIdx,
-}
-
-/// An AST Destructing Pattern Node
-pub struct ASTDestructingPatternNode {
-  // List of identifier nodes, and optionally, at most one wild-card node.
-  pub patterns: Vec<ASTNodeIdx>,
 }
 
 /// An AST With-As Statement Node
 pub struct ASTWithStmtNode {
   pub heads: Vec<WithStmtHead>,
-  pub body: ASTNodeIdx,
+  pub body: BlockNode,
 }
 
 /// The head of a With-As Statement
 pub struct WithStmtHead {
   pub expr: ASTNodeIdx,
-  pub id: ASTNodeIdx,
+  pub id: TokenIdx,
 }
 
 /// An AST Try-Catch-Finally Statement Node
 pub struct ASTTryCatchFinallyNode {
-  pub body: ASTNodeIdx, // This will always be a block stmt
+  pub body: BlockNode,
   pub catchers: Vec<CatchPart>,
-  pub finally: Option<ASTNodeIdx>, // This will always be a block stmt
+  pub finally: Option<BlockNode>,
 }
 
 /// The "catch" Part of a Try-Catch-Finally Statement.
 pub struct CatchPart {
-  pub body: ASTNodeIdx, // This will always be a block stmt,
   pub target: Option<CatchTarget>,
+  pub body: BlockNode,
 }
 
 /// The Target For the `catch` Part of a Try-Catch-Finally Statement.
 pub struct CatchTarget {
-  pub error_class: ASTNodeIdx,          // This will always be an identifier node
-  pub error_result: Option<ASTNodeIdx>, // This will always be an identifier node
+  pub error_class: TokenIdx,
+  pub error_result: Option<TokenIdx>,
 }
 
 /// An AST Import/Export Declaration Node
 pub struct ASTImportExportNode {
   pub members: Vec<ImportExportMember>,
-  pub wildcard: Option<ASTNodeIdx>, // This will always be an identifier node,
-  pub path: ASTNodeIdx,             // This will always be a string literal node,
+  pub wildcard: Option<TokenIdx>,
+  pub path: ASTNodeIdx, // This will always be a string literal node,
 }
 
 /// A single Import/Export Member.
 pub struct ImportExportMember {
-  pub member: ASTNodeIdx,        // This will always be an identifier node
-  pub alias: Option<ASTNodeIdx>, // This will always be an identifier node
+  pub member: TokenIdx,
+  pub alias: Option<TokenIdx>,
 }
 
+/// A Trat to Generalize Over Parameter Nodes
 pub trait SingleParamLike {
   fn get_kind(&self) -> &SingleParamKind;
 }
 
-// A Single Parameter (For Classes or Functions)
+/// A Single Parameter (For Classes or Functions)
 pub enum SingleParamKind {
   Required,
-  Named(ASTNodeIdx),
+  Named(ASTNodeIdx), // The default value
   Optional,
   Rest,
 }
@@ -621,17 +634,23 @@ pub enum SingleParamKind {
 pub struct ASTFuncDeclNode {
   pub decor: Vec<Decorator>,
   pub is_async: bool,
-  pub name: ASTNodeIdx,
+  pub name: TokenIdx,
   pub is_gen: bool,
   pub params: Vec<SingleParam>,
   pub min_arity: u8,
   pub max_arity: u8,
-  pub body: ASTNodeIdx, // This will always be a block stmt
+  pub body: BlockNode,
+}
+
+/// An AST Return Statement Node
+pub struct ASTReturnStmtNode {
+  pub token: TokenIdx,
+  pub val: ASTNodeIdx,
 }
 
 /// A Function Parameter
 pub struct SingleParam {
-  pub name: ASTNodeIdx,
+  pub name: TokenIdx,
   pub kind: SingleParamKind,
 }
 
@@ -649,13 +668,13 @@ pub struct Decorator(pub ASTNodeIdx);
 pub struct ASTClassDeclNode {
   pub decor: Vec<Decorator>,
   pub is_abstract: bool,
-  pub name: ASTNodeIdx,
+  pub name: TokenIdx,
   pub params: Vec<ClassParam>,
   pub min_arity: u8,
   pub max_arity: u8,
-  pub extends: Vec<ASTNodeIdx>, // This will always be a list of identifier nodes
-  pub impls: Vec<ASTNodeIdx>,   // This will always be a list of identifier nodes
-  pub init: Option<ASTNodeIdx>, // This will always be a block statement
+  pub extends: Vec<TokenIdx>,
+  pub impls: Vec<TokenIdx>,
+  pub init: Option<BlockNode>,
   pub members: Vec<ClassMember>,
 }
 
@@ -691,4 +710,126 @@ pub enum ClassMemberKind {
   Var(Vec<Decorator>, ASTNodeIdx),
   Const(Vec<Decorator>, ASTNodeIdx),
   Func(ASTNodeIdx),
+}
+
+pub trait ASTVisitor<'a> {
+  type Res;
+  type Data;
+
+  fn get_ast(&self) -> &'a ASTArena;
+
+  fn ast_visit_node(&mut self, node: ASTNodeIdx, data: Self::Data) -> Self::Res {
+    match self.get_ast().get(node) {
+      ASTNodeKind::Module(node) => self.ast_visit_module(node, data),
+      ASTNodeKind::ArrayLiteral(node) => self.ast_visit_array_literal(node, data),
+      ASTNodeKind::ArraySlice(node) => self.ast_visit_array_slice(node, data),
+      ASTNodeKind::BinaryExpr(node) => self.ast_visit_binary_expr(node, data),
+      ASTNodeKind::BlockStmt(node) => self.ast_visit_block_stmt(node, data),
+      ASTNodeKind::BreakStmt(node) => self.ast_visit_break_stmt(node, data),
+      ASTNodeKind::CallExpr(node) => self.ast_visit_call_expr(node, data),
+      ASTNodeKind::ClassDecl(node) => self.ast_visit_class_decl(node, data),
+      ASTNodeKind::CompactArrOrTpl(node) => self.ast_visit_compact_arr_or_tpl(node, data),
+      ASTNodeKind::CompactDict(node) => self.ast_visit_compact_dict(node, data),
+      ASTNodeKind::ContinueStmt(node) => self.ast_visit_continue_stmt(node, data),
+      ASTNodeKind::DelStmt(node) => self.ast_visit_del_stmt(node, data),
+      ASTNodeKind::DictKeyValPair(node) => self.ast_visit_dict_key_val_pair(node, data),
+      ASTNodeKind::DictLiteral(node) => self.ast_visit_dict_literal(node, data),
+      ASTNodeKind::EvaluatedDictKey(node) => self.ast_visit_evaluated_dict_key(node, data),
+      ASTNodeKind::ExportDecl(node) => self.ast_visit_export_decl(node, data),
+      ASTNodeKind::ExprStmt(node) => self.ast_visit_expr_stmt(node, data),
+      ASTNodeKind::FalseLiteral(node) => self.ast_visit_false_literal(node, data),
+      ASTNodeKind::ForLoop(node) => self.ast_visit_for_loop(node, data),
+      ASTNodeKind::FuncDecl(node) => self.ast_visit_func_decl(node, data),
+      ASTNodeKind::IdLiteral(node) => self.ast_visit_id_literal(node, data),
+      ASTNodeKind::IfStmt(node) => self.ast_visit_if_stmt(node, data),
+      ASTNodeKind::ImportDecl(node) => self.ast_visit_import_decl(node, data),
+      ASTNodeKind::Indexing(node) => self.ast_visit_indexing(node, data),
+      ASTNodeKind::Lambda(node) => self.ast_visit_lambda(node, data),
+      ASTNodeKind::LoopExpr(node) => self.ast_visit_loop_expr(node, data),
+      ASTNodeKind::MemberAccess(node) => self.ast_visit_member_access(node, data),
+      ASTNodeKind::NoneLiteral(node) => self.ast_visit_none_literal(node, data),
+      ASTNodeKind::NumLiteral(node) => self.ast_visit_num_literal(node, data),
+      ASTNodeKind::Reassignment(node) => self.ast_visit_reassignment(node, data),
+      ASTNodeKind::RepeatLiteral(node) => self.ast_visit_repeat_literal(node, data),
+      ASTNodeKind::ReturnStmt(node) => self.ast_visit_return_stmt(node, data),
+      ASTNodeKind::SelfLiteral(node) => self.ast_visit_self_literal(node, data),
+      ASTNodeKind::SpreadExpr(node) => self.ast_visit_spread_expr(node, data),
+      ASTNodeKind::StringInterpol(node) => self.ast_visit_string_interpol(node, data),
+      ASTNodeKind::StringLiteral(node) => self.ast_visit_string_literal(node, data),
+      ASTNodeKind::SuperLiteral(node) => self.ast_visit_super_literal(node, data),
+      ASTNodeKind::TernaryConditional(node) => self.ast_visit_ternary_conditional(node, data),
+      ASTNodeKind::ThrowStmt(node) => self.ast_visit_throw_stmt(node, data),
+      ASTNodeKind::TrueLiteral(node) => self.ast_visit_true_literal(node, data),
+      ASTNodeKind::TryCatchFinally(node) => self.ast_visit_try_catch_finally(node, data),
+      ASTNodeKind::TupleLiteral(node) => self.ast_visit_tuple_literal(node, data),
+      ASTNodeKind::UnaryExpr(node) => self.ast_visit_unary_expr(node, data),
+      ASTNodeKind::VarConstDecl(node) => self.ast_visit_var_const_decl(node, data),
+      ASTNodeKind::WhileLoop(node) => self.ast_visit_while_loop(node, data),
+      ASTNodeKind::WithStmt(node) => self.ast_visit_with_stmt(node, data),
+      ASTNodeKind::YieldStmt(node) => self.ast_visit_yield_stmt(node, data),
+    }
+  }
+
+  // Root node.
+  fn ast_visit_module(&mut self, node: &ASTModuleNode, data: Self::Data) -> Self::Res;
+
+  // >>>>>>>>>> General statements and declarations
+  fn ast_visit_block_stmt(&mut self, node: &BlockNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_del_stmt(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_export_decl(&mut self, node: &ASTImportExportNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_expr_stmt(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_if_stmt(&mut self, node: &ASTIfStmtNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_import_decl(&mut self, node: &ASTImportExportNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_throw_stmt(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_try_catch_finally(&mut self, node: &ASTTryCatchFinallyNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_var_const_decl(&mut self, node: &ASTVarConsDeclNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_with_stmt(&mut self, node: &ASTWithStmtNode, data: Self::Data) -> Self::Res;
+
+  // >>>>>>>>>> Loops and loop-related nodes
+  fn ast_visit_break_stmt(&mut self, node: &ASTBreakStmtNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_continue_stmt(&mut self, node: &TokenIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_for_loop(&mut self, node: &ASTForLoopNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_loop_expr(&mut self, node: &ASTLoopExprNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_while_loop(&mut self, node: &ASTWhileLoopNode, data: Self::Data) -> Self::Res;
+
+  // >>>>>>>>>> Classes, functions, and function-related nodes
+  fn ast_visit_class_decl(&mut self, node: &ASTClassIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_func_decl(&mut self, node: &ASTFuncDeclNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_lambda(&mut self, node: &ASTLambdaNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_return_stmt(&mut self, node: &ASTReturnStmtNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_yield_stmt(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res;
+
+  // >>>>>>>>>> General expressions
+  fn ast_visit_binary_expr(&mut self, node: &ASTBinaryExprNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_call_expr(&mut self, node: &ASTCallExprNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_member_access(&mut self, node: &ASTMemberAccessNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_reassignment(&mut self, node: &ASTReassignmentNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_spread_expr(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_string_interpol(&mut self, nodes: &[ASTNodeIdx], data: Self::Data) -> Self::Res;
+  fn ast_visit_ternary_conditional(&mut self, node: &ASTTernaryConditionalNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_unary_expr(&mut self, node: &ASTUnaryExprNode, data: Self::Data) -> Self::Res;
+
+  // >>>>>>>>>> Collection expressions
+  fn ast_visit_array_literal(&mut self, nodes: &[ASTNodeIdx], data: Self::Data) -> Self::Res;
+  fn ast_visit_array_slice(&mut self, node: &ASTArraySliceNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_compact_arr_or_tpl(&mut self, node: &ASTCompactArrOrTplNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_compact_dict(&mut self, node: &ASTCompactDictNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_dict_key_val_pair(&mut self, node: &(ASTNodeIdx, ASTNodeIdx), data: Self::Data) -> Self::Res;
+  fn ast_visit_dict_literal(&mut self, nodes: &[ASTNodeIdx], data: Self::Data) -> Self::Res;
+  fn ast_visit_evaluated_dict_key(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_indexing(&mut self, node: &ASTIndexingNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_repeat_literal(&mut self, node: &ASTRepeatLiteralNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_tuple_literal(&mut self, nodes: &[ASTNodeIdx], data: Self::Data) -> Self::Res;
+
+  // >>>>>>>>>> Identifier literal nodes
+  fn ast_visit_id_literal(&mut self, node: &TokenIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_self_literal(&mut self, node: &TokenIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_super_literal(&mut self, node: &TokenIdx, data: Self::Data) -> Self::Res;
+
+  // >>>>>>>>>> Value literal nodes
+  fn ast_visit_false_literal(&mut self, node: &TokenIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_none_literal(&mut self, node: &TokenIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_num_literal(&mut self, node: &TokenIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_string_literal(&mut self, node: &TokenIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_true_literal(&mut self, node: &TokenIdx, data: Self::Data) -> Self::Res;
 }

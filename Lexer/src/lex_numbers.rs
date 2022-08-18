@@ -2,7 +2,7 @@ use core::tokens::ErrorTokenKind::*;
 use core::tokens::Token;
 use core::tokens::TokenKind::*;
 
-use crate::Lexer;
+use crate::{char_is_ident_start, Lexer};
 
 /// The types of number we can expect to lex.
 enum ExNumType {
@@ -49,8 +49,15 @@ impl<'a> Lexer<'a> {
       if self.get_current() == '.' {
         // If the Lexer encounters double periods, then the current
         // expression is actually a Range, therefore, only consider
-        // the first part of the range operand as numeric literal.
+        // the first part of the range operand as a numeric literal.
         if self.get_next() == '.' {
+          break;
+        }
+
+        // If the Lexer encounters a possible identifier after a period, then
+        // the current expression is actually a member access, therefore, only
+        // consider the first part of the member access as a numeric literal.
+        if char_is_ident_start![self.get_next()] {
           break;
         }
 

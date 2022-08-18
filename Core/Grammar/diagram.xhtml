@@ -3982,7 +3982,7 @@
          <ul>
             <li><a href="#INDEXING_EXPR" title="INDEXING_EXPR">INDEXING_EXPR</a></li>
          </ul>
-      </p><br xmlns:xhtml="http://www.w3.org/1999/xhtml" /><p xmlns:xhtml="http://www.w3.org/1999/xhtml" style="font-size: 14px; font-weight:bold"><a name="SLICE">SLICE:</a></p><svg xmlns="http://www.w3.org/2000/svg" width="403" height="69">
+      </p><br xmlns:xhtml="http://www.w3.org/1999/xhtml" /><p xmlns:xhtml="http://www.w3.org/1999/xhtml" style="font-size: 14px; font-weight:bold"><a name="SLICE">SLICE:</a></p><svg xmlns="http://www.w3.org/2000/svg" width="647" height="101">
          <defs>
             <style type="text/css">
     @namespace "http://www.w3.org/2000/svg";
@@ -4021,11 +4021,16 @@
          <text class="terminal" x="199" y="21">:</text><a xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#EXPRESSION" xlink:title="EXPRESSION">
             <rect x="255" y="35" width="100" height="32"/>
             <rect x="253" y="33" width="100" height="32" class="nonterminal"/>
-            <text class="nonterminal" x="263" y="53">EXPRESSION</text></a><path xmlns:svg="http://www.w3.org/2000/svg" class="line" d="m17 17 h2 m20 0 h10 m0 0 h110 m-140 0 h20 m120 0 h20 m-160 0 q10 0 10 10 m140 0 q0 -10 10 -10 m-150 10 v12 m140 0 v-12 m-140 12 q0 10 10 10 m120 0 q10 0 10 -10 m-130 10 h10 m100 0 h10 m20 -32 h10 m24 0 h10 m20 0 h10 m0 0 h110 m-140 0 h20 m120 0 h20 m-160 0 q10 0 10 10 m140 0 q0 -10 10 -10 m-150 10 v12 m140 0 v-12 m-140 12 q0 10 10 10 m120 0 q10 0 10 -10 m-130 10 h10 m100 0 h10 m23 -32 h-3"/>
-         <polygon points="393 17 401 13 401 21"/>
-         <polygon points="393 17 385 13 385 21"/></svg><p xmlns:xhtml="http://www.w3.org/1999/xhtml">
+            <text class="nonterminal" x="263" y="53">EXPRESSION</text></a><rect x="415" y="35" width="24" height="32" rx="10"/>
+         <rect x="413" y="33" width="24" height="32" class="terminal" rx="10"/>
+         <text class="terminal" x="423" y="53">:</text><a xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#EXPRESSION" xlink:title="EXPRESSION">
+            <rect x="479" y="67" width="100" height="32"/>
+            <rect x="477" y="65" width="100" height="32" class="nonterminal"/>
+            <text class="nonterminal" x="487" y="85">EXPRESSION</text></a><path xmlns:svg="http://www.w3.org/2000/svg" class="line" d="m17 17 h2 m20 0 h10 m0 0 h110 m-140 0 h20 m120 0 h20 m-160 0 q10 0 10 10 m140 0 q0 -10 10 -10 m-150 10 v12 m140 0 v-12 m-140 12 q0 10 10 10 m120 0 q10 0 10 -10 m-130 10 h10 m100 0 h10 m20 -32 h10 m24 0 h10 m20 0 h10 m0 0 h110 m-140 0 h20 m120 0 h20 m-160 0 q10 0 10 10 m140 0 q0 -10 10 -10 m-150 10 v12 m140 0 v-12 m-140 12 q0 10 10 10 m120 0 q10 0 10 -10 m-130 10 h10 m100 0 h10 m40 -32 h10 m0 0 h194 m-224 0 h20 m204 0 h20 m-244 0 q10 0 10 10 m224 0 q0 -10 10 -10 m-234 10 v12 m224 0 v-12 m-224 12 q0 10 10 10 m204 0 q10 0 10 -10 m-214 10 h10 m24 0 h10 m20 0 h10 m0 0 h110 m-140 0 h20 m120 0 h20 m-160 0 q10 0 10 10 m140 0 q0 -10 10 -10 m-150 10 v12 m140 0 v-12 m-140 12 q0 10 10 10 m120 0 q10 0 10 -10 m-130 10 h10 m100 0 h10 m43 -64 h-3"/>
+         <polygon points="637 17 645 13 645 21"/>
+         <polygon points="637 17 629 13 629 21"/></svg><p xmlns:xhtml="http://www.w3.org/1999/xhtml">
          <div class="ebnf"><code>
-               <div><a href="#SLICE" title="SLICE">SLICE</a>    ::= <a href="#EXPRESSION" title="EXPRESSION">EXPRESSION</a>? ':' <a href="#EXPRESSION" title="EXPRESSION">EXPRESSION</a>?</div></code></div>
+               <div><a href="#SLICE" title="SLICE">SLICE</a>    ::= <a href="#EXPRESSION" title="EXPRESSION">EXPRESSION</a>? ':' <a href="#EXPRESSION" title="EXPRESSION">EXPRESSION</a>? ( ':' <a href="#EXPRESSION" title="EXPRESSION">EXPRESSION</a>? )?</div></code></div>
       </p>
       <p xmlns:xhtml="http://www.w3.org/1999/xhtml">referenced by:
          <ul>
@@ -4303,7 +4308,7 @@
          <ul>
             <li><a href="#PRIMARY_EXPR" title="PRIMARY_EXPR">PRIMARY_EXPR</a></li>
          </ul>
-      </p><br xmlns:xhtml="http://www.w3.org/1999/xhtml" /><p xmlns:xhtml="http://www.w3.org/1999/xhtml" style="font-size: 14px; font-weight:bold"><a name="LOOP_EXPR">LOOP_EXPR:</a></p><svg xmlns="http://www.w3.org/2000/svg" width="229" height="37">
+      </p><br xmlns:xhtml="http://www.w3.org/1999/xhtml" /><p xmlns:xhtml="http://www.w3.org/1999/xhtml" style="font-size: 14px; font-weight:bold"><a name="LOOP_EXPR">LOOP_EXPR:</a></p><svg xmlns="http://www.w3.org/2000/svg" width="435" height="69">
          <defs>
             <style type="text/css">
     @namespace "http://www.w3.org/2000/svg";
@@ -4337,15 +4342,21 @@
          <polygon points="17 17 9 13 9 21"/>
          <rect x="31" y="3" width="48" height="32" rx="10"/>
          <rect x="29" y="1" width="48" height="32" class="terminal" rx="10"/>
-         <text class="terminal" x="39" y="21">loop</text><a xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#BLOCK_STMT" xlink:title="BLOCK_STMT">
-            <rect x="99" y="3" width="102" height="32"/>
-            <rect x="97" y="1" width="102" height="32" class="nonterminal"/>
-            <text class="nonterminal" x="107" y="21">BLOCK_STMT</text></a><path xmlns:svg="http://www.w3.org/2000/svg" class="line" d="m17 17 h2 m0 0 h10 m48 0 h10 m0 0 h10 m102 0 h10 m3 0 h-3"/>
-         <polygon points="219 17 227 13 227 21"/>
-         <polygon points="219 17 211 13 211 21"/></svg><p xmlns:xhtml="http://www.w3.org/1999/xhtml">
+         <text class="terminal" x="39" y="21">loop</text>
+         <rect x="119" y="35" width="34" height="32" rx="10"/>
+         <rect x="117" y="33" width="34" height="32" class="terminal" rx="10"/>
+         <text class="terminal" x="127" y="53">as</text><a xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#IDENTIFIER" xlink:title="IDENTIFIER">
+            <rect x="173" y="35" width="92" height="32"/>
+            <rect x="171" y="33" width="92" height="32" class="nonterminal"/>
+            <text class="nonterminal" x="181" y="53">IDENTIFIER</text></a><a xmlns:xlink="http://www.w3.org/1999/xlink" xlink:href="#BLOCK_STMT" xlink:title="BLOCK_STMT">
+            <rect x="305" y="3" width="102" height="32"/>
+            <rect x="303" y="1" width="102" height="32" class="nonterminal"/>
+            <text class="nonterminal" x="313" y="21">BLOCK_STMT</text></a><path xmlns:svg="http://www.w3.org/2000/svg" class="line" d="m17 17 h2 m0 0 h10 m48 0 h10 m20 0 h10 m0 0 h156 m-186 0 h20 m166 0 h20 m-206 0 q10 0 10 10 m186 0 q0 -10 10 -10 m-196 10 v12 m186 0 v-12 m-186 12 q0 10 10 10 m166 0 q10 0 10 -10 m-176 10 h10 m34 0 h10 m0 0 h10 m92 0 h10 m20 -32 h10 m102 0 h10 m3 0 h-3"/>
+         <polygon points="425 17 433 13 433 21"/>
+         <polygon points="425 17 417 13 417 21"/></svg><p xmlns:xhtml="http://www.w3.org/1999/xhtml">
          <div class="ebnf"><code>
                <div><a href="#LOOP_EXPR" title="LOOP_EXPR">LOOP_EXPR</a></div>
-               <div>         ::= 'loop' <a href="#BLOCK_STMT" title="BLOCK_STMT">BLOCK_STMT</a></div></code></div>
+               <div>         ::= 'loop' ( 'as' <a href="#IDENTIFIER" title="IDENTIFIER">IDENTIFIER</a> )? <a href="#BLOCK_STMT" title="BLOCK_STMT">BLOCK_STMT</a></div></code></div>
       </p>
       <p xmlns:xhtml="http://www.w3.org/1999/xhtml">referenced by:
          <ul>
@@ -4536,6 +4547,7 @@
             <li><a href="#IMPORT_EXPORT_DECL" title="IMPORT_EXPORT_DECL">IMPORT_EXPORT_DECL</a></li>
             <li><a href="#KEY_VAL_PAR" title="KEY_VAL_PAR">KEY_VAL_PAR</a></li>
             <li><a href="#LITERAL_EXPR" title="LITERAL_EXPR">LITERAL_EXPR</a></li>
+            <li><a href="#LOOP_EXPR" title="LOOP_EXPR">LOOP_EXPR</a></li>
             <li><a href="#MEMBER_ACCESS_EXPR" title="MEMBER_ACCESS_EXPR">MEMBER_ACCESS_EXPR</a></li>
             <li><a href="#NAMED_ARGS" title="NAMED_ARGS">NAMED_ARGS</a></li>
             <li><a href="#NAMED_CATCH" title="NAMED_CATCH">NAMED_CATCH</a></li>
@@ -6303,9 +6315,9 @@
             <tr>
                <td style="width: 100%"> </td>
                <td valign="top">
-                  <nobr class="signature">... generated by <a name="Railroad-Diagram-Generator" class="signature" title="https://bottlecaps.de/rr/ui#nonterminal" href="https://bottlecaps.de/rr/ui#nonterminal" target="_blank">RR - Railroad Diagram Generator</a></nobr>
+                  <nobr class="signature">... generated by <a name="Railroad-Diagram-Generator" class="signature" title="https://bottlecaps.de/rr/ui" href="https://bottlecaps.de/rr/ui" target="_blank">RR - Railroad Diagram Generator</a></nobr>
                </td>
-               <td><a name="Railroad-Diagram-Generator" title="https://bottlecaps.de/rr/ui#nonterminal" href="https://bottlecaps.de/rr/ui#nonterminal" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
+               <td><a name="Railroad-Diagram-Generator" title="https://bottlecaps.de/rr/ui" href="https://bottlecaps.de/rr/ui" target="_blank"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16">
                         <g transform="scale(0.178)">
                            <circle cx="45" cy="45" r="45" style="stroke:none; fill:#FFCC00"/>
                            <circle cx="45" cy="45" r="42" style="stroke:#332900; stroke-width:2px; fill:#FFCC00"/>

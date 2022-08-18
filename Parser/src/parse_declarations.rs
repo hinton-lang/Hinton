@@ -14,10 +14,10 @@ impl<'a> Parser<'a> {
     let decl_name = if is_const { "const" } else { "let" };
 
     let id = if match_tok![self, L_PAREN] {
-      self.parse_destructing_pattern(&format!("'{}' declaration", decl_name))?
+      CompoundIdDecl::Destruct(self.parse_destructing_pattern(&format!("'{}' declaration", decl_name))?)
     } else {
       let err_msg = &format!("Expected identifier for '{}' declaration.", decl_name);
-      consume_id![self, err_msg]?
+      CompoundIdDecl::Single(consume_id![self, err_msg])
     };
 
     self.consume(&EQUALS, &format!("Expected '=' for '{}' declaration.", decl_name))?;
@@ -36,7 +36,7 @@ impl<'a> Parser<'a> {
   ///                  |   "(" IDENTIFIER_LIST "," "..." IDENTIFIER? "," IDENTIFIER_LIST ")" // middle wildcard
   ///                  |   "(" "..." IDENTIFIER? "," IDENTIFIER_LIST ")" // head wildcard
   /// ```
-  pub(super) fn parse_destructing_pattern(&mut self, msg: &str) -> NodeResult<ASTNodeIdx> {
+  pub(super) fn parse_destructing_pattern(&mut self, msg: &str) -> NodeResult<Vec<DestructPatternMember>> {
     let mut patterns = vec![];
     let mut has_rest = false;
 
@@ -48,17 +48,15 @@ impl<'a> Parser<'a> {
         TRIPLE_DOT if self.advance() => {
           has_rest = true;
 
-          let node = if match_tok![self, IDENTIFIER] {
-            Some(ASTNodeIdx::from(self.current_pos - 1))
+          if match_tok![self, IDENTIFIER] {
+            DestructPatternMember::NamedWildcard(self.current_pos - 1)
           } else {
-            None
-          };
-
-          self.emit(DestructingWildCard(node))?
+            DestructPatternMember::EmptyWildcard
+          }
         }
         _ => {
           let err_msg = &format!("Expected identifier for destructing pattern in {}.", msg);
-          consume_id![self, err_msg]?
+          DestructPatternMember::Id(consume_id![self, err_msg])
         }
       };
 
@@ -74,7 +72,7 @@ impl<'a> Parser<'a> {
     }
 
     self.consume(&R_PAREN, "Expected ')' after destructing pattern.")?;
-    self.emit(DestructingPattern(ASTDestructingPatternNode { patterns }))
+    Ok(patterns)
   }
 
   /// Parses a function declaration statement.
@@ -88,13 +86,13 @@ impl<'a> Parser<'a> {
     }
 
     let is_gen = match_tok![self, STAR];
-    let name = consume_id![self, "Expected identifier for function name."]?;
+    let name = consume_id![self, "Expected identifier for function name."];
 
     self.consume(&L_PAREN, "Expected '(' after function name.")?;
     let (min_arity, max_arity, params) = self.parse_func_params(false)?;
     self.consume(&R_PAREN, "Expected ')' after function parameter list.")?;
 
-    self.consume(&L_CURLY, "Expected '{' for the function body.")?;
+    self.consume(&L_CURLY, "Expected block as function body.")?;
     let body = self.parse_block_stmt()?;
 
     self.emit(FuncDecl(ASTFuncDeclNode {
@@ -155,7 +153,7 @@ impl<'a> Parser<'a> {
     P: SingleParamLike,
   {
     let is_spread = match_tok![self, TRIPLE_DOT];
-    let name = consume_id![self, "Expected a parameter name."]?;
+    let name = consume_id![self, "Expected a parameter name."];
 
     let param = if is_spread {
       let kind = SingleParamKind::Rest;
