@@ -2,7 +2,7 @@ use std::rc::Rc;
 
 use hashbrown::HashMap;
 
-use core::errors::RuntimeErrorType;
+use core::errors::RuntimeErrMsg;
 use core::RuntimeResult;
 
 use crate::built_in::primitives::HTPrimitive;
@@ -52,14 +52,11 @@ macro_rules! verify_array_object {
     match $maybe_array {
       Object::Array(a) => a,
       _ => {
-        return RuntimeResult::Error {
-          error: RuntimeErrorType::TypeError,
-          message: format!(
-            "Property 'Array.{}' requires that 'self' be an Array. Found '{}' instead.",
-            $prop_name,
-            $maybe_array.type_name()
-          ),
-        }
+        return RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+          "Property 'Array.{}' requires that 'self' be an Array. Found '{}' instead.",
+          $prop_name,
+          $maybe_array.type_name()
+        )))
       }
     }
   };
@@ -106,10 +103,9 @@ fn push(vm: &mut VM, this: Object, args: Vec<Object>) -> RuntimeResult {
 fn pop(vm: &mut VM, this: Object, _: Vec<Object>) -> RuntimeResult {
   match verify_array_object!(this, "pop").borrow_mut().pop() {
     Some(o) => vm.push_stack(o),
-    None => RuntimeResult::Error {
-      error: RuntimeErrorType::IndexError,
-      message: "Attempted to pop from an empty array.".to_string(),
-    },
+    None => RuntimeResult::Error(RuntimeErrMsg::Index(
+      "Attempted to pop from an empty array.".to_string(),
+    )),
   }
 }
 

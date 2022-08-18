@@ -2,12 +2,12 @@ use std::cell::RefCell;
 use std::path::PathBuf;
 use std::rc::Rc;
 
-use analyzers::symbols::SymbolTableArena;
 use hashbrown::HashMap;
 
-use core::errors::{report_errors_list, ErrorReport, RuntimeErrorType};
+use analyzers::symbols::SymbolTableArena;
+use core::errors::{report_errors_list, ErrorReport, RuntimeErrMsg};
 use core::tokens::TokenList;
-use core::{ast::ASTArena, InterpretResult, RuntimeResult};
+use core::{InterpretResult, RuntimeResult};
 use lexer::Lexer;
 use parser::Parser;
 
@@ -15,7 +15,6 @@ use crate::built_in::BuiltIn;
 use crate::compiler::Compiler;
 use crate::core::bytecode::OpCode;
 use crate::core::legacy_ast;
-use crate::errors::report_runtime_error;
 use crate::objects::class_obj::{BoundMethod, InstanceObject};
 use crate::objects::{ClosureObject, FuncObject, Object, UpValRef};
 use crate::virtual_machine::call_frame::{CallFrame, CallFrameType};
@@ -27,8 +26,6 @@ mod run;
 
 /// Represents a virtual machine.
 pub struct VM {
-  /// The path to the source file.
-  filepath: PathBuf,
   /// A list of call frames (the VM's call frames stack).
   frames: Vec<CallFrame>,
   /// A list of temporary objects (the VM's values stack).
@@ -47,26 +44,33 @@ impl VM {
   ///
   /// # Returns
   /// - `InterpretResult`: The result of the source interpretation.
-  pub fn interpret(filepath: PathBuf, source: &[char]) -> InterpretResult {
+  pub fn interpret(filepath: &PathBuf, source: &[char]) -> InterpretResult {
     // Creates a new virtual machine
     let interpreter = VM {
       stack: Vec::with_capacity(256),
       frames: Vec::with_capacity(256),
-      filepath,
       globals: Default::default(),
       up_values: vec![],
       built_in: BuiltIn::default(),
     };
 
-    #[cfg(not(feature = "PLV"))]
-    let bytecode = interpreter.compile_source(source);
+    // Convert the source file into a flat list of tokens
     #[cfg(feature = "PLV")]
-    let bytecode = interpreter.compile_source_with_plv(source);
+    let ls = plv::get_time_millis();
+    let lexer = Lexer::lex(source);
+    #[cfg(feature = "PLV")]
+    let le = plv::get_time_millis();
+    let tokens_list = TokenList::new(filepath, source, &lexer);
+
+    #[cfg(not(feature = "PLV"))]
+    let bytecode = interpreter.compile_source(&tokens_list);
+    #[cfg(feature = "PLV")]
+    let bytecode = interpreter.compile_source_with_plv(ls, le, &tokens_list);
 
     match bytecode {
       Ok(x) => x,
-      Err(e) => {
-        report_errors_list(&interpreter.filepath, e, source);
+      Err(err) => {
+        report_errors_list(&tokens_list, err);
         return InterpretResult::CompileError;
       }
     };
@@ -105,15 +109,12 @@ impl VM {
   /// # Returns:
   /// ```Result<FuncObject, Vec<ErrorReport, Global>>```
   #[cfg(not(feature = "PLV"))]
-  fn compile_source(&self, source: &[char]) -> Result<FuncObject, Vec<ErrorReport>> {
-    let lexer = Lexer::lex(source);
-    let tokens_list = TokenList::new(source, &lexer);
+  fn compile_source(&self, tokens_list: &TokenList) -> Result<FuncObject, Vec<ErrorReport>> {
     let ast = Parser::parse(&tokens_list)?;
     SymbolTableArena::tables_from(&tokens_list, &ast)?;
 
     // TODO: Transition the compiler to new source
     Compiler::compile_ast(
-      &self.filepath,
       &legacy_ast::ASTNode::Module(legacy_ast::ModuleNode {
         body: vec![].into_boxed_slice(),
       }),
@@ -133,34 +134,27 @@ impl VM {
   /// # Returns:
   /// ```Result<FuncObject, Vec<ErrorReport, Global>>```
   #[cfg(feature = "PLV")]
-  fn compile_source_with_plv(&self, source: &[char]) -> Result<FuncObject, Vec<ErrorReport>> {
-    // Convert the source file into a flat list of tokens
-    let l_start = plv::get_time_millis();
-    let lexer = Lexer::lex(source);
-    let l_end = plv::get_time_millis();
-    let tokens_list = TokenList::new(source, &lexer);
-
+  fn compile_source_with_plv(&self, ls: u64, le: u64, tokens_list: &TokenList) -> Result<FuncObject, Vec<ErrorReport>> {
     // Parses the program into an AST and aborts if there are any parsing errors.
-    let p_start = plv::get_time_millis();
+    let ps = plv::get_time_millis();
     let ast = Parser::parse(&tokens_list)?;
-    let p_end = plv::get_time_millis();
+    let pe = plv::get_time_millis();
 
     // Generates a collection of symbol tables from the parsed AST.
     SymbolTableArena::tables_from(&tokens_list, &ast)?;
 
     // Compiles the program into bytecode and aborts if there are any compiling errors.
-    let c_start = plv::get_time_millis();
+    let cs = plv::get_time_millis();
     // TODO: Transition the compiler to new source
     Compiler::compile_ast(
-      &self.filepath,
       &legacy_ast::ASTNode::Module(legacy_ast::ModuleNode {
         body: vec![].into_boxed_slice(),
       }),
       &self.built_in,
     )?;
-    let c_end = plv::get_time_millis();
+    let ce = plv::get_time_millis();
 
-    let timers = (l_start, l_end, p_start, p_end, c_start, c_end);
+    let timers = (ls, le, ps, pe, cs, ce);
     plv::export(&tokens_list, &ast, &[], timers);
     Ok(FuncObject::default())
   }
@@ -263,10 +257,10 @@ impl VM {
       Object::BoundMethod(obj) => self.call_bound_method(obj, arg_count),
       Object::Native(obj) => BuiltIn::call_native_fn(self, *obj, arg_count),
       Object::BoundNativeMethod(obj) => BuiltIn::call_bound_method(self, obj, arg_count),
-      _ => RuntimeResult::Error {
-        error: RuntimeErrorType::TypeError,
-        message: format!("Cannot call object of type '{}'.", callee.type_name()),
-      },
+      _ => RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+        "Cannot call object of type '{}'.",
+        callee.type_name()
+      ))),
     };
   }
 
@@ -349,10 +343,8 @@ impl VM {
 
     // Check we are not overflowing the stack of frames
     if self.frames.len() >= (FRAMES_MAX as usize) {
-      return Err(RuntimeResult::Error {
-        error: RuntimeErrorType::RecursionError,
-        message: String::from("Maximum recursion depth exceeded."),
-      });
+      let err_mg = RuntimeErrMsg::Recursion("Maximum recursion depth exceeded.".to_string());
+      return Err(RuntimeResult::Error(err_mg));
     }
 
     Ok(())
@@ -366,10 +358,7 @@ impl VM {
         format!("Expected {} to {} arguments but got {} instead.", min, max, count)
       };
 
-      return Err(RuntimeResult::Error {
-        error: RuntimeErrorType::ArgumentError,
-        message: msg,
-      });
+      return Err(RuntimeResult::Error(RuntimeErrMsg::Argument(msg)));
     }
 
     Ok(())
@@ -394,10 +383,8 @@ impl VM {
     let class = match callee {
       Object::Class(c) => c,
       _ => {
-        return RuntimeResult::Error {
-          error: RuntimeErrorType::InstanceError,
-          message: format!("Cannot instantiate an object of type '{}'.", callee.type_name()),
-        }
+        let err_msg = format!("Cannot instantiate an object of type '{}'.", callee.type_name());
+        return RuntimeResult::Error(RuntimeErrMsg::Instance(err_msg));
       }
     };
 
@@ -408,10 +395,8 @@ impl VM {
 
     // Return an error if the class cannot be constructed.
     if !instance.is_internal_access(&self) && !class.borrow().is_constructable {
-      return RuntimeResult::Error {
-        error: RuntimeErrorType::InstanceError,
-        message: format!("Class '{}' cannot be initialized.", class.borrow().name),
-      };
+      let err_msg = RuntimeErrMsg::Instance(format!("Class '{}' cannot be initialized.", class.borrow().name));
+      return RuntimeResult::Error(err_msg);
     }
 
     let class_pos = self.stack.len() - (arg_count as usize) - 1;

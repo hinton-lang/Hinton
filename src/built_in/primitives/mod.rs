@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use hashbrown::HashMap;
 
-use core::errors::RuntimeErrorType;
+use core::errors::RuntimeErrMsg;
 use core::RuntimeResult;
 
 use crate::built_in::primitives::array::ArrayClass;
@@ -64,10 +64,10 @@ impl Primitives {
   pub fn get_class_object(&self, name: &str) -> Result<Rc<RefCell<ClassObject>>, RuntimeResult> {
     match self.0.get(name) {
       Some(f) => Ok(f.clone()),
-      None => Err(RuntimeResult::Error {
-        error: RuntimeErrorType::ReferenceError,
-        message: format!("No primitive class named '{}'.", name),
-      }),
+      None => Err(RuntimeResult::Error(RuntimeErrMsg::Key(format!(
+        "No primitive class named '{}'.",
+        name
+      )))),
     }
   }
 

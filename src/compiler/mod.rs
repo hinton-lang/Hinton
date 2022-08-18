@@ -1,7 +1,7 @@
 use std::convert::TryFrom;
 use std::path::Path;
 
-use core::errors::{CompilerErrorType, ErrorReport};
+use core::errors::{ErrMsg, ErrorReport};
 
 use crate::built_in::BuiltIn;
 use crate::compiler::symbols::{Symbol, SymbolTable, SymbolType};
@@ -130,11 +130,11 @@ impl Compiler {
   /// `Result<chunk, InterpretResult>`: If the program had no compile-time errors, returns
   /// the main chunk for this module. Otherwise, returns an
   /// InterpretResult::INTERPRET_COMPILE_ERROR.
-  pub fn compile_ast(filepath: &Path, program: &ASTNode, built_in: &BuiltIn) -> Result<FuncObject, Vec<ErrorReport>> {
+  pub fn compile_ast(program: &ASTNode, built_in: &BuiltIn) -> Result<FuncObject, Vec<ErrorReport>> {
     // The first element in a symbol table is always the symbol representing
     // the function to which the symbol table belongs.
     let symbols = SymbolTable::new(vec![Symbol {
-      name: format!("<File '{}'>", filepath.to_str().unwrap()),
+      name: format!("<File '{}'>", ""),
       s_type: SymbolType::Func,
       is_initialized: true,
       depth: 0,
@@ -149,7 +149,7 @@ impl Compiler {
         min_arity: 0,
         max_arity: 0,
         chunk: Chunk::new(),
-        name: format!("<File '{}'>", filepath.to_str().unwrap()),
+        name: format!("<File '{}'>", ""),
         up_val_count: 0,
       },
       s_table: symbols,
@@ -404,7 +404,7 @@ impl Compiler {
         self.current_chunk_mut().modify_byte(offset, jump[0]);
         self.current_chunk_mut().modify_byte(offset + 1, jump[1]);
       }
-      Err(_) => self.error_at_token(token, CompilerErrorType::MaxCapacity, "Too much code to jump over."),
+      Err(_) => self.error_at_token(token, ErrMsg::MaxCapacity("Too much code to jump over.".to_string())),
     }
   }
 
@@ -430,7 +430,7 @@ impl Compiler {
       let jump = (offset + 3) as u16;
       self.emit_raw_short(jump, line_info);
     } else {
-      self.error_at_token(token, CompilerErrorType::MaxCapacity, "Loop body too large.")
+      self.error_at_token(token, ErrMsg::MaxCapacity("Loop body too large.".to_string()))
     }
   }
 
@@ -462,12 +462,8 @@ impl Compiler {
         Some(idx)
       }
       Err(_) => {
-        self.error_at_token(
-          token,
-          CompilerErrorType::MaxCapacity,
-          "Too many constants in one chunk.",
-        );
-
+        let err_msg = ErrMsg::MaxCapacity("Too many constants in one chunk.".to_string());
+        self.error_at_token(token, err_msg);
         None
       }
     }
@@ -479,26 +475,7 @@ impl Compiler {
   /// - `token`: The token that caused the error.
   /// - `err_type`: The type of error to be emitted.
   /// - `message`: The error message to display.
-  fn error_at_token(&mut self, token: &Token, err_type: CompilerErrorType, message: &str) {
-    let err_name = match err_type {
-      CompilerErrorType::MaxCapacity => "MaxCapacityError",
-      CompilerErrorType::Reassignment => "ReassignmentError",
-      CompilerErrorType::Reference => "ReferenceError",
-      CompilerErrorType::Syntax => "SyntaxError",
-      CompilerErrorType::Duplication => "DuplicationError",
-    };
-
-    let msg = format!(
-      "\x1b[31;1m{}\x1b[0m\x1b[1m at [{}:{}]: {}\x1b[0m",
-      err_name, token.line_num, token.column_start, message
-    );
-
-    self.errors.push(ErrorReport {
-      line_num: token.line_num,
-      // TODO: Should be the line start, not column start.
-      line_start: token.column_start,
-      span: (token.column_start, token.column_end),
-      message: msg,
-    });
+  fn error_at_token(&mut self, token: &Token, err_msg: ErrMsg) {
+    self.errors.push(ErrorReport { token: 0, err_msg, hint: None });
   }
 }

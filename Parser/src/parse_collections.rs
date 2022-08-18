@@ -16,7 +16,7 @@ impl<'a> Parser<'a> {
     // know we have an array comprehension so we can go ahead and parse it.
     if match_tok![self, FOR_KW] {
       let expr = self.parse_compact_arr_or_tpl(false)?;
-      self.consume(&R_BRACKET, "Expected matching ']' for array literal.")?;
+      self.consume(&R_BRACKET, "Expected matching ']' for array literal.", None)?;
       return Ok(expr);
     }
 
@@ -42,7 +42,7 @@ impl<'a> Parser<'a> {
 
       // Parse the rest of the array's body
       values.append(&mut self.parse_array_or_tuple_list(false)?);
-      self.consume(&R_BRACKET, "Expected matching ']' for array literal.")?;
+      self.consume(&R_BRACKET, "Expected matching ']' for array literal.", None)?;
     }
 
     self.emit(ArrayLiteral(values))
@@ -59,7 +59,7 @@ impl<'a> Parser<'a> {
     // know we have a tuple comprehension so we can go ahead and parse it.
     if match_tok![self, FOR_KW] {
       let expr = self.parse_compact_arr_or_tpl(false)?;
-      self.consume(&R_PAREN, "Expected matching ')' for tuple literal.")?;
+      self.consume(&R_PAREN, "Expected matching ')' for tuple literal.", None)?;
       return Ok(expr);
     }
 
@@ -84,7 +84,7 @@ impl<'a> Parser<'a> {
           // If we do not find a comma after the first expression,
           // then we are safe to assume this is a grouping expression.
           if !check_tok![self, COMMA] {
-            self.consume(&R_PAREN, "Expected matching ')' for grouped expression.")?;
+            self.consume(&R_PAREN, "Expected matching ')' for grouped expression.", None)?;
             return Ok(value);
           }
 
@@ -94,7 +94,7 @@ impl<'a> Parser<'a> {
 
       // Parse the rest of the tuple's body
       values.append(&mut self.parse_array_or_tuple_list(true)?);
-      self.consume(&R_PAREN, "Expected matching ')' for tuple literal.")?;
+      self.consume(&R_PAREN, "Expected matching ')' for tuple literal.", None)?;
     }
 
     self.emit(TupleLiteral(values))
@@ -119,10 +119,10 @@ impl<'a> Parser<'a> {
     let count = self.parse_expr()?;
 
     let kind = if is_tup {
-      self.consume(&R_PAREN, "Expected matching ')' for repeated tuple literal.")?;
+      self.consume(&R_PAREN, "Expected matching ')' for repeated tuple literal.", None)?;
       RepeatLiteralKind::Tuple
     } else {
-      self.consume(&R_BRACKET, "Expected matching ']' for repeated array literal.")?;
+      self.consume(&R_BRACKET, "Expected matching ']' for repeated array literal.", None)?;
       RepeatLiteralKind::Array
     };
 
@@ -182,15 +182,15 @@ impl<'a> Parser<'a> {
   /// COMPACT_FOR_LOOP ::= "for" "(" FOR_LOOP_HEAD ")" ("if" "(" EXPRESSION ")")?
   /// ```
   pub(super) fn parse_compact_for_loop(&mut self) -> NodeResult<CompactForLoop> {
-    self.consume(&L_PAREN, "Expected '(' after 'for' keyword in compact for-loop.")?;
+    self.consume(&L_PAREN, "Expected '(' after 'for' keyword in compact for-loop.", None)?;
     let head = self.parse_for_loop_head()?;
-    self.consume(&R_PAREN, "Expected ')' after loop head in compact for-loop.")?;
+    self.consume(&R_PAREN, "Expected ')' after loop head in compact for-loop.", None)?;
 
     let mut cond = None;
     if match_tok![self, IF_KW] {
-      self.consume(&L_PAREN, "Expected '(' after 'if' keyword in compact for-loop.")?;
+      self.consume(&L_PAREN, "Expected '(' after 'if' keyword in compact for-loop.", None)?;
       cond = Some(self.parse_expr()?);
-      self.consume(&R_PAREN, "Expected ')' after 'if' head in compact for-loop.")?;
+      self.consume(&R_PAREN, "Expected ')' after 'if' head in compact for-loop.", None)?;
     }
 
     Ok(CompactForLoop { head, cond })
@@ -208,7 +208,7 @@ impl<'a> Parser<'a> {
     // know we have a dict comprehension so we can go ahead and parse it.
     if match_tok![self, FOR_KW] {
       let expr = self.parse_compact_dict()?;
-      self.consume(&R_CURLY, "Expected matching '}' for dict literal.")?;
+      self.consume(&R_CURLY, "Expected matching '}' for dict literal.", None)?;
       return Ok(expr);
     }
 
@@ -226,7 +226,7 @@ impl<'a> Parser<'a> {
         }
       }
 
-      self.consume(&R_CURLY, "Expected matching '}' for dict literal.")?;
+      self.consume(&R_CURLY, "Expected matching '}' for dict literal.", None)?;
     }
 
     self.emit(DictLiteral(key_val_pairs))
@@ -277,16 +277,16 @@ impl<'a> Parser<'a> {
         INT_LIT | HEX_LIT | OCTAL_LIT | BINARY_LIT if self.advance() => NumLiteral(self.current_pos),
         L_BRACKET if self.advance() => {
           let expr = self.parse_expr()?;
-          self.consume(&R_BRACKET, "Expected ']' for evaluated dict key name.")?;
+          self.consume(&R_BRACKET, "Expected ']' for evaluated dict key name.", None)?;
           EvaluatedDictKey(expr)
         }
-        _ => return Err(self.error_at_current_tok("Invalid key for dict literal.")),
+        _ => return Err(self.error_at_current_tok("Invalid key for dict literal.", None)),
       };
 
       self.ast.push(literal_or_ident)
     };
 
-    self.consume(&COLON, "Expected ':' in dict key-value pair.")?;
+    self.consume(&COLON, "Expected ':' in dict key-value pair.", None)?;
     let val = self.parse_expr()?;
     self.emit(DictKeyValPair((ky, val)))
   }

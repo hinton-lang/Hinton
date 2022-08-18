@@ -1,6 +1,6 @@
 use hashbrown::HashMap;
 
-use core::errors::RuntimeErrorType;
+use core::errors::RuntimeErrMsg;
 use core::RuntimeResult;
 
 use crate::built_in::primitives::HTPrimitive;
@@ -49,14 +49,11 @@ macro_rules! verify_string_object {
     match $maybe_string {
       Object::String(a) => a,
       _ => {
-        return RuntimeResult::Error {
-          error: RuntimeErrorType::TypeError,
-          message: format!(
-            "Property 'String.{}' requires that 'self' be a String. Found '{}' instead.",
-            $prop_name,
-            $maybe_string.type_name()
-          ),
-        }
+        return RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+          "Property 'String.{}' requires that 'self' be a String. Found '{}' instead.",
+          $prop_name,
+          $maybe_string.type_name()
+        )))
       }
     }
   };
@@ -100,13 +97,10 @@ fn to_lower(vm: &mut VM, this: Object, _: Vec<Object>) -> RuntimeResult {
 fn ends_with(vm: &mut VM, this: Object, args: Vec<Object>) -> RuntimeResult {
   match args[0].clone() {
     Object::String(s) => vm.push_stack(Object::Bool(verify_string_object!(this, "ends_with").ends_with(&s))),
-    other => RuntimeResult::Error {
-      error: RuntimeErrorType::TypeError,
-      message: format!(
-        "Expected argument of type 'String'. Got '{}' instead.",
-        other.type_name()
-      ),
-    },
+    other => RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+      "Expected argument of type 'String'. Got '{}' instead.",
+      other.type_name()
+    ))),
   }
 }
 
@@ -122,12 +116,9 @@ fn ends_with(vm: &mut VM, this: Object, args: Vec<Object>) -> RuntimeResult {
 fn starts_with(vm: &mut VM, this: Object, args: Vec<Object>) -> RuntimeResult {
   match args[0].clone() {
     Object::String(s) => vm.push_stack(Object::Bool(verify_string_object!(this, "ends_with").starts_with(&s))),
-    other => RuntimeResult::Error {
-      error: RuntimeErrorType::TypeError,
-      message: format!(
-        "Expected argument of type 'String'. Got '{}' instead.",
-        other.type_name()
-      ),
-    },
+    other => RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+      "Expected argument of type 'String'. Got '{}' instead.",
+      other.type_name()
+    ))),
   }
 }

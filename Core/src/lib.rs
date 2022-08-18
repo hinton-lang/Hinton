@@ -1,4 +1,4 @@
-use crate::errors::RuntimeErrorType;
+use crate::errors::RuntimeErrMsg;
 
 pub mod ast;
 pub mod errors;
@@ -15,7 +15,7 @@ pub enum InterpretResult {
 
 /// Represents the internal state of the interpreter after some computation.
 pub enum RuntimeResult {
-  Error { error: RuntimeErrorType, message: String },
+  Error(RuntimeErrMsg),
   EndOK,
   Continue,
 }

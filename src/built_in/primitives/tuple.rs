@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use hashbrown::HashMap;
 
-use core::errors::RuntimeErrorType;
+use core::errors::RuntimeErrMsg;
 use core::RuntimeResult;
 
 use crate::built_in::primitives::HTPrimitive;
@@ -51,14 +51,11 @@ macro_rules! verify_tuple_object {
     match $maybe_tuple {
       Object::Tuple(a) => a,
       _ => {
-        return RuntimeResult::Error {
-          error: RuntimeErrorType::TypeError,
-          message: format!(
-            "Property 'Tuple.{}' requires that 'self' be a Tuple. Found '{}' instead.",
-            $prop_name,
-            $maybe_tuple.type_name()
-          ),
-        }
+        return RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+          "Property 'Tuple.{}' requires that 'self' be a Tuple. Found '{}' instead.",
+          $prop_name,
+          $maybe_tuple.type_name()
+        )));
       }
     }
   };

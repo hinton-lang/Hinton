@@ -40,11 +40,6 @@ impl<'a> Lexer<'a> {
   /// An initialized instance of the Lexer.
   /// # Parameters
   /// - `src` - the source file
-  ///
-  /// ## Example
-  /// ```
-  /// let mut l = Lexer::lex("let x = 22;");
-  /// ```
   pub fn lex(source: &[char]) -> Vec<Token> {
     // Instantiate a new Lexer
     let mut the_lexer = Lexer {

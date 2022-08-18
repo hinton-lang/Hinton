@@ -1,4 +1,4 @@
-use core::errors::CompilerErrorType;
+use core::errors::ErrMsg;
 
 use crate::compiler::symbols::{Symbol, SymbolType, SL};
 use crate::compiler::{Compiler, UpValue};
@@ -39,8 +39,7 @@ impl Compiler {
       if reassign {
         self.error_at_token(
           token,
-          CompilerErrorType::Reassignment,
-          &format!("Cannot modify native function '{}'.", token.lexeme),
+          ErrMsg::Reassignment(format!("Cannot modify native function '{}'.", token.lexeme)),
         );
 
         return Ok(SL::Error);
@@ -56,8 +55,7 @@ impl Compiler {
       if reassign {
         self.error_at_token(
           token,
-          CompilerErrorType::Reassignment,
-          &format!("Cannot modify primitive class '{}'.", token.lexeme),
+          ErrMsg::Reassignment(format!("Cannot modify primitive class '{}'.", token.lexeme)),
         );
 
         return Ok(SL::Error);
@@ -74,8 +72,8 @@ impl Compiler {
     }
 
     // The symbol doesn't exist
-    let error_msg = &format!("Use of undeclared identifier '{}'.", token.lexeme);
-    self.error_at_token(token, CompilerErrorType::Reference, error_msg);
+    let error_msg = format!("Use of undeclared identifier '{}'.", token.lexeme);
+    self.error_at_token(token, ErrMsg::Reference(error_msg));
     Err(())
   }
 
@@ -163,12 +161,12 @@ impl Compiler {
       _ => unreachable!("Symbol should have been initialized by now."),
     };
 
-    let error_msg = &format!(
+    let error_msg = format!(
       "Cannot reference {} '{}' before it has been initialized.",
       sym_type, token.lexeme
     );
 
-    self.error_at_token(&token, CompilerErrorType::Reference, error_msg);
+    self.error_at_token(&token, ErrMsg::Reference(error_msg));
     Err(())
   }
 
@@ -191,7 +189,7 @@ impl Compiler {
       SymbolType::Var | SymbolType::VarField | SymbolType::Param => return Ok(()),
     };
 
-    self.error_at_token(t, CompilerErrorType::Reassignment, message);
+    self.error_at_token(t, ErrMsg::Reassignment(message.to_string()));
     Err(())
   }
 
@@ -256,11 +254,8 @@ impl Compiler {
     }
 
     if self.functions[func_idx].up_values.len() >= u16::MAX as usize {
-      self.error_at_token(
-        token,
-        CompilerErrorType::MaxCapacity,
-        "Too many closure variables in function.",
-      );
+      let err_msg = ErrMsg::MaxCapacity("Too many closure variables in function.".to_string());
+      self.error_at_token(token, err_msg);
       return None;
     }
 

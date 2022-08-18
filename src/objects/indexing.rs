@@ -1,18 +1,18 @@
-use core::errors::ObjectOprErrType;
+use core::errors::{ErrMsg, RuntimeErrMsg};
 
 use crate::objects::dictionary_obj::DictObject;
 use crate::objects::{Object, RangeObject};
 
 impl Object {
   /// Defines the indexing operation of Hinton objects.
-  pub fn subscript(&self, index: &Object) -> Result<Object, ObjectOprErrType> {
+  pub fn subscript(&self, index: &Object) -> Result<Object, RuntimeErrMsg> {
     match self {
       Object::Array(arr) => subscript_array(&arr.borrow(), index),
       Object::Tuple(tup) => subscript_tuple(&tup, index),
       Object::String(str) => subscript_string(&str, index),
       Object::Range(range) => subscript_range(range, index),
       Object::Dict(dict) => subscript_dictionary(dict, index),
-      _ => Err(ObjectOprErrType::TypeError(format!(
+      _ => Err(RuntimeErrMsg::Type(format!(
         "Cannot index object of type '{}'.",
         self.type_name()
       ))),
@@ -50,7 +50,7 @@ pub fn to_bounded_index(x: i64, len: usize) -> Option<usize> {
 /// # Returns
 /// - `Result<Object, ObjectOprErrType>`: Returns `Ok(Object)` with a Hinton Object if the index is
 /// within bounds. Returns `Err(ObjectOprErrType)` if there was an error while indexing the array.
-fn subscript_array(arr: &[Object], index: &Object) -> Result<Object, ObjectOprErrType> {
+fn subscript_array(arr: &[Object], index: &Object) -> Result<Object, RuntimeErrMsg> {
   match index {
     // Indexing type: Array[Int]
     Object::Int(idx) => {
@@ -72,13 +72,13 @@ fn subscript_array(arr: &[Object], index: &Object) -> Result<Object, ObjectOprEr
       unimplemented!("Array indexing with ranges.")
     }
     _ => {
-      return Err(ObjectOprErrType::TypeError(format!(
+      return Err(RuntimeErrMsg::Type(format!(
         "Array index must be an Int or a Range. Found '{}' instead.",
         index.type_name()
       )))
     }
   }
-  Err(ObjectOprErrType::IndexError(String::from("Array index out of bounds.")))
+  Err(RuntimeErrMsg::Index(String::from("Array index out of bounds.")))
 }
 
 /// Get the ith object in a Hinton tuple.
@@ -91,7 +91,7 @@ fn subscript_array(arr: &[Object], index: &Object) -> Result<Object, ObjectOprEr
 /// # Returns
 /// - `Result<Object, ObjectOprErrType>`: Returns `Ok(Object)` with a Hinton Object if the index is
 /// within bounds. Returns `Err(ObjectOprErrType)` if there was an error while indexing the tuple.
-fn subscript_tuple(tup: &[Object], index: &Object) -> Result<Object, ObjectOprErrType> {
+fn subscript_tuple(tup: &[Object], index: &Object) -> Result<Object, RuntimeErrMsg> {
   match index {
     // Indexing type: Tuple[Int]
     Object::Int(idx) => {
@@ -114,14 +114,14 @@ fn subscript_tuple(tup: &[Object], index: &Object) -> Result<Object, ObjectOprEr
       unimplemented!("Tuple indexing with ranges.")
     }
     _ => {
-      return Err(ObjectOprErrType::TypeError(format!(
+      return Err(RuntimeErrMsg::Type(format!(
         "Tuple index must be an Int or a Range. Found '{}' instead.",
         index.type_name()
       )))
     }
   }
 
-  Err(ObjectOprErrType::IndexError(String::from("Tuple index out of bounds.")))
+  Err(RuntimeErrMsg::Index(String::from("Tuple index out of bounds.")))
 }
 
 /// Get the ith character in a Hinton string.
@@ -134,7 +134,7 @@ fn subscript_tuple(tup: &[Object], index: &Object) -> Result<Object, ObjectOprEr
 /// # Returns
 /// - `Result<Object, ObjectOprErrType>`: Returns `Ok(Object)` with a Hinton Object if the index is
 /// within bounds. Returns `Err(ObjectOprErrType)` if there was an error while indexing the string.
-fn subscript_string(str: &str, index: &Object) -> Result<Object, ObjectOprErrType> {
+fn subscript_string(str: &str, index: &Object) -> Result<Object, RuntimeErrMsg> {
   match index {
     // Indexing type: String[Int]
     Object::Int(idx) => {
@@ -160,16 +160,14 @@ fn subscript_string(str: &str, index: &Object) -> Result<Object, ObjectOprErrTyp
       unimplemented!("String indexing with ranges.")
     }
     _ => {
-      return Err(ObjectOprErrType::TypeError(format!(
+      return Err(RuntimeErrMsg::Type(format!(
         "String index must be an Int or a Range. Found '{}' instead.",
         index.type_name()
       )))
     }
   }
 
-  Err(ObjectOprErrType::IndexError(String::from(
-    "String index out of bounds.",
-  )))
+  Err(RuntimeErrMsg::Index(String::from("String index out of bounds.")))
 }
 
 /// Get the ith object in a Hinton range.
@@ -182,7 +180,7 @@ fn subscript_string(str: &str, index: &Object) -> Result<Object, ObjectOprErrTyp
 /// # Returns
 /// - `Result<Object, ObjectOprErrType>`: Returns `Ok(Object)` with a Hinton Object if the index is
 /// within bounds. Returns `Err(ObjectOprErrType)` if there was an error while indexing the range.
-fn subscript_range(range: &RangeObject, index: &Object) -> Result<Object, ObjectOprErrType> {
+fn subscript_range(range: &RangeObject, index: &Object) -> Result<Object, RuntimeErrMsg> {
   match index {
     // Indexing type: Range[Int]
     Object::Int(idx) => {
@@ -216,14 +214,14 @@ fn subscript_range(range: &RangeObject, index: &Object) -> Result<Object, Object
       unimplemented!("Range indexing with ranges.")
     }
     _ => {
-      return Err(ObjectOprErrType::TypeError(format!(
+      return Err(RuntimeErrMsg::Type(format!(
         "Range index must be an Int or a Range. Found '{}' instead.",
         index.type_name()
       )))
     }
   }
 
-  Err(ObjectOprErrType::IndexError(String::from("Range index out of bounds.")))
+  Err(RuntimeErrMsg::Index(String::from("Range index out of bounds.")))
 }
 
 /// Gets the value associated with a key in a Hinton dictionary.
@@ -236,14 +234,14 @@ fn subscript_range(range: &RangeObject, index: &Object) -> Result<Object, Object
 /// # Returns
 /// - `Result<Object, ObjectOprErrType>`: Returns `Ok(Object)` with a Hinton Object if the key
 /// exists in the dictionary. Returns `Err(ObjectOprErrType)` otherwise.
-fn subscript_dictionary(dict: &DictObject, index: &Object) -> Result<Object, ObjectOprErrType> {
+fn subscript_dictionary(dict: &DictObject, index: &Object) -> Result<Object, RuntimeErrMsg> {
   return match index {
     Object::String(key) => dict.get_prop(key),
     // Indexing type: Range[Range]
     Object::Range(_) => {
       unimplemented!("Range indexing with ranges.")
     }
-    _ => Err(ObjectOprErrType::TypeError(format!(
+    _ => Err(RuntimeErrMsg::Type(format!(
       "Dictionaries can only be indexed by a String or Range. Found '{}' instead.",
       index.type_name()
     ))),

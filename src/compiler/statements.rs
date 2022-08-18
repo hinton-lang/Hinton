@@ -1,6 +1,6 @@
 use std::borrow::Borrow;
 
-use core::errors::CompilerErrorType;
+use core::errors::ErrMsg;
 
 use crate::compiler::symbols::{Symbol, SymbolTable, SymbolType};
 use crate::compiler::{ClassScope, Compiler, CompilerCtx};
@@ -29,7 +29,7 @@ impl Compiler {
       // If we are currently compiling a variable within a class, the constant's name cannot
       // be 'init', since a class initializer must always be a method.
       if id.lexeme == "init" && matches!(self.compiler_type, CompilerCtx::Class) {
-        self.error_at_token(id, CompilerErrorType::Syntax, "Field 'init' cannot be a variable.");
+        self.error_at_token(id, ErrMsg::Syntax("Field 'init' cannot be a variable.".to_string()));
         return;
       }
 
@@ -65,11 +65,8 @@ impl Compiler {
     // If we are currently compiling a constant within a class, the constant's name cannot
     // be 'init', since a class initializer must always be a method.
     if decl.name.lexeme == "init" && matches!(self.compiler_type, CompilerCtx::Class) {
-      self.error_at_token(
-        &decl.name,
-        CompilerErrorType::Syntax,
-        "Field 'init' cannot be a constant.",
-      );
+      let err_msg = ErrMsg::Syntax("Field 'init' cannot be a constant.".to_string());
+      self.error_at_token(&decl.name, err_msg);
       return;
     }
 
@@ -123,8 +120,7 @@ impl Compiler {
 
       self.error_at_token(
         &token,
-        CompilerErrorType::Duplication,
-        &format!("Duplicate definition for {} '{}'.", msg, token.lexeme),
+        ErrMsg::Duplication(format!("Duplicate definition for {} '{}'.", msg, token.lexeme)),
       );
 
       return Err(());
@@ -167,11 +163,8 @@ impl Compiler {
       Ok(self.globals.len() - 1)
     } else {
       if self.current_s_table().len() >= (u16::MAX as usize) {
-        self.error_at_token(
-          &token,
-          CompilerErrorType::MaxCapacity,
-          "Too many local variables in this block.",
-        );
+        let err_msg = ErrMsg::MaxCapacity("Too many local variables in this block.".to_string());
+        self.error_at_token(&token, err_msg);
         return Err(());
       }
 

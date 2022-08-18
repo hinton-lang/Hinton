@@ -2,7 +2,7 @@ use std::f64::consts::{E, FRAC_1_SQRT_2, LN_10, LN_2, LOG10_E, LOG2_E, PI, SQRT_
 
 use hashbrown::HashMap;
 
-use core::errors::RuntimeErrorType;
+use core::errors::RuntimeErrMsg;
 use core::RuntimeResult;
 
 use crate::built_in::primitives::HTPrimitive;
@@ -81,13 +81,10 @@ macro_rules! check_int_or_float {
       Object::Float(f) => f,
       Object::Int(i) => i as f64,
       other => {
-        return RuntimeResult::Error {
-          error: RuntimeErrorType::TypeError,
-          message: format!(
-            "Expected argument of type 'Int' or 'Float'. Got '{}' instead.",
-            other.type_name()
-          ),
-        }
+        return RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+          "Expected argument of type 'Int' or 'Float'. Got '{}' instead.",
+          other.type_name()
+        )));
       }
     }
   };

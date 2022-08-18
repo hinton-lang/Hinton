@@ -3,7 +3,7 @@ use std::fmt;
 use std::fmt::Formatter;
 use std::rc::Rc;
 
-use core::errors::RuntimeErrorType;
+use core::errors::RuntimeErrMsg;
 use core::RuntimeResult;
 
 use crate::objects::Object;
@@ -39,10 +39,10 @@ pub fn make_iter(o: Object) -> Result<Object, RuntimeResult> {
     }
     // If the object is already an iterable, return that same object.
     Object::Iter(_) => Ok(o),
-    _ => Err(RuntimeResult::Error {
-      error: RuntimeErrorType::TypeError,
-      message: format!("Cannot create iterable from '{}'.", o.type_name()),
-    }),
+    _ => Err(RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+      "Cannot create iterable from '{}'.",
+      o.type_name()
+    )))),
   }
 }
 
@@ -62,9 +62,8 @@ pub fn get_next_in_iter(o: &Rc<RefCell<IterObject>>) -> Result<Object, RuntimeRe
       iter.index += 1;
       Ok(o)
     }
-    Err(_) => Err(RuntimeResult::Error {
-      error: RuntimeErrorType::StopIteration,
-      message: String::from("End of Iterator."),
-    }),
+    Err(_) => Err(RuntimeResult::Error(RuntimeErrMsg::IterStrop(
+      "End of Iterator.".to_string(),
+    ))),
   }
 }

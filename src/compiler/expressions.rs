@@ -1,4 +1,4 @@
-use core::errors::CompilerErrorType;
+use core::errors::ErrMsg;
 
 use crate::compiler::symbols::SL;
 use crate::compiler::Compiler;
@@ -140,11 +140,8 @@ impl Compiler {
   /// Compiles a `self` expression.
   pub(super) fn compile_self_expr(&mut self, expr: &SelfExprNode) {
     if self.classes.is_empty() || !matches!(self.compiler_type, CompilerCtx::Method | CompilerCtx::Init) {
-      self.error_at_token(
-        &expr.token,
-        CompilerErrorType::Reference,
-        "Cannot use 'self' outside class method.",
-      );
+      let err_msg = ErrMsg::Reference("Cannot use 'self' outside class method.".to_string());
+      self.error_at_token(&expr.token, err_msg);
 
       return;
     }
@@ -362,11 +359,8 @@ impl Compiler {
         self.emit_op_code_with_short(OpCode::MakeArrayLong, expr.values.len() as u16, line_info);
       }
     } else {
-      self.error_at_token(
-        &expr.token,
-        CompilerErrorType::MaxCapacity,
-        "Too many values in the array.",
-      );
+      let err_msg = ErrMsg::MaxCapacity("Too many values in the array.".to_string());
+      self.error_at_token(&expr.token, err_msg);
     }
   }
 
@@ -390,11 +384,8 @@ impl Compiler {
         self.emit_raw_short(expr.values.len() as u16, line_info);
       }
     } else {
-      self.error_at_token(
-        &expr.token,
-        CompilerErrorType::MaxCapacity,
-        "Too many values in the tuple.",
-      );
+      let err_msg = ErrMsg::MaxCapacity("Too many values in the tuple.".to_string());
+      self.error_at_token(&expr.token, err_msg);
     }
   }
 
@@ -405,11 +396,8 @@ impl Compiler {
 
     // Prevent having too many key-value pairs for the dictionary.
     if pair_count > u16::MAX as usize {
-      self.error_at_token(
-        &expr.token,
-        CompilerErrorType::MaxCapacity,
-        "Too many key-value pairs for the dictionary.",
-      );
+      let err_msg = ErrMsg::MaxCapacity("Too many key-value pairs for the dictionary.".to_string());
+      self.error_at_token(&expr.token, err_msg);
 
       return;
     }

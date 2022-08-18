@@ -2,7 +2,7 @@ use core::ast::ASTNodeKind::*;
 use core::ast::*;
 use core::tokens::TokenKind::*;
 
-use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, NodeResult, Parser};
+use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, ErrMsg, NodeResult, Parser};
 
 macro_rules! append_binary_expr {
   ($s:ident, $l:expr, $r:expr, $k:expr) => {
@@ -45,10 +45,9 @@ impl<'a> Parser<'a> {
           self.emit(Reassignment(node))
         }
         _ => Err(error_at_tok(
-          self.tokens,
           target_tok,
-          "SyntaxError",
-          "Invalid assignment target.",
+          ErrMsg::Syntax("Invalid assignment target.".to_string()),
+          Some("Verify this is an identifier, object member, or indexing expression.".to_string()),
         )),
       };
     }
@@ -66,7 +65,8 @@ impl<'a> Parser<'a> {
 
     if match_tok![self, QUESTION] {
       let branch_true = self.parse_expr()?;
-      self.consume(&COLON, "Expected ':' after the expression.")?;
+      let hint = Some("Ternary conditionals require an 'else' branch.");
+      self.consume(&COLON, "Expected ':' after the expression.", hint)?;
       let branch_false = self.parse_expr()?;
 
       let node = ASTTernaryConditionalNode {
@@ -375,7 +375,7 @@ impl<'a> Parser<'a> {
       } else if match_tok![self, VERT_BAR] {
         true
       } else {
-        return Err(self.error_at_current_tok("Expected '|' for async lambda parameters."));
+        return Err(self.error_at_current_tok("Expected '|' for async lambda parameters.", None));
       }
     } else {
       matches!(self.get_prev_tk(), VERT_BAR)
@@ -383,7 +383,7 @@ impl<'a> Parser<'a> {
 
     let (min_arity, max_arity, params) = if should_parse_params {
       let params = self.parse_func_params(true)?;
-      self.consume(&VERT_BAR, "Expected '|' after lambda parameter list.")?;
+      self.consume(&VERT_BAR, "Expected '|' after lambda parameter list.", None)?;
       params
     } else {
       (0u8, 0u8, vec![])
@@ -429,7 +429,7 @@ impl<'a> Parser<'a> {
       indexers.push(self.parse_indexer()?);
     }
 
-    self.consume(&R_BRACKET, "Expected matching ']' for indexing expression.")?;
+    self.consume(&R_BRACKET, "Expected matching ']' for indexing expression.", None)?;
     let node = ASTIndexingNode { target, indexers };
     self.emit(Indexing(node))
   }
@@ -499,8 +499,8 @@ impl<'a> Parser<'a> {
           CallArg::Rest(self.parse_single_spread_expr()?)
         }
         IDENTIFIER if matches![self.get_next_tk(), COLON_EQUALS] => {
-          let tok_id = consume_id![self, "Expected identifier for named argument."];
-          self.consume(&COLON_EQUALS, "Expected ':=' for named argument.")?;
+          let tok_id = consume_id![self, "Expected identifier for named argument.", None];
+          self.consume(&COLON_EQUALS, "Expected ':=' for named argument.", None)?;
           has_non_val_arg = true;
           CallArg::Named {
             name: tok_id,
@@ -511,7 +511,7 @@ impl<'a> Parser<'a> {
           let arg = self.parse_expr()?;
 
           if has_non_val_arg {
-            return Err(self.error_at_prev_tok("Value arguments cannot follow named or rest arguments."));
+            return Err(self.error_at_prev_tok("Value arguments cannot follow named or rest arguments.", None));
           }
 
           CallArg::Val(arg)
@@ -524,7 +524,7 @@ impl<'a> Parser<'a> {
       }
     }
 
-    self.consume(&R_PAREN, "Expected ')' for function call.")?;
+    self.consume(&R_PAREN, "Expected ')' for function call.", None)?;
     self.emit(CallExpr(ASTCallExprNode { target, args }))
   }
 
@@ -540,7 +540,7 @@ impl<'a> Parser<'a> {
       _ => unreachable!("Should have parsed either a `.` or `?.` by now."),
     };
 
-    let member = consume_id![self, "Expected member name after the dot."];
+    let member = consume_id![self, "Expected member name after the dot.", None];
     self.emit(MemberAccess(ASTMemberAccessNode { is_safe, target, member }))
   }
 
@@ -552,12 +552,12 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_loop_expr(&mut self) -> NodeResult<ASTNodeIdx> {
     let count = if match_tok![self, AS_KW] {
       let err_msg = "Expected identifier after 'as' keyword in 'loop' expression.";
-      Some(consume_id![self, err_msg])
+      Some(consume_id![self, err_msg, None])
     } else {
       None
     };
 
-    self.consume(&L_CURLY, "Expected block as 'loop' body.")?;
+    self.consume(&L_CURLY, "Expected block as 'loop' body.", None)?;
     let body = self.parse_block_stmt()?;
     let node = ASTLoopExprNode { body, count };
     self.emit(LoopExpr(node))
@@ -598,7 +598,7 @@ impl<'a> Parser<'a> {
       L_CURLY if self.advance() => self.parse_dict_literal(),
 
       // Unknown expression
-      _ => Err(self.error_at_current_tok("Unexpected token.")),
+      _ => Err(self.error_at_current_tok("Unexpected token.", None)),
     }
   }
 
@@ -618,10 +618,10 @@ impl<'a> Parser<'a> {
         STR_LIT if self.advance() => self.emit(StringLiteral(self.current_pos - 1))?,
         START_INTERPOL_EXPR if self.advance() => {
           let expr = self.parse_expr()?;
-          self.consume(&END_INTERPOL_EXPR, "Expected '}' after string interpolation.")?;
+          self.consume(&END_INTERPOL_EXPR, "Expected '}' after string interpolation.", None)?;
           expr
         }
-        _ => return Err(self.error_at_current_tok("Invalid interpolation part.")),
+        _ => return Err(self.error_at_current_tok("Invalid interpolation part.", None)),
       };
 
       interpolated_parts.push(interpol_part);

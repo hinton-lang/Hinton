@@ -1,4 +1,5 @@
 use std::ops::Index;
+use std::path::PathBuf;
 
 /// Represents the index of a Token in the TokenList.
 pub type TokenIdx = usize;
@@ -7,6 +8,7 @@ pub type TokenIdx = usize;
 pub struct TokenList<'a> {
   pub tokens: &'a [Token],
   pub src: &'a [char],
+  pub filepath: &'a PathBuf,
 }
 
 impl<'a> Index<usize> for TokenList<'a> {
@@ -26,8 +28,8 @@ impl<'a> TokenList<'a> {
   ///
   /// # Returns:
   /// ```TokenList```
-  pub fn new(src: &'a [char], tokens: &'a [Token]) -> Self {
-    Self { src, tokens }
+  pub fn new(filepath: &'a PathBuf, src: &'a [char], tokens: &'a [Token]) -> Self {
+    Self { src, tokens, filepath }
   }
 
   /// Gets the lexeme of a token based on it's location information.

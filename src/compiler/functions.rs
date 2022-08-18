@@ -1,4 +1,4 @@
-use core::errors::CompilerErrorType;
+use core::errors::ErrMsg;
 
 use crate::compiler::symbols::{Symbol, SymbolTable, SymbolType};
 use crate::compiler::{Compiler, CompilerCtx, FunctionScope, UpValue};
@@ -231,20 +231,14 @@ impl Compiler {
   /// Compiles a return statement.
   pub(super) fn compile_return_stmt(&mut self, stmt: &ReturnStmtNode) {
     if let CompilerCtx::Script = self.compiler_type {
-      self.error_at_token(
-        &stmt.token,
-        CompilerErrorType::Syntax,
-        "Cannot return outside of function.",
-      );
+      let err_msg = ErrMsg::Syntax("Cannot return outside of function.".to_string());
+      self.error_at_token(&stmt.token, err_msg);
       return;
     }
 
     if let CompilerCtx::Init = self.compiler_type {
-      self.error_at_token(
-        &stmt.token,
-        CompilerErrorType::Syntax,
-        "Cannot return from class initializer.",
-      );
+      let err_msg = ErrMsg::Syntax("Cannot return from class initializer.".to_string());
+      self.error_at_token(&stmt.token, err_msg);
       return;
     }
 

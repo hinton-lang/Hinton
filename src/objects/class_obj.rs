@@ -4,7 +4,7 @@ use std::rc::Rc;
 
 use hashbrown::HashMap;
 
-use core::errors::RuntimeErrorType;
+use core::errors::RuntimeErrMsg;
 use core::RuntimeResult;
 
 use crate::objects::{ClosureObject, Object};
@@ -70,24 +70,18 @@ impl ClassObject {
     match self.members.get(&prop_name) {
       Some(field) => {
         if !field.is_public() {
-          Err(RuntimeResult::Error {
-            error: RuntimeErrorType::ReferenceError,
-            message: format!(
-              "Cannot access private property '{}' in object of type '{}'.",
-              prop_name, self.name
-            ),
-          })
+          Err(RuntimeResult::Error(RuntimeErrMsg::Reference(format!(
+            "Cannot access private property '{}' in object of type '{}'.",
+            prop_name, self.name
+          ))))
         } else {
           Ok(*field.value.clone())
         }
       }
-      None => Err(RuntimeResult::Error {
-        error: RuntimeErrorType::ReferenceError,
-        message: format!(
-          "Property '{}' not defined in object of type '{}'.",
-          prop_name, self.name
-        ),
-      }),
+      None => Err(RuntimeResult::Error(RuntimeErrMsg::Reference(format!(
+        "Property '{}' not defined in object of type '{}'.",
+        prop_name, self.name
+      )))),
     }
   }
 
@@ -110,21 +104,18 @@ impl ClassObject {
     match self.statics.get(&prop_name) {
       Some(field) => {
         if !field.is_public() {
-          Err(RuntimeResult::Error {
-            error: RuntimeErrorType::ReferenceError,
-            message: format!(
-              "Cannot access private property '{}' in class '{}'.",
-              prop_name, self.name
-            ),
-          })
+          Err(RuntimeResult::Error(RuntimeErrMsg::Reference(format!(
+            "Cannot access private property '{}' in class '{}'.",
+            prop_name, self.name
+          ))))
         } else {
           Ok(*field.value.clone())
         }
       }
-      None => Err(RuntimeResult::Error {
-        error: RuntimeErrorType::ReferenceError,
-        message: format!("Property '{}' not defined in class '{}'.", prop_name, self.name),
-      }),
+      None => Err(RuntimeResult::Error(RuntimeErrMsg::Reference(format!(
+        "Property '{}' not defined in class '{}'.",
+        prop_name, self.name
+      )))),
     }
   }
 }
@@ -204,26 +195,20 @@ impl InstanceObject {
     match self.members.get(prop_name) {
       Some(field) => {
         if !field.is_public() & !is_internal_access {
-          Err(RuntimeResult::Error {
-            error: RuntimeErrorType::ReferenceError,
-            message: format!(
-              "Cannot access private property '{}' in object of type '{}'.",
-              prop_name,
-              self.class.borrow().name
-            ),
-          })
+          Err(RuntimeResult::Error(RuntimeErrMsg::Reference(format!(
+            "Cannot access private property '{}' in object of type '{}'.",
+            prop_name,
+            self.class.borrow().name
+          ))))
         } else {
           Ok(*field.value.clone())
         }
       }
-      None => Err(RuntimeResult::Error {
-        error: RuntimeErrorType::ReferenceError,
-        message: format!(
-          "Property '{}' not defined in object of type '{}'.",
-          prop_name,
-          self.class.borrow().name
-        ),
-      }),
+      None => Err(RuntimeResult::Error(RuntimeErrMsg::Reference(format!(
+        "Property '{}' not defined in object of type '{}'.",
+        prop_name,
+        self.class.borrow().name
+      )))),
     }
   }
 
@@ -249,36 +234,27 @@ impl InstanceObject {
     match self.members.get_mut(&name) {
       Some(field) => {
         if !field.is_public() && !is_internal_access {
-          Err(RuntimeResult::Error {
-            error: RuntimeErrorType::ReferenceError,
-            message: format!(
-              "Cannot access private property '{}' in object of type '{}'.",
-              name,
-              self.class.borrow().name
-            ),
-          })
+          Err(RuntimeResult::Error(RuntimeErrMsg::Reference(format!(
+            "Cannot access private property '{}' in object of type '{}'.",
+            name,
+            self.class.borrow().name
+          ))))
         } else if field.is_constant() {
-          Err(RuntimeResult::Error {
-            error: RuntimeErrorType::ReferenceError,
-            message: format!(
-              "Cannot reassign to immutable property '{}' in object of type '{}'.",
-              name,
-              self.class.borrow().name
-            ),
-          })
+          Err(RuntimeResult::Error(RuntimeErrMsg::Reference(format!(
+            "Cannot reassign to immutable property '{}' in object of type '{}'.",
+            name,
+            self.class.borrow().name
+          ))))
         } else {
           field.value = Box::new(val.clone());
           Ok(val)
         }
       }
-      None => Err(RuntimeResult::Error {
-        error: RuntimeErrorType::ReferenceError,
-        message: format!(
-          "Property '{}' not defined in object of type '{}'.",
-          name,
-          self.class.borrow().name
-        ),
-      }),
+      None => Err(RuntimeResult::Error(RuntimeErrMsg::Reference(format!(
+        "Property '{}' not defined in object of type '{}'.",
+        name,
+        self.class.borrow().name
+      )))),
     }
   }
 

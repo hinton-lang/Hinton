@@ -1,6 +1,6 @@
 use hashbrown::HashMap;
 
-use core::errors::RuntimeErrorType;
+use core::errors::RuntimeErrMsg;
 use core::RuntimeResult;
 
 use crate::built_in::primitives::HTPrimitive;
@@ -57,14 +57,11 @@ macro_rules! verify_int_object {
     match $o {
       Object::Int(i) => i,
       _ => {
-        return RuntimeResult::Error {
-          error: RuntimeErrorType::TypeError,
-          message: format!(
-            "Property 'Int.{}' requires that 'self' be an Int. Found '{}' instead.",
-            $prop_name,
-            $o.type_name()
-          ),
-        }
+        return RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+          "Property 'Int.{}' requires that 'self' be an Int. Found '{}' instead.",
+          $prop_name,
+          $o.type_name()
+        )))
       }
     }
   };

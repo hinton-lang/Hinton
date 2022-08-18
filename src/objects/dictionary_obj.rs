@@ -5,7 +5,7 @@ use std::rc::Rc;
 
 use hashbrown::HashMap;
 
-use core::errors::ObjectOprErrType;
+use core::errors::RuntimeErrMsg;
 use core::RuntimeResult;
 
 use crate::objects::Object;
@@ -60,10 +60,10 @@ impl DictObject {
   ///
   /// # Returns:
   /// Result<Object, ObjectOprErrType>
-  pub fn get_prop(&self, prop_name: &str) -> Result<Object, ObjectOprErrType> {
+  pub fn get_prop(&self, prop_name: &str) -> Result<Object, RuntimeErrMsg> {
     match self.0.borrow().get(prop_name) {
       Some(o) => Ok(o.clone()),
-      None => Err(ObjectOprErrType::KeyError(format!(
+      None => Err(RuntimeErrMsg::Key(format!(
         "Entry with key '{}' not found in the dictionary.",
         prop_name
       ))),

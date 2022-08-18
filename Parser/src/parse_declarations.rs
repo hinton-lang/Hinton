@@ -17,12 +17,16 @@ impl<'a> Parser<'a> {
       CompoundIdDecl::Destruct(self.parse_destructing_pattern(&format!("'{}' declaration", decl_name))?)
     } else {
       let err_msg = &format!("Expected identifier for '{}' declaration.", decl_name);
-      CompoundIdDecl::Single(consume_id![self, err_msg])
+      CompoundIdDecl::Single(consume_id![self, err_msg, None])
     };
 
-    self.consume(&EQUALS, &format!("Expected '=' for '{}' declaration.", decl_name))?;
+    self.consume(&EQUALS, &format!("Expected '=' for '{}' declaration.", decl_name), None)?;
     let val = self.parse_expr()?;
-    self.consume(&SEMICOLON, &format!("Expected ';' after '{}' declaration.", decl_name))?;
+    self.consume(
+      &SEMICOLON,
+      &format!("Expected ';' after '{}' declaration.", decl_name),
+      None,
+    )?;
 
     self.emit(VarConstDecl(ASTVarConsDeclNode { is_const, id, val }))
   }
@@ -43,7 +47,7 @@ impl<'a> Parser<'a> {
     loop {
       let pattern = match curr_tk![self] {
         TRIPLE_DOT if has_rest => {
-          return Err(self.error_at_current_tok("Can only have one wildcard expression in destructing pattern."));
+          return Err(self.error_at_current_tok("Can only have one wildcard expression in destructing pattern.", None));
         }
         TRIPLE_DOT if self.advance() => {
           has_rest = true;
@@ -56,7 +60,7 @@ impl<'a> Parser<'a> {
         }
         _ => {
           let err_msg = &format!("Expected identifier for destructing pattern in {}.", msg);
-          DestructPatternMember::Id(consume_id![self, err_msg])
+          DestructPatternMember::Id(consume_id![self, err_msg, None])
         }
       };
 
@@ -68,10 +72,10 @@ impl<'a> Parser<'a> {
     }
 
     if has_rest && patterns.len() == 1 {
-      return Err(self.error_at_current_tok("Cannot have destructing pattern with only a wildcard expression."));
+      return Err(self.error_at_current_tok("Cannot have destructing pattern with only a wildcard expression.", None));
     }
 
-    self.consume(&R_PAREN, "Expected ')' after destructing pattern.")?;
+    self.consume(&R_PAREN, "Expected ')' after destructing pattern.", None)?;
     Ok(patterns)
   }
 
@@ -82,17 +86,21 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_func_stmt(&mut self, is_async: bool, decor: Vec<Decorator>) -> NodeResult<ASTNodeIdx> {
     if is_async {
-      self.consume(&FUNC_KW, "Expected 'func' keyword for async function declaration.")?;
+      self.consume(
+        &FUNC_KW,
+        "Expected 'func' keyword for async function declaration.",
+        None,
+      )?;
     }
 
     let is_gen = match_tok![self, STAR];
-    let name = consume_id![self, "Expected identifier for function name."];
+    let name = consume_id![self, "Expected identifier for function name.", None];
 
-    self.consume(&L_PAREN, "Expected '(' after function name.")?;
+    self.consume(&L_PAREN, "Expected '(' after function name.", None)?;
     let (min_arity, max_arity, params) = self.parse_func_params(false)?;
-    self.consume(&R_PAREN, "Expected ')' after function parameter list.")?;
+    self.consume(&R_PAREN, "Expected ')' after function parameter list.", None)?;
 
-    self.consume(&L_CURLY, "Expected block as function body.")?;
+    self.consume(&L_CURLY, "Expected block as function body.", None)?;
     let body = self.parse_block_stmt()?;
 
     self.emit(FuncDecl(ASTFuncDeclNode {
@@ -122,7 +130,7 @@ impl<'a> Parser<'a> {
 
     while !check_tok![self, closing_tok] {
       if params.len() >= 255 {
-        return Err(self.error_at_current_tok("Can't have more than 255 parameters."));
+        return Err(self.error_at_current_tok("Can't have more than 255 parameters.", None));
       }
 
       let param = self.parse_single_param(&params)?;
@@ -153,7 +161,7 @@ impl<'a> Parser<'a> {
     P: SingleParamLike,
   {
     let is_spread = match_tok![self, TRIPLE_DOT];
-    let name = consume_id![self, "Expected a parameter name."];
+    let name = consume_id![self, "Expected a parameter name.", None];
 
     let param = if is_spread {
       let kind = SingleParamKind::Rest;
@@ -172,12 +180,14 @@ impl<'a> Parser<'a> {
       let prev_kind = &params.last().unwrap().get_kind();
 
       if let SingleParamKind::Rest = prev_kind {
-        return Err(self.error_at_prev_tok("Rest parameter must be last in parameter list."));
+        return Err(self.error_at_prev_tok("Rest parameter must be last in parameter list.", None));
       }
 
       if let SingleParamKind::Required = param.kind {
         if !matches![prev_kind, SingleParamKind::Required] {
-          return Err(self.error_at_current_tok("Required parameters cannot follow optional or named parameters."));
+          return Err(
+            self.error_at_current_tok("Required parameters cannot follow optional or named parameters.", None),
+          );
         }
       }
     }

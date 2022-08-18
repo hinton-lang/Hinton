@@ -3,7 +3,7 @@ use std::rc::Rc;
 
 use hashbrown::HashMap;
 
-use core::errors::RuntimeErrorType;
+use core::errors::{ErrMsg, RuntimeErrMsg};
 use core::RuntimeResult;
 
 use crate::built_in::BuiltIn;
@@ -422,7 +422,7 @@ impl VM {
       },
       Object::Dict(x) => match x.get_prop(&prop_name) {
         Ok(o) => self.push_stack(o),
-        Err(e) => e.to_runtime_error(),
+        Err(e) => RuntimeResult::Error(e),
       },
       Object::Int(_) => BuiltIn::primitive_prop(self, value, "Int", prop_name),
       Object::String(_) => BuiltIn::primitive_prop(self, value, "String", prop_name),
@@ -471,13 +471,10 @@ impl VM {
         let idx = match index {
           Object::Int(i) => to_bounded_index(i, arr.borrow().len()),
           _ => {
-            return RuntimeResult::Error {
-              error: RuntimeErrorType::TypeError,
-              message: format!(
-                "Array reassignment subscript must be an Int. Found '{}' instead.",
-                index.type_name()
-              ),
-            }
+            return RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+              "Array reassignment subscript must be an Int. Found '{}' instead.",
+              index.type_name()
+            )))
           }
         };
 
@@ -486,10 +483,7 @@ impl VM {
             arr.borrow_mut()[i] = value.clone();
             self.push_stack(value)
           }
-          None => RuntimeResult::Error {
-            error: RuntimeErrorType::TypeError,
-            message: "Array index out of bounds.".to_string(),
-          },
+          None => RuntimeResult::Error(RuntimeErrMsg::Index("Array index out of bounds.".to_string())),
         }
       }
       Object::Dict(mut dict) => match index {
@@ -497,21 +491,15 @@ impl VM {
           dict.set_prop(&s, value.clone());
           self.push_stack(value)
         }
-        _ => RuntimeResult::Error {
-          error: RuntimeErrorType::TypeError,
-          message: format!(
-            "Dictionary reassignment subscript must be a String. Found '{}' instead.",
-            index.type_name()
-          ),
-        },
+        _ => RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+          "Dictionary reassignment subscript must be a String. Found '{}' instead.",
+          index.type_name()
+        ))),
       },
-      _ => RuntimeResult::Error {
-        error: RuntimeErrorType::TypeError,
-        message: format!(
-          "Objects of type '{}' do not support subscripted item reassignment.",
-          target.type_name()
-        ),
-      },
+      _ => RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+        "Objects of type '{}' do not support subscripted item reassignment.",
+        target.type_name()
+      ))),
     }
   }
 
@@ -525,14 +513,11 @@ impl VM {
       let b = right.as_int().unwrap();
       self.push_stack(Object::Range(RangeObject { min: a, max: b }))
     } else {
-      return RuntimeResult::Error {
-        error: RuntimeErrorType::TypeError,
-        message: format!(
-          "Range operation not defined for operands of type '{}' and '{}'.",
-          left.type_name(),
-          right.type_name()
-        ),
-      };
+      return RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+        "Range operation not defined for operands of type '{}' and '{}'.",
+        left.type_name(),
+        right.type_name()
+      )));
     }
   }
 
@@ -548,7 +533,7 @@ impl VM {
 
     match result {
       Ok(r) => self.push_stack(r),
-      Err(e) => e.to_runtime_error(),
+      Err(e) => RuntimeResult::Error(e),
     }
   }
 
@@ -587,7 +572,7 @@ impl VM {
 
     match result {
       Ok(r) => self.push_stack(r),
-      Err(e) => e.to_runtime_error(),
+      Err(e) => RuntimeResult::Error(e),
     }
   }
 
@@ -665,7 +650,7 @@ impl VM {
 
     match target.subscript(&index) {
       Ok(r) => self.push_stack(r),
-      Err(e) => e.to_runtime_error(),
+      Err(e) => RuntimeResult::Error(e),
     }
   }
 

@@ -2,7 +2,7 @@ use core::ast::ASTNodeKind::*;
 use core::ast::*;
 use core::tokens::TokenKind::*;
 
-use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, NodeResult, Parser};
+use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, ErrMsg, NodeResult, Parser};
 
 pub enum ParsingLevel {
   Module,
@@ -83,10 +83,10 @@ impl<'a> Parser<'a> {
       if let ParsingLevel::Module = level {
         if !check_tok![self, FUNC_KW | CLASS_KW | CONST_KW | ENUM_KW] {
           let err_msg = "Expected 'func', 'class', 'const', or 'enum' keyword for public declaration.";
-          return Err(self.error_at_current_tok(err_msg));
+          return Err(self.error_at_current_tok(err_msg, None));
         }
       } else {
-        return Err(self.error_at_prev_tok("Keyword 'pub' not allowed here."));
+        return Err(self.error_at_prev_tok("Keyword 'pub' not allowed here.", None));
       }
 
       true
@@ -96,7 +96,7 @@ impl<'a> Parser<'a> {
 
     // Verify the statement can be decorated
     if !decorators.is_empty() && !check_tok![self, FUNC_KW | CLASS_KW] {
-      return Err(self.error_at_current_tok("Expected 'func' or 'class' declaration as decoration target."));
+      return Err(self.error_at_current_tok("Expected 'func' or 'class' declaration as decoration target.", None));
     }
 
     let stmt_idx = match curr_tk![self] {
@@ -143,7 +143,7 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_expr_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
     let expr = self.parse_expr()?;
-    self.consume(&SEMICOLON, "Expected ';' after expression.")?;
+    self.consume(&SEMICOLON, "Expected ';' after expression.", None)?;
     self.emit(ExprStmt(expr))
   }
 
@@ -174,12 +174,12 @@ impl<'a> Parser<'a> {
     let mut let_id = None;
 
     if match_tok![self, LET_KW] {
-      let_id = Some(consume_id![self, "Expected identifier for while-let statement."]);
-      self.consume(&EQUALS, "Expected '=' after while-let statement identifier.")?;
+      let_id = Some(consume_id![self, "Expected identifier for while-let statement.", None]);
+      self.consume(&EQUALS, "Expected '=' after while-let statement identifier.", None)?;
     }
 
     let cond = self.parse_expr()?;
-    self.consume(&L_CURLY, "Expected block as 'while' loop body.")?;
+    self.consume(&L_CURLY, "Expected block as 'while' loop body.", None)?;
     let body = self.parse_block_stmt()?;
 
     self.emit(WhileLoop(ASTWhileLoopNode { let_id, cond, body }))
@@ -192,7 +192,7 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_for_loop_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
     let head = self.parse_for_loop_head()?;
-    self.consume(&L_CURLY, "Expected block as 'for' loop body.")?;
+    self.consume(&L_CURLY, "Expected block as 'for' loop body.", None)?;
     let body = self.parse_block_stmt()?;
     self.emit(ForLoop(ASTForLoopNode { head, body }))
   }
@@ -206,10 +206,10 @@ impl<'a> Parser<'a> {
     let id = if match_tok![self, L_PAREN] {
       CompoundIdDecl::Destruct(self.parse_destructing_pattern("'for' loop")?)
     } else {
-      CompoundIdDecl::Single(consume_id![self, "Expected identifier in 'for' loop"])
+      CompoundIdDecl::Single(consume_id![self, "Expected identifier in 'for' loop", None])
     };
 
-    self.consume(&IN_KW, "Expected keyword 'in' after for-loop identifiers.")?;
+    self.consume(&IN_KW, "Expected keyword 'in' after for-loop identifiers.", None)?;
     let target = self.parse_expr()?;
     Ok(ForLoopHead { id, target })
   }
@@ -224,7 +224,7 @@ impl<'a> Parser<'a> {
 
     let val = if !match_tok![self, SEMICOLON] {
       let val = Some(self.parse_expr()?);
-      self.consume(&SEMICOLON, "Expected ';' after break statement.")?;
+      self.consume(&SEMICOLON, "Expected ';' after break statement.", None)?;
       val
     } else {
       None
@@ -241,7 +241,7 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_continue_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
     let token = self.current_pos - 1;
-    self.consume(&SEMICOLON, "Expected ';' after continue statement.")?;
+    self.consume(&SEMICOLON, "Expected ';' after continue statement.", None)?;
     self.emit(ContinueStmt(token))
   }
 
@@ -253,7 +253,7 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_return_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
     let token = self.current_pos - 1;
     let val = self.parse_expr()?;
-    self.consume(&SEMICOLON, "Expected ';' after return statement.")?;
+    self.consume(&SEMICOLON, "Expected ';' after return statement.", None)?;
     self.emit(ReturnStmt(ASTReturnStmtNode { token, val }))
   }
 
@@ -264,7 +264,7 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_yield_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
     let stmt = YieldStmt(self.parse_expr()?);
-    self.consume(&SEMICOLON, "Expected ';' after yield statement.")?;
+    self.consume(&SEMICOLON, "Expected ';' after yield statement.", None)?;
     self.emit(stmt)
   }
 
@@ -275,7 +275,7 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_throw_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
     let stmt = ThrowStmt(self.parse_primary()?);
-    self.consume(&SEMICOLON, "Expected ';' after throw statement.")?;
+    self.consume(&SEMICOLON, "Expected ';' after throw statement.", None)?;
     self.emit(stmt)
   }
 
@@ -293,16 +293,12 @@ impl<'a> Parser<'a> {
     let stmt = match &self.ast.get(target) {
       IdLiteral(_) | Indexing(_) | MemberAccess(_) => target,
       _ => {
-        return Err(error_at_tok(
-          self.tokens,
-          target_tok,
-          "SyntaxError",
-          "Invalid del target.",
-        ))
+        let err_msg = ErrMsg::Syntax("Invalid del target.".to_string());
+        return Err(error_at_tok(target_tok, err_msg, None));
       }
     };
 
-    self.consume(&SEMICOLON, "Expected ';' after del statement.")?;
+    self.consume(&SEMICOLON, "Expected ';' after del statement.", None)?;
     self.emit(DelStmt(stmt))
   }
 
@@ -313,7 +309,7 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_if_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
     let cond = self.parse_expr()?;
-    self.consume(&L_CURLY, "Expected block as 'if' statement body")?;
+    self.consume(&L_CURLY, "Expected block as 'if' statement body", None)?;
     let true_branch = self.parse_block_stmt()?;
     let mut else_branch = ElseBranch::None;
 
@@ -321,7 +317,7 @@ impl<'a> Parser<'a> {
       else_branch = match curr_tk![self] {
         IF_KW if self.advance() => ElseBranch::IfStmt(self.parse_if_stmt()?),
         L_CURLY if self.advance() => ElseBranch::Block(self.parse_block_stmt()?),
-        _ => return Err(self.error_at_current_tok("Expected block or 'if' statement after 'else' keyword.")),
+        _ => return Err(self.error_at_current_tok("Expected block or 'if' statement after 'else' keyword.", None)),
       }
     }
 
@@ -341,7 +337,7 @@ impl<'a> Parser<'a> {
       heads.push(self.parse_with_stmt_head()?);
     }
 
-    self.consume(&L_CURLY, "Expected block as 'with' statement body.")?;
+    self.consume(&L_CURLY, "Expected block as 'with' statement body.", None)?;
     let body = self.parse_block_stmt()?;
     self.emit(WithStmt(ASTWithStmtNode { heads, body }))
   }
@@ -353,8 +349,8 @@ impl<'a> Parser<'a> {
   /// ```
   pub(super) fn parse_with_stmt_head(&mut self) -> NodeResult<WithStmtHead> {
     let expr = self.parse_expr()?;
-    self.consume(&AS_KW, "Expected 'as' keyword in 'with' statement head.")?;
-    let id = consume_id![self, "Expected identifier in 'with' statement head."];
+    self.consume(&AS_KW, "Expected 'as' keyword in 'with' statement head.", None)?;
+    let id = consume_id![self, "Expected identifier in 'with' statement head.", None];
     Ok(WithStmtHead { expr, id })
   }
 
@@ -369,7 +365,7 @@ impl<'a> Parser<'a> {
   /// FINALLY_PART        ::= "finally" BLOCK_STMT
   /// ```
   pub(super) fn parse_try_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
-    self.consume(&L_CURLY, "Expected block as 'try' body.")?;
+    self.consume(&L_CURLY, "Expected block as 'try' body.", None)?;
     let body = self.parse_block_stmt()?;
     let mut has_default_catch = false;
 
@@ -380,15 +376,17 @@ impl<'a> Parser<'a> {
       match curr_tk![self] {
         FINALLY_KW if self.advance() => {
           if finally.is_some() {
-            return Err(self.error_at_prev_tok("A try-catch-finally statement can only have one 'finally' block."));
+            return Err(
+              self.error_at_prev_tok("A try-catch-finally statement can only have one 'finally' block.", None),
+            );
           }
 
-          self.consume(&L_CURLY, "Expected block as 'finally' body.")?;
+          self.consume(&L_CURLY, "Expected block as 'finally' body.", None)?;
           finally = Some(self.parse_block_stmt()?);
         }
         CATCH_KW if self.advance() => {
           if finally.is_some() {
-            return Err(self.error_at_prev_tok("A 'catch' block cannot follow a 'finally' block."));
+            return Err(self.error_at_prev_tok("A 'catch' block cannot follow a 'finally' block.", None));
           }
 
           let catch_part = self.parse_catch_part(has_default_catch)?;
@@ -396,7 +394,7 @@ impl<'a> Parser<'a> {
           catchers.push(catch_part);
         }
         _ if finally.is_none() && catchers.is_empty() => {
-          return Err(self.error_at_current_tok("Expected 'catch' or 'finally' block after 'try' block."))
+          return Err(self.error_at_current_tok("Expected 'catch' or 'finally' block after 'try' block.", None))
         }
         _ => break,
       }
@@ -414,25 +412,28 @@ impl<'a> Parser<'a> {
   pub(super) fn parse_catch_part(&mut self, has_default_catch: bool) -> NodeResult<CatchPart> {
     if match_tok![self, L_CURLY] {
       if has_default_catch {
-        return Err(self.error_at_prev_tok("A try-catch-finally statement can only have one default 'catch' block."));
+        return Err(self.error_at_prev_tok(
+          "A try-catch-finally statement can only have one default 'catch' block.",
+          None,
+        ));
       }
 
       let body = self.parse_block_stmt()?;
       Ok(CatchPart { body, target: None })
     } else {
       if has_default_catch {
-        return Err(self.error_at_prev_tok("Non-default 'catch' block cannot follow default 'catch' block."));
+        return Err(self.error_at_prev_tok("Non-default 'catch' block cannot follow default 'catch' block.", None));
       }
 
-      let error_class = consume_id![self, "Expected error name in 'catch' block."];
+      let error_class = consume_id![self, "Expected error name in 'catch' block.", None];
       let error_result = if match_tok![self, AS_KW] {
-        Some(consume_id![self, "Expected error class name in 'catch' block."])
+        Some(consume_id![self, "Expected error class name in 'catch' block.", None])
       } else {
         None
       };
 
       let target = Some(CatchTarget { error_class, error_result });
-      self.consume(&L_CURLY, "Expected block as 'catch' body.")?;
+      self.consume(&L_CURLY, "Expected block as 'catch' body.", None)?;
       let body = self.parse_block_stmt()?;
 
       Ok(CatchPart { body, target })
@@ -458,39 +459,43 @@ impl<'a> Parser<'a> {
         L_CURLY if self.advance() => members = self.parse_granular_import(decl_name)?,
         TRIPLE_DOT if self.advance() => {
           let err_msg = &format!("Expected identifier for wildcard {}.", decl_name);
-          wildcard = Some(consume_id![self, err_msg])
+          wildcard = Some(consume_id![self, err_msg, None])
         }
-        _ => return Err(self.error_at_current_tok(&format!("Expected {} declaration body.", decl_name))),
+        _ => return Err(self.error_at_current_tok(&format!("Expected {} declaration body.", decl_name), None)),
       }
 
       // Then, if next is a comma, match another wildcard or granular import
       if match_tok![self, COMMA] {
         if !members.is_empty() && !check_tok![self, TRIPLE_DOT] {
           let err_msg = &format!("Expected wildcard {} after granular {}.", decl_name, decl_name);
-          return Err(self.error_at_current_tok(err_msg));
+          return Err(self.error_at_current_tok(err_msg, None));
         } else if wildcard.is_some() && !check_tok![self, L_CURLY] {
           let err_msg = &format!("Expected granular {} after wildcard {}.", decl_name, decl_name);
-          return Err(self.error_at_current_tok(err_msg));
+          return Err(self.error_at_current_tok(err_msg, None));
         }
 
         if match_tok![self, L_CURLY] {
           members = self.parse_granular_import(decl_name)?;
         } else if match_tok![self, TRIPLE_DOT] {
           let err_msg = &format!("Expected identifier for wildcard {}.", decl_name);
-          wildcard = Some(consume_id![self, err_msg])
+          wildcard = Some(consume_id![self, err_msg, None])
         }
       }
 
       // Finally, consume the "from" keyword
       let err_msg = &format!("Expected keyword 'from' for {} declaration.", decl_name);
-      self.consume(&FROM_KW, err_msg)?;
+      self.consume(&FROM_KW, err_msg, None)?;
     }
 
     let err_msg = &format!("Expected module path for {} declaration.", decl_name);
-    self.consume(&STR_LIT, err_msg)?;
+    self.consume(&STR_LIT, err_msg, None)?;
     let path = self.emit(StringLiteral(self.current_pos - 1))?;
 
-    self.consume(&SEMICOLON, &format!("Expected ';' after {} declaration.", decl_name))?;
+    self.consume(
+      &SEMICOLON,
+      &format!("Expected ';' after {} declaration.", decl_name),
+      None,
+    )?;
 
     let node = ASTImportExportNode { members, wildcard, path };
     self.emit(if is_export { ExportDecl(node) } else { ImportDecl(node) })
@@ -505,12 +510,12 @@ impl<'a> Parser<'a> {
     let mut members = vec![];
 
     loop {
-      let member = consume_id![self, &format!("Expected identifier to {}.", decl_name)];
+      let member = consume_id![self, &format!("Expected identifier to {}.", decl_name), None];
 
       // Maybe parse alias
       let alias = if match_tok![self, AS_KW] {
         let err_msg = &format!("Expected identifier for {} alias.", decl_name);
-        Some(consume_id![self, err_msg])
+        Some(consume_id![self, err_msg, None])
       } else {
         None
       };
@@ -568,7 +573,7 @@ impl<'a> Parser<'a> {
     let decorator = match self.ast.get(expr) {
       IdLiteral(_) | CallExpr(_) => expr,
       // TODO: Implement node span resolution and get the span of the target instead.
-      _ => return Err(self.error_at_prev_tok("Expected identifier or function call as decorator.")),
+      _ => return Err(self.error_at_prev_tok("Expected identifier or function call as decorator.", None)),
     };
 
     Ok(Decorator(decorator))

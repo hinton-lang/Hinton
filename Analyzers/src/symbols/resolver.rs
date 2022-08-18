@@ -1,4 +1,4 @@
-use core::errors::error_at_tok;
+use core::errors::{error_at_tok, ErrMsg};
 use core::tokens::TokenIdx;
 
 use crate::symbols::*;
@@ -16,21 +16,36 @@ impl<'a> SymbolTableArena<'a> {
     // Check that the symbol isn't already declared in the current scope id.
     for symbol in self.get_current_table().symbols.iter().filter(|s| s.scope.id == scope_id) {
       if self.tokens.lexeme(symbol.token_idx) == self.tokens.lexeme(token_idx) {
-        let err_msg = &format!(
-          "Can only declare identifier '{}' once per scope.",
+        let err_msg = format!(
+          "Duplicate declaration of identifier '{}'.",
           self.tokens.lexeme(token_idx)
         );
-        self.errors.push(error_at_tok(self.tokens, token_idx, "ReferenceError", err_msg));
+
+        let kind = match symbol.kind {
+          SymbolKind::Var => "variable",
+          SymbolKind::Const => "constant",
+          SymbolKind::Func => "function",
+          SymbolKind::Class => "class",
+          SymbolKind::Method => "method",
+        };
+
+        let tok_loc = self.tokens.location(symbol.token_idx);
+        let hint = format!(
+          "Identifier previously declared as a {} on line {}, column {}.",
+          kind, tok_loc.line_num, tok_loc.col_start
+        );
+
+        self.errors.push(error_at_tok(token_idx, ErrMsg::Duplication(err_msg), Some(hint)));
         return;
       }
     }
 
-    // Determine the location of the variable.
+    // Determine the location of the declaration.
     let loc = if self.current_table == 0 && depth == 0 {
       // Check the bounds of the globals vector
       if self.globals_len == u16::MAX as usize {
-        let err_msg = "Too many global declarations.";
-        self.errors.push(error_at_tok(self.tokens, token_idx, "MaxCapacity", err_msg));
+        let err_msg = "Too many global declarations.".to_string();
+        self.errors.push(error_at_tok(token_idx, ErrMsg::MaxCapacity(err_msg), None));
       }
 
       self.globals_len += 1;
@@ -38,8 +53,8 @@ impl<'a> SymbolTableArena<'a> {
     } else {
       // Check the bounds of the locals stack
       if self.get_current_table().stack_len == u16::MAX as usize {
-        let err_msg = "Too many local declarations.";
-        self.errors.push(error_at_tok(self.tokens, token_idx, "MaxCapacity", err_msg));
+        let err_msg = "Too many local declarations.".to_string();
+        self.errors.push(error_at_tok(token_idx, ErrMsg::MaxCapacity(err_msg), None));
       }
 
       self.get_current_table_mut().stack_len += 1;

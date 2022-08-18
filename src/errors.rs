@@ -1,6 +1,7 @@
+use core::errors::{print_error_snippet, ErrMsg};
+
 use crate::virtual_machine::call_frame::CallFrameType;
 use crate::virtual_machine::VM;
-use core::errors::{print_error_snippet, RuntimeErrorType};
 
 /// Throws a runtime error to the console.
 ///
@@ -9,7 +10,7 @@ use core::errors::{print_error_snippet, RuntimeErrorType};
 /// - `error`: The generated error.
 /// - `message`: The error message to be displayed.
 /// - `source`: The program's source text.
-pub fn report_runtime_error(vm: &VM, error: RuntimeErrorType, message: String, source: &[char]) {
+pub fn report_runtime_error(vm: &VM, error: ErrMsg, message: String, source: &[char]) {
   let source: String = source.iter().collect();
   let source_lines: Vec<&str> = source.split('\n').collect();
 
@@ -21,24 +22,10 @@ pub fn report_runtime_error(vm: &VM, error: RuntimeErrorType, message: String, s
   };
   let line = f.chunk.get_line_info(frame.ip - 1);
 
-  let error_name = match error {
-    RuntimeErrorType::ArgumentError => "ArgumentError",
-    RuntimeErrorType::AssertionError => "AssertionError",
-    RuntimeErrorType::IndexError => "IndexError",
-    RuntimeErrorType::InstanceError => "InstanceError",
-    RuntimeErrorType::Internal => "InternalError",
-    RuntimeErrorType::KeyError => "KeyError",
-    RuntimeErrorType::RecursionError => "RecursionError",
-    RuntimeErrorType::ReferenceError => "ReferenceError",
-    RuntimeErrorType::StopIteration => "EndOfIterationError",
-    RuntimeErrorType::TypeError => "TypeError",
-    RuntimeErrorType::ZeroDivision => "ZeroDivisionError",
-  };
-
-  eprintln!("\x1b[31;1m{}:\x1b[0m\x1b[1m {}\x1b[0m", error_name, message);
+  eprintln!("\x1b[31;1m{}:\x1b[0m\x1b[1m {}\x1b[0m", error.name(), message);
 
   let src_line = source_lines.get(line.0 - 1).unwrap();
-  print_error_snippet(line.0, line.1, (0, 1), src_line);
+  // print_error_snippet(line.0, line.1, (0, 1), src_line);
 
   // Print stack trace
   println!("Traceback (most recent call last):");

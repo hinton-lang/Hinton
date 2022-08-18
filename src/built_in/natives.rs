@@ -3,7 +3,7 @@ use std::time::SystemTime;
 
 use hashbrown::{hash_map, HashMap};
 
-use core::errors::RuntimeErrorType;
+use core::errors::RuntimeErrMsg;
 use core::RuntimeResult;
 
 use crate::built_in::NativeFn;
@@ -60,10 +60,10 @@ impl Natives {
 
     match self.0.get(name) {
       Some(f) => Ok(f.clone()),
-      None => Err(RuntimeResult::Error {
-        error: RuntimeErrorType::ReferenceError,
-        message: format!("No native function named '{}'.", name),
-      }),
+      None => Err(RuntimeResult::Error(RuntimeErrMsg::Reference(format!(
+        "No native function named '{}'.",
+        name
+      )))),
     }
   }
 
@@ -107,10 +107,7 @@ fn native_clock(vm: &mut VM, _: Vec<Object>) -> RuntimeResult {
       let time = t.as_millis();
       vm.push_stack(Object::Int(time as i64))
     }
-    Err(_) => RuntimeResult::Error {
-      error: RuntimeErrorType::Internal,
-      message: String::from("System's time before UNIX EPOCH."),
-    },
+    Err(_) => RuntimeResult::Error(RuntimeErrMsg::Internal("System's time before UNIX EPOCH.".to_string())),
   }
 }
 
@@ -145,10 +142,10 @@ fn native_next(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
       Ok(o) => vm.push_stack(o),
       Err(e) => e,
     },
-    _ => RuntimeResult::Error {
-      error: RuntimeErrorType::TypeError,
-      message: format!("Object of type '{}' is not iterable.", args[0].type_name()),
-    },
+    _ => RuntimeResult::Error(RuntimeErrMsg::Type(format!(
+      "Object of type '{}' is not iterable.",
+      args[0].type_name()
+    ))),
   }
 }
 
@@ -173,16 +170,16 @@ fn native_input(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
           input.pop(); // remove added newline
           vm.push_stack(Object::String(input))
         }
-        Err(e) => RuntimeResult::Error {
-          error: RuntimeErrorType::Internal,
-          message: format!("Failed to read input. IO failed read line. {}", e),
-        },
+        Err(e) => RuntimeResult::Error(RuntimeErrMsg::Internal(format!(
+          "Failed to read input. IO failed read line. {}",
+          e
+        ))),
       }
     }
-    Err(e) => RuntimeResult::Error {
-      error: RuntimeErrorType::Internal,
-      message: format!("Failed to read input. IO failed flush. {}", e),
-    },
+    Err(e) => RuntimeResult::Error(RuntimeErrMsg::Internal(format!(
+      "Failed to read input. IO failed flush. {}",
+      e
+    ))),
   }
 }
 
@@ -207,10 +204,7 @@ fn native_assert(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
       Object::String(String::from("Assertion failed on a falsey value."))
     };
 
-    RuntimeResult::Error {
-      error: RuntimeErrorType::AssertionError,
-      message: format!("{}", message),
-    }
+    RuntimeResult::Error(RuntimeErrMsg::Assertion(format!("{}", message)))
   }
 }
 
@@ -236,10 +230,7 @@ fn native_assert_eq(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
       Object::String(String::from("Assertion values are not equal."))
     };
 
-    RuntimeResult::Error {
-      error: RuntimeErrorType::AssertionError,
-      message: format!("{}", message),
-    }
+    RuntimeResult::Error(RuntimeErrMsg::Assertion(format!("{}", message)))
   }
 }
 
@@ -265,10 +256,7 @@ fn native_assert_ne(vm: &mut VM, args: Vec<Object>) -> RuntimeResult {
       Object::String(String::from("Assertion values are equal."))
     };
 
-    RuntimeResult::Error {
-      error: RuntimeErrorType::AssertionError,
-      message: format!("{}", message),
-    }
+    RuntimeResult::Error(RuntimeErrMsg::Assertion(format!("{}", message)))
   }
 }
 

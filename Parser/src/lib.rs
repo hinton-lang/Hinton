@@ -1,5 +1,5 @@
 use core::ast::*;
-use core::errors::{error_at_tok, ErrorReport};
+use core::errors::{error_at_tok, ErrMsg, ErrorReport};
 use core::tokens::TokenKind::*;
 use core::tokens::*;
 
@@ -38,8 +38,8 @@ macro_rules! curr_tk {
 /// Consume an identifier token and returns its token index.
 #[macro_export]
 macro_rules! consume_id {
-  ($s:ident, $err:expr) => {
-    $s.consume(&IDENTIFIER, $err)?
+  ($s:ident, $err:expr, $ht:expr) => {
+    $s.consume(&IDENTIFIER, $err, $ht)?
   };
 }
 
@@ -47,10 +47,10 @@ macro_rules! consume_id {
 /// returns a list with the consumed token indices.
 #[macro_export]
 macro_rules! consume_id_list {
-  ($s:ident,$err_msg:expr) => {{
-    let mut ids = vec![consume_id![$s, $err_msg]];
+  ($s:ident,$err_msg:expr, $ht:expr) => {{
+    let mut ids = vec![consume_id![$s, $err_msg, $ht]];
     while match_tok![$s, COMMA] {
-      ids.push(consume_id![$s, $err_msg]);
+      ids.push(consume_id![$s, $err_msg, $ht]);
     }
     ids
   }};
@@ -61,7 +61,7 @@ macro_rules! consume_id_list {
 macro_rules! guard_error_token {
   ($s:ident) => {
     if let ERROR(e) = curr_tk![$s] {
-      return Err($s.error_at_current_tok(e.to_str()));
+      return Err($s.error_at_current_tok(e.to_str(), None));
     }
   };
 }
@@ -183,16 +183,16 @@ impl<'a> Parser<'a> {
   /// - `tk`: The kind of token we expect to consume.
   /// - `message`: The error message used in the ErrorReport if the
   /// current token is not of the given kind.
-  fn consume(&mut self, tk: &TokenKind, message: &str) -> NodeResult<TokenIdx> {
+  fn consume(&mut self, tk: &TokenKind, message: &str, hint: Option<&str>) -> NodeResult<TokenIdx> {
     if self.check(tk) {
       self.advance();
       return Ok(self.current_pos - 1);
     }
 
     if let SEMICOLON = tk {
-      Err(self.error_at_prev_tok(message))
+      Err(self.error_at_prev_tok(message, hint))
     } else {
-      Err(self.error_at_current_tok(message))
+      Err(self.error_at_current_tok(message, hint))
     }
   }
 
@@ -214,15 +214,23 @@ impl<'a> Parser<'a> {
   ///
   /// # Parameters
   /// - `message`: The error message to display.
-  fn error_at_current_tok(&mut self, message: &str) -> ErrorReport {
-    error_at_tok(self.tokens, self.current_pos, "SyntaxError", message)
+  fn error_at_current_tok(&mut self, message: &str, hint: Option<&str>) -> ErrorReport {
+    error_at_tok(
+      self.current_pos,
+      ErrMsg::Syntax(message.to_string()),
+      hint.map(|x| x.to_string()),
+    )
   }
 
   /// Emits a compiler error from the previous token.
   ///
   /// # Parameters
   /// - `message`: The error message to display.
-  fn error_at_prev_tok(&mut self, message: &str) -> ErrorReport {
-    error_at_tok(self.tokens, self.current_pos - 1, "SyntaxError", message)
+  fn error_at_prev_tok(&mut self, message: &str, hint: Option<&str>) -> ErrorReport {
+    error_at_tok(
+      self.current_pos - 1,
+      ErrMsg::Syntax(message.to_string()),
+      hint.map(|x| x.to_string()),
+    )
   }
 }

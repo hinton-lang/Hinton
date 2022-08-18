@@ -1,4 +1,4 @@
-use core::errors::error_at_tok;
+use core::errors::{error_at_tok, ErrMsg};
 use core::tokens::TokenIdx;
 
 use crate::symbols::*;
@@ -160,20 +160,18 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
   fn ast_visit_break_stmt(&mut self, node: &ASTBreakStmtNode, data: Self::Data) -> Self::Res {
     if let TableLoopState::None = self.get_current_table().loop_ctx {
       self.errors.push(error_at_tok(
-        self.tokens,
         node.token,
-        "SyntaxError",
-        "Can only break from within a loop.",
+        ErrMsg::Syntax("Can only break from within a loop.".to_string()),
+        None,
       ));
     }
 
     if let Some(val) = node.val {
       if let TableLoopState::While | TableLoopState::For = self.get_current_table().loop_ctx {
         self.errors.push(error_at_tok(
-          self.tokens,
           node.token,
-          "SyntaxError",
-          "Can only break with expression from within a 'loop' expression.",
+          ErrMsg::Syntax("Can only break with expression from within a 'loop' expression.".to_string()),
+          None,
         ));
       }
 
@@ -184,10 +182,9 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
   fn ast_visit_continue_stmt(&mut self, node: &TokenIdx, _: Self::Data) -> Self::Res {
     if let TableLoopState::None = self.get_current_table().loop_ctx {
       self.errors.push(error_at_tok(
-        self.tokens,
         *node,
-        "SyntaxError",
-        "Can only continue from within a loop.",
+        ErrMsg::Syntax("Can only continue from within a loop.".to_string()),
+        None,
       ));
     }
   }
@@ -359,10 +356,9 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
   fn ast_visit_return_stmt(&mut self, node: &ASTReturnStmtNode, data: Self::Data) -> Self::Res {
     if !self.get_current_table().is_func_ctx {
       self.errors.push(error_at_tok(
-        self.tokens,
         node.token,
-        "SyntaxError",
-        "Can only return from within a function body.",
+        ErrMsg::Syntax("Can only return from within a function body.".to_string()),
+        None,
       ));
     }
 
@@ -481,10 +477,9 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
   fn ast_visit_self_literal(&mut self, node: &TokenIdx, _: Self::Data) -> Self::Res {
     if !self.get_current_table().is_class_ctx {
       self.errors.push(error_at_tok(
-        self.tokens,
         *node,
-        "SyntaxError",
-        "Can only reference 'self' from within a class body.",
+        ErrMsg::Reference("Can only reference 'self' from within a class body.".to_string()),
+        None,
       ));
     }
   }
@@ -492,10 +487,9 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
   fn ast_visit_super_literal(&mut self, node: &TokenIdx, _: Self::Data) -> Self::Res {
     if !self.get_current_table().is_class_ctx {
       self.errors.push(error_at_tok(
-        self.tokens,
         *node,
-        "SyntaxError",
-        "Can only reference 'super' from within a class body.",
+        ErrMsg::Reference("Can only reference 'super' from within a class body.".to_string()),
+        None,
       ));
     }
   }

@@ -1,4 +1,4 @@
-use core::errors::CompilerErrorType;
+use core::errors::ErrMsg;
 
 use crate::compiler::symbols::SymbolType;
 use crate::compiler::{BreakScope, Compiler, LoopScope, LoopType};
@@ -118,14 +118,12 @@ impl Compiler {
   /// Compiles a `break` statement.
   pub(super) fn compile_loop_branching_stmt(&mut self, stmt: &LoopBranchStmtNode) {
     if self.current_func_scope().loops.is_empty() {
-      self.error_at_token(
-        &stmt.token,
-        CompilerErrorType::Syntax,
-        &format!(
-          "Cannot have '{}' statement outside of loop.",
-          if stmt.is_break { "break" } else { "continue" }
-        ),
+      let err_msg = format!(
+        "Cannot have '{}' statement outside of loop.",
+        if stmt.is_break { "break" } else { "continue" }
       );
+
+      self.error_at_token(&stmt.token, ErrMsg::Syntax(err_msg));
       return;
     }
 
@@ -134,7 +132,7 @@ impl Compiler {
 
     // If we are branching inside a for-in loop, also pop the loop's
     // iterator off the stack before exiting the loop.
-    if let super::LoopType::ForIn = current_loop.loop_type {
+    if let LoopType::ForIn = current_loop.loop_type {
       if stmt.is_break {
         popped_scope.append(&mut vec![false]);
       }
