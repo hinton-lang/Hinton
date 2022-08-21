@@ -110,8 +110,8 @@ impl VM {
   /// ```Result<FuncObject, Vec<ErrorReport, Global>>```
   #[cfg(not(feature = "PLV"))]
   fn compile_source(&self, tokens_list: &TokenList) -> Result<FuncObject, Vec<ErrorReport>> {
-    let ast = Parser::parse(&tokens_list)?;
-    SymbolTableArena::tables_from(&tokens_list, &ast)?;
+    let ast = Parser::parse(tokens_list)?;
+    SymbolTableArena::tables_from(tokens_list, &ast)?;
 
     // TODO: Transition the compiler to new source
     Compiler::compile_ast(
@@ -404,7 +404,7 @@ impl VM {
 
     match self.stack[class_pos].clone() {
       Object::Instance(i) => {
-        if let Ok(value) = i.borrow().get_prop(&self, "init") {
+        if let Ok(value) = i.borrow().get_prop(self, "init") {
           let method = match value {
             Object::Function(f) => FuncObject::bound_method(f, i.clone()),
             Object::Closure(c) => c.into_bound_method(i.clone()),

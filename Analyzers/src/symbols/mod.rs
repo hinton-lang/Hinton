@@ -13,14 +13,25 @@ pub enum SymbolKind {
   Func,
   Class,
   Method,
+  Param,
 }
 
-/// The location of the symbol, whether in globals, the stack, or the up-values.
+/// The location of a declaration, whether in the globals or the stack.
 #[derive(Copy, Clone)]
 pub enum SymbolLoc {
   Global(usize),
   Stack(usize),
+}
+
+/// The location of a symbol resolution.
+#[derive(Copy, Clone)]
+pub enum SymRes {
+  None,
+  Stack(usize),
   UpVal(usize),
+  Global(usize),
+  Native(usize),
+  Primitive(usize),
 }
 
 /// The symbol's scope id and depth.
@@ -28,6 +39,15 @@ pub enum SymbolLoc {
 pub struct SymbolScopeData {
   pub id: usize,
   pub depth: u16,
+}
+
+/// Create a new SymbolScopeData
+/// [`scope_id`, `scope_depth`]
+#[macro_export]
+macro_rules! ssd {
+  ($id:expr,$d:expr) => {{
+    SymbolScopeData { id: $id, depth: $d }
+  }};
 }
 
 /// A symbol found in a Hinton program.
@@ -38,8 +58,8 @@ pub struct Symbol {
   pub kind: SymbolKind,
   pub scope: SymbolScopeData,
   pub has_reference: bool,
-  // pub is_captured: bool,
   pub loc: SymbolLoc,
+  pub is_out_of_scope: bool,
 }
 
 /// Represents the index of a Symbol Table in the SymbolTableArena.
@@ -55,6 +75,7 @@ pub struct SymbolTableArena<'a> {
   current_table: SymbolTableIdx,
   globals_len: usize,
   errors: Vec<ErrorReport>,
+  up_values_len: usize,
 }
 
 impl<'a> SymbolTableArena<'a> {
@@ -69,12 +90,13 @@ impl<'a> SymbolTableArena<'a> {
   /// ```Result<Vec<SymbolTable, Global>, Vec<ErrorReport, Global>>```
   pub fn tables_from(tokens: &'a TokenList, ast: &'a ASTArena) -> Result<Vec<SymbolTable>, Vec<ErrorReport>> {
     let mut tables = SymbolTableArena {
-      arena: vec![SymbolTable::new(None, 0, false, false)],
+      arena: vec![SymbolTable::new(None, false, false)],
       ast,
       tokens,
       errors: vec![],
       current_table: 0,
       globals_len: 0,
+      up_values_len: 0,
     };
 
     // Recursively visit all nodes in the AST arena.
@@ -114,8 +136,8 @@ pub enum TableLoopState {
 /// Encodes the lexical scoping of symbols as they are found throughout a program.
 pub struct SymbolTable {
   symbols: Vec<Symbol>,
+  resolved: Vec<(TokenIdx, SymRes)>,
   parent_table: Option<SymbolTableIdx>,
-  parent_scope: usize,
   max_scope_id: usize,
   stack_len: usize,
   is_func_ctx: bool,
@@ -135,16 +157,11 @@ impl SymbolTable {
   ///
   /// # Returns:
   /// ```SymbolTable```
-  pub fn new(
-    parent_table: Option<SymbolTableIdx>,
-    parent_scope: usize,
-    is_func_ctx: bool,
-    is_class_ctx: bool,
-  ) -> SymbolTable {
+  pub fn new(parent_table: Option<SymbolTableIdx>, is_func_ctx: bool, is_class_ctx: bool) -> SymbolTable {
     SymbolTable {
       symbols: vec![],
+      resolved: vec![],
       parent_table,
-      parent_scope,
       max_scope_id: 0,
       stack_len: 1,
       is_func_ctx,

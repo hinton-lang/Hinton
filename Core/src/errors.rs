@@ -161,25 +161,36 @@ pub fn print_error_snippet(tok: TokenLoc, line: &str, hint: &Option<String>) {
   let whitespace_pad_size = " ".repeat(front_pad + 2);
 
   // Compute the column of the error with trimmed whitespaces from the source line.
-  let mut removed_whitespace = 0;
-  for c in line.chars() {
-    if c == ' ' {
-      removed_whitespace += 1;
-    } else {
-      break;
-    }
-  }
+  let removed_whitespace = line.chars().take_while(|ch| ch.is_whitespace()).count();
+  let line = line.trim().to_string();
+  let err_col_start = tok.col_start - removed_whitespace;
+  let err_col_end = err_col_start + (tok.span.1 - tok.span.0);
+  let ellipsis = "\x1b[1m\x1b[38;5;3m...\x1b[0m";
 
-  let trimmed_source = line.trim();
+  // Clip surrounding characters if the line is too long.
+  let (trimmed_source, err_col_start) = if err_col_start > 20 && (line.len() - err_col_end) > 20 {
+    let err = &line[(err_col_start - 20)..(err_col_end + 20)];
+    (format!("{ellipsis}  {}  {ellipsis}", err), 25)
+  } else if err_col_start > 40 {
+    let err = &line[(err_col_start - 40)..];
+    (format!("{}  {}", ellipsis, err), 45)
+  } else if (line.len() - err_col_end) > 40 {
+    let err = &line[..(err_col_end + 40)];
+    (format!("{}  {}", err, ellipsis), err_col_start)
+  } else {
+    (line, tok.col_start - removed_whitespace)
+  };
 
-  let err_col = tok.span.0 - tok.line_start - removed_whitespace;
-  let err_len = tok.span.1 - tok.span.0;
   if !trimmed_source.is_empty() {
     eprintln!("{}|", whitespace_pad_size);
     eprint!(" {} | ", tok.line_num);
     eprintln!("{}", trimmed_source);
     eprint!("{}|", whitespace_pad_size);
-    eprintln!(" {}\x1b[31;1m{}\x1b[0m", " ".repeat(err_col), "^".repeat(err_len));
+    eprintln!(
+      " {}\x1b[31;1m{}\x1b[0m",
+      " ".repeat(err_col_start),
+      "^".repeat(tok.span.1 - tok.span.0)
+    );
 
     if let Some(h) = hint {
       eprintln!("{}| \x1b[38;5;35;1mHint:\x1b[0m {}", whitespace_pad_size, h);

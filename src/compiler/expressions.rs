@@ -76,14 +76,18 @@ impl Compiler {
       BinaryExprType::BitwiseXOR => OpCode::BitwiseXor,
       BinaryExprType::Division => OpCode::Divide,
       BinaryExprType::Expo => OpCode::Expo,
-      BinaryExprType::LogicAND => unreachable!("'AND' expressions not compiled here."),
+      BinaryExprType::LogicAND => {
+        unreachable!("'AND' expressions not compiled here.")
+      }
       BinaryExprType::LogicEQ => OpCode::Equals,
       BinaryExprType::LogicGreaterThan => OpCode::GreaterThan,
       BinaryExprType::LogicGreaterThanEQ => OpCode::GreaterThanEq,
       BinaryExprType::LogicLessThan => OpCode::LessThan,
       BinaryExprType::LogicLessThanEQ => OpCode::LessThanEq,
       BinaryExprType::LogicNotEQ => OpCode::NotEq,
-      BinaryExprType::LogicOR => unreachable!("'OR' expressions not compiled here."),
+      BinaryExprType::LogicOR => {
+        unreachable!("'OR' expressions not compiled here.")
+      }
       BinaryExprType::Minus => OpCode::Subtract,
       BinaryExprType::Modulus => OpCode::Modulus,
       BinaryExprType::Multiplication => OpCode::Multiply,
@@ -122,7 +126,9 @@ impl Compiler {
       // if the lhs is truthy.
       BinaryExprType::LogicOR => OpCode::JumpIfTrueOrPop,
       // Other binary expressions are not allowed here.
-      _ => unreachable!("Can only compile logic 'OR' or 'AND' expressions here."),
+      _ => {
+        unreachable!("Can only compile logic 'OR' or 'AND' expressions here.")
+      }
     };
 
     let end_jump = self.emit_jump(op_code, &expr.opr_token);
