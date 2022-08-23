@@ -46,7 +46,8 @@ impl<'a> TokenList<'a> {
     match &tok.kind {
       TokenKind::ERROR(e) => e.to_str().to_string(),
       TokenKind::EOF => "\0".to_string(),
-      _ => self.src[tok.span.0..tok.span.1].iter().collect(),
+      TokenKind::THIS_FILE => format!("<MainFunc at {:?}>", self.filepath),
+      _ => self.src[tok.loc.span.0..tok.loc.span.1].iter().collect(),
     }
   }
 
@@ -58,49 +59,35 @@ impl<'a> TokenList<'a> {
   ///
   /// # Returns:
   /// ```TokenLoc```
-  pub fn location(&self, idx: TokenIdx) -> TokenLoc {
-    self[idx].get_location()
+  pub fn loc(&self, idx: TokenIdx) -> TokenLoc {
+    self[idx].loc
   }
 }
 
 /// The source-code location information for a Token.
+#[derive(Copy, Clone)]
 pub struct TokenLoc {
   pub line_num: usize,
-  pub col_start: usize,
-  pub col_end: usize,
-  pub span: (usize, usize),
   pub line_start: usize,
+  pub span: (usize, usize),
+}
+
+impl TokenLoc {
+  pub fn col_start(&self) -> usize {
+    self.span.0 - self.line_start
+  }
 }
 
 // A token that represents a single unit of Hinton code.
-#[derive(Clone)]
+#[derive(Copy, Clone)]
 pub struct Token {
-  /// The token's line number
-  pub line_num: usize,
-  /// The beginning of this token's line in the source.
-  pub line_start: usize,
-  /// The token's lexeme span (column start, column end)
-  pub span: (usize, usize),
-  /// The token's type
   pub kind: TokenKind,
-}
-
-impl Token {
-  /// Gets the source-code location information of a token.
-  pub fn get_location(&self) -> TokenLoc {
-    TokenLoc {
-      line_num: self.line_num,
-      col_start: self.span.0 - self.line_start,
-      col_end: self.span.0 - self.line_start,
-      span: self.span,
-      line_start: self.line_start,
-    }
-  }
+  pub loc: TokenLoc,
 }
 
 /// The types of tokens in a Hinton program.
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 #[repr(u8)]
 pub enum TokenKind {
   // Symbol-based tokens
@@ -228,7 +215,7 @@ pub enum TokenKind {
   WITH_KW,
   YIELD_KW,
 
-  /// Other Tokens
+  // Other Tokens
   EOF,
   ERROR(ErrorTokenKind),
   // **** For Future Implementation
@@ -243,6 +230,13 @@ pub enum TokenKind {
   // NULL_TYPE,
   // STR_TYPE,
   // VOID_TYPE,
+
+  // Since we use a `TokenIdx` to encode the names of `FuncObj`s, this
+  // helper token is used to encode the name of the program's "main"
+  // function. It will always be the first token in the tokens list,
+  // with zero span, and it's lexeme will be dynamically derived from
+  // the file's source path. See `TokensList.lexeme(...)` for more info.
+  THIS_FILE,
 }
 
 impl TokenKind {
@@ -327,7 +321,7 @@ pub fn make_identifier_kind(id: &str) -> TokenKind {
   }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Copy, Clone)]
 pub enum ErrorTokenKind {
   /// Invalid Character.
   InvalidChar,

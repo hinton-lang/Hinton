@@ -120,7 +120,7 @@ impl ASTArena {
 pub enum ASTNodeKind {
   Module(ASTModuleNode),
 
-  ArrayLiteral(Vec<ASTNodeIdx>),
+  ArrayLiteral(ASTArrayLiteralNode),
   ArraySlice(ASTArraySliceNode),
   BinaryExpr(ASTBinaryExprNode),
   BlockStmt(BlockNode),
@@ -135,7 +135,7 @@ pub enum ASTNodeKind {
   DictLiteral(Vec<ASTNodeIdx>),
   EvaluatedDictKey(ASTNodeIdx),
   ExportDecl(ASTImportExportNode),
-  ExprStmt(ASTNodeIdx),
+  ExprStmt(ASTExprStmt),
   FalseLiteral(TokenIdx),
   ForLoop(ASTForLoopNode),
   FuncDecl(ASTFuncDeclNode),
@@ -160,7 +160,7 @@ pub enum ASTNodeKind {
   ThrowStmt(ASTNodeIdx),
   TrueLiteral(TokenIdx),
   TryCatchFinally(ASTTryCatchFinallyNode),
-  TupleLiteral(Vec<ASTNodeIdx>),
+  TupleLiteral(ASTTupleLiteralNode),
   UnaryExpr(ASTUnaryExprNode),
   VarConstDecl(ASTVarConsDeclNode),
   WhileLoop(ASTWhileLoopNode),
@@ -178,6 +178,11 @@ pub struct ASTModuleNode {
 
 /// An AST Block Node.
 pub struct BlockNode(pub Vec<ASTNodeIdx>);
+
+pub struct ASTExprStmt {
+  pub token: TokenIdx,
+  pub expr: ASTNodeIdx,
+}
 
 /// An AST Reassignment Node
 pub struct ASTReassignmentNode {
@@ -251,6 +256,7 @@ pub struct ASTBinaryExprNode {
   pub left: ASTNodeIdx,
   pub right: ASTNodeIdx,
   pub kind: BinaryExprKind,
+  pub token: TokenIdx,
 }
 
 #[derive(Clone, Debug)]
@@ -264,7 +270,6 @@ pub enum BinaryExprKind {
   BitXOR,        // ^
   Div,           // /
   Equals,        // =
-  Pow,           // **
   GreaterThan,   // >
   GreaterThanEQ, // >=
   In,            // in
@@ -279,6 +284,7 @@ pub enum BinaryExprKind {
   Nonish,        // ??
   NotEquals,     // !=
   Pipe,          // |>
+  Pow,           // **
   Range,         // ..
   RangeEQ,       // ..=
   Subtract,      // -
@@ -393,6 +399,7 @@ impl BinaryExprKind {
 pub struct ASTUnaryExprNode {
   pub kind: UnaryExprKind,
   pub operand: ASTNodeIdx,
+  pub token: TokenIdx,
 }
 
 #[repr(u8)]
@@ -475,11 +482,24 @@ pub enum LambdaBody {
   Block(BlockNode),
 }
 
+/// An AST Array Literal Node
+pub struct ASTArrayLiteralNode {
+  pub token: TokenIdx,
+  pub values: Vec<ASTNodeIdx>,
+}
+
+/// An AST Tuple Literal Node
+pub struct ASTTupleLiteralNode {
+  pub token: TokenIdx,
+  pub values: Vec<ASTNodeIdx>,
+}
+
 /// An AST Repeat Literal Node
 pub struct ASTRepeatLiteralNode {
   pub kind: RepeatLiteralKind,
   pub value: ASTNodeIdx,
   pub count: ASTNodeIdx,
+  pub token: TokenIdx,
 }
 
 #[derive(Debug)]
@@ -714,9 +734,15 @@ pub enum ClassMemberKind {
 
 pub trait ASTVisitor<'a> {
   type Res;
-  type Data;
+  type Data: Copy + Clone;
 
   fn get_ast(&self) -> &'a ASTArena;
+
+  fn ast_visit_all(&mut self, nodes: &[ASTNodeIdx], data: Self::Data) {
+    nodes.iter().for_each(|node| {
+      self.ast_visit_node(*node, data);
+    })
+  }
 
   fn ast_visit_node(&mut self, node: ASTNodeIdx, data: Self::Data) -> Self::Res {
     match self.get_ast().get(node) {
@@ -777,7 +803,7 @@ pub trait ASTVisitor<'a> {
   fn ast_visit_block_stmt(&mut self, node: &BlockNode, data: Self::Data) -> Self::Res;
   fn ast_visit_del_stmt(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res;
   fn ast_visit_export_decl(&mut self, node: &ASTImportExportNode, data: Self::Data) -> Self::Res;
-  fn ast_visit_expr_stmt(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_expr_stmt(&mut self, node: &ASTExprStmt, data: Self::Data) -> Self::Res;
   fn ast_visit_if_stmt(&mut self, node: &ASTIfStmtNode, data: Self::Data) -> Self::Res;
   fn ast_visit_import_decl(&mut self, node: &ASTImportExportNode, data: Self::Data) -> Self::Res;
   fn ast_visit_throw_stmt(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res;
@@ -810,7 +836,7 @@ pub trait ASTVisitor<'a> {
   fn ast_visit_unary_expr(&mut self, node: &ASTUnaryExprNode, data: Self::Data) -> Self::Res;
 
   // >>>>>>>>>> Collection expressions
-  fn ast_visit_array_literal(&mut self, nodes: &[ASTNodeIdx], data: Self::Data) -> Self::Res;
+  fn ast_visit_array_literal(&mut self, node: &ASTArrayLiteralNode, data: Self::Data) -> Self::Res;
   fn ast_visit_array_slice(&mut self, node: &ASTArraySliceNode, data: Self::Data) -> Self::Res;
   fn ast_visit_compact_arr_or_tpl(&mut self, node: &ASTCompactArrOrTplNode, data: Self::Data) -> Self::Res;
   fn ast_visit_compact_dict(&mut self, node: &ASTCompactDictNode, data: Self::Data) -> Self::Res;
@@ -819,7 +845,7 @@ pub trait ASTVisitor<'a> {
   fn ast_visit_evaluated_dict_key(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res;
   fn ast_visit_indexing(&mut self, node: &ASTIndexingNode, data: Self::Data) -> Self::Res;
   fn ast_visit_repeat_literal(&mut self, node: &ASTRepeatLiteralNode, data: Self::Data) -> Self::Res;
-  fn ast_visit_tuple_literal(&mut self, nodes: &[ASTNodeIdx], data: Self::Data) -> Self::Res;
+  fn ast_visit_tuple_literal(&mut self, node: &ASTTupleLiteralNode, data: Self::Data) -> Self::Res;
 
   // >>>>>>>>>> Identifier literal nodes
   fn ast_visit_id_literal(&mut self, node: &TokenIdx, data: Self::Data) -> Self::Res;

@@ -1,6 +1,5 @@
-use core::tokens::{ErrorTokenKind, Token, TokenKind::*};
-
 use crate::{Lexer, LexerMode};
+use core::tokens::{ErrorTokenKind, Token, TokenKind::*};
 
 impl<'a> Lexer<'a> {
   /// Makes a string literal.
@@ -28,7 +27,7 @@ impl<'a> Lexer<'a> {
       if self.get_current() == '$' && self.get_next() == '{' && self.get_previous() != '\\' {
         // Emit the start interpol literal token
         if !is_interpol_str {
-          self.tokens.push(start_interpol_tok.clone());
+          self.tokens.push(start_interpol_tok);
         }
 
         is_interpol_str = true;

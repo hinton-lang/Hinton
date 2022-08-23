@@ -1,8 +1,7 @@
+use crate::{check_tok, consume_id, curr_tk, match_tok, NodeResult, Parser};
 use core::ast::ASTNodeKind::*;
 use core::ast::*;
 use core::tokens::TokenKind::*;
-
-use crate::{check_tok, consume_id, curr_tk, match_tok, NodeResult, Parser};
 
 impl<'a> Parser<'a> {
   /// Parses a variable or constant declaration statement.

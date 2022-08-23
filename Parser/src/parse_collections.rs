@@ -1,8 +1,7 @@
+use crate::{check_tok, curr_tk, match_tok, NodeResult, Parser, TokenIdx};
 use core::ast::ASTNodeKind::*;
 use core::ast::*;
 use core::tokens::TokenKind::*;
-
-use crate::{check_tok, curr_tk, match_tok, NodeResult, Parser};
 
 impl<'a> Parser<'a> {
   /// Parses an array literal expression.
@@ -12,6 +11,7 @@ impl<'a> Parser<'a> {
   /// ARR_TPL_BODY  ::= ARR_TPL_LIST | ARR_TPL_REPEAT | COMPACT_FOR_LOOP
   /// ```
   pub(super) fn parse_array_literal(&mut self) -> NodeResult<ASTNodeIdx> {
+    let token = self.current_pos - 1;
     // If we match a for-keyword at the start the array literal, then we
     // know we have an array comprehension so we can go ahead and parse it.
     if match_tok![self, FOR_KW] {
@@ -21,7 +21,7 @@ impl<'a> Parser<'a> {
     }
 
     // Initialize the list of values for array literal
-    let mut values: Vec<ASTNodeIdx> = vec![];
+    let mut values = vec![];
 
     if !match_tok![self, R_BRACKET] {
       // Get the first value of the array
@@ -33,7 +33,7 @@ impl<'a> Parser<'a> {
           // If there is a semicolon after the first value, then
           // we know this must be an array-repeat expression.
           if match_tok![self, SEMICOLON] {
-            return self.parse_repeat_arr_or_tpl(value, false);
+            return self.parse_repeat_arr_or_tpl(token, value, false);
           }
 
           value
@@ -45,7 +45,8 @@ impl<'a> Parser<'a> {
       self.consume(&R_BRACKET, "Expected matching ']' for array literal.", None)?;
     }
 
-    self.emit(ArrayLiteral(values))
+    let node = ASTArrayLiteralNode { token, values };
+    self.emit(ArrayLiteral(node))
   }
 
   /// Parses either a tuple literal expression or a grouping expression.
@@ -55,6 +56,8 @@ impl<'a> Parser<'a> {
   /// ARR_TPL_BODY  ::= ARR_TPL_LIST | ARR_TPL_REPEAT | COMPACT_FOR_LOOP
   /// ```
   pub(super) fn parse_tuple_literal_or_grouping_expr(&mut self) -> NodeResult<ASTNodeIdx> {
+    let token = self.current_pos - 1;
+
     // If we match a for-keyword at the start the tuple literal, then we
     // know we have a tuple comprehension so we can go ahead and parse it.
     if match_tok![self, FOR_KW] {
@@ -78,7 +81,7 @@ impl<'a> Parser<'a> {
           // If there is a semicolon after the first value, then
           // we know this must be an array-repeat expression.
           if match_tok![self, SEMICOLON] {
-            return self.parse_repeat_arr_or_tpl(value, true);
+            return self.parse_repeat_arr_or_tpl(token, value, true);
           }
 
           // If we do not find a comma after the first expression,
@@ -97,7 +100,8 @@ impl<'a> Parser<'a> {
       self.consume(&R_PAREN, "Expected matching ')' for tuple literal.", None)?;
     }
 
-    self.emit(TupleLiteral(values))
+    let node = ASTTupleLiteralNode { token, values };
+    self.emit(TupleLiteral(node))
   }
 
   /// Parses either a single spread expression
@@ -115,7 +119,12 @@ impl<'a> Parser<'a> {
   /// ```bnf
   /// ARR_TPL_REPEAT ::= EXPRESSION ";" EXPRESSION
   /// ```
-  pub(super) fn parse_repeat_arr_or_tpl(&mut self, value: ASTNodeIdx, is_tup: bool) -> NodeResult<ASTNodeIdx> {
+  pub(super) fn parse_repeat_arr_or_tpl(
+    &mut self,
+    token: TokenIdx,
+    value: ASTNodeIdx,
+    is_tup: bool,
+  ) -> NodeResult<ASTNodeIdx> {
     let count = self.parse_expr()?;
 
     let kind = if is_tup {
@@ -126,7 +135,7 @@ impl<'a> Parser<'a> {
       RepeatLiteralKind::Array
     };
 
-    let node = ASTRepeatLiteralNode { kind, value, count };
+    let node = ASTRepeatLiteralNode { token, kind, value, count };
     self.emit(RepeatLiteral(node))
   }
 
@@ -272,9 +281,9 @@ impl<'a> Parser<'a> {
       self.parse_tuple_literal_or_grouping_expr()?
     } else {
       let literal_or_ident = match curr_tk![self] {
-        IDENTIFIER if self.advance() => IdLiteral(self.current_pos),
-        STR_LIT if self.advance() => StringLiteral(self.current_pos),
-        INT_LIT | HEX_LIT | OCTAL_LIT | BINARY_LIT if self.advance() => NumLiteral(self.current_pos),
+        IDENTIFIER if self.advance() => IdLiteral(self.current_pos - 1),
+        STR_LIT if self.advance() => StringLiteral(self.current_pos - 1),
+        INT_LIT | HEX_LIT | OCTAL_LIT | BINARY_LIT if self.advance() => NumLiteral(self.current_pos - 1),
         L_BRACKET if self.advance() => {
           let expr = self.parse_expr()?;
           self.consume(&R_BRACKET, "Expected ']' for evaluated dict key name.", None)?;

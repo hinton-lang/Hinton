@@ -1,8 +1,7 @@
+use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, ErrMsg, NodeResult, Parser};
 use core::ast::ASTNodeKind::*;
 use core::ast::*;
 use core::tokens::TokenKind::*;
-
-use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, ErrMsg, NodeResult, Parser};
 
 pub enum ParsingLevel {
   Module,
@@ -142,9 +141,10 @@ impl<'a> Parser<'a> {
   /// EXPR_STMT ::= EXPRESSION ";"
   /// ```
   pub(super) fn parse_expr_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
+    let token = self.current_pos;
     let expr = self.parse_expr()?;
     self.consume(&SEMICOLON, "Expected ';' after expression.", None)?;
-    self.emit(ExprStmt(expr))
+    self.emit(ExprStmt(ASTExprStmt { token, expr }))
   }
 
   /// Parses a block statement.
@@ -174,8 +174,8 @@ impl<'a> Parser<'a> {
     let mut let_id = None;
 
     if match_tok![self, LET_KW] {
-      let_id = Some(consume_id![self, "Expected identifier for while-let statement.", None]);
-      self.consume(&EQUALS, "Expected '=' after while-let statement identifier.", None)?;
+      let_id = Some(consume_id![self, "Expected identifier in while-let declaration.", None]);
+      self.consume(&EQUALS, "Expected '=' after while-let declaration identifier.", None)?;
     }
 
     let cond = self.parse_expr()?;

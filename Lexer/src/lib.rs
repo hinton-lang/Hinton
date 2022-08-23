@@ -1,7 +1,7 @@
+use crate::tokens::TokenLoc;
 use core::tokens;
 use core::tokens::{ErrorTokenKind, Token, TokenKind};
 
-// Submodules
 mod find_tokens;
 mod lex_numbers;
 mod lex_strings;
@@ -44,7 +44,14 @@ impl<'a> Lexer<'a> {
     // Instantiate a new Lexer
     let mut the_lexer = Lexer {
       source,
-      tokens: vec![],
+      tokens: vec![Token {
+        kind: TokenKind::THIS_FILE,
+        loc: TokenLoc {
+          line_num: 0,
+          line_start: 0,
+          span: (0, 0),
+        },
+      }],
       current: 0,
       line_num: 1,
       line_start: 0,
@@ -71,7 +78,11 @@ impl<'a> Lexer<'a> {
   /// # Returns
   /// - `char`: The current character.
   pub fn get_current(&self) -> char {
-    self.source[self.current]
+    if self.is_at_end() {
+      '\0'
+    } else {
+      self.source[self.current]
+    }
   }
 
   /// Returns the next character without consuming it.
@@ -141,8 +152,8 @@ impl<'a> Lexer<'a> {
 
       match self.get_current() {
         ' ' | '\r' | '\t' => self.current += 1,
-        '/' if self.get_next() == '/' => self.skip_single_line_comments(),
-        '/' if self.get_next() == '*' => self.skip_block_comments(),
+        '/' if self.matches('/') => self.skip_single_line_comments(),
+        '/' if self.matches('*') => self.skip_block_comments(),
         '\n' => {
           self.line_num += 1;
           self.line_start = self.current + 1;
@@ -221,26 +232,24 @@ impl<'a> Lexer<'a> {
   }
 
   /// Generates a token with the current state of the scanner.
-  pub fn make_token(&self, token_kind: TokenKind) -> Token {
-    let token_span = (self.token_start, self.current);
-
-    Token {
+  pub fn make_token(&self, kind: TokenKind) -> Token {
+    let loc = TokenLoc {
       line_num: self.line_num,
       line_start: self.line_start,
-      span: token_span,
-      kind: token_kind,
-    }
+      span: (self.token_start, self.current),
+    };
+
+    Token { loc, kind }
   }
 
   fn make_eof_token(&mut self) {
-    let token_span = (self.token_start + 1, self.current);
-
-    self.tokens.push(Token {
+    let loc = TokenLoc {
       line_num: self.line_num,
       line_start: self.line_start,
-      span: token_span,
-      kind: TokenKind::EOF,
-    });
+      span: (self.token_start + 1, self.current),
+    };
+
+    self.tokens.push(Token { loc, kind: TokenKind::EOF });
   }
 
   /// Generates an error at the current character with the provided message as its lexeme.
@@ -251,12 +260,14 @@ impl<'a> Lexer<'a> {
   /// # Returns
   /// - `Token`: The generated error token.
   pub fn make_error_token(&mut self, err: ErrorTokenKind, advance: bool) -> Token {
-    let token_span = (self.token_start, self.current);
-
-    let tok = Token {
+    let loc = TokenLoc {
       line_num: self.line_num,
       line_start: self.line_start,
-      span: token_span,
+      span: (self.token_start, self.current),
+    };
+
+    let tok = Token {
+      loc,
       kind: TokenKind::ERROR(err),
     };
 
@@ -272,12 +283,14 @@ impl<'a> Lexer<'a> {
   /// # Returns
   /// - `Token`: The generated error token.
   pub fn make_error_token_at_prev(&self, err: ErrorTokenKind) -> Token {
-    let token_span = (self.token_start, self.current);
-
-    Token {
+    let loc = TokenLoc {
       line_num: self.line_num,
       line_start: self.line_start,
-      span: token_span,
+      span: (self.token_start, self.current),
+    };
+
+    Token {
+      loc,
       kind: TokenKind::ERROR(err),
     }
   }

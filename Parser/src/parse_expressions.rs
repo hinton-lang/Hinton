@@ -1,12 +1,16 @@
+use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, ErrMsg, NodeResult, Parser};
 use core::ast::ASTNodeKind::*;
 use core::ast::*;
 use core::tokens::TokenKind::*;
 
-use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, ErrMsg, NodeResult, Parser};
-
 macro_rules! append_binary_expr {
-  ($s:ident, $l:expr, $r:expr, $k:expr) => {
-    $s.ast.push(BinaryExpr(ASTBinaryExprNode { left: $l, right: $r, kind: $k }))
+  ($s:ident, $l:expr, $r:expr, $k:expr, $tok:expr) => {
+    $s.ast.push(BinaryExpr(ASTBinaryExprNode {
+      left: $l,
+      right: $r,
+      kind: $k,
+      token: $tok,
+    }))
   };
 }
 
@@ -90,8 +94,9 @@ impl<'a> Parser<'a> {
     let mut left = self.parse_logic_or()?;
 
     while match_tok![self, NONISH] {
+      let tok = self.current_pos - 1;
       let right = self.parse_logic_or()?;
-      left = append_binary_expr![self, left, right, BinaryExprKind::Nonish];
+      left = append_binary_expr![self, left, right, BinaryExprKind::Nonish, tok];
     }
 
     Ok(left)
@@ -106,8 +111,9 @@ impl<'a> Parser<'a> {
     let mut left = self.parse_logic_and()?;
 
     while match_tok![self, DOUBLE_VERT_BAR | OR_KW] {
+      let tok = self.current_pos - 1;
       let right = self.parse_logic_and()?;
-      left = append_binary_expr![self, left, right, BinaryExprKind::LogicOR];
+      left = append_binary_expr![self, left, right, BinaryExprKind::LogicOR, tok];
     }
 
     Ok(left)
@@ -122,8 +128,9 @@ impl<'a> Parser<'a> {
     let mut left = self.parse_bit_or()?;
 
     while match_tok![self, DOUBLE_AMPERSAND | AND_KW] {
+      let tok = self.current_pos - 1;
       let right = self.parse_bit_or()?;
-      left = append_binary_expr![self, left, right, BinaryExprKind::LogicAND];
+      left = append_binary_expr![self, left, right, BinaryExprKind::LogicAND, tok];
     }
 
     Ok(left)
@@ -138,8 +145,9 @@ impl<'a> Parser<'a> {
     let mut left = self.parse_bit_xor()?;
 
     while match_tok![self, VERT_BAR] {
+      let tok = self.current_pos - 1;
       let right = self.parse_bit_xor()?;
-      left = append_binary_expr![self, left, right, BinaryExprKind::BitOR];
+      left = append_binary_expr![self, left, right, BinaryExprKind::BitOR, tok];
     }
 
     Ok(left)
@@ -154,8 +162,9 @@ impl<'a> Parser<'a> {
     let mut left = self.parse_bit_and()?;
 
     while match_tok![self, BIT_XOR] {
+      let tok = self.current_pos - 1;
       let right = self.parse_bit_and()?;
-      left = append_binary_expr![self, left, right, BinaryExprKind::BitXOR];
+      left = append_binary_expr![self, left, right, BinaryExprKind::BitXOR, tok];
     }
 
     Ok(left)
@@ -170,8 +179,9 @@ impl<'a> Parser<'a> {
     let mut left = self.parse_equality()?;
 
     while match_tok![self, AMPERSAND] {
+      let tok = self.current_pos - 1;
       let right = self.parse_equality()?;
-      left = append_binary_expr![self, left, right, BinaryExprKind::BitAND];
+      left = append_binary_expr![self, left, right, BinaryExprKind::BitAND, tok];
     }
 
     Ok(left)
@@ -188,8 +198,9 @@ impl<'a> Parser<'a> {
     // ==, !=
     while let Some(eq) = BinaryExprKind::try_equality(self.get_curr_tk()) {
       self.advance(); // Consume the token
+      let tok = self.current_pos - 1;
       let right = self.parse_relation()?;
-      left = append_binary_expr![self, left, right, eq];
+      left = append_binary_expr![self, left, right, eq, tok];
     }
 
     Ok(left)
@@ -206,8 +217,9 @@ impl<'a> Parser<'a> {
     // >, >=, <, <=, in, instof
     while let Some(eq) = BinaryExprKind::try_relation(self.get_curr_tk()) {
       self.advance(); // Consume the token
+      let tok = self.current_pos - 1;
       let right = self.parse_bit_shift()?;
-      left = append_binary_expr![self, left, right, eq];
+      left = append_binary_expr![self, left, right, eq, tok];
     }
 
     Ok(left)
@@ -224,8 +236,9 @@ impl<'a> Parser<'a> {
     // >>, <<
     while let Some(eq) = BinaryExprKind::try_bit_shift(self.get_curr_tk()) {
       self.advance(); // Consume the token
+      let tok = self.current_pos - 1;
       let right = self.parse_range()?;
-      left = append_binary_expr![self, left, right, eq];
+      left = append_binary_expr![self, left, right, eq, tok];
     }
 
     Ok(left)
@@ -242,8 +255,9 @@ impl<'a> Parser<'a> {
     // .., ..=
     while let Some(eq) = BinaryExprKind::try_range(self.get_curr_tk()) {
       self.advance(); // Consume the token
+      let tok = self.current_pos - 1;
       let right = self.parse_term()?;
-      left = append_binary_expr![self, left, right, eq];
+      left = append_binary_expr![self, left, right, eq, tok];
     }
 
     Ok(left)
@@ -260,8 +274,9 @@ impl<'a> Parser<'a> {
     // +, -
     while let Some(eq) = BinaryExprKind::try_term(self.get_curr_tk()) {
       self.advance(); // Consume the token
+      let tok = self.current_pos - 1;
       let right = self.parse_factor()?;
-      left = append_binary_expr![self, left, right, eq];
+      left = append_binary_expr![self, left, right, eq, tok];
     }
 
     Ok(left)
@@ -278,8 +293,9 @@ impl<'a> Parser<'a> {
     // *, %, mod, /, @
     while let Some(eq) = BinaryExprKind::try_factor(self.get_curr_tk()) {
       self.advance(); // Consume the token
+      let tok = self.current_pos - 1;
       let right = self.parse_pow()?;
-      left = append_binary_expr![self, left, right, eq];
+      left = append_binary_expr![self, left, right, eq, tok];
     }
 
     Ok(left)
@@ -294,8 +310,9 @@ impl<'a> Parser<'a> {
     let mut left = self.parse_pipe()?;
 
     while match_tok![self, POW] {
+      let tok = self.current_pos - 1;
       let right = self.parse_pipe()?;
-      left = append_binary_expr![self, left, right, BinaryExprKind::Pow];
+      left = append_binary_expr![self, left, right, BinaryExprKind::Pow, tok];
     }
 
     Ok(left)
@@ -310,8 +327,9 @@ impl<'a> Parser<'a> {
     let mut left = self.parse_unary()?;
 
     while match_tok![self, PIPE] {
+      let tok = self.current_pos - 1;
       let right = self.parse_unary()?;
-      left = append_binary_expr![self, left, right, BinaryExprKind::Pipe];
+      left = append_binary_expr![self, left, right, BinaryExprKind::Pipe, tok];
     }
 
     Ok(left)
@@ -324,12 +342,13 @@ impl<'a> Parser<'a> {
   ///            | PRIMARY_EXPR
   /// ```
   pub(super) fn parse_unary(&mut self) -> NodeResult<ASTNodeIdx> {
+    let token = self.current_pos;
     // !, ~, -, new, typeof, await
     if let Some(kind) = UnaryExprKind::try_from_token(self.get_curr_tk()) {
       self.advance(); // Consume the token
 
       let operand = self.parse_unary()?;
-      let node = ASTUnaryExprNode { kind, operand };
+      let node = ASTUnaryExprNode { token, kind, operand };
       self.emit(UnaryExpr(node))
     } else {
       self.parse_primary()

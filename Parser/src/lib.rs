@@ -94,7 +94,7 @@ impl<'a> Parser<'a> {
   pub fn parse(tokens: &'a TokenList) -> Result<ASTArena, Vec<ErrorReport>> {
     let mut parser = Parser {
       tokens,
-      current_pos: 0,
+      current_pos: 1, // Skip the "THIS_FILE" token.
       errors: vec![],
       ast: ASTArena::default(),
     };

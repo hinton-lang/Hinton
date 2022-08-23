@@ -1,7 +1,6 @@
+use crate::{char_is_ident_start, Lexer, LexerMode};
 use core::tokens::TokenKind::*;
 use core::tokens::{ErrorTokenKind, Token};
-
-use crate::{char_is_ident_start, Lexer, LexerMode};
 
 impl<'a> Lexer<'a> {
   /// Scans the next token in the source file.

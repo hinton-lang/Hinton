@@ -9,21 +9,22 @@ pub enum ErrMsg {
   Reassignment(String),
   /// An identifier duplication error.
   Duplication(String),
-  /// An error that occur only at runtime, and can be caught
-  /// by the programmer with a try-catch-finally block.
+  /// Errors that occur only at runtime. Some of which can be
+  /// caught by the programmer with a try-catch-finally block.
   Runtime(RuntimeErrMsg),
   /// An error emitted when the program finds an operation that
   /// cannot be encoded with one or two bytes of instructions.
   MaxCapacity(String),
+  /// An error emitted when an internal process fails.
+  Internal(String),
 }
 
-/// Errors that occur only at runtime, and can be caught
-/// by the programmer with a try-catch-finally block.
+/// Errors that occur only at runtime. Some of which can be
+/// caught by the programmer with a try-catch-finally block.
 pub enum RuntimeErrMsg {
   /// An error emitted when there is a type mismatch.
   Type(String),
-  /// An error emitted when an indexer is outside the
-  /// bounds of a collection.
+  /// An error emitted when an indexer is outside the bounds of a collection.
   Index(String),
   /// An error emitted when there is zero division.
   ZeroDivision(String),
@@ -32,13 +33,16 @@ pub enum RuntimeErrMsg {
   Key(String),
   /// An error emitted when an assertion fails.
   Assertion(String),
+  /// An error emitted when there is an issue with a function argument.
   Argument(String),
+  /// An error emitted when there is an issue with a class instance.
   Instance(String),
+  /// An error emitted when there is a stack overflow.
   Recursion(String),
+  /// An error emitted when there is an issue with referencing an identifier.
   Reference(String),
+  /// An error emitted when accessing the next item in iterator after it has ended.
   IterStrop(String),
-  /// An error emitted when an internal process fails.
-  Internal(String),
 }
 
 impl ErrMsg {
@@ -50,6 +54,7 @@ impl ErrMsg {
       ErrMsg::Reference(_) => "ReferenceError",
       ErrMsg::Reassignment(_) => "ReassignmentError",
       ErrMsg::Duplication(_) => "DuplicationError",
+      ErrMsg::Internal(_) => "InternalError",
       // Runtime errors that can be caught with a try-catch-finally block.
       ErrMsg::Runtime(e) => match e {
         RuntimeErrMsg::Type(_) => "TypeError",
@@ -57,7 +62,6 @@ impl ErrMsg {
         RuntimeErrMsg::ZeroDivision(_) => "ZeroDivisionError",
         RuntimeErrMsg::Key(_) => "KeyError",
         RuntimeErrMsg::Assertion(_) => "AssertionError",
-        RuntimeErrMsg::Internal(_) => "InternalError",
         RuntimeErrMsg::Argument(_) => "ArgumentError",
         RuntimeErrMsg::Instance(_) => "InstanceError",
         RuntimeErrMsg::Recursion(_) => "RecursionError",
@@ -74,15 +78,15 @@ impl ErrMsg {
       | ErrMsg::MaxCapacity(x)
       | ErrMsg::Reference(x)
       | ErrMsg::Reassignment(x)
+      | ErrMsg::Internal(x)
       | ErrMsg::Duplication(x) => x,
-      // Runtime errors that can be caught with a try-catch-finally block.
+      // Runtime errors. Some of which can be caught with a try-catch-finally block.
       ErrMsg::Runtime(e) => match e {
         RuntimeErrMsg::Type(x)
         | RuntimeErrMsg::Index(x)
         | RuntimeErrMsg::ZeroDivision(x)
         | RuntimeErrMsg::Key(x)
         | RuntimeErrMsg::Assertion(x)
-        | RuntimeErrMsg::Internal(x)
         | RuntimeErrMsg::Argument(x)
         | RuntimeErrMsg::Instance(x)
         | RuntimeErrMsg::Recursion(x)
@@ -98,7 +102,7 @@ pub struct ErrorReport {
   pub token: TokenIdx,
   /// The error message to display for this error report.
   pub err_msg: ErrMsg,
-  // A hint, if any, to display to the programmer.
+  // A hint, if any, to display about the error.
   pub hint: Option<String>,
 }
 
@@ -123,9 +127,9 @@ pub fn report_errors_list(tokens_list: &TokenList, errors: Vec<ErrorReport>) {
   let source_lines: Vec<&str> = source_str.split('\n').collect();
 
   for error in errors.iter() {
-    let tok = tokens_list[error.token].get_location();
+    let tok = tokens_list[error.token].loc;
     let ln = tok.line_num;
-    let cs = tok.col_start;
+    let cs = tok.col_start();
 
     // Construct the error message.
     let err_msg = &error.err_msg;
@@ -163,7 +167,7 @@ pub fn print_error_snippet(tok: TokenLoc, line: &str, hint: &Option<String>) {
   // Compute the column of the error with trimmed whitespaces from the source line.
   let removed_whitespace = line.chars().take_while(|ch| ch.is_whitespace()).count();
   let line = line.trim().to_string();
-  let err_col_start = tok.col_start - removed_whitespace;
+  let err_col_start = tok.col_start() - removed_whitespace;
   let err_col_end = err_col_start + (tok.span.1 - tok.span.0);
   let ellipsis = "\x1b[1m\x1b[38;5;3m...\x1b[0m";
 
@@ -178,7 +182,7 @@ pub fn print_error_snippet(tok: TokenLoc, line: &str, hint: &Option<String>) {
     let err = &line[..(err_col_end + 40)];
     (format!("{}  {}", err, ellipsis), err_col_start)
   } else {
-    (line, tok.col_start - removed_whitespace)
+    (line, tok.col_start() - removed_whitespace)
   };
 
   if !trimmed_source.is_empty() {

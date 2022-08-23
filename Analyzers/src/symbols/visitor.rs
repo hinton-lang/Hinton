@@ -1,8 +1,7 @@
+use crate::scope;
+use crate::symbols::*;
 use core::errors::{error_at_tok, ErrMsg};
 use core::tokens::TokenIdx;
-
-use crate::ssd;
-use crate::symbols::*;
 
 macro_rules! new_scope_id {
   ($s:ident) => {{
@@ -14,17 +13,13 @@ macro_rules! new_scope_id {
 
 // Helper function only used by the visitor pattern defined below.
 impl<'a> SymbolTableArena<'a> {
-  fn visit_all(&mut self, nodes: &[ASTNodeIdx], data: SymbolScopeData) {
-    nodes.iter().for_each(|node| self.ast_visit_node(*node, data))
-  }
-
-  fn visit_new_block(&mut self, block: &BlockNode, data: SymbolScopeData) {
+  fn visit_new_block(&mut self, block: &BlockNode, data: SymbolScope) {
     let prev_stack_len = self.get_current_table().stack_len;
-    self.visit_all(&block.0, data);
+    self.ast_visit_all(&block.0, data);
     self.get_current_table_mut().stack_len = prev_stack_len;
   }
 
-  fn visit_compound_id_decl(&mut self, decl: &CompoundIdDecl, kind: SymbolKind, data: SymbolScopeData) {
+  fn visit_compound_id_decl(&mut self, decl: &CompoundIdDecl, kind: SymbolKind, data: SymbolScope) {
     match decl {
       CompoundIdDecl::Single(tok) => self.declare_id(*tok, kind, data),
       CompoundIdDecl::Destruct(x) => {
@@ -37,7 +32,7 @@ impl<'a> SymbolTableArena<'a> {
     }
   }
 
-  fn visit_compact_loop_heads(&mut self, heads: &[CompactForLoop], data: SymbolScopeData) {
+  fn visit_compact_loop_heads(&mut self, heads: &[CompactForLoop], data: SymbolScope) {
     for h in heads {
       self.ast_visit_node(h.head.target, data);
       self.visit_compound_id_decl(&h.head.id, SymbolKind::Var, data);
@@ -48,7 +43,7 @@ impl<'a> SymbolTableArena<'a> {
     }
   }
 
-  fn visit_params_list(&mut self, params: &[SingleParam], data: SymbolScopeData) {
+  fn visit_params_list(&mut self, params: &[SingleParam], data: SymbolScope) {
     // First visit the values of all names params. That way,
     // we get references to variables outside the params list.
     params.iter().for_each(|p| {
@@ -58,31 +53,32 @@ impl<'a> SymbolTableArena<'a> {
     });
 
     // Then declare each of the parameter names.
-    params.iter().for_each(|p| self.declare_id(p.name, SymbolKind::Param, ssd![0, 0]));
+    params.iter().for_each(|p| self.declare_id(p.name, SymbolKind::Param, scope![0, 0]));
   }
 }
 
 // AST Visitor Pattern for the Symbol Table Arena
 impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
   type Res = ();
-  type Data = SymbolScopeData;
+  type Data = SymbolScope;
 
   fn get_ast(&self) -> &'a ASTArena {
     self.ast
   }
 
   fn ast_visit_module(&mut self, node: &ASTModuleNode, data: Self::Data) {
-    self.visit_all(&node.children, data);
+    self.ast_visit_all(&node.children, data);
   }
 
   fn ast_visit_block_stmt(&mut self, node: &BlockNode, data: Self::Data) -> Self::Res {
     let new_scope = new_scope_id![self];
-    self.visit_new_block(node, ssd![new_scope, data.depth + 1]);
+    self.visit_new_block(node, scope![new_scope, data.depth + 1]);
 
     // Mark all variables in the scope as "out of scope" so
     // they are unreachable by sibling scopes
     self
       .get_current_table_mut()
+      .table
       .symbols
       .iter_mut()
       .filter(|s| s.scope.id == new_scope)
@@ -97,17 +93,17 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     todo!("Implement export declaration.")
   }
 
-  fn ast_visit_expr_stmt(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res {
-    self.ast_visit_node(*node, data)
+  fn ast_visit_expr_stmt(&mut self, node: &ASTExprStmt, data: Self::Data) -> Self::Res {
+    self.ast_visit_node(node.expr, data)
   }
 
   fn ast_visit_if_stmt(&mut self, node: &ASTIfStmtNode, data: Self::Data) -> Self::Res {
     self.ast_visit_node(node.cond, data);
 
     let new_scope = new_scope_id![self];
-    self.visit_new_block(&node.true_branch, ssd![new_scope, data.depth + 1]);
+    self.visit_new_block(&node.true_branch, scope![new_scope, data.depth + 1]);
 
-    let new_data = ssd![new_scope_id![self], data.depth + 1];
+    let new_data = scope![new_scope_id![self], data.depth + 1];
     match &node.else_branch {
       ElseBranch::Block(x) => self.visit_new_block(x, new_data),
       ElseBranch::IfStmt(x) => self.ast_visit_node(*x, new_data),
@@ -125,7 +121,7 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
 
   fn ast_visit_try_catch_finally(&mut self, node: &ASTTryCatchFinallyNode, data: Self::Data) -> Self::Res {
     let new_scope = new_scope_id![self];
-    self.visit_new_block(&node.body, ssd![new_scope, data.depth + 1]);
+    self.visit_new_block(&node.body, scope![new_scope, data.depth + 1]);
 
     for catch in &node.catchers {
       let new_scope = new_scope_id![self];
@@ -135,16 +131,16 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
         self.resolve_id(target.error_class, self.current_table, false, false);
 
         if let Some(id) = &target.error_result {
-          self.declare_id(*id, SymbolKind::Var, ssd![new_scope, data.depth + 1])
+          self.declare_id(*id, SymbolKind::Var, scope![new_scope, data.depth + 1])
         }
       }
 
-      self.visit_new_block(&catch.body, ssd![new_scope, data.depth + 1]);
+      self.visit_new_block(&catch.body, scope![new_scope, data.depth + 1]);
     }
 
     if let Some(finally) = &node.finally {
       let new_scope = new_scope_id![self];
-      self.visit_new_block(finally, ssd![new_scope, data.depth + 1]);
+      self.visit_new_block(finally, scope![new_scope, data.depth + 1]);
     }
   }
 
@@ -155,7 +151,7 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
   }
 
   fn ast_visit_with_stmt(&mut self, node: &ASTWithStmtNode, data: Self::Data) -> Self::Res {
-    let new_scope = ssd![new_scope_id![self], data.depth + 1];
+    let new_scope = scope![new_scope_id![self], data.depth + 1];
 
     for h in &node.heads {
       self.ast_visit_node(h.expr, data);
@@ -203,7 +199,7 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
 
     self.ast_visit_node(node.head.target, data);
 
-    let new_data = ssd![new_scope_id![self], data.depth + 1];
+    let new_data = scope![new_scope_id![self], data.depth + 1];
     self.visit_compound_id_decl(&node.head.id, SymbolKind::Var, new_data);
     self.visit_new_block(&node.body, new_data);
 
@@ -214,7 +210,7 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     let prev_loop_ctx = self.get_current_table().loop_ctx;
     self.get_current_table_mut().loop_ctx = TableLoopState::Loop;
 
-    let new_data = ssd![new_scope_id![self], data.depth + 1];
+    let new_data = scope![new_scope_id![self], data.depth + 1];
 
     if let Some(count) = node.count {
       self.declare_id(count, SymbolKind::Const, new_data)
@@ -230,7 +226,7 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
 
     self.ast_visit_node(node.cond, data);
 
-    let new_data = ssd![new_scope_id![self], data.depth + 1];
+    let new_data = scope![new_scope_id![self], data.depth + 1];
     if let Some(token) = node.let_id {
       self.declare_id(token, SymbolKind::Var, new_data)
     }
@@ -254,7 +250,7 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     self.declare_id(class.name, SymbolKind::Class, data);
 
     // Create a new scope for the class's body
-    let new_data = ssd![new_scope_id![self], data.depth + 1];
+    let new_data = scope![new_scope_id![self], data.depth + 1];
 
     let prev_class_ctx = self.get_current_table().is_class_ctx;
     self.get_current_table_mut().is_class_ctx = true;
@@ -281,7 +277,7 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     // Visit the init block
     if let Some(init) = &class.init {
       let new_scope = new_scope_id![self];
-      self.visit_new_block(init, ssd![new_scope, data.depth + 1]);
+      self.visit_new_block(init, scope![new_scope, data.depth + 1]);
     }
 
     // Visit the class members
@@ -307,7 +303,7 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
 
     // Push the new table to the arena
     let prev_table = self.current_table;
-    self.arena.push(SymbolTable::new(
+    self.arena.push(SymbolTableBuilder::new(
       Some(self.current_table),
       true,
       // If previous context was a class, then the new context should also be a class.
@@ -318,13 +314,13 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     self.current_table = self.arena.len() - 1;
 
     // Declare the function in the new table
-    self.declare_id(node.name, SymbolKind::Func, ssd![0, 0]);
+    self.declare_id(node.name, SymbolKind::Func, scope![0, 0]);
 
     // Declare the parameters on the new table
-    self.visit_params_list(&node.params, ssd![0, 0]);
+    self.visit_params_list(&node.params, scope![0, 0]);
 
     // Compile the function's body in the new table
-    self.visit_new_block(&node.body, ssd![0, 0]);
+    self.visit_new_block(&node.body, scope![0, 0]);
 
     // Return to the previous table
     self.current_table = prev_table;
@@ -334,7 +330,7 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     let prev_table = self.current_table;
 
     // Push the new table to the arena
-    self.arena.push(SymbolTable::new(
+    self.arena.push(SymbolTableBuilder::new(
       Some(self.current_table),
       true,
       // If previous context was a class, then the new context should also be a class.
@@ -344,13 +340,13 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     // Make the new table the current table
     self.current_table = self.arena.len() - 1;
 
-    let new_data = ssd![0, 0];
+    let new_data = scope![0, 0];
     self.visit_params_list(&node.params, new_data);
 
     // Compile the lambda's body in the new table
     match &node.body {
       LambdaBody::Expr(e) => self.ast_visit_node(*e, new_data),
-      LambdaBody::Block(b) => self.visit_new_block(b, ssd![0, 0]),
+      LambdaBody::Block(b) => self.visit_new_block(b, scope![0, 0]),
     }
 
     // Return to the previous table
@@ -413,7 +409,7 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
   }
 
   fn ast_visit_string_interpol(&mut self, nodes: &[ASTNodeIdx], data: Self::Data) -> Self::Res {
-    self.visit_all(nodes, data);
+    self.ast_visit_all(nodes, data);
   }
 
   fn ast_visit_ternary_conditional(&mut self, node: &ASTTernaryConditionalNode, data: Self::Data) -> Self::Res {
@@ -426,8 +422,8 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     self.ast_visit_node(node.operand, data)
   }
 
-  fn ast_visit_array_literal(&mut self, nodes: &[ASTNodeIdx], data: Self::Data) -> Self::Res {
-    self.visit_all(nodes, data);
+  fn ast_visit_array_literal(&mut self, node: &ASTArrayLiteralNode, data: Self::Data) -> Self::Res {
+    self.ast_visit_all(&node.values, data);
   }
 
   fn ast_visit_array_slice(&mut self, node: &ASTArraySliceNode, data: Self::Data) -> Self::Res {
@@ -460,7 +456,7 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
   }
 
   fn ast_visit_dict_literal(&mut self, nodes: &[ASTNodeIdx], data: Self::Data) -> Self::Res {
-    self.visit_all(nodes, data);
+    self.ast_visit_all(nodes, data);
   }
 
   fn ast_visit_evaluated_dict_key(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res {
@@ -477,8 +473,8 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     self.ast_visit_node(node.value, data);
   }
 
-  fn ast_visit_tuple_literal(&mut self, nodes: &[ASTNodeIdx], data: Self::Data) -> Self::Res {
-    self.visit_all(nodes, data);
+  fn ast_visit_tuple_literal(&mut self, node: &ASTTupleLiteralNode, data: Self::Data) -> Self::Res {
+    self.ast_visit_all(&node.values, data);
   }
 
   fn ast_visit_id_literal(&mut self, node: &TokenIdx, _: Self::Data) -> Self::Res {

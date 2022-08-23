@@ -1,0 +1,16 @@
+[package]
+name = "virtual_machine"
+version = "0.1.0"
+authors = ["Fausto German <fgermanj@gmail.com>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+core = { path = "../Core" }
+lexer = { path = "../Lexer" }
+compiler = { path = "../Compiler" }
+plv = { path = "../PLV" }
+
+[features]
+PLV = []

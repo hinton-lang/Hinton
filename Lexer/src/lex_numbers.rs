@@ -1,8 +1,7 @@
+use crate::{char_is_ident_start, Lexer};
 use core::tokens::ErrorTokenKind::*;
 use core::tokens::Token;
 use core::tokens::TokenKind::*;
-
-use crate::{char_is_ident_start, Lexer};
 
 /// The types of number we can expect to lex.
 enum ExNumType {
