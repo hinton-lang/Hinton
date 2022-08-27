@@ -1,4 +1,3 @@
-use crate::bytecode::OpCode;
 use crate::tokens::TokenIdx;
 
 #[derive(Eq, PartialEq, Default, Debug)]
@@ -12,16 +11,6 @@ pub struct Chunk {
 }
 
 impl Chunk {
-  /// Gets the OpCode associated with a byte instruction in the instructions list.
-  pub fn get_op_code(&self, idx: usize) -> OpCode {
-    self.instructions[idx].into()
-  }
-
-  // Adds a raw byte instruction from a given OpCode into the instructions list.
-  pub fn push_op_code(&mut self, val: OpCode) {
-    self.instructions.push(val as u8);
-  }
-
   /// Gets the size of the instructions list.
   pub fn len(&self) -> usize {
     self.instructions.len()
@@ -30,11 +19,6 @@ impl Chunk {
   /// Checks whether or not the instructions list is empty.
   pub fn is_empty(&self) -> bool {
     self.instructions.is_empty()
-  }
-
-  /// Gets a raw byte from the instructions list.
-  pub fn get_byte(&self, idx: usize) -> u8 {
-    self.instructions[idx]
   }
 
   /// Adds a raw byte into the instructions list.

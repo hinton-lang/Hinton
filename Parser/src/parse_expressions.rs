@@ -1,7 +1,8 @@
-use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, ErrMsg, NodeResult, Parser};
 use core::ast::ASTNodeKind::*;
 use core::ast::*;
 use core::tokens::TokenKind::*;
+
+use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, ErrMsg, NodeResult, Parser};
 
 macro_rules! append_binary_expr {
   ($s:ident, $l:expr, $r:expr, $k:expr, $tok:expr) => {
@@ -34,7 +35,7 @@ impl<'a> Parser<'a> {
     let target = self.parse_ternary_expr()?;
     let target_tok = self.current_pos - 1;
 
-    if let Some(kind) = ASTReassignmentKind::try_from_token(self.get_curr_tk()) {
+    if let Some(kind) = ReassignmentKind::try_from_token(self.get_curr_tk()) {
       self.advance(); // Consume the token
 
       // Gets the value for assignment
@@ -504,8 +505,10 @@ impl<'a> Parser<'a> {
   /// NAMED_ARGS    ::= IDENTIFIER ":=" EXPRESSION
   /// ```
   pub(super) fn parse_call_expr(&mut self, target: ASTNodeIdx) -> NodeResult<ASTNodeIdx> {
+    let token = self.current_pos - 1;
+
     if match_tok![self, R_PAREN] {
-      return self.emit(CallExpr(ASTCallExprNode { target, args: vec![] }));
+      return self.emit(CallExpr(ASTCallExprNode { token, target, args: vec![] }));
     }
 
     let mut has_non_val_arg = false;
@@ -544,7 +547,7 @@ impl<'a> Parser<'a> {
     }
 
     self.consume(&R_PAREN, "Expected ')' for function call.", None)?;
-    self.emit(CallExpr(ASTCallExprNode { target, args }))
+    self.emit(CallExpr(ASTCallExprNode { token, target, args }))
   }
 
   /// Parses a member access expression.

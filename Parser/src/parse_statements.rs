@@ -1,7 +1,8 @@
-use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, ErrMsg, NodeResult, Parser};
 use core::ast::ASTNodeKind::*;
 use core::ast::*;
 use core::tokens::TokenKind::*;
+
+use crate::{check_tok, consume_id, curr_tk, error_at_tok, guard_error_token, match_tok, ErrMsg, NodeResult, Parser};
 
 pub enum ParsingLevel {
   Module,
@@ -153,16 +154,17 @@ impl<'a> Parser<'a> {
   /// BLOCK_STMT ::= "{" STATEMENT* "}"
   /// ```
   pub(super) fn parse_block_stmt(&mut self) -> NodeResult<BlockNode> {
-    let mut stmts = vec![];
+    let mut children = vec![];
 
     while !match_tok![self, R_CURLY] {
       match self.parse_stmt(ParsingLevel::Block)? {
-        Some(stmt) => stmts.push(stmt),
+        Some(stmt) => children.push(stmt),
         None => continue, // Ignore semicolons
       }
     }
 
-    Ok(BlockNode(stmts))
+    let close_token = self.current_pos - 1;
+    Ok(BlockNode { close_token, children })
   }
 
   /// Parses a while-loop statement.
@@ -171,6 +173,7 @@ impl<'a> Parser<'a> {
   /// WHILE_LOOP_STMT ::= "while" ("let" IDENTIFIER "=")? EXPRESSION BLOCK_STMT
   /// ```
   pub(super) fn parse_while_loop_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
+    let token = self.current_pos - 1;
     let mut let_id = None;
 
     if match_tok![self, LET_KW] {
@@ -182,7 +185,7 @@ impl<'a> Parser<'a> {
     self.consume(&L_CURLY, "Expected block as 'while' loop body.", None)?;
     let body = self.parse_block_stmt()?;
 
-    self.emit(WhileLoop(ASTWhileLoopNode { let_id, cond, body }))
+    self.emit(WhileLoop(ASTWhileLoopNode { token, let_id, cond, body }))
   }
 
   /// Parses a for-loop statement.
@@ -200,11 +203,11 @@ impl<'a> Parser<'a> {
   /// Parses a for-loop statement.
   ///
   /// ```bnf
-  /// FOR_LOOP_HEAD ::= (IDENTIFIER | DESTRUCT_PATTERN) "in" EXPRESSION
+  /// FOR_LOOP_HEAD ::= (IDENTIFIER | UNPACK_PATTERN) "in" EXPRESSION
   /// ```
   pub(super) fn parse_for_loop_head(&mut self) -> NodeResult<ForLoopHead> {
     let id = if match_tok![self, L_PAREN] {
-      CompoundIdDecl::Destruct(self.parse_destructing_pattern("'for' loop")?)
+      CompoundIdDecl::Unpack(self.parse_unpack_pattern("'for' loop")?)
     } else {
       CompoundIdDecl::Single(consume_id![self, "Expected identifier in 'for' loop", None])
     };
@@ -308,6 +311,7 @@ impl<'a> Parser<'a> {
   /// IF_STMT ::= "if" EXPRESSION BLOCK_STMT ("else" (BLOCK_STMT | IF_STMT))?
   /// ```
   pub(super) fn parse_if_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
+    let token = self.current_pos - 1;
     let cond = self.parse_expr()?;
     self.consume(&L_CURLY, "Expected block as 'if' statement body", None)?;
     let true_branch = self.parse_block_stmt()?;
@@ -321,7 +325,12 @@ impl<'a> Parser<'a> {
       }
     }
 
-    let node = ASTIfStmtNode { cond, true_branch, else_branch };
+    let node = ASTIfStmtNode {
+      token,
+      cond,
+      true_branch,
+      else_branch,
+    };
     self.emit(IfStmt(node))
   }
 

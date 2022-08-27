@@ -1,6 +1,7 @@
-use crate::tokens::TokenLoc;
 use core::tokens;
 use core::tokens::{ErrorTokenKind, Token, TokenKind};
+
+use crate::tokens::TokenLoc;
 
 mod find_tokens;
 mod lex_numbers;
@@ -90,7 +91,7 @@ impl<'a> Lexer<'a> {
   /// # Returns
   /// - `char`: The next character.
   pub fn get_next(&self) -> char {
-    if self.is_at_end() {
+    if self.current >= self.source.len() - 1 {
       return '\0';
     }
 
@@ -152,8 +153,8 @@ impl<'a> Lexer<'a> {
 
       match self.get_current() {
         ' ' | '\r' | '\t' => self.current += 1,
-        '/' if self.matches('/') => self.skip_single_line_comments(),
-        '/' if self.matches('*') => self.skip_block_comments(),
+        '/' if self.get_next() == '/' => self.skip_single_line_comments(),
+        '/' if self.get_next() == '*' => self.skip_block_comments(),
         '\n' => {
           self.line_num += 1;
           self.line_start = self.current + 1;
@@ -246,7 +247,7 @@ impl<'a> Lexer<'a> {
     let loc = TokenLoc {
       line_num: self.line_num,
       line_start: self.line_start,
-      span: (self.token_start + 1, self.current),
+      span: (self.current, self.current),
     };
 
     self.tokens.push(Token { loc, kind: TokenKind::EOF });

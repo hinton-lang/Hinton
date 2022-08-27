@@ -46,7 +46,7 @@ impl<'a> TokenList<'a> {
     match &tok.kind {
       TokenKind::ERROR(e) => e.to_str().to_string(),
       TokenKind::EOF => "\0".to_string(),
-      TokenKind::THIS_FILE => format!("<MainFunc at {:?}>", self.filepath),
+      TokenKind::THIS_FILE => format!("<MainFunc {:?}>", self.filepath),
       _ => self.src[tok.loc.span.0..tok.loc.span.1].iter().collect(),
     }
   }

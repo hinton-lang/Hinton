@@ -1,4 +1,12 @@
 use std::num::{ParseFloatError, ParseIntError};
+use std::time::{SystemTime, UNIX_EPOCH};
+
+/// Get the current unix epoch time in milliseconds.
+pub fn get_time_millis() -> u64 {
+  let start = SystemTime::now();
+  let time_since_epoch = start.duration_since(UNIX_EPOCH).expect("Time went backwards");
+  time_since_epoch.as_secs() * 1000 + time_since_epoch.subsec_nanos() as u64 / 1_000_000
+}
 
 /// Parses an integer literal lexeme into a Rust int.
 ///

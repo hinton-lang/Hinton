@@ -1,6 +1,8 @@
-use crate::symbols::*;
 use core::errors::{error_at_tok, ErrMsg};
 use core::tokens::TokenIdx;
+use objects::native_functions::NATIVES;
+
+use crate::symbols::*;
 
 impl<'a> SymbolTableArena<'a> {
   /// Declares the given identifier in the current symbol table.
@@ -166,9 +168,20 @@ impl<'a> SymbolTableArena<'a> {
     match current_func.table.parent_table {
       // Look for the symbol in parent functions
       Some(table) => self.resolve(id, table, is_reassign, true),
-      // TODO: Look for the symbol in natives and primitives.
       // Look for the symbol in the native functions scope
-      None => SymRes::None,
+      None => {
+        if let Some(pos) = NATIVES.iter().position(|x| x.name == tok_name) {
+          if is_reassign {
+            let err_msg = format!("Native function '{}' cannot be reassigned.", tok_name);
+            let hint = "Try binding the name to a 'let' or 'const' declaration";
+            self.errors.push(error_at_tok(id, ErrMsg::Reassignment(err_msg), Some(hint.into())));
+          }
+
+          SymRes::Native(pos as u16)
+        } else {
+          SymRes::None
+        }
+      }
     }
   }
 }

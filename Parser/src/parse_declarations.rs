@@ -1,19 +1,20 @@
-use crate::{check_tok, consume_id, curr_tk, match_tok, NodeResult, Parser};
 use core::ast::ASTNodeKind::*;
 use core::ast::*;
 use core::tokens::TokenKind::*;
+
+use crate::{check_tok, consume_id, curr_tk, match_tok, NodeResult, Parser};
 
 impl<'a> Parser<'a> {
   /// Parses a variable or constant declaration statement.
   ///
   /// ```bnf
-  /// VAR_CONST_DECL ::= ("let" | "const") (IDENTIFIER | DESTRUCT_PATTERN) "=" EXPRESSION ";"
+  /// VAR_CONST_DECL ::= ("let" | "const") (IDENTIFIER | UNPACK_PATTERN) "=" EXPRESSION ";"
   /// ```
   pub(super) fn parse_var_or_const_decl(&mut self, is_const: bool) -> NodeResult<ASTNodeIdx> {
     let decl_name = if is_const { "const" } else { "let" };
 
     let id = if match_tok![self, L_PAREN] {
-      CompoundIdDecl::Destruct(self.parse_destructing_pattern(&format!("'{}' declaration", decl_name))?)
+      CompoundIdDecl::Unpack(self.parse_unpack_pattern(&format!("'{}' declaration", decl_name))?)
     } else {
       let err_msg = &format!("Expected identifier for '{}' declaration.", decl_name);
       CompoundIdDecl::Single(consume_id![self, err_msg, None])
@@ -30,52 +31,65 @@ impl<'a> Parser<'a> {
     self.emit(VarConstDecl(ASTVarConsDeclNode { is_const, id, val }))
   }
 
-  /// Parses a destructing pattern to be used in a variable or constant declaration, or in a for-loop statement.
+  /// Parses an unpack pattern to be used in a variable or constant declaration, or in a for-loop statement.
   ///
   /// ```bnf
-  /// IDENTIFIER_LIST  ::= IDENTIFIER ("," IDENTIFIER)*
-  /// DESTRUCT_PATTERN ::= "(" IDENTIFIER_LIST ")" // no wildcard
-  ///                  |   "(" IDENTIFIER_LIST "," "..." IDENTIFIER? ")" // tail wildcard
-  ///                  |   "(" IDENTIFIER_LIST "," "..." IDENTIFIER? "," IDENTIFIER_LIST ")" // middle wildcard
-  ///                  |   "(" "..." IDENTIFIER? "," IDENTIFIER_LIST ")" // head wildcard
+  /// IDENTIFIER_LIST ::= IDENTIFIER ("," IDENTIFIER)*
+  /// UNPACK_PATTERN  ::= "(" IDENTIFIER_LIST ")" // no wildcard
+  ///                 |   "(" IDENTIFIER_LIST "," "..." IDENTIFIER? ")" // tail wildcard
+  ///                 |   "(" IDENTIFIER_LIST "," "..." IDENTIFIER? "," IDENTIFIER_LIST ")" // middle wildcard
+  ///                 |   "(" "..." IDENTIFIER? "," IDENTIFIER_LIST ")" // head wildcard
   /// ```
-  pub(super) fn parse_destructing_pattern(&mut self, msg: &str) -> NodeResult<Vec<DestructPatternMember>> {
-    let mut patterns = vec![];
-    let mut has_rest = false;
+  pub(super) fn parse_unpack_pattern(&mut self, msg: &str) -> NodeResult<UnpackPattern> {
+    let token = self.current_pos - 1;
+    let mut decls = vec![];
+    let mut has_wildcard = UnpackWildcard::None(0); // patched later
 
     loop {
       let pattern = match curr_tk![self] {
-        TRIPLE_DOT if has_rest => {
-          return Err(self.error_at_current_tok("Can only have one wildcard expression in destructing pattern.", None));
+        TRIPLE_DOT if !matches![has_wildcard, UnpackWildcard::None(_)] => {
+          return Err(self.error_at_current_tok("Can only have one wildcard expression in unpacking pattern.", None));
         }
         TRIPLE_DOT if self.advance() => {
-          has_rest = true;
-
           if match_tok![self, IDENTIFIER] {
-            DestructPatternMember::NamedWildcard(self.current_pos - 1)
+            has_wildcard = UnpackWildcard::Named(decls.len(), 0); // patched later
+            UnpackPatternMember::NamedWildcard(self.current_pos - 1)
           } else {
-            DestructPatternMember::EmptyWildcard
+            has_wildcard = UnpackWildcard::Ignore(decls.len(), 0); // patched later
+            UnpackPatternMember::EmptyWildcard
           }
         }
         _ => {
-          let err_msg = &format!("Expected identifier for destructing pattern in {}.", msg);
-          DestructPatternMember::Id(consume_id![self, err_msg, None])
+          let err_msg = &format!("Expected identifier for unpacking pattern in {}.", msg);
+          UnpackPatternMember::Id(consume_id![self, err_msg, None])
         }
       };
 
-      patterns.push(pattern);
+      decls.push(pattern);
 
       if !match_tok![self, COMMA] {
         break;
       }
     }
 
-    if has_rest && patterns.len() == 1 {
-      return Err(self.error_at_current_tok("Cannot have destructing pattern with only a wildcard expression.", None));
+    if !matches![has_wildcard, UnpackWildcard::None(_)] && decls.len() == 1 {
+      return Err(self.error_at_current_tok("Cannot have unpacking pattern with only a wildcard expression.", None));
     }
 
-    self.consume(&R_PAREN, "Expected ')' after destructing pattern.", None)?;
-    Ok(patterns)
+    // Patch the wildcard flag to know how many declarations there are before and after the wildcard.
+    has_wildcard = match has_wildcard {
+      UnpackWildcard::None(_) => UnpackWildcard::None(decls.len()),
+      // Note: We subtract 1 from `decls.len() - a` to take the wildcard itself into account.
+      UnpackWildcard::Ignore(a, _) => UnpackWildcard::Ignore(a, decls.len() - a - 1),
+      UnpackWildcard::Named(a, _) => UnpackWildcard::Named(a, decls.len() - a - 1),
+    };
+
+    self.consume(&R_PAREN, "Expected ')' after unpacking pattern.", None)?;
+    Ok(UnpackPattern {
+      token,
+      decls,
+      wildcard: has_wildcard,
+    })
   }
 
   /// Parses a function declaration statement.
@@ -84,6 +98,9 @@ impl<'a> Parser<'a> {
   /// FUNC_DECL ::= "async"? "func" "*"? IDENTIFIER "(" PARAMETERS ")" BLOCK_STMT
   /// ```
   pub(super) fn parse_func_stmt(&mut self, is_async: bool, decor: Vec<Decorator>) -> NodeResult<ASTNodeIdx> {
+    let table_pos = self.func_count;
+    self.func_count += 1;
+
     if is_async {
       self.consume(
         &FUNC_KW,
@@ -111,6 +128,7 @@ impl<'a> Parser<'a> {
       min_arity,
       max_arity,
       body,
+      table_pos,
     }))
   }
 

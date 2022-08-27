@@ -1,20 +1,21 @@
 use std::fmt::Write as FmtWrite;
 
 use core::bytecode::OpCode;
-use core::objects::func_obj::FuncObj;
-use core::objects::Object;
-use core::values::Value;
+use objects::func_obj::FuncObj;
+use objects::gc::GarbageCollector;
+use objects::Object;
 
 use crate::PLVJsonGenerator;
 
 impl<'a> PLVJsonGenerator<'a> {
-  pub fn disassemble_all(&self) -> String {
+  pub fn disassemble_all(&self, gc: &GarbageCollector) -> String {
     let mut output = String::new();
 
     for value in self.constants {
-      match value {
-        Value::Obj(Object::Func(func)) => {
-          writeln!(output, "{}", self.disassemble_fn(func)).expect("Could not write to output.");
+      match &value {
+        Object::Func(f) => {
+          let func = gc.get(f).as_func_obj().unwrap();
+          writeln!(output, "{}", self.disassemble_fn(func, gc)).expect("Could not write to output.");
         }
         _ => continue,
       }
@@ -23,8 +24,8 @@ impl<'a> PLVJsonGenerator<'a> {
     output
   }
 
-  fn disassemble_fn(&self, func: &FuncObj) -> String {
-    let mut output = self.tokens_list.lexeme(func.name) + "\n";
+  fn disassemble_fn(&self, func: &FuncObj, gc: &GarbageCollector) -> String {
+    let mut output = self.tokens_list.lexeme(func.name) + " ------------\n";
 
     let mut ip = 0;
     let mut out: Vec<(String, String, String, String, String, String, String)> = vec![];
@@ -36,7 +37,7 @@ impl<'a> PLVJsonGenerator<'a> {
       let instr = func.chunk.instructions[ip];
       let loc = self.tokens_list.loc(func.chunk.tokens[ip]);
 
-      let (name, effect, note) = self.describe(func, ip, instr);
+      let (name, effect, note) = self.describe(func, ip, instr, gc);
       if name.len() > max_instr_name {
         max_instr_name = name.len()
       }
@@ -52,7 +53,7 @@ impl<'a> PLVJsonGenerator<'a> {
       let hex_instr = format!("{:#04x}", instr);
       let operand = match effect {
         0 => "".to_string(),
-        1 => format!("--> {}", func.chunk.get_byte(ip + 1)),
+        1 => format!("--> {}", func.chunk.instructions[ip + 1]),
         2 => format!("--> {}", func.chunk.get_short(ip + 1)),
         _ => todo!("N-Operand Instructions"),
       };
@@ -83,7 +84,7 @@ impl<'a> PLVJsonGenerator<'a> {
     output
   }
 
-  fn describe(&self, func: &FuncObj, ip: usize, instr: u8) -> (&str, u8, Option<String>) {
+  fn describe(&self, func: &FuncObj, ip: usize, instr: u8, gc: &GarbageCollector) -> (&str, u8, Option<String>) {
     match OpCode::from(instr) {
       OpCode::Add => ("ADD", 0, None),
       OpCode::BitwiseAnd => ("BITWISE_AND", 0, None),
@@ -92,6 +93,7 @@ impl<'a> PLVJsonGenerator<'a> {
       OpCode::BitwiseShiftLeft => ("BITWISE_SHIFT_LEFT", 0, None),
       OpCode::BitwiseShiftRight => ("BITWISE_SHIFT_RIGHT", 0, None),
       OpCode::BitwiseXor => ("BITWISE_XOR", 0, None),
+      OpCode::DefineGlobal => ("DEFINE_GLOBAL", 0, None),
       OpCode::Divide => ("DIVIDE", 0, None),
       OpCode::EndVirtualMachine => ("END_VM", 0, None),
       OpCode::Equals => ("EQUALS", 0, None),
@@ -130,50 +132,61 @@ impl<'a> PLVJsonGenerator<'a> {
       OpCode::AppendClassField => ("APPEND_CLASS_FIELD", 1, None),
       OpCode::BindDefaults => ("BIND_DEFAULTS", 1, None),
       OpCode::CloseUpVal => ("CLOSE_UP_VAL", 1, None),
-      OpCode::DefineGlobal => ("DEFINE_GLOBAL", 1, None),
       OpCode::FuncCall => ("FUNC_CALL", 1, None),
       OpCode::GetGlobal => ("GET_GLOBAL", 1, None),
       OpCode::GetLocal => ("GET_LOCAL", 1, None),
       OpCode::GetProp => ("GET_PROP", 1, None),
       OpCode::GetUpVal => ("GET_UP_VAL", 1, None),
-      OpCode::LoadConstant => ("LOAD_CONSTANT", 1, self.fmt_const_val(func, ip, false)),
+      OpCode::LoadConstant => ("LOAD_CONSTANT", 1, self.fmt_const_val(func, ip, false, gc)),
       OpCode::LoadImmN => ("LOAD_IMM_N", 1, None),
       OpCode::LoadNative => ("LOAD_NATIVE", 1, None),
       OpCode::LoadPrimitive => ("LOAD_PRIMITIVE", 1, None),
-      OpCode::LoopJump => ("LOOP_JUMP", 1, None),
       OpCode::MakeArray => ("MAKE_ARRAY", 1, None),
       OpCode::MakeClass => ("MAKE_CLASS", 1, None),
       OpCode::MakeDict => ("MAKE_DICT", 1, None),
       OpCode::MakeInstance => ("MAKE_INSTANCE", 1, None),
       OpCode::MakeTuple => ("MAKE_TUPLE", 1, None),
+      OpCode::PopStackTopN => ("POP_STACK_TOP_N", 1, None),
       OpCode::SetGlobal => ("SET_GLOBAL", 1, None),
       OpCode::SetLocal => ("SET_LOCAL", 1, None),
       OpCode::SetProp => ("SET_PROP", 1, None),
       OpCode::SetUpVal => ("SET_UP_VAL", 1, None),
+      OpCode::UnpackSeq => ("UNPACK", 1, None),
 
       // 2-operand instructions
+      OpCode::BindDefaultsLong => ("BIND_DEFAULTS_LONG", 2, None),
       OpCode::CloseUpValLong => ("CLOSE_UP_VAL_LONG", 2, None),
-      OpCode::DefineGlobalLong => ("DEFINE_GLOBAL_LONG", 2, None),
       OpCode::ForIterNextOrJump => ("FOR_ITER_NEXT_OR_JUMP", 2, None),
+      OpCode::FuncCallLong => ("FUNC_CALL_LONG", 2, None),
       OpCode::GetGlobalLong => ("GET_GLOBAL_LONG", 2, None),
       OpCode::GetLocalLong => ("GET_LOCAL_LONG", 2, None),
       OpCode::GetPropLong => ("GET_PROP_LONG", 2, None),
       OpCode::GetUpValLong => ("GET_UP_VAL_LONG", 2, None),
+      OpCode::IfFalsePopJump => ("IF_FALSE_POP_JUMP", 2, None),
       OpCode::JumpForward => ("JUMP_FORWARD", 2, None),
       OpCode::JumpIfFalseOrPop => ("JUMP_IF_FALSE_OR_POP", 2, None),
       OpCode::JumpIfTrueOrPop => ("JUMP_IF_TRUE_OR_POP", 2, None),
-      OpCode::LoadConstantLong => ("LOAD_CONSTANT_LONG", 2, self.fmt_const_val(func, ip, true)),
+      OpCode::LoadConstantLong => ("LOAD_CONSTANT_LONG", 2, self.fmt_const_val(func, ip, true, gc)),
       OpCode::LoadImmNLong => ("LOAD_IMM_N_LONG", 2, None),
-      OpCode::LoopJumpLong => ("LOOP_JUMP_LONG", 2, None),
+      OpCode::LoadNativeLong => ("LOAD_NATIVE_LONG", 2, None),
+      OpCode::LoopJump => ("LOOP_JUMP", 2, None),
       OpCode::MakeArrayLong => ("MAKE_ARRAY_LONG", 2, None),
       OpCode::MakeClassLong => ("MAKE_CLASS_LONG", 2, None),
       OpCode::MakeDictLong => ("MAKE_DICT_LONG", 2, None),
       OpCode::MakeTupleLong => ("MAKE_TUPLE_LONG", 2, None),
       OpCode::PopJumpIfFalse => ("POP_JUMP_IF_FALSE", 2, None),
+      OpCode::PopStackTopNLong => ("POP_STACK_TOP_N_LONG", 1, None),
       OpCode::SetGlobalLong => ("SET_GLOBAL_LONG", 2, None),
       OpCode::SetLocalLong => ("SET_LOCAL_LONG", 2, None),
       OpCode::SetPropLong => ("SET_PROP_LONG", 2, None),
       OpCode::SetUpValLong => ("SET_UP_VAL_LONG", 2, None),
+      OpCode::UnpackAssign => ("UNPACK_ASSIGN", 2, None),
+      OpCode::UnpackIgnore => ("UNPACK_IGNORE", 2, None),
+      OpCode::UnpackSeqLong => ("UNPACK_SEQ_LONG", 2, None),
+
+      // 4-operand instructions
+      OpCode::UnpackAssignLong => ("UNPACK_ASSIGN_LONG", 4, None),
+      OpCode::UnpackIgnoreLong => ("UNPACK_IGNORE_LONG", 4, None),
 
       // N-operand instructions
       OpCode::MakeClosure => ("MAKE_CLOSURE", 0, None),
@@ -183,13 +196,13 @@ impl<'a> PLVJsonGenerator<'a> {
     }
   }
 
-  fn fmt_const_val(&self, func: &FuncObj, idx: usize, is_long: bool) -> Option<String> {
+  fn fmt_const_val(&self, func: &FuncObj, idx: usize, is_long: bool, gc: &GarbageCollector) -> Option<String> {
     let pos = if is_long {
       func.chunk.get_short(idx + 1) as usize
     } else {
-      func.chunk.get_byte(idx + 1) as usize
+      func.chunk.instructions[idx + 1] as usize
     };
 
-    Some(format!("{:?}", &self.constants[pos]))
+    Some(self.constants[pos].debug_fmt(gc))
   }
 }

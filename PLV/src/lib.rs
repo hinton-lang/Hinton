@@ -1,21 +1,17 @@
+use serde_json::{json, Value};
+
 use analyzers::symbols::{SymbolTable, SymbolTableArena};
 use compiler::Compiler;
 use core::ast::*;
 use core::errors::ErrorReport;
 use core::tokens::{Token, TokenList};
+use core::utils::get_time_millis;
+use objects::gc::GarbageCollector;
+use objects::Object;
 use parser::Parser;
-use serde_json::{json, Value};
-use std::time::{SystemTime, UNIX_EPOCH};
 
 mod disassembler;
 mod visitor;
-
-/// Get the current unix epoch time in milliseconds.
-pub fn get_time_millis() -> u64 {
-  let start = SystemTime::now();
-  let time_since_epoch = start.duration_since(UNIX_EPOCH).expect("Time went backwards");
-  time_since_epoch.as_secs() * 1000 + time_since_epoch.subsec_nanos() as u64 / 1_000_000
-}
 
 /// Maps a single token to its JSON representation.
 ///
@@ -30,7 +26,7 @@ fn map_tok_to_json(tok: (usize, &Token), tokens_list: &TokenList) -> Value {
   json!({
      "name": format!("{:0>20?}", tok.1.kind),
      "line_num": tok.1.loc.line_num,
-     "column": tokens_list.loc(tok.0).col_start(),
+     "column": tok.1.loc.col_start(),
      "lexeme": tokens_list.lexeme(tok.0)
   })
 }
@@ -41,13 +37,8 @@ fn map_tok_to_json(tok: (usize, &Token), tokens_list: &TokenList) -> Value {
 /// # Arguments
 ///
 /// * `tokens_list`: The TokenList were the lexed tokens are stored.
-/// * `arena`: The ASTArena where the AST nodes are stored.
-/// * `_bytecode`: The compiled bytecode.
-/// * `timers`: The times it took the Lexer, Parser, and compiler to execute.
-///
-/// # Returns:
-/// ```()```
-pub fn export(tokens_list: &TokenList, lexer_time: u64) -> Result<Vec<core::values::Value>, Vec<ErrorReport>> {
+/// * `lexer_time`: The amount of time it took for the lexer to execute.
+pub fn export(tokens_list: &TokenList, lexer_time: u64) -> Result<(GarbageCollector, Vec<Object>), Vec<ErrorReport>> {
   println!("=================================================");
   println!("Program Lifecycle Visualizer");
   println!("-----------");
@@ -67,7 +58,7 @@ pub fn export(tokens_list: &TokenList, lexer_time: u64) -> Result<Vec<core::valu
 
   let cs = get_time_millis();
   let compiler = Compiler::new(tokens_list, &ast, &symbol_tables);
-  let constants = Compiler::compile_from(compiler)?;
+  let (gc, constants) = Compiler::compile_from(compiler)?;
   let ce = get_time_millis();
 
   println!("Compiler Finished:       {}ms", ce - cs);
@@ -89,7 +80,7 @@ pub fn export(tokens_list: &TokenList, lexer_time: u64) -> Result<Vec<core::valu
   };
 
   let ast_json = plv_generator.ast_to_json(0, "root");
-  let instructions = plv_generator.disassemble_all();
+  let instructions = plv_generator.disassemble_all(&gc);
 
   // Compose the JSON report
   let report = json!({
@@ -123,7 +114,7 @@ pub fn export(tokens_list: &TokenList, lexer_time: u64) -> Result<Vec<core::valu
   println!("PLV Finished in {:.3}s", ((plv_end - plv_start) as f32) / 1000.0);
   println!("=================================================");
 
-  Ok(constants)
+  Ok((gc, constants))
 }
 
 /// The JSON generator for the Hinton Program Lifecycle Visualizer
@@ -132,5 +123,5 @@ pub struct PLVJsonGenerator<'a> {
   pub tokens_list: &'a TokenList<'a>,
   pub ast: &'a ASTArena,
   pub symbol_tables: &'a [SymbolTable],
-  pub constants: &'a [core::values::Value],
+  pub constants: &'a [Object],
 }

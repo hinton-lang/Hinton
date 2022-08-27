@@ -9,21 +9,15 @@ fn main() {
 
   match args.as_slice() {
     [_] => todo!("REPL"),
-    [_, file] => run_file(file),
+    // TODO: the user can specify a stack frame size.
+    [_, file] => run_file(file, None),
     _ => todo!("Program and Script Flags"),
   }
 }
 
-fn run_file(filename: &str) {
+fn run_file(filename: &str, frames: Option<usize>) {
   let source = read_file(filename);
-
-  // Interprets the source contents in the VM, and exit the interpreter with the appropriate code
-  match virtual_machine::VM::interpret(source.0, source.1) {
-    core::InterpretResult::ParseError => std::process::exit(65),
-    core::InterpretResult::CompileError => std::process::exit(65),
-    core::InterpretResult::RuntimeError => std::process::exit(70),
-    core::InterpretResult::Ok => std::process::exit(0),
-  }
+  virtual_machine::VM::execute_file(source.0, source.1, frames)
 }
 
 fn read_file(filename: &str) -> (PathBuf, Vec<char>) {

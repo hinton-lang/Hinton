@@ -1,7 +1,8 @@
-use crate::{check_tok, consume_id, consume_id_list, curr_tk, match_tok, NodeResult, Parser};
 use core::ast::ASTNodeKind::*;
 use core::ast::*;
 use core::tokens::TokenKind::*;
+
+use crate::{check_tok, consume_id, consume_id_list, curr_tk, match_tok, NodeResult, Parser};
 
 impl<'a> Parser<'a> {
   /// Parses a class declaration.

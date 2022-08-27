@@ -38,7 +38,7 @@ BLOCK_STMT          ::= "{" STATEMENT* "}"
 // Loop tags do not exist in Hinton for the same reason they do not exist in Python
 WHILE_LOOP_STMT     ::= "while" ("let" IDENTIFIER "=")? EXPRESSION BLOCK_STMT
 FOR_LOOP_STMT       ::= "for" FOR_LOOP_HEAD BLOCK_STMT
-FOR_LOOP_HEAD       ::= (IDENTIFIER | DESTRUCT_PATTERN) "in" EXPRESSION
+FOR_LOOP_HEAD       ::= (IDENTIFIER | UNPACK_PATTERN) "in" EXPRESSION
 
 BREAK_STMT          ::= "break" EXPRESSION? ";" // Can only break with expression inside `loop` statements.
 CONTINUE_STMT       ::= "continue" ";"
@@ -76,9 +76,9 @@ IDENTIFIER_LIST     ::= IDENTIFIER ("," IDENTIFIER)*
 DECORATOR_STMT      ::= "#" (DECORATOR_BDY | "[" DECORATOR_BDY ("," DECORATOR_BDY)* ","? "]")
 DECORATOR_BDY       ::= IDENTIFIER | CALL_EXPR
 
-VAR_DECL            ::= "let" (IDENTIFIER | DESTRUCT_PATTERN) "=" EXPRESSION ";"
-CONST_DECL          ::= "const" (IDENTIFIER | DESTRUCT_PATTERN) "=" EXPRESSION ";"
-DESTRUCT_PATTERN    ::= "(" IDENTIFIER_LIST ")" // no wildcard
+VAR_DECL            ::= "let" (IDENTIFIER | UNPACK_PATTERN) "=" EXPRESSION ";"
+CONST_DECL          ::= "const" (IDENTIFIER | UNPACK_PATTERN) "=" EXPRESSION ";"
+UNPACK_PATTERN    ::= "(" IDENTIFIER_LIST ")" // no wildcard
                     |   "(" IDENTIFIER_LIST "," "..." IDENTIFIER? ")" // tail wildcard
                     |   "(" IDENTIFIER_LIST "," "..." IDENTIFIER? "," IDENTIFIER_LIST ")" // middle wildcard
                     |   "(" "..." IDENTIFIER? "," IDENTIFIER_LIST ")" // head wildcard

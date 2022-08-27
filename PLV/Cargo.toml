@@ -9,4 +9,5 @@ core = { path = "../Core" }
 parser = { path = "../Parser" }
 analyzers = { path = "../Analyzers" }
 compiler =  { path = "../Compiler" }
+objects = { path = "../Objects" }
 serde_json = "1.0.82"

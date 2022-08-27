@@ -1,7 +1,8 @@
-use crate::{check_tok, curr_tk, match_tok, NodeResult, Parser, TokenIdx};
 use core::ast::ASTNodeKind::*;
 use core::ast::*;
 use core::tokens::TokenKind::*;
+
+use crate::{check_tok, curr_tk, match_tok, NodeResult, Parser, TokenIdx};
 
 impl<'a> Parser<'a> {
   /// Parses an array literal expression.

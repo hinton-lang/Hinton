@@ -10,6 +10,7 @@ edition = "2021"
 core = { path = "../Core" }
 lexer = { path = "../Lexer" }
 compiler = { path = "../Compiler" }
+objects = { path = "../Objects" }
 plv = { path = "../PLV" }
 
 [features]

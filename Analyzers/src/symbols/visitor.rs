@@ -1,8 +1,10 @@
-use crate::scope;
-use crate::symbols::*;
 use core::errors::{error_at_tok, ErrMsg};
 use core::tokens::TokenIdx;
 
+use crate::scope;
+use crate::symbols::*;
+
+/// Generates a unique a id for a new block scope.
 macro_rules! new_scope_id {
   ($s:ident) => {{
     let current_table = $s.get_current_table_mut();
@@ -15,16 +17,16 @@ macro_rules! new_scope_id {
 impl<'a> SymbolTableArena<'a> {
   fn visit_new_block(&mut self, block: &BlockNode, data: SymbolScope) {
     let prev_stack_len = self.get_current_table().stack_len;
-    self.ast_visit_all(&block.0, data);
+    self.ast_visit_all(&block.children, data);
     self.get_current_table_mut().stack_len = prev_stack_len;
   }
 
   fn visit_compound_id_decl(&mut self, decl: &CompoundIdDecl, kind: SymbolKind, data: SymbolScope) {
     match decl {
       CompoundIdDecl::Single(tok) => self.declare_id(*tok, kind, data),
-      CompoundIdDecl::Destruct(x) => {
-        for member in x {
-          if let DestructPatternMember::Id(tok) | DestructPatternMember::NamedWildcard(tok) = member {
+      CompoundIdDecl::Unpack(x) => {
+        for member in &x.decls {
+          if let UnpackPatternMember::Id(tok) | UnpackPatternMember::NamedWildcard(tok) = member {
             self.declare_id(*tok, kind, data)
           }
         }
@@ -41,19 +43,6 @@ impl<'a> SymbolTableArena<'a> {
         self.ast_visit_node(condition, data);
       }
     }
-  }
-
-  fn visit_params_list(&mut self, params: &[SingleParam], data: SymbolScope) {
-    // First visit the values of all names params. That way,
-    // we get references to variables outside the params list.
-    params.iter().for_each(|p| {
-      if let SingleParamKind::Named(n) = p.kind {
-        self.ast_visit_node(n, data)
-      }
-    });
-
-    // Then declare each of the parameter names.
-    params.iter().for_each(|p| self.declare_id(p.name, SymbolKind::Param, scope![0, 0]));
   }
 }
 
@@ -76,13 +65,8 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
 
     // Mark all variables in the scope as "out of scope" so
     // they are unreachable by sibling scopes
-    self
-      .get_current_table_mut()
-      .table
-      .symbols
-      .iter_mut()
-      .filter(|s| s.scope.id == new_scope)
-      .for_each(|s| s.is_out_of_scope = true)
+    let symbols = &mut self.get_current_table_mut().table.symbols;
+    symbols.iter_mut().filter(|s| s.scope.id == new_scope).for_each(|s| s.is_out_of_scope = true)
   }
 
   fn ast_visit_del_stmt(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res {
@@ -298,6 +282,14 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     // Visit the function's decorators
     node.decor.iter().for_each(|d| self.ast_visit_node(d.0, data));
 
+    // First visit the values of all named params. That way,
+    // we get references to variables outside the params list.
+    node.params.iter().for_each(|p| {
+      if let SingleParamKind::Named(n) = p.kind {
+        self.ast_visit_node(n, data)
+      }
+    });
+
     // Declare the function in the current scope
     self.declare_id(node.name, SymbolKind::Func, data);
 
@@ -317,7 +309,7 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     self.declare_id(node.name, SymbolKind::Func, scope![0, 0]);
 
     // Declare the parameters on the new table
-    self.visit_params_list(&node.params, scope![0, 0]);
+    node.params.iter().for_each(|p| self.declare_id(p.name, SymbolKind::Param, scope![0, 0]));
 
     // Compile the function's body in the new table
     self.visit_new_block(&node.body, scope![0, 0]);
@@ -326,8 +318,16 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     self.current_table = prev_table;
   }
 
-  fn ast_visit_lambda(&mut self, node: &ASTLambdaNode, _: Self::Data) -> Self::Res {
+  fn ast_visit_lambda(&mut self, node: &ASTLambdaNode, data: Self::Data) -> Self::Res {
     let prev_table = self.current_table;
+
+    // First visit the values of all named params. That way,
+    // we get references to variables outside the params list.
+    node.params.iter().for_each(|p| {
+      if let SingleParamKind::Named(n) = p.kind {
+        self.ast_visit_node(n, data)
+      }
+    });
 
     // Push the new table to the arena
     self.arena.push(SymbolTableBuilder::new(
@@ -341,7 +341,8 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     self.current_table = self.arena.len() - 1;
 
     let new_data = scope![0, 0];
-    self.visit_params_list(&node.params, new_data);
+    // Declare the function's parameters
+    node.params.iter().for_each(|p| self.declare_id(p.name, SymbolKind::Param, new_data));
 
     // Compile the lambda's body in the new table
     match &node.body {

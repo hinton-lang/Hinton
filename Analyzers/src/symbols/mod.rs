@@ -209,7 +209,7 @@ impl SymbolTableBuilder {
     SymbolTableBuilder {
       table: SymbolTable::new(parent_table),
       max_scope_id: 0,
-      stack_len: 1,
+      stack_len: 0,
       is_func_ctx,
       is_class_ctx,
       loop_ctx: TableLoopState::None,

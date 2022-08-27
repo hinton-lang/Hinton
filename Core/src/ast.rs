@@ -177,7 +177,10 @@ pub struct ASTModuleNode {
 }
 
 /// An AST Block Node.
-pub struct BlockNode(pub Vec<ASTNodeIdx>);
+pub struct BlockNode {
+  pub close_token: TokenIdx,
+  pub children: Vec<ASTNodeIdx>,
+}
 
 pub struct ASTExprStmt {
   pub token: TokenIdx,
@@ -187,13 +190,13 @@ pub struct ASTExprStmt {
 /// An AST Reassignment Node
 pub struct ASTReassignmentNode {
   pub target: ASTNodeIdx,
-  pub kind: ASTReassignmentKind,
+  pub kind: ReassignmentKind,
   pub value: ASTNodeIdx,
 }
 
 #[derive(Debug)]
 #[repr(u8)]
-pub enum ASTReassignmentKind {
+pub enum ReassignmentKind {
   Assign,   // a = b
   BitAnd,   // a &= b
   BitOr,    // a |= b
@@ -212,7 +215,7 @@ pub enum ASTReassignmentKind {
   Xor,      // a ^= b
 }
 
-impl ASTReassignmentKind {
+impl ReassignmentKind {
   /// Tries to create a ReassignmentKind from a TokenKind.
   ///
   /// # Arguments
@@ -223,22 +226,22 @@ impl ASTReassignmentKind {
   /// ```Option<ASTReassignmentKind>```
   pub fn try_from_token(tk: &TokenKind) -> Option<Self> {
     match tk {
-      TokenKind::AT_EQ => Some(ASTReassignmentKind::MatMul),
-      TokenKind::BIT_AND_EQ => Some(ASTReassignmentKind::BitAnd),
-      TokenKind::BIT_L_SHIFT_EQ => Some(ASTReassignmentKind::ShiftL),
-      TokenKind::BIT_OR_EQ => Some(ASTReassignmentKind::BitOr),
-      TokenKind::BIT_R_SHIFT_EQ => Some(ASTReassignmentKind::ShiftR),
-      TokenKind::BIT_XOR_EQ => Some(ASTReassignmentKind::Xor),
-      TokenKind::EQUALS => Some(ASTReassignmentKind::Assign),
-      TokenKind::POW_EQUALS => Some(ASTReassignmentKind::Expo),
-      TokenKind::LOGIC_AND_EQ => Some(ASTReassignmentKind::LogicAnd),
-      TokenKind::LOGIC_OR_EQ => Some(ASTReassignmentKind::LogicOr),
-      TokenKind::MINUS_EQ => Some(ASTReassignmentKind::Minus),
-      TokenKind::MOD_EQ => Some(ASTReassignmentKind::Mod),
-      TokenKind::NONISH_EQ => Some(ASTReassignmentKind::Nonish),
-      TokenKind::PLUS_EQ => Some(ASTReassignmentKind::Plus),
-      TokenKind::SLASH_EQ => Some(ASTReassignmentKind::Div),
-      TokenKind::STAR_EQ => Some(ASTReassignmentKind::Mul),
+      TokenKind::AT_EQ => Some(ReassignmentKind::MatMul),
+      TokenKind::BIT_AND_EQ => Some(ReassignmentKind::BitAnd),
+      TokenKind::BIT_L_SHIFT_EQ => Some(ReassignmentKind::ShiftL),
+      TokenKind::BIT_OR_EQ => Some(ReassignmentKind::BitOr),
+      TokenKind::BIT_R_SHIFT_EQ => Some(ReassignmentKind::ShiftR),
+      TokenKind::BIT_XOR_EQ => Some(ReassignmentKind::Xor),
+      TokenKind::EQUALS => Some(ReassignmentKind::Assign),
+      TokenKind::POW_EQUALS => Some(ReassignmentKind::Expo),
+      TokenKind::LOGIC_AND_EQ => Some(ReassignmentKind::LogicAnd),
+      TokenKind::LOGIC_OR_EQ => Some(ReassignmentKind::LogicOr),
+      TokenKind::MINUS_EQ => Some(ReassignmentKind::Minus),
+      TokenKind::MOD_EQ => Some(ReassignmentKind::Mod),
+      TokenKind::NONISH_EQ => Some(ReassignmentKind::Nonish),
+      TokenKind::PLUS_EQ => Some(ReassignmentKind::Plus),
+      TokenKind::SLASH_EQ => Some(ReassignmentKind::Div),
+      TokenKind::STAR_EQ => Some(ReassignmentKind::Mul),
       _ => None,
     }
   }
@@ -457,6 +460,7 @@ pub struct ASTMemberAccessNode {
 /// An AST Call Expression Node
 #[derive(Default)]
 pub struct ASTCallExprNode {
+  pub token: ASTNodeIdx,
   pub target: ASTNodeIdx,
   pub args: Vec<CallArg>,
 }
@@ -516,6 +520,7 @@ pub struct ASTLoopExprNode {
 
 /// An AST While Loop Node
 pub struct ASTWhileLoopNode {
+  pub token: TokenIdx,
   pub let_id: Option<TokenIdx>,
   pub cond: ASTNodeIdx,
   pub body: BlockNode,
@@ -537,11 +542,25 @@ pub struct ForLoopHead {
 /// a single identifier or a destructing pattern.
 pub enum CompoundIdDecl {
   Single(TokenIdx),
-  Destruct(Vec<DestructPatternMember>),
+  Unpack(UnpackPattern),
+}
+
+/// A collection of declarations in a destructing statement.
+pub struct UnpackPattern {
+  pub token: TokenIdx,
+  pub decls: Vec<UnpackPatternMember>,
+  pub wildcard: UnpackWildcard,
+}
+
+/// Encodes the kind of wildcard inside a destructing pattern.
+pub enum UnpackWildcard {
+  None(usize),
+  Ignore(usize, usize),
+  Named(usize, usize),
 }
 
 /// A single member of a destructing patter.
-pub enum DestructPatternMember {
+pub enum UnpackPatternMember {
   Id(TokenIdx),
   NamedWildcard(TokenIdx),
   EmptyWildcard,
@@ -574,6 +593,7 @@ pub struct CompactForLoop {
 
 /// An AST If-Else-If Statement Node
 pub struct ASTIfStmtNode {
+  pub token: TokenIdx,
   pub cond: ASTNodeIdx,
   pub true_branch: BlockNode,
   pub else_branch: ElseBranch,
@@ -637,7 +657,7 @@ pub struct ImportExportMember {
   pub alias: Option<TokenIdx>,
 }
 
-/// A Trat to Generalize Over Parameter Nodes
+/// A Trait to Generalize Over Parameter Nodes
 pub trait SingleParamLike {
   fn get_kind(&self) -> &SingleParamKind;
 }
@@ -660,6 +680,7 @@ pub struct ASTFuncDeclNode {
   pub min_arity: u8,
   pub max_arity: u8,
   pub body: BlockNode,
+  pub table_pos: usize,
 }
 
 /// An AST Return Statement Node

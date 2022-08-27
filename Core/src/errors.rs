@@ -43,6 +43,8 @@ pub enum RuntimeErrMsg {
   Reference(String),
   /// An error emitted when accessing the next item in iterator after it has ended.
   IterStrop(String),
+  /// An error emitted when there is an error with the input/output interfaces.
+  IO(String),
 }
 
 impl ErrMsg {
@@ -67,6 +69,7 @@ impl ErrMsg {
         RuntimeErrMsg::Recursion(_) => "RecursionError",
         RuntimeErrMsg::Reference(_) => "ReferenceError",
         RuntimeErrMsg::IterStrop(_) => "IterStopError",
+        RuntimeErrMsg::IO(_) => "InputOutputError",
       },
     }
   }
@@ -91,7 +94,8 @@ impl ErrMsg {
         | RuntimeErrMsg::Instance(x)
         | RuntimeErrMsg::Recursion(x)
         | RuntimeErrMsg::Reference(x)
-        | RuntimeErrMsg::IterStrop(x) => x,
+        | RuntimeErrMsg::IterStrop(x)
+        | RuntimeErrMsg::IO(x) => x,
       },
     }
   }
@@ -116,13 +120,14 @@ pub fn error_at_tok(token: TokenIdx, err_msg: ErrMsg, hint: Option<String>) -> E
   ErrorReport { token, err_msg, hint }
 }
 
-/// Reports an error list coming from the Parser or compiler.
+/// Reports an error list and a snippet of the line where the error occurred.
 ///
 /// # Parameters
-/// - `filepath`: The file path of where the errors occurred.
-/// - `errors`: An `ErrorList` containing the errors.
-/// - `source`: A reference to the source contents.
-pub fn report_errors_list(tokens_list: &TokenList, errors: Vec<ErrorReport>) {
+/// - `tokens_list`: The list of tokens.
+/// - `errors`: The list of error reports.
+/// - `print_last_msg`: Whether or not to print the "Aborted execution" message
+/// at the end of the error report.
+pub fn report_errors_list(tokens_list: &TokenList, errors: Vec<ErrorReport>, print_last_msg: bool) {
   let source_str = tokens_list.src.iter().collect::<String>();
   let source_lines: Vec<&str> = source_str.split('\n').collect();
 
@@ -149,7 +154,13 @@ pub fn report_errors_list(tokens_list: &TokenList, errors: Vec<ErrorReport>) {
     print_error_snippet(tok, line, &error.hint);
   }
 
-  eprintln!("\x1b[31;1mERROR:\x1b[0m Aborted execution due to previous errors.");
+  if print_last_msg {
+    eprintln!(
+      "\x1b[31;1mERROR:\x1b[0m Aborted execution due to {} previous error{}.",
+      errors.len(),
+      if errors.len() > 1 { "s" } else { "" }
+    );
+  }
 }
 
 /// Prints a snippet of the source line associated with an error.

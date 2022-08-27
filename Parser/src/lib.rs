@@ -78,6 +78,8 @@ pub struct Parser<'a> {
   current_pos: usize,
   /// The program's AST as an ArenaTree
   pub ast: ASTArena,
+  // Used to encode the position of a function's symbol table
+  func_count: usize,
   /// A list of reported errors generated while parsing.
   errors: Vec<ErrorReport>,
 }
@@ -96,6 +98,7 @@ impl<'a> Parser<'a> {
       tokens,
       current_pos: 1, // Skip the "THIS_FILE" token.
       errors: vec![],
+      func_count: 1, // The main function
       ast: ASTArena::default(),
     };
 

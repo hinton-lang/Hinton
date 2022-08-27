@@ -1,9 +1,11 @@
-use crate::PLVJsonGenerator;
+use serde_json::{json, Value};
+
 use core::ast::ASTNodeKind::*;
 use core::ast::*;
 use core::tokens::*;
 use core::utils::{parse_float_lexeme, parse_int_from_lexeme_base, parse_int_lexeme, parse_scientific_literal_lexeme};
-use serde_json::{json, Value};
+
+use crate::PLVJsonGenerator;
 
 impl<'a> PLVJsonGenerator<'a> {
   /// Converts a list of ASTNodes into their JSON representation.
@@ -105,7 +107,11 @@ impl<'a> ASTVisitor<'a> for PLVJsonGenerator<'a> {
   }
 
   fn ast_visit_block_stmt(&mut self, node: &BlockNode, _: Self::Data) -> Self::Res {
-    ("Block Stmt".into(), json!({}), self.ast_list_to_json(&node.0, ""))
+    (
+      "Block Stmt".into(),
+      json!({}),
+      self.ast_list_to_json(&node.children, ""),
+    )
   }
 
   fn ast_visit_del_stmt(&mut self, node: &ASTNodeIdx, _: Self::Data) -> Self::Res {
