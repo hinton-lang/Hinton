@@ -190,10 +190,6 @@ impl<'a> Parser<'a> {
       };
     }
 
-    Ok(ClassMemberMode {
-      is_public,
-      is_override,
-      is_static,
-    })
+    Ok(ClassMemberMode { is_public, is_override, is_static })
   }
 }

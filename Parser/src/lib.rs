@@ -96,7 +96,7 @@ impl<'a> Parser<'a> {
   pub fn parse(tokens: &'a TokenList) -> Result<ASTArena, Vec<ErrorReport>> {
     let mut parser = Parser {
       tokens,
-      current_pos: 1, // Skip the "THIS_FILE" token.
+      current_pos: 0,
       errors: vec![],
       func_count: 1, // The main function
       ast: ASTArena::default(),
@@ -151,8 +151,7 @@ impl<'a> Parser<'a> {
   /// # Results
   /// - `bool`: True if the current token matches the given token type false otherwise.
   fn check(&mut self, tk: &TokenKind) -> bool {
-    let tt = self.get_curr_tk();
-    tt.type_match(tk)
+    self.get_curr_tk() == tk
   }
 
   /// Checks that the current token matches the TokenKind provided.

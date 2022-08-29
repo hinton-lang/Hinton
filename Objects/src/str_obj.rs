@@ -13,3 +13,9 @@ impl Debug for StrObj {
 }
 
 impl GcTrace for StrObj {}
+
+impl StrObj {
+  pub fn display_plain(&self) -> &String {
+    &self.0
+  }
+}

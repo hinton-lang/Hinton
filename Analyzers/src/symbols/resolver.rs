@@ -1,6 +1,6 @@
 use core::errors::{error_at_tok, ErrMsg};
 use core::tokens::TokenIdx;
-use objects::native_functions::NATIVES;
+use objects::native_func_obj::NATIVES;
 
 use crate::symbols::*;
 
@@ -137,17 +137,17 @@ impl<'a> SymbolTableArena<'a> {
         let err_msg = "Cannot reassign to immutable declaration.".to_string();
 
         let name = match symbol.kind {
-          SymbolKind::Const => "Constant",
-          SymbolKind::Func => "Function",
-          SymbolKind::Class => "Class",
-          SymbolKind::Method => "Class method",
+          SymbolKind::Const => "constant",
+          SymbolKind::Func => "function",
+          SymbolKind::Class => "class",
+          SymbolKind::Method => "class method",
           SymbolKind::Var | SymbolKind::Param => unreachable!(),
         };
 
         let sl = self.tokens.loc(symbol.token_idx);
         let hint = format!(
           "This identifier refers to a {} declared on line {}, column {}.",
-          name.to_lowercase(),
+          name,
           sl.line_num,
           sl.col_start()
         );

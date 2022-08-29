@@ -5,6 +5,7 @@ use core::chunk::Chunk;
 use core::errors::{ErrMsg, ErrorReport};
 use core::tokens::{TokenIdx, TokenList};
 use objects::gc::{GarbageCollector, GcId, GcObject, GcObjectKind};
+use objects::str_obj::StrObj;
 use objects::{func_obj, Object};
 use parser::Parser;
 
@@ -35,11 +36,7 @@ impl LoopScope {
   /// * `loc`: The position of the loop's start, including the loop's
   /// condition, on the chunk of bytecode.
   pub fn new(loc: usize) -> Self {
-    LoopScope {
-      loc,
-      decls_count: 0,
-      can_update: true,
-    }
+    LoopScope { loc, decls_count: 0, can_update: true }
   }
 }
 
@@ -76,15 +73,17 @@ impl<'a> Compiler<'a> {
   /// * `ast`: The abstract syntax tree.
   /// * `symbols`: The symbol table.
   pub fn new(tokens: &'a TokenList, ast: &'a ASTArena, symbols: &'a [SymbolTable]) -> Self {
+    let mut gc = GarbageCollector::default();
+    let file_path = tokens.filepath.to_string_lossy().into_owned();
+
     let main_fn = func_obj::FuncObj {
       defaults: vec![],
       min_arity: 0,
-      max_arity: 0,
+      max_arity: Some(0),
       chunk: Default::default(),
-      name: 0, // See TokenKind::THIS_FILE for more info.
+      name: gc.push(GcObject::Str(StrObj(file_path))),
     };
 
-    let mut gc = GarbageCollector::default();
     let main_fn = gc.push(main_fn.into());
 
     Compiler {
@@ -110,8 +109,8 @@ impl<'a> Compiler<'a> {
   /// * `tokens`: The list of tokens.
   ///
   /// # Returns:
-  /// ```Result<(GarbageCollector, Vec<Object, Global>), Vec<ErrorReport>>```
-  pub fn compile(tokens: &TokenList) -> Result<(GarbageCollector, Vec<Object>), Vec<ErrorReport>> {
+  /// ```Result<(GarbageCollector, Vec<Object>, GcId), Vec<ErrorReport>>```
+  pub fn compile(tokens: &TokenList) -> Result<(GarbageCollector, Vec<Object>, GcId), Vec<ErrorReport>> {
     let ast = Parser::parse(tokens)?;
     let symbols = SymbolTableArena::tables_from(tokens, &ast)?;
     let compiler = Compiler::new(tokens, &ast, &symbols);
@@ -125,8 +124,8 @@ impl<'a> Compiler<'a> {
   /// * `compiler`: The compiler instance to execute.
   ///
   /// # Returns:
-  /// ```Result<(GarbageCollector, Vec<Object, Global>), Vec<ErrorReport>>```
-  pub fn compile_from(mut compiler: Compiler) -> Result<(GarbageCollector, Vec<Object>), Vec<ErrorReport>> {
+  /// ```Result<(GarbageCollector, Vec<Object>, GcId), Vec<ErrorReport>>```
+  pub fn compile_from(mut compiler: Compiler) -> Result<(GarbageCollector, Vec<Object>, GcId), Vec<ErrorReport>> {
     // Traverse the tree and compile the source.
     compiler.ast_visit_node(0, ());
 
@@ -134,7 +133,7 @@ impl<'a> Compiler<'a> {
     compiler.emit_op(OpCode::EndVirtualMachine, compiler.tokens.tokens.len() - 1);
 
     if compiler.errors.is_empty() {
-      Ok((compiler.gc_objs, compiler.constants))
+      Ok((compiler.gc_objs, compiler.constants, compiler.current_fn))
     } else {
       Err(compiler.errors)
     }
@@ -312,11 +311,7 @@ impl<'a> Compiler<'a> {
         self.current_chunk_mut().patch(offset, jump[0]);
         self.current_chunk_mut().patch(offset + 1, jump[1]);
       }
-      Err(_) => self.emit_error(
-        token,
-        ErrMsg::MaxCapacity("Too much code to jump over.".to_string()),
-        None,
-      ),
+      Err(_) => self.emit_error(token, ErrMsg::MaxCapacity("Too much code to jump over.".into()), None),
     }
   }
 

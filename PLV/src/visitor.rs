@@ -57,7 +57,7 @@ impl<'a> PLVJsonGenerator<'a> {
       ImportDecl(node) => self.ast_visit_import_decl(node, data),
       Indexing(node) => self.ast_visit_indexing(node, data),
       Lambda(node) => self.ast_visit_lambda(node, data),
-      LoopExpr(node) => self.ast_visit_loop_expr(node, data),
+      LoopExpr(node) => self.ast_visit_loop_stmt(node, data),
       MemberAccess(node) => self.ast_visit_member_access(node, data),
       NoneLiteral(node) => self.ast_visit_none_literal(node, data),
       NumLiteral(node) => self.ast_visit_num_literal(node, data),
@@ -161,16 +161,23 @@ impl<'a> ASTVisitor<'a> for PLVJsonGenerator<'a> {
   }
 
   fn ast_visit_break_stmt(&mut self, node: &ASTBreakStmtNode, _: Self::Data) -> Self::Res {
-    let val = if let Some(v) = node.val {
+    let val = if let Some(v) = node.cond {
       vec![self.ast_to_json(v, "value")]
     } else {
       vec![]
     };
+
     ("<BREAK>".into(), json!({}), val)
   }
 
-  fn ast_visit_continue_stmt(&mut self, _: &TokenIdx, _: Self::Data) -> Self::Res {
-    ("<CONTINUE>".into(), json!({}), vec![])
+  fn ast_visit_continue_stmt(&mut self, node: &ASTContinueStmtNode, _: Self::Data) -> Self::Res {
+    let val = if let Some(v) = node.cond {
+      vec![self.ast_to_json(v, "value")]
+    } else {
+      vec![]
+    };
+
+    ("<CONTINUE>".into(), json!({}), val)
   }
 
   fn ast_visit_for_loop(&mut self, _: &ASTForLoopNode, _: Self::Data) -> Self::Res {
@@ -178,7 +185,7 @@ impl<'a> ASTVisitor<'a> for PLVJsonGenerator<'a> {
     ("".into(), json!({}), vec![])
   }
 
-  fn ast_visit_loop_expr(&mut self, _: &ASTLoopExprNode, _: Self::Data) -> Self::Res {
+  fn ast_visit_loop_stmt(&mut self, _: &ASTLoopExprNode, _: Self::Data) -> Self::Res {
     // TODO
     ("".into(), json!({}), vec![])
   }
@@ -245,8 +252,12 @@ impl<'a> ASTVisitor<'a> for PLVJsonGenerator<'a> {
     ("Spread".into(), json!({}), vec![self.ast_to_json(*node, "target")])
   }
 
-  fn ast_visit_string_interpol(&mut self, nodes: &[ASTNodeIdx], _: Self::Data) -> Self::Res {
-    ("Str Interpolation".into(), json!({}), self.ast_list_to_json(nodes, ""))
+  fn ast_visit_string_interpol(&mut self, nodes: &ASTStringInterpol, _: Self::Data) -> Self::Res {
+    (
+      "Str Interpolation".into(),
+      json!({}),
+      self.ast_list_to_json(&nodes.parts, ""),
+    )
   }
 
   fn ast_visit_ternary_conditional(&mut self, node: &ASTTernaryConditionalNode, _: Self::Data) -> Self::Res {

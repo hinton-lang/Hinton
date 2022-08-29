@@ -85,11 +85,7 @@ impl<'a> Parser<'a> {
     };
 
     self.consume(&R_PAREN, "Expected ')' after unpacking pattern.", None)?;
-    Ok(UnpackPattern {
-      token,
-      decls,
-      wildcard: has_wildcard,
-    })
+    Ok(UnpackPattern { token, decls, wildcard: has_wildcard })
   }
 
   /// Parses a function declaration statement.
@@ -139,10 +135,10 @@ impl<'a> Parser<'a> {
   /// NON_REQ_PARAMS  ::= IDENTIFIER NON_REQ_BODY ("," IDENTIFIER NON_REQ_BODY)*
   /// NON_REQ_BODY    ::= "?" | (":=" EXPRESSION)
   /// ```
-  pub(super) fn parse_func_params(&mut self, is_lambda: bool) -> NodeResult<(u8, u8, Vec<SingleParam>)> {
+  pub(super) fn parse_func_params(&mut self, is_lambda: bool) -> NodeResult<(u16, Option<u16>, Vec<SingleParam>)> {
     let closing_tok = if is_lambda { VERT_BAR } else { R_PAREN };
     let mut params: Vec<SingleParam> = vec![];
-    let mut min_arity: u8 = 0;
+    let mut min_arity: u16 = 0;
     let mut has_rest_param = false;
 
     while !check_tok![self, closing_tok] {
@@ -152,7 +148,7 @@ impl<'a> Parser<'a> {
 
       let param = self.parse_single_param(&params)?;
       has_rest_param = has_rest_param || matches![param.kind, SingleParamKind::Rest];
-      min_arity += matches![param.kind, SingleParamKind::Required] as u8;
+      min_arity += matches![param.kind, SingleParamKind::Required] as u16;
       params.push(param);
 
       // Optional trailing comma
@@ -161,7 +157,7 @@ impl<'a> Parser<'a> {
       }
     }
 
-    let max_arity = if has_rest_param { 255 } else { params.len() as u8 };
+    let max_arity = if has_rest_param { None } else { Some(params.len() as u16) };
     Ok((min_arity, max_arity, params))
   }
 

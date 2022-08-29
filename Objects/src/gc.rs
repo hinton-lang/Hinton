@@ -1,6 +1,7 @@
+use std::fmt::{Debug, Formatter};
+
 use crate::func_obj::FuncObj;
 use crate::str_obj::StrObj;
-use std::fmt::{Debug, Formatter};
 
 /// Garbage collected objects.
 #[derive(PartialEq)]
@@ -31,6 +32,12 @@ impl From<String> for GcObject {
   }
 }
 
+impl From<&str> for GcObject {
+  fn from(s: &str) -> Self {
+    GcObject::Str(StrObj(s.into()))
+  }
+}
+
 impl From<FuncObj> for GcObject {
   fn from(f: FuncObj) -> Self {
     GcObject::Func(f)
@@ -43,6 +50,13 @@ impl GcObject {
     match self {
       GcObject::Str(_) => GcObjectKind::Str,
       GcObject::Func(_) => GcObjectKind::Func,
+    }
+  }
+
+  pub fn display_plain(&self, gc: &GarbageCollector) -> String {
+    match self {
+      GcObject::Str(s) => s.display_plain().to_owned(),
+      GcObject::Func(f) => f.display_plain(gc),
     }
   }
 }

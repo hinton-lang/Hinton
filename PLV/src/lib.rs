@@ -6,7 +6,7 @@ use core::ast::*;
 use core::errors::ErrorReport;
 use core::tokens::{Token, TokenList};
 use core::utils::get_time_millis;
-use objects::gc::GarbageCollector;
+use objects::gc::{GarbageCollector, GcId};
 use objects::Object;
 use parser::Parser;
 
@@ -38,7 +38,10 @@ fn map_tok_to_json(tok: (usize, &Token), tokens_list: &TokenList) -> Value {
 ///
 /// * `tokens_list`: The TokenList were the lexed tokens are stored.
 /// * `lexer_time`: The amount of time it took for the lexer to execute.
-pub fn export(tokens_list: &TokenList, lexer_time: u64) -> Result<(GarbageCollector, Vec<Object>), Vec<ErrorReport>> {
+pub fn export(
+  tokens_list: &TokenList,
+  lexer_time: u64,
+) -> Result<(GarbageCollector, Vec<Object>, GcId), Vec<ErrorReport>> {
   println!("=================================================");
   println!("Program Lifecycle Visualizer");
   println!("-----------");
@@ -58,7 +61,7 @@ pub fn export(tokens_list: &TokenList, lexer_time: u64) -> Result<(GarbageCollec
 
   let cs = get_time_millis();
   let compiler = Compiler::new(tokens_list, &ast, &symbol_tables);
-  let (gc, constants) = Compiler::compile_from(compiler)?;
+  let (gc, constants, main_fn) = Compiler::compile_from(compiler)?;
   let ce = get_time_millis();
 
   println!("Compiler Finished:       {}ms", ce - cs);
@@ -114,7 +117,7 @@ pub fn export(tokens_list: &TokenList, lexer_time: u64) -> Result<(GarbageCollec
   println!("PLV Finished in {:.3}s", ((plv_end - plv_start) as f32) / 1000.0);
   println!("=================================================");
 
-  Ok((gc, constants))
+  Ok((gc, constants, main_fn))
 }
 
 /// The JSON generator for the Hinton Program Lifecycle Visualizer

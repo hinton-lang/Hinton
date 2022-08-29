@@ -13,9 +13,9 @@ MODULE              ::= STATEMENT* EOF
 // ********************************************** STATEMENTS
 // The "pub" keyword is only allowed at the module or class level.
 STATEMENT           ::= BLOCK_STMT
+                    | LOOP_STMT
                     | WHILE_LOOP_STMT
                     | FOR_LOOP_STMT
-                    | LOOP_EXPR
                     | BREAK_STMT
                     | CONTINUE_STMT
                     | RETURN_STMT
@@ -36,12 +36,13 @@ STATEMENT           ::= BLOCK_STMT
 BLOCK_STMT          ::= "{" STATEMENT* "}"
 
 // Loop tags do not exist in Hinton for the same reason they do not exist in Python
+LOOP_STMT           ::= "loop" BLOCK_STMT
 WHILE_LOOP_STMT     ::= "while" ("let" IDENTIFIER "=")? EXPRESSION BLOCK_STMT
 FOR_LOOP_STMT       ::= "for" FOR_LOOP_HEAD BLOCK_STMT
 FOR_LOOP_HEAD       ::= (IDENTIFIER | UNPACK_PATTERN) "in" EXPRESSION
 
-BREAK_STMT          ::= "break" EXPRESSION? ";" // Can only break with expression inside `loop` statements.
-CONTINUE_STMT       ::= "continue" ";"
+BREAK_STMT          ::= "break" ("if" EXPRESSION)? ";"
+CONTINUE_STMT       ::= "continue" ("if" EXPRESSION)? ";"
 RETURN_STMT         ::= "return" EXPRESSION ";"
 YIELD_STMT          ::= "yield" EXPRESSION ";"
 THROW_STMT          ::= "throw" EXPRESSION ";"
@@ -51,7 +52,7 @@ DEL_STMT            ::= "del" EXPRESSION ";"
 IF_STMT             ::= "if" EXPRESSION BLOCK_STMT ("else" (BLOCK_STMT | IF_STMT))?
 
 // TODO: Add support for match expression statements in the future.
-// Defaults to `null` if there is no `default` branch.
+// Defaults to `none` if there is no `default` branch.
 // The `return` keyword will be allowed inside match blocks when used in the context of expressions
 // to return a value out of the block. However, match expression statements do not capture UpValues.
 MATCH_EXPR_STMT     ::= "match" EXPRESSION "{" (MATCH_PATT_ARM ("," MATCH_PATT_ARM)* ("," DEFAULT_ARM)? | DEFAULT_ARM ) "}"
@@ -111,7 +112,6 @@ IMPORT_EXPORT_DECL  ::= ("import" | "export") ((GRANULAR_IMPORT | "..." IDENTIFI
 GRANULAR_IMPORT     ::= "{" IDENTIFIER ("as" IDENTIFIER)? ("," IDENTIFIER ("as" IDENTIFIER)?)* ","? "}"
 
 // ********************************************** GENERAL EXPRESSIONS
-// TODO: What about chained operations (like in python)?
 EXPRESSION          ::= REASSIGNMENT_EXPR
 
 // The Parser checks that the lhs of the assignment is one of IDENTIFIER,
@@ -143,9 +143,7 @@ UNARY_EXPR          ::= (UNARY_OPR | "new" | "await" | "typeof") UNARY_EXPR
                     | PRIMARY_EXPR
 
 PRIMARY_EXPR        ::= LAMBDA_EXPR
-                    | LARGE_EXPR (INDEXING_EXPR | CALL_EXPR | MEMBER_ACCESS_EXPR)*
-
-LARGE_EXPR          ::= LITERAL_EXPR | MATCH_EXPR_STMT | LOOP_EXPR
+                    | (LITERAL_EXPR | MATCH_EXPR_STMT) (INDEXING_EXPR | CALL_EXPR | MEMBER_ACCESS_EXPR)*
 
 // Array indexing works just like in Python. You can pass a comma separated list
 // of expressions or slices. This list is implicitly converted to a tuple so programmers
@@ -167,9 +165,6 @@ MEMBER_ACCESS_EXPR  ::= ("." | "?.") IDENTIFIER
 // follow the following syntax: `"|" PARAMETERS "|" -> IDENTIFIER BLOCK_STMT`
 // Where the identifier represents the lambda's return type.
 LAMBDA_EXPR         ::= "async"? "|" PARAMETERS? "|" (EXPRESSION | BLOCK_STMT)
-
-// Defaults to `null` if the loop breaks with no value.
-LOOP_EXPR           ::= "loop" ("as" IDENTIFIER)? BLOCK_STMT
 
 // ********************************************** LITERAL EXPRESSIONS
 LITERAL_EXPR        ::= IDENTIFIER

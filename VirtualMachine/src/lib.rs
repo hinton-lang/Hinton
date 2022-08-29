@@ -8,7 +8,7 @@ use core::FRAMES_MAX;
 use lexer::Lexer;
 use objects::func_obj::FuncObj;
 use objects::gc::{GarbageCollector, GcId, GcObject};
-use objects::native_functions::NATIVES;
+use objects::native_func_obj::NATIVES;
 use objects::Object;
 
 mod run;
@@ -53,12 +53,12 @@ impl VM {
   /// * `collector`: The garbage collector for this VM.
   /// * `pool`: The allocated constants for this VM.
   /// * `frames`: The max number of call stack frames for this VM.
-  pub fn new(collector: GarbageCollector, pool: Vec<Object>, frames: usize) -> Self {
+  pub fn new(collector: GarbageCollector, pool: Vec<Object>, main_fn: GcId, frames: usize) -> Self {
     VM {
       stack: vec![],
       constants: pool,
       gc: collector,
-      frames: vec![CallFrame::default()],
+      frames: vec![CallFrame { ip: 0, func_ptr: main_fn, return_idx: 0 }],
       globals: vec![],
       max_frames: frames,
     }
@@ -108,13 +108,13 @@ impl VM {
     let compiler_result = plv::export(&tokens_list, lexer_end - lexer_start);
 
     // Report any errors generated from the compilation pipeline.
-    let (gc, consts) = compiler_result.map_err(|err| {
+    let (gc, consts, main_fn) = compiler_result.map_err(|err| {
       report_errors_list(&tokens_list, err, true);
       InterpretError::CompileError
     })?;
 
     // Create a new virtual machine and execute the code.
-    let mut vm = VM::new(gc, consts, frames);
+    let mut vm = VM::new(gc, consts, main_fn, frames);
     vm.run().map_err(|e| vm.report_runtime_error(e, &tokens_list))
   }
 
@@ -173,14 +173,23 @@ impl VM {
 
     let func_ptr = match callee {
       Object::Func(f) => f,
-      Object::NativeFunc(n) => return self.call_native(*n, fn_stack_pos),
+      Object::NativeFunc(n) => return self.call_native(n.0, fn_stack_pos),
       _ => {
         let err_msg = format!("Cannot call object of type '{}'.", callee.type_name());
         return ControlFlow::Break(Err(RuntimeErrMsg::Type(err_msg)));
       }
     };
 
-    self.call_function(*func_ptr, fn_stack_pos)
+    let (min, max) = match &self.gc.get(func_ptr).obj {
+      GcObject::Func(f) => (f.min_arity, f.max_arity),
+      _ => unreachable!("Can only check arity of function-like objects."),
+    };
+
+    // Perform arity check on the function or method call
+    match self.arity_check(args_count, min, max) {
+      Ok(_) => self.call_function(*func_ptr, fn_stack_pos),
+      Err(e) => ControlFlow::Break(Err(e)),
+    }
   }
 
   /// Generates a new stack frame for the given function.
@@ -193,22 +202,50 @@ impl VM {
     ControlFlow::Continue(())
   }
 
-  /// Calls a native function.
-  fn call_native(&mut self, idx: usize, return_idx: usize) -> OpRes {
-    let stack_len = self.stack.len();
+  fn arity_check(&self, args_count: usize, min: u16, max: Option<u16>) -> Result<(), RuntimeErrMsg> {
+    let arg_max = max.unwrap_or(u16::MAX);
 
-    // Take the top n elements of the stack as arguments to the function
-    let args = &mut self.stack[(return_idx + 1)..stack_len];
+    if args_count < min as usize || args_count > arg_max as usize {
+      let msg = if min == arg_max {
+        // all required params
+        format!("Expected {} args, but got {} instead.", min, args_count)
+      } else if max.is_none() {
+        // 0+ required params, 0+ optional, 1 rest.
+        format!("Expected at least {} args, but got {} instead.", min, args_count)
+      } else {
+        // 0+ required args and 1+ optional (not rest)
+        format!("Expected {} to {} args, but got {} instead.", min, arg_max, args_count)
+      };
 
-    // Call the function
-    match (NATIVES[idx].body)(&mut self.gc, args) {
-      Ok(o) => self.stack[return_idx] = o,
-      Err(e) => return ControlFlow::Break(Err(e)),
+      return Err(RuntimeErrMsg::Argument(msg));
     }
 
-    // Pop the top n elements of the stack
-    self.stack.drain((return_idx + 1)..self.stack.len());
-    ControlFlow::Continue(())
+    Ok(())
+  }
+
+  /// Calls a native function.
+  fn call_native(&mut self, idx: usize, return_idx: usize) -> OpRes {
+    let native = &NATIVES[idx];
+    let stack_len = self.stack.len();
+
+    // Do arity check on the native function's call
+    match self.arity_check(stack_len - (return_idx + 1), native.min_arity, native.max_arity) {
+      Err(e) => ControlFlow::Break(Err(e)),
+      Ok(_) => {
+        // Take the top n elements of the stack as arguments to the function
+        let args = &mut self.stack[(return_idx + 1)..stack_len];
+
+        // Call the function
+        match (native.body)(&mut self.gc, args) {
+          Ok(o) => self.stack[return_idx] = o,
+          Err(e) => return ControlFlow::Break(Err(e)),
+        }
+
+        // Pop the top n elements of the stack
+        self.stack.drain((return_idx + 1)..self.stack.len());
+        ControlFlow::Continue(())
+      }
+    }
   }
 
   /// Reports a runtime error and stack trace to the console.
@@ -245,7 +282,7 @@ impl VM {
 
       let tok_idx = func.chunk.get_tok(frame.ip);
       let tok = token_list[tok_idx];
-      let fn_name = token_list.lexeme(func.name);
+      let fn_name = self.gc.get(&func.name).as_str_obj().unwrap().0.to_owned();
 
       let new_err = if fn_name.starts_with("<MainFunc") {
         format!("{:2}at origin {}", "", fn_name)

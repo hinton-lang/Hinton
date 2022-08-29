@@ -46,12 +46,12 @@ pub enum OpCode {
   Subscript,
   SubscriptAssign,
   Subtract,
-  TypeOf,
 
   // Instructions with one chunk operands.
   // These instructions use the next byte from the chunk as its operand.
   AppendClassField,
   BindDefaults,
+  BuildStr,
   CloseUpVal,
   FuncCall,
   GetGlobal,
@@ -68,6 +68,7 @@ pub enum OpCode {
   MakeInstance,
   MakeTuple,
   PopStackTopN,
+  RotateTopN,
   SetGlobal,
   SetLocal,
   SetProp,
@@ -77,6 +78,7 @@ pub enum OpCode {
   // Instructions with two chunk operands.
   // These instructions use the next two bytes (a short) as their operands.
   BindDefaultsLong,
+  BuildStrLong,
   CloseUpValLong,
   ForIterNextOrJump,
   FuncCallLong,
@@ -98,6 +100,7 @@ pub enum OpCode {
   MakeTupleLong,
   PopJumpIfFalse,
   PopStackTopNLong,
+  RotateTopNLong,
   SetGlobalLong,
   SetLocalLong,
   SetPropLong,

@@ -25,7 +25,7 @@ impl<'a> PLVJsonGenerator<'a> {
   }
 
   fn disassemble_fn(&self, func: &FuncObj, gc: &GarbageCollector) -> String {
-    let mut output = self.tokens_list.lexeme(func.name) + " ------------\n";
+    let mut output = gc.get(&func.name).as_str_obj().unwrap().0.to_owned() + " ------------\n";
 
     let mut ip = 0;
     let mut out: Vec<(String, String, String, String, String, String, String)> = vec![];
@@ -126,11 +126,11 @@ impl<'a> PLVJsonGenerator<'a> {
       OpCode::Subscript => ("SUBSCRIPT", 0, None),
       OpCode::SubscriptAssign => ("SUBSCRIPT_ASSIGN", 0, None),
       OpCode::Subtract => ("SUBTRACT", 0, None),
-      OpCode::TypeOf => ("TYPE_OF", 0, None),
 
       // 1-operand instructions
       OpCode::AppendClassField => ("APPEND_CLASS_FIELD", 1, None),
       OpCode::BindDefaults => ("BIND_DEFAULTS", 1, None),
+      OpCode::BuildStr => ("BUILD_STR", 1, None),
       OpCode::CloseUpVal => ("CLOSE_UP_VAL", 1, None),
       OpCode::FuncCall => ("FUNC_CALL", 1, None),
       OpCode::GetGlobal => ("GET_GLOBAL", 1, None),
@@ -147,6 +147,7 @@ impl<'a> PLVJsonGenerator<'a> {
       OpCode::MakeInstance => ("MAKE_INSTANCE", 1, None),
       OpCode::MakeTuple => ("MAKE_TUPLE", 1, None),
       OpCode::PopStackTopN => ("POP_STACK_TOP_N", 1, None),
+      OpCode::RotateTopN => ("ROTATE_TOP_N", 1, None),
       OpCode::SetGlobal => ("SET_GLOBAL", 1, None),
       OpCode::SetLocal => ("SET_LOCAL", 1, None),
       OpCode::SetProp => ("SET_PROP", 1, None),
@@ -155,6 +156,7 @@ impl<'a> PLVJsonGenerator<'a> {
 
       // 2-operand instructions
       OpCode::BindDefaultsLong => ("BIND_DEFAULTS_LONG", 2, None),
+      OpCode::BuildStrLong => ("BUILD_STR_LONG", 2, None),
       OpCode::CloseUpValLong => ("CLOSE_UP_VAL_LONG", 2, None),
       OpCode::ForIterNextOrJump => ("FOR_ITER_NEXT_OR_JUMP", 2, None),
       OpCode::FuncCallLong => ("FUNC_CALL_LONG", 2, None),
@@ -176,6 +178,7 @@ impl<'a> PLVJsonGenerator<'a> {
       OpCode::MakeTupleLong => ("MAKE_TUPLE_LONG", 2, None),
       OpCode::PopJumpIfFalse => ("POP_JUMP_IF_FALSE", 2, None),
       OpCode::PopStackTopNLong => ("POP_STACK_TOP_N_LONG", 1, None),
+      OpCode::RotateTopNLong => ("ROTATE_TOP_N_LONG", 2, None),
       OpCode::SetGlobalLong => ("SET_GLOBAL_LONG", 2, None),
       OpCode::SetLocalLong => ("SET_LOCAL_LONG", 2, None),
       OpCode::SetPropLong => ("SET_PROP_LONG", 2, None),

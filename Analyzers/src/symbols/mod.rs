@@ -158,11 +158,7 @@ impl SymbolTable {
   /// # Returns:
   /// ```SymbolTable```
   pub fn new(parent_table: Option<SymbolTableIdx>) -> SymbolTable {
-    SymbolTable {
-      symbols: vec![],
-      resolved: vec![],
-      parent_table,
-    }
+    SymbolTable { symbols: vec![], resolved: vec![], parent_table }
   }
 
   /// Gets an immutable reference to the symbol at the given SymbolIdx.

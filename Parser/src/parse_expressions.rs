@@ -37,6 +37,7 @@ impl<'a> Parser<'a> {
 
     if let Some(kind) = ReassignmentKind::try_from_token(self.get_curr_tk()) {
       self.advance(); // Consume the token
+      let operator = self.current_pos - 1;
 
       // Gets the value for assignment
       let value = self.parse_expr()?;
@@ -46,7 +47,7 @@ impl<'a> Parser<'a> {
         // In the compiler, we simply check the kind of target we have
         // to emit the correct set of bytecode instructions.
         IdLiteral(_) | MemberAccess(_) | Indexing(_) => {
-          let node = ASTReassignmentNode { target, kind, value };
+          let node = ASTReassignmentNode { target, operator, kind, value };
           self.emit(Reassignment(node))
         }
         _ => Err(error_at_tok(
@@ -74,11 +75,7 @@ impl<'a> Parser<'a> {
       self.consume(&COLON, "Expected ':' after the expression.", hint)?;
       let branch_false = self.parse_expr()?;
 
-      let node = ASTTernaryConditionalNode {
-        condition,
-        branch_true,
-        branch_false,
-      };
+      let node = ASTTernaryConditionalNode { condition, branch_true, branch_false };
 
       return self.emit(TernaryConditional(node));
     }
@@ -369,7 +366,10 @@ impl<'a> Parser<'a> {
       return self.parse_lambda_literal(false);
     }
 
-    let mut expr = self.parse_large_expr()?;
+    let mut expr = match curr_tk![self] {
+      MATCH_KW if self.advance() => todo!("Parse `match` expression."),
+      _ => self.parse_literal()?,
+    };
 
     loop {
       expr = match curr_tk![self] {
@@ -406,7 +406,7 @@ impl<'a> Parser<'a> {
       self.consume(&VERT_BAR, "Expected '|' after lambda parameter list.", None)?;
       params
     } else {
-      (0u8, 0u8, vec![])
+      (0u16, Some(0u16), vec![])
     };
 
     let body = if match_tok![self, L_CURLY] {
@@ -415,26 +415,7 @@ impl<'a> Parser<'a> {
       LambdaBody::Expr(self.parse_expr()?)
     };
 
-    self.emit(Lambda(ASTLambdaNode {
-      is_async,
-      params,
-      min_arity,
-      max_arity,
-      body,
-    }))
-  }
-
-  /// Parses a large expression.
-  ///
-  /// ```bnf
-  /// LARGE_EXPR ::= LITERAL_EXPR | MATCH_EXPR_STMT | LOOP_EXPR_STMT
-  /// ```
-  pub fn parse_large_expr(&mut self) -> NodeResult<ASTNodeIdx> {
-    match curr_tk![self] {
-      MATCH_KW if self.advance() => todo!("Parse `match` expression."),
-      LOOP_KW if self.advance() => self.parse_loop_expr(),
-      _ => self.parse_literal(),
-    }
+    self.emit(Lambda(ASTLambdaNode { is_async, params, min_arity, max_arity, body }))
   }
 
   /// Parses an indexing expression.
@@ -524,10 +505,7 @@ impl<'a> Parser<'a> {
           let tok_id = consume_id![self, "Expected identifier for named argument.", None];
           self.consume(&COLON_EQUALS, "Expected ':=' for named argument.", None)?;
           has_non_val_arg = true;
-          CallArg::Named {
-            name: tok_id,
-            value: self.parse_expr()?,
-          }
+          CallArg::Named { name: tok_id, value: self.parse_expr()? }
         }
         _ => {
           let arg = self.parse_expr()?;
@@ -564,25 +542,6 @@ impl<'a> Parser<'a> {
 
     let member = consume_id![self, "Expected member name after the dot.", None];
     self.emit(MemberAccess(ASTMemberAccessNode { is_safe, target, member }))
-  }
-
-  /// Parses a loop expression or loop statement.
-  ///
-  /// ```bnf
-  /// LOOP_EXPR ::= "loop" ("as" IDENTIFIER)? BLOCK_STMT
-  /// ```
-  pub(super) fn parse_loop_expr(&mut self) -> NodeResult<ASTNodeIdx> {
-    let count = if match_tok![self, AS_KW] {
-      let err_msg = "Expected identifier after 'as' keyword in 'loop' expression.";
-      Some(consume_id![self, err_msg, None])
-    } else {
-      None
-    };
-
-    self.consume(&L_CURLY, "Expected block as 'loop' body.", None)?;
-    let body = self.parse_block_stmt()?;
-    let node = ASTLoopExprNode { body, count };
-    self.emit(LoopExpr(node))
   }
 
   /// Parses a literal expression.
@@ -633,7 +592,8 @@ impl<'a> Parser<'a> {
   ///                   | "$" "{" EXPRESSION "}"
   /// ```
   fn parse_str_interpolation(&mut self) -> NodeResult<ASTNodeIdx> {
-    let mut interpolated_parts = vec![];
+    let token = self.current_pos - 1;
+    let mut parts = vec![];
 
     while !match_tok![self, END_INTERPOL_STR] {
       let interpol_part = match curr_tk![self] {
@@ -646,9 +606,10 @@ impl<'a> Parser<'a> {
         _ => return Err(self.error_at_current_tok("Invalid interpolation part.", None)),
       };
 
-      interpolated_parts.push(interpol_part);
+      parts.push(interpol_part);
     }
 
-    self.emit(StringInterpol(interpolated_parts))
+    let node = ASTStringInterpol { parts, token };
+    self.emit(StringInterpol(node))
   }
 }

@@ -45,14 +45,7 @@ impl<'a> Lexer<'a> {
     // Instantiate a new Lexer
     let mut the_lexer = Lexer {
       source,
-      tokens: vec![Token {
-        kind: TokenKind::THIS_FILE,
-        loc: TokenLoc {
-          line_num: 0,
-          line_start: 0,
-          span: (0, 0),
-        },
-      }],
+      tokens: vec![],
       current: 0,
       line_num: 1,
       line_start: 0,
@@ -267,16 +260,11 @@ impl<'a> Lexer<'a> {
       span: (self.token_start, self.current),
     };
 
-    let tok = Token {
-      loc,
-      kind: TokenKind::ERROR(err),
-    };
-
     if advance {
       self.advance();
     }
 
-    tok
+    Token { loc, kind: TokenKind::ERROR(err) }
   }
 
   /// Generates an error at the previous character with the provided message as its lexeme.
@@ -290,9 +278,6 @@ impl<'a> Lexer<'a> {
       span: (self.token_start, self.current),
     };
 
-    Token {
-      loc,
-      kind: TokenKind::ERROR(err),
-    }
+    Token { loc, kind: TokenKind::ERROR(err) }
   }
 }

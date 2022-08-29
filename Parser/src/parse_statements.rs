@@ -104,6 +104,7 @@ impl<'a> Parser<'a> {
         let node = self.parse_block_stmt()?;
         self.emit(BlockStmt(node))?
       }
+      LOOP_KW if self.advance() => self.parse_loop_stmt()?,
       WHILE_KW if self.advance() => self.parse_while_loop_stmt()?,
       FOR_KW if self.advance() => self.parse_for_loop_stmt()?,
       BREAK_KW if self.advance() => self.parse_break_stmt()?,
@@ -167,6 +168,21 @@ impl<'a> Parser<'a> {
     Ok(BlockNode { close_token, children })
   }
 
+  /// Parses a loop statement.
+  ///
+  /// ```bnf
+  /// LOOP_EXPR_STMT ::= "loop" BLOCK_STMT
+  /// ```
+  pub(super) fn parse_loop_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
+    let token = self.current_pos - 1;
+    self.consume(&L_CURLY, "Expected block as 'loop' body.", None)?;
+
+    let body = self.parse_block_stmt()?;
+
+    let node = ASTLoopExprNode { token, body };
+    self.emit(LoopExpr(node))
+  }
+
   /// Parses a while-loop statement.
   ///
   /// ```bnf
@@ -220,32 +236,27 @@ impl<'a> Parser<'a> {
   /// Parses a break statement.
   ///
   /// ```bnf
-  /// BREAK_STMT ::= "break" EXPRESSION? ";"
+  /// BREAK_STMT ::= "break" ("if" EXPRESSION)? ";"
   /// ```
   pub(super) fn parse_break_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
     let token = self.current_pos - 1;
-
-    let val = if !match_tok![self, SEMICOLON] {
-      let val = Some(self.parse_expr()?);
-      self.consume(&SEMICOLON, "Expected ';' after break statement.", None)?;
-      val
-    } else {
-      None
-    };
-
-    let node = ASTBreakStmtNode { token, val };
+    let cond = if match_tok![self, IF_KW] { Some(self.parse_expr()?) } else { None };
+    self.consume(&SEMICOLON, "Expected ';' after break statement.", None)?;
+    let node = ASTBreakStmtNode { token, cond };
     self.emit(BreakStmt(node))
   }
 
   /// Parses a continue statement.
   ///
   /// ```bnf
-  /// CONTINUE_STMT ::= "continue" ";"
+  /// CONTINUE_STMT ::= "continue" ("if" EXPRESSION)? ";"
   /// ```
   pub(super) fn parse_continue_stmt(&mut self) -> NodeResult<ASTNodeIdx> {
     let token = self.current_pos - 1;
+    let cond = if match_tok![self, IF_KW] { Some(self.parse_expr()?) } else { None };
     self.consume(&SEMICOLON, "Expected ';' after continue statement.", None)?;
-    self.emit(ContinueStmt(token))
+    let node = ASTContinueStmtNode { token, cond };
+    self.emit(ContinueStmt(node))
   }
 
   /// Parses a return statement.
@@ -325,12 +336,7 @@ impl<'a> Parser<'a> {
       }
     }
 
-    let node = ASTIfStmtNode {
-      token,
-      cond,
-      true_branch,
-      else_branch,
-    };
+    let node = ASTIfStmtNode { token, cond, true_branch, else_branch };
     self.emit(IfStmt(node))
   }
 

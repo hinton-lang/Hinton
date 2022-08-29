@@ -6,8 +6,10 @@ use core::bytecode::OpCode;
 use core::tokens::{TokenIdx, TokenKind};
 use core::utils::*;
 use objects::func_obj::FuncObj;
+use objects::gc::GcObject;
+use objects::str_obj::StrObj;
 
-use crate::{BreakScope, Compiler, ErrMsg, GcId, LoopScope};
+use crate::{BreakScope, Compiler, ErrMsg, LoopScope};
 
 impl Compiler<'_> {
   fn emit_pop_locals(&mut self, count: u16, token: TokenIdx) {
@@ -138,31 +140,10 @@ impl Compiler<'_> {
     self.patch_jump(end_jump, node.token);
   }
 
-  fn emit_compound_reassignment_operator(&mut self, kind: &ReassignmentKind, token: TokenIdx) {
-    match kind {
-      ReassignmentKind::Plus => self.emit_op(OpCode::Add, token),
-      ReassignmentKind::Minus => self.emit_op(OpCode::Subtract, token),
-      ReassignmentKind::Div => self.emit_op(OpCode::Divide, token),
-      ReassignmentKind::Mul => self.emit_op(OpCode::Multiply, token),
-      ReassignmentKind::Expo => self.emit_op(OpCode::Pow, token),
-      ReassignmentKind::Mod => self.emit_op(OpCode::Modulus, token),
-      ReassignmentKind::ShiftL => self.emit_op(OpCode::BitwiseShiftLeft, token),
-      ReassignmentKind::ShiftR => self.emit_op(OpCode::BitwiseShiftRight, token),
-      ReassignmentKind::BitAnd => self.emit_op(OpCode::BitwiseAnd, token),
-      ReassignmentKind::Xor => self.emit_op(OpCode::BitwiseXor, token),
-      ReassignmentKind::BitOr => self.emit_op(OpCode::BitwiseOr, token),
-      ReassignmentKind::Nonish => self.emit_op(OpCode::Nonish, token),
-      ReassignmentKind::LogicAnd => todo!(),
-      ReassignmentKind::LogicOr => todo!(),
-      ReassignmentKind::MatMul => todo!(),
-      ReassignmentKind::Assign => unreachable!("Simple reassignment not handled here."),
-    };
-  }
-
-  fn visit_id_reassignment(&mut self, token: TokenIdx, kind: &ReassignmentKind, value: ASTNodeIdx) {
+  fn visit_id_reassignment(&mut self, id: TokenIdx, operator: TokenIdx, kind: &ReassignmentKind, value: ASTNodeIdx) {
     let current_table = self.get_current_table();
 
-    let (instr1, instr2, pos) = match current_table.resolved.iter().find(|x| x.0 == token) {
+    let (instr1, instr2, pos) = match current_table.resolved.iter().find(|x| x.0 == id) {
       Some((_, SymRes::Stack(pos))) => (OpCode::SetLocal, OpCode::SetLocalLong, *pos),
       Some((_, SymRes::UpVal(_))) => todo!("SymRes::UpVal(pos)"),
       Some((_, SymRes::Global(pos))) => (OpCode::SetGlobal, OpCode::SetGlobalLong, *pos),
@@ -170,22 +151,44 @@ impl Compiler<'_> {
     };
 
     if let ReassignmentKind::Assign = kind {
-      // Proceed to directly reassign the variable.
+      // Simple reassignment does not need an expression de-sugaring.
       self.ast_visit_node(value, ());
     } else {
       // The expression `a /= 2` expands to `a = a / 2`, so we
       // must get the variable's value onto the stack first.
-      self.ast_visit_id_literal(&token, ());
+      self.ast_visit_id_literal(&id, ());
 
-      // Then we push the other operand's value onto the stack
+      // Emit a jump instruction if the operator is one of `||=` or `&&=`
+      let jump = match kind {
+        ReassignmentKind::LogicAnd => self.emit_jump(OpCode::JumpIfFalseOrPop, operator),
+        ReassignmentKind::LogicOr => self.emit_jump(OpCode::JumpIfTrueOrPop, operator),
+        _ => 0, // Dummy value. Not used.
+      };
+
+      // Visit the operand value.
       self.ast_visit_node(value, ());
 
-      // Then compute the operation of the two operands.
-      self.emit_compound_reassignment_operator(kind, token);
+      // And emit the desugared operator instruction.
+      match kind {
+        ReassignmentKind::Plus => self.emit_op(OpCode::Add, operator),
+        ReassignmentKind::Minus => self.emit_op(OpCode::Subtract, operator),
+        ReassignmentKind::Div => self.emit_op(OpCode::Divide, operator),
+        ReassignmentKind::Mul => self.emit_op(OpCode::Multiply, operator),
+        ReassignmentKind::Expo => self.emit_op(OpCode::Pow, operator),
+        ReassignmentKind::Mod => self.emit_op(OpCode::Modulus, operator),
+        ReassignmentKind::ShiftL => self.emit_op(OpCode::BitwiseShiftLeft, operator),
+        ReassignmentKind::ShiftR => self.emit_op(OpCode::BitwiseShiftRight, operator),
+        ReassignmentKind::BitAnd => self.emit_op(OpCode::BitwiseAnd, operator),
+        ReassignmentKind::Xor => self.emit_op(OpCode::BitwiseXor, operator),
+        ReassignmentKind::BitOr => self.emit_op(OpCode::BitwiseOr, operator),
+        ReassignmentKind::Nonish => self.emit_op(OpCode::Nonish, operator),
+        ReassignmentKind::MatMul => todo!(),
+        ReassignmentKind::LogicAnd | ReassignmentKind::LogicOr => self.patch_jump(jump, operator),
+        ReassignmentKind::Assign => unreachable!("Simple reassignment not handled here."),
+      }
     }
 
-    // Sets the new value (which will be on top of the stack)
-    self.emit_op_with_usize(instr1, instr2, pos as usize, token);
+    self.emit_op_with_usize(instr1, instr2, pos as usize, id);
   }
 
   fn patch_breaks(&mut self, loop_start: usize, token: TokenIdx) {
@@ -278,28 +281,60 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
     todo!()
   }
 
-  fn ast_visit_break_stmt(&mut self, node: &ASTBreakStmtNode, _: Self::Data) -> Self::Res {
+  fn ast_visit_break_stmt(&mut self, node: &ASTBreakStmtNode, data: Self::Data) -> Self::Res {
     let current_loop = self.loop_scopes.last().unwrap();
     let parent_loop = current_loop.loc;
+    let decls_count = current_loop.decls_count;
 
-    self.emit_pop_locals(current_loop.decls_count, node.token);
+    let then_jump = if let Some(cond) = node.cond {
+      self.ast_visit_node(cond, data);
+      Some(self.emit_jump(OpCode::PopJumpIfFalse, node.token))
+    } else {
+      None
+    };
+
+    self.emit_pop_locals(decls_count, node.token);
     let chunk_pos = self.emit_jump(OpCode::JumpForward, node.token);
-    // TODO: What about breaking with expressions?
-    self.break_scopes.push(BreakScope { parent_loop, chunk_pos })
+
+    if let Some(then) = then_jump {
+      self.patch_jump(then, node.token);
+    }
+
+    self.break_scopes.push(BreakScope { parent_loop, chunk_pos });
   }
 
-  fn ast_visit_continue_stmt(&mut self, token: &TokenIdx, _: Self::Data) -> Self::Res {
+  fn ast_visit_continue_stmt(&mut self, node: &ASTContinueStmtNode, data: Self::Data) -> Self::Res {
     let current_loop = *self.loop_scopes.last().unwrap();
-    self.emit_pop_locals(current_loop.decls_count, *token);
-    self.emit_loop(current_loop.loc, *token);
+
+    let then_jump = if let Some(cond) = node.cond {
+      self.ast_visit_node(cond, data);
+      Some(self.emit_jump(OpCode::PopJumpIfFalse, node.token))
+    } else {
+      None
+    };
+
+    self.emit_pop_locals(current_loop.decls_count, node.token);
+    self.emit_loop(current_loop.loc, node.token);
+
+    if let Some(then) = then_jump {
+      self.patch_jump(then, node.token);
+    }
   }
 
   fn ast_visit_for_loop(&mut self, _: &ASTForLoopNode, _: Self::Data) -> Self::Res {
     todo!()
   }
 
-  fn ast_visit_loop_expr(&mut self, _: &ASTLoopExprNode, _: Self::Data) -> Self::Res {
-    todo!()
+  fn ast_visit_loop_stmt(&mut self, node: &ASTLoopExprNode, _: Self::Data) -> Self::Res {
+    let loop_start = self.current_chunk_mut().len();
+    self.loop_scopes.push(LoopScope::new(loop_start));
+
+    self.visit_new_block(&node.body, true);
+
+    self.emit_loop(loop_start, node.token);
+    self.patch_breaks(loop_start, node.token);
+
+    self.loop_scopes.pop();
   }
 
   fn ast_visit_while_loop(&mut self, node: &ASTWhileLoopNode, data: Self::Data) -> Self::Res {
@@ -329,7 +364,8 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
   }
 
   fn ast_visit_func_decl(&mut self, node: &ASTFuncDeclNode, _: Self::Data) -> Self::Res {
-    let name = node.name;
+    let lexeme = self.tokens.lexeme(node.name);
+    let name = self.gc_objs.push(GcObject::Str(StrObj(lexeme)));
 
     // Lock the current loop, if there exists one.
     let mut can_update_curr_loop = false;
@@ -347,12 +383,12 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
     };
 
     // Add the function object to the constant pool so we can start compiling its chunk
-    let const_pos = self.emit_const_gc_obj(new_func.into(), name, false);
+    let const_pos = self.emit_const_gc_obj(new_func.into(), node.name, false);
     let prev_func_pos = self.current_fn;
     let prev_table = self.current_table;
 
     // Make the new function the current chunk to compile into.
-    self.current_fn = GcId(self.constants.len() - 1);
+    self.current_fn = *self.constants[const_pos].as_func().unwrap();
     self.current_table = node.table_pos;
 
     self.visit_new_block(&node.body, false);
@@ -366,7 +402,7 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
     self.current_table = prev_table;
 
     // Load the function onto the stack and declare it
-    self.emit_op_with_usize(OpCode::LoadConstant, OpCode::LoadConstantLong, const_pos, name);
+    self.emit_op_with_usize(OpCode::LoadConstant, OpCode::LoadConstantLong, const_pos, node.name);
 
     // Bind default parameters, if any, to the function at runtime before it is declared.
     self.visit_params_list(&node.params, node.name);
@@ -377,7 +413,7 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
       current_loop.can_update = can_update_curr_loop;
     };
 
-    self.declare_id(name);
+    self.declare_id(node.name);
   }
 
   fn ast_visit_lambda(&mut self, _: &ASTLambdaNode, _: Self::Data) -> Self::Res {
@@ -419,9 +455,9 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
       BinaryExprKind::LessThanEQ => OpCode::LessThanEq,
       BinaryExprKind::LogicAND => unreachable!("Logic 'AND' expressions not compiled here."),
       BinaryExprKind::LogicOR => unreachable!("Logic 'OR' expressions not compiled here."),
-      BinaryExprKind::MatMult => todo!("BinaryExprKind::MatMult"),
+      BinaryExprKind::MatMul => todo!("BinaryExprKind::MatMul"),
       BinaryExprKind::Mod => OpCode::Modulus,
-      BinaryExprKind::Mult => OpCode::Multiply,
+      BinaryExprKind::Mul => OpCode::Multiply,
       BinaryExprKind::Nonish => OpCode::Nonish,
       BinaryExprKind::NotEquals => OpCode::NotEq,
       BinaryExprKind::Pipe => todo!("BinaryExprKind::Pipe"),
@@ -456,7 +492,7 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
 
   fn ast_visit_reassignment(&mut self, node: &ASTReassignmentNode, _: Self::Data) -> Self::Res {
     match self.ast.get(node.target) {
-      ASTNodeKind::IdLiteral(i) => self.visit_id_reassignment(*i, &node.kind, node.value),
+      ASTNodeKind::IdLiteral(i) => self.visit_id_reassignment(*i, node.operator, &node.kind, node.value),
       ASTNodeKind::MemberAccess(_) => todo!("Member reassignment."),
       ASTNodeKind::Indexing(_) => todo!("Indexed reassignment."),
       _ => unreachable!("Parser should not allow other node kinds as reassignment target"),
@@ -467,8 +503,9 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
     todo!()
   }
 
-  fn ast_visit_string_interpol(&mut self, _s: &[ASTNodeIdx], _: Self::Data) -> Self::Res {
-    todo!()
+  fn ast_visit_string_interpol(&mut self, node: &ASTStringInterpol, data: Self::Data) -> Self::Res {
+    self.ast_visit_all(&node.parts, data);
+    self.emit_op_with_usize(OpCode::BuildStr, OpCode::BuildStrLong, node.parts.len(), node.token);
   }
 
   fn ast_visit_ternary_conditional(&mut self, _: &ASTTernaryConditionalNode, _: Self::Data) -> Self::Res {
@@ -483,7 +520,6 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
       UnaryExprKind::Negate => OpCode::Negate,
       UnaryExprKind::BitNot => OpCode::BitwiseNot,
       UnaryExprKind::New => todo!("UnaryExprKind::New"),
-      UnaryExprKind::Typeof => OpCode::TypeOf,
       UnaryExprKind::Await => todo!("UnaryExprKind::Await"),
     };
 

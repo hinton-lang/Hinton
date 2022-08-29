@@ -46,7 +46,6 @@ impl<'a> TokenList<'a> {
     match &tok.kind {
       TokenKind::ERROR(e) => e.to_str().to_string(),
       TokenKind::EOF => "\0".to_string(),
-      TokenKind::THIS_FILE => format!("<MainFunc {:?}>", self.filepath),
       _ => self.src[tok.loc.span.0..tok.loc.span.1].iter().collect(),
     }
   }
@@ -87,7 +86,7 @@ pub struct Token {
 
 /// The types of tokens in a Hinton program.
 #[allow(non_camel_case_types, clippy::upper_case_acronyms)]
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 #[repr(u8)]
 pub enum TokenKind {
   // Symbol-based tokens
@@ -210,7 +209,6 @@ pub enum TokenKind {
   SUPER_KW,
   THROW_KW,
   TRY_KW,
-  TYPEOF_KW,
   WHILE_KW,
   WITH_KW,
   YIELD_KW,
@@ -230,23 +228,6 @@ pub enum TokenKind {
   // NULL_TYPE,
   // STR_TYPE,
   // VOID_TYPE,
-
-  // Since we use a `TokenIdx` to encode the names of `FuncObj`s, this
-  // helper token is used to encode the name of the program's "main"
-  // function. It will always be the first token in the tokens list,
-  // with zero span, and it's lexeme will be dynamically derived from
-  // the file's source path. See `TokensList.lexeme(...)` for more info.
-  THIS_FILE,
-}
-
-impl TokenKind {
-  /// Checks that this token is of a given type.
-  ///
-  /// # Parameters
-  /// - `token_type`: The token type to be matched against this token.
-  pub fn type_match(&self, token_type: &TokenKind) -> bool {
-    std::mem::discriminant(self) == std::mem::discriminant(token_type)
-  }
 }
 
 /// Maps a keyword string to a token type.
@@ -300,7 +281,6 @@ pub fn make_identifier_kind(id: &str) -> TokenKind {
     "throw" => TokenKind::THROW_KW,
     "true" => TokenKind::TRUE_LIT,
     "try" => TokenKind::TRY_KW,
-    "typeof" => TokenKind::TYPEOF_KW,
     "while" => TokenKind::WHILE_KW,
     "with" => TokenKind::WITH_KW,
     "yield" => TokenKind::YIELD_KW,
@@ -321,7 +301,7 @@ pub fn make_identifier_kind(id: &str) -> TokenKind {
   }
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub enum ErrorTokenKind {
   /// Invalid Character.
   InvalidChar,

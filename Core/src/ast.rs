@@ -20,15 +20,9 @@ pub struct ASTArena {
 impl Default for ASTArena {
   /// The default AST Arena, which comes with an empty module node as root.
   fn default() -> Self {
-    let root = ASTNodeKind::Module(ASTModuleNode {
-      children: vec![],
-      public_members: vec![],
-    });
-
-    Self {
-      arena: vec![root],
-      classes: vec![],
-    }
+    let node = ASTModuleNode { children: vec![], public_members: vec![] };
+    let root = ASTNodeKind::Module(node);
+    Self { arena: vec![root], classes: vec![] }
   }
 }
 
@@ -129,7 +123,7 @@ pub enum ASTNodeKind {
   ClassDecl(ASTClassIdx),
   CompactArrOrTpl(ASTCompactArrOrTplNode),
   CompactDict(ASTCompactDictNode),
-  ContinueStmt(TokenIdx),
+  ContinueStmt(ASTContinueStmtNode),
   DelStmt(ASTNodeIdx),
   DictKeyValPair((ASTNodeIdx, ASTNodeIdx)),
   DictLiteral(Vec<ASTNodeIdx>),
@@ -153,7 +147,7 @@ pub enum ASTNodeKind {
   ReturnStmt(ASTReturnStmtNode),
   SelfLiteral(TokenIdx),
   SpreadExpr(ASTNodeIdx),
-  StringInterpol(Vec<ASTNodeIdx>),
+  StringInterpol(ASTStringInterpol),
   StringLiteral(TokenIdx),
   SuperLiteral(TokenIdx),
   TernaryConditional(ASTTernaryConditionalNode),
@@ -190,6 +184,7 @@ pub struct ASTExprStmt {
 /// An AST Reassignment Node
 pub struct ASTReassignmentNode {
   pub target: ASTNodeIdx,
+  pub operator: TokenIdx,
   pub kind: ReassignmentKind,
   pub value: ASTNodeIdx,
 }
@@ -281,9 +276,9 @@ pub enum BinaryExprKind {
   LessThanEQ,    // <=
   LogicAND,      // &&, and
   LogicOR,       // ||, or
-  MatMult,       // @
+  MatMul,        // @
   Mod,           // %, mod
-  Mult,          // *
+  Mul,           // *
   Nonish,        // ??
   NotEquals,     // !=
   Pipe,          // |>
@@ -388,11 +383,11 @@ impl BinaryExprKind {
   /// ```Option<BinaryExprKind>```
   pub fn try_factor(tk: &TokenKind) -> Option<BinaryExprKind> {
     match tk {
-      TokenKind::AT => Some(BinaryExprKind::MatMult),
+      TokenKind::AT => Some(BinaryExprKind::MatMul),
       TokenKind::MOD_KW => Some(BinaryExprKind::Mod),
       TokenKind::PERCENT => Some(BinaryExprKind::Mod),
       TokenKind::SLASH => Some(BinaryExprKind::Div),
-      TokenKind::STAR => Some(BinaryExprKind::Mult),
+      TokenKind::STAR => Some(BinaryExprKind::Mul),
       _ => None,
     }
   }
@@ -411,7 +406,6 @@ pub enum UnaryExprKind {
   Negate,
   BitNot,
   New,
-  Typeof,
   Await,
 }
 
@@ -430,7 +424,6 @@ impl UnaryExprKind {
       TokenKind::DASH => Some(UnaryExprKind::Negate),
       TokenKind::BIT_NOT => Some(UnaryExprKind::BitNot),
       TokenKind::NEW_KW => Some(UnaryExprKind::New),
-      TokenKind::TYPEOF_KW => Some(UnaryExprKind::Typeof),
       TokenKind::AWAIT_KW => Some(UnaryExprKind::Await),
       _ => None,
     }
@@ -471,12 +464,17 @@ pub enum CallArg {
   Named { name: TokenIdx, value: ASTNodeIdx },
 }
 
+pub struct ASTStringInterpol {
+  pub token: TokenIdx,
+  pub parts: Vec<ASTNodeIdx>,
+}
+
 /// An AST Lambda Expression Node
 pub struct ASTLambdaNode {
   pub is_async: bool,
   pub params: Vec<SingleParam>,
-  pub min_arity: u8,
-  pub max_arity: u8,
+  pub min_arity: u16,
+  pub max_arity: Option<u16>,
   pub body: LambdaBody,
 }
 
@@ -514,8 +512,8 @@ pub enum RepeatLiteralKind {
 
 /// An AST Loop Expression Node
 pub struct ASTLoopExprNode {
+  pub token: TokenIdx,
   pub body: BlockNode,
-  pub count: Option<TokenIdx>,
 }
 
 /// An AST While Loop Node
@@ -569,7 +567,13 @@ pub enum UnpackPatternMember {
 /// An AST Break Statement Node
 pub struct ASTBreakStmtNode {
   pub token: TokenIdx,
-  pub val: Option<ASTNodeIdx>,
+  pub cond: Option<ASTNodeIdx>,
+}
+
+/// An AST Continue Statement Node
+pub struct ASTContinueStmtNode {
+  pub token: TokenIdx,
+  pub cond: Option<ASTNodeIdx>,
 }
 
 /// An AST Compact Array/Tuple Node
@@ -677,8 +681,8 @@ pub struct ASTFuncDeclNode {
   pub name: TokenIdx,
   pub is_gen: bool,
   pub params: Vec<SingleParam>,
-  pub min_arity: u8,
-  pub max_arity: u8,
+  pub min_arity: u16,
+  pub max_arity: Option<u16>,
   pub body: BlockNode,
   pub table_pos: usize,
 }
@@ -792,7 +796,7 @@ pub trait ASTVisitor<'a> {
       ASTNodeKind::ImportDecl(node) => self.ast_visit_import_decl(node, data),
       ASTNodeKind::Indexing(node) => self.ast_visit_indexing(node, data),
       ASTNodeKind::Lambda(node) => self.ast_visit_lambda(node, data),
-      ASTNodeKind::LoopExpr(node) => self.ast_visit_loop_expr(node, data),
+      ASTNodeKind::LoopExpr(node) => self.ast_visit_loop_stmt(node, data),
       ASTNodeKind::MemberAccess(node) => self.ast_visit_member_access(node, data),
       ASTNodeKind::NoneLiteral(node) => self.ast_visit_none_literal(node, data),
       ASTNodeKind::NumLiteral(node) => self.ast_visit_num_literal(node, data),
@@ -834,9 +838,9 @@ pub trait ASTVisitor<'a> {
 
   // >>>>>>>>>> Loops and loop-related nodes
   fn ast_visit_break_stmt(&mut self, node: &ASTBreakStmtNode, data: Self::Data) -> Self::Res;
-  fn ast_visit_continue_stmt(&mut self, node: &TokenIdx, data: Self::Data) -> Self::Res;
+  fn ast_visit_continue_stmt(&mut self, node: &ASTContinueStmtNode, data: Self::Data) -> Self::Res;
   fn ast_visit_for_loop(&mut self, node: &ASTForLoopNode, data: Self::Data) -> Self::Res;
-  fn ast_visit_loop_expr(&mut self, node: &ASTLoopExprNode, data: Self::Data) -> Self::Res;
+  fn ast_visit_loop_stmt(&mut self, node: &ASTLoopExprNode, data: Self::Data) -> Self::Res;
   fn ast_visit_while_loop(&mut self, node: &ASTWhileLoopNode, data: Self::Data) -> Self::Res;
 
   // >>>>>>>>>> Classes, functions, and function-related nodes
@@ -852,7 +856,7 @@ pub trait ASTVisitor<'a> {
   fn ast_visit_member_access(&mut self, node: &ASTMemberAccessNode, data: Self::Data) -> Self::Res;
   fn ast_visit_reassignment(&mut self, node: &ASTReassignmentNode, data: Self::Data) -> Self::Res;
   fn ast_visit_spread_expr(&mut self, node: &ASTNodeIdx, data: Self::Data) -> Self::Res;
-  fn ast_visit_string_interpol(&mut self, nodes: &[ASTNodeIdx], data: Self::Data) -> Self::Res;
+  fn ast_visit_string_interpol(&mut self, nodes: &ASTStringInterpol, data: Self::Data) -> Self::Res;
   fn ast_visit_ternary_conditional(&mut self, node: &ASTTernaryConditionalNode, data: Self::Data) -> Self::Res;
   fn ast_visit_unary_expr(&mut self, node: &ASTUnaryExprNode, data: Self::Data) -> Self::Res;
 

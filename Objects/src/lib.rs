@@ -1,10 +1,11 @@
 use core::errors::RuntimeErrMsg;
 
 use crate::gc::{GarbageCollector, GcId};
+use crate::native_func_obj::NativeFuncObj;
 
 pub mod func_obj;
 pub mod gc;
-pub mod native_functions;
+pub mod native_func_obj;
 pub mod str_obj;
 
 /// An object (or first-class citizen) in Hinton.
@@ -17,7 +18,7 @@ pub enum Object {
   Func(GcId),
   Str(GcId),
   // We only store the index of the native function we are referring to.
-  NativeFunc(usize),
+  NativeFunc(NativeFuncObj),
 }
 
 /// The kinds of objects available in Hinton.
@@ -137,15 +138,39 @@ impl Object {
     }
   }
 
+  pub fn display_plain(&self, gc: &GarbageCollector) -> String {
+    match self {
+      Object::None => "none".into(),
+      Object::Int(i) => i.to_string(),
+      Object::Float(f) => f.to_string(),
+      Object::Bool(true) => "true".into(),
+      Object::Bool(false) => "false".into(),
+      Object::Str(o) | Object::Func(o) => gc.get(o).obj.display_plain(gc),
+      Object::NativeFunc(n) => n.display_plain(),
+    }
+  }
+
+  pub fn display_pretty(&self, gc: &GarbageCollector) -> String {
+    match self {
+      Object::None => "none".into(),
+      Object::Int(i) => format!("\x1b[38;5;81m{}\x1b[0m", i),
+      Object::Float(f) => format!("\x1b[38;5;81m{}{}\x1b[0m", f, if f.fract() == 0.0 { ".0" } else { "" }),
+      Object::Bool(true) => "\x1b[38;5;3mtrue\x1b[0m".into(),
+      Object::Bool(false) => "\x1b[38;5;3mfalse\x1b[0m".into(),
+      Object::Str(o) | Object::Func(o) => gc.get(o).obj.display_plain(gc),
+      Object::NativeFunc(n) => n.display_plain(),
+    }
+  }
+
   pub fn debug_fmt(&self, gc: &GarbageCollector) -> String {
     match self {
       Object::None => "none".into(),
-      Object::Int(i) => format!("{}", i),
-      Object::Float(f) => format!("{}", f),
+      Object::Int(i) => i.to_string(),
+      Object::Float(f) => f.to_string(),
       Object::Bool(true) => "true".into(),
       Object::Bool(false) => "false".into(),
       Object::Str(o) | Object::Func(o) => format!("{:?}", gc.get(o)),
-      Object::NativeFunc(n) => format!("<NativeFunc #{}>", n),
+      Object::NativeFunc(n) => n.display_plain(),
     }
   }
 }
@@ -246,7 +271,7 @@ impl Object {
           Object::Int(rhs) => format!("{}{}", lhs.0, rhs),
           Object::Float(rhs) => format!("{}{}{}", lhs.0, rhs, if rhs.fract() == 0.0 { ".0" } else { "" }),
           Object::Str(rhs) => format!("{}{}", lhs.0, gc.get(rhs).as_str_obj().unwrap().0),
-          _ => return binary_opr_error_msg!("+", "String", rhs.type_name()),
+          _ => return binary_opr_error_msg!("+", "Str", rhs.type_name()),
         };
         Ok(Object::Str(gc.push(new_str.into())))
       }
@@ -320,7 +345,7 @@ impl Object {
         let lhs = gc.get(lhs).as_str_obj().unwrap();
         match rhs {
           Object::Int(rhs) => Ok(Object::Str(gc.push(lhs.0.repeat(*rhs as usize).into()))),
-          _ => binary_opr_error_msg!("*", "String", rhs.type_name()),
+          _ => binary_opr_error_msg!("*", "Str", rhs.type_name()),
         }
       }
       Object::Bool(lhs) if *lhs => match rhs {

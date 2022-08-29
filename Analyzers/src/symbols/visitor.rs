@@ -154,26 +154,19 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
       ));
     }
 
-    if let Some(val) = node.val {
-      if let TableLoopState::While | TableLoopState::For = self.get_current_table().loop_ctx {
-        self.errors.push(error_at_tok(
-          node.token,
-          ErrMsg::Syntax("Can only break with expression from within a 'loop' expression.".to_string()),
-          None,
-        ));
-      }
-
+    if let Some(val) = node.cond {
       self.ast_visit_node(val, data)
     }
   }
 
-  fn ast_visit_continue_stmt(&mut self, node: &TokenIdx, _: Self::Data) -> Self::Res {
+  fn ast_visit_continue_stmt(&mut self, node: &ASTContinueStmtNode, data: Self::Data) -> Self::Res {
     if let TableLoopState::None = self.get_current_table().loop_ctx {
-      self.errors.push(error_at_tok(
-        *node,
-        ErrMsg::Syntax("Can only continue from within a loop.".to_string()),
-        None,
-      ));
+      let err_msg = "Can only continue from within a loop.";
+      self.errors.push(error_at_tok(node.token, ErrMsg::Syntax(err_msg.to_string()), None));
+    }
+
+    if let Some(val) = node.cond {
+      self.ast_visit_node(val, data)
     }
   }
 
@@ -190,15 +183,11 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     self.get_current_table_mut().loop_ctx = prev_loop_ctx;
   }
 
-  fn ast_visit_loop_expr(&mut self, node: &ASTLoopExprNode, data: Self::Data) -> Self::Res {
+  fn ast_visit_loop_stmt(&mut self, node: &ASTLoopExprNode, data: Self::Data) -> Self::Res {
     let prev_loop_ctx = self.get_current_table().loop_ctx;
     self.get_current_table_mut().loop_ctx = TableLoopState::Loop;
 
     let new_data = scope![new_scope_id![self], data.depth + 1];
-
-    if let Some(count) = node.count {
-      self.declare_id(count, SymbolKind::Const, new_data)
-    }
 
     self.visit_new_block(&node.body, new_data);
     self.get_current_table_mut().loop_ctx = prev_loop_ctx;
@@ -409,8 +398,8 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
     self.ast_visit_node(*node, data)
   }
 
-  fn ast_visit_string_interpol(&mut self, nodes: &[ASTNodeIdx], data: Self::Data) -> Self::Res {
-    self.ast_visit_all(nodes, data);
+  fn ast_visit_string_interpol(&mut self, nodes: &ASTStringInterpol, data: Self::Data) -> Self::Res {
+    self.ast_visit_all(&nodes.parts, data);
   }
 
   fn ast_visit_ternary_conditional(&mut self, node: &ASTTernaryConditionalNode, data: Self::Data) -> Self::Res {
