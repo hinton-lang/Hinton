@@ -1,11 +1,9 @@
-use std::ops::ControlFlow;
-
 use core::ast::BinaryExprKind;
 use core::bytecode::OpCode;
-use core::utils::to_wrapping_index;
 use objects::array_obj::ArrayObj;
 use objects::gc::GcObject;
-use objects::{OBJ_FALSE, OBJ_NONE, OBJ_TRUE};
+use objects::tuple_obj::TupleObj;
+use objects::{ObjKind, OBJ_FALSE, OBJ_NONE, OBJ_TRUE};
 
 use crate::{Object, OpRes, RuntimeErrMsg, RuntimeResult, VM};
 
@@ -79,12 +77,12 @@ impl VM {
         OpCode::SetLocal => self.op_set_local_or_long(false),
         OpCode::SetLocalLong => self.op_set_local_or_long(true),
         OpCode::SetProp => self.op_set_prop(),
-        OpCode::UnpackAssign => self.op_unpack_assign(),
-        OpCode::UnpackAssignLong => self.op_unpack_assign_long(),
-        OpCode::UnpackIgnore => self.op_unpack_ignore(),
-        OpCode::UnpackIgnoreLong => self.op_unpack_ignore_long(),
-        OpCode::UnpackSeq => self.op_unpack_seq(),
-        OpCode::UnpackSeqLong => self.op_unpack_seq_long(),
+        OpCode::UnpackAssign => self.op_unpack_assign_or_ignore_or_long(false, false),
+        OpCode::UnpackAssignLong => self.op_unpack_assign_or_ignore_or_long(false, true),
+        OpCode::UnpackIgnore => self.op_unpack_assign_or_ignore_or_long(true, false),
+        OpCode::UnpackIgnoreLong => self.op_unpack_assign_or_ignore_or_long(true, true),
+        OpCode::UnpackSeq => self.op_unpack_seq_or_long(false),
+        OpCode::UnpackSeqLong => self.op_unpack_seq_or_long(true),
 
         // Object makers/builders
         OpCode::BuildStr => self.op_build_str_or_long(false),
@@ -161,45 +159,45 @@ impl VM {
   fn op_load_constant_or_long(&mut self, is_long: bool) -> OpRes {
     let pos = operand![self, is_long];
     let val = self.constants[pos];
-    ControlFlow::Continue(self.stack.push(val))
+    OpRes::Continue(self.stack.push(val))
   }
 
   fn op_load_imm0f(&mut self) -> OpRes {
-    ControlFlow::Continue(self.stack.push(0f64.into()))
+    OpRes::Continue(self.stack.push(0f64.into()))
   }
 
   fn op_load_imm0i(&mut self) -> OpRes {
-    ControlFlow::Continue(self.stack.push(0i64.into()))
+    OpRes::Continue(self.stack.push(0i64.into()))
   }
 
   fn op_load_imm1f(&mut self) -> OpRes {
-    ControlFlow::Continue(self.stack.push(1f64.into()))
+    OpRes::Continue(self.stack.push(1f64.into()))
   }
 
   fn op_load_imm1i(&mut self) -> OpRes {
-    ControlFlow::Continue(self.stack.push(1i64.into()))
+    OpRes::Continue(self.stack.push(1i64.into()))
   }
 
   fn op_load_imm_false(&mut self) -> OpRes {
-    ControlFlow::Continue(self.stack.push(OBJ_FALSE))
+    OpRes::Continue(self.stack.push(OBJ_FALSE))
   }
 
   fn op_load_imm_n_or_long(&mut self, is_long: bool) -> OpRes {
     let imm = operand![self, is_long] as i64;
-    ControlFlow::Continue(self.stack.push(imm.into()))
+    OpRes::Continue(self.stack.push(imm.into()))
   }
 
   fn op_load_imm_none(&mut self) -> OpRes {
-    ControlFlow::Continue(self.stack.push(OBJ_NONE))
+    OpRes::Continue(self.stack.push(OBJ_NONE))
   }
 
   fn op_load_imm_true(&mut self) -> OpRes {
-    ControlFlow::Continue(self.stack.push(OBJ_TRUE))
+    OpRes::Continue(self.stack.push(OBJ_TRUE))
   }
 
   fn op_load_native_or_long(&mut self, is_long: bool) -> OpRes {
     let native_idx = operand![self, is_long] as usize;
-    ControlFlow::Continue(self.stack.push(Object::NativeFunc(native_idx.into())))
+    OpRes::Continue(self.stack.push(Object::NativeFunc(native_idx.into())))
   }
 
   fn op_load_primitive(&mut self) -> OpRes {
@@ -245,8 +243,8 @@ impl VM {
     };
 
     match result {
-      Ok(r) => ControlFlow::Continue(self.stack.push(r)),
-      Err(e) => ControlFlow::Break(Err(e)),
+      Ok(r) => OpRes::Continue(self.stack.push(r)),
+      Err(e) => OpRes::Break(Err(e)),
     }
   }
 
@@ -262,8 +260,8 @@ impl VM {
     let operand = self.pop_stack();
 
     match operand.neg() {
-      Ok(r) => ControlFlow::Continue(self.stack.push(r)),
-      Err(e) => ControlFlow::Break(Err(e)),
+      Ok(r) => OpRes::Continue(self.stack.push(r)),
+      Err(e) => OpRes::Break(Err(e)),
     }
   }
 
@@ -272,8 +270,8 @@ impl VM {
     let target = self.pop_stack();
 
     match target.subscript(&index, &mut self.gc) {
-      Ok(r) => ControlFlow::Continue(self.stack.push(r)),
-      Err(e) => ControlFlow::Break(Err(e)),
+      Ok(r) => OpRes::Continue(self.stack.push(r)),
+      Err(e) => OpRes::Break(Err(e)),
     }
   }
 
@@ -284,74 +282,180 @@ impl VM {
 
     match target {
       Object::Array(id) => match self.gc.get_mut(&id).as_array_obj_mut().unwrap().assign_at(index, value) {
-        Ok(res) => ControlFlow::Continue(self.stack.push(res)),
-        Err(e) => ControlFlow::Break(Err(e)),
+        Ok(res) => OpRes::Continue(self.stack.push(res)),
+        Err(e) => OpRes::Break(Err(e)),
       },
-      _ => {
-        let err_msg = format!("Objects of type '{}' are not subscriptable.", target.type_name());
-        ControlFlow::Break(Err(RuntimeErrMsg::Type(err_msg)))
-      }
+      _ => OpRes::Break(Err(RuntimeErrMsg::Type(format!(
+        "Objects of type '{}' do not support item assigment.",
+        target.type_name()
+      )))),
     }
   }
 
   fn op_define_global(&mut self) -> OpRes {
     let val = self.pop_stack();
     self.globals.push(val);
-    ControlFlow::Continue(())
+    OpRes::Continue(())
   }
 
   fn op_get_global_or_long(&mut self, is_long: bool) -> OpRes {
     let pos = operand![self, is_long];
     let val = self.globals[pos];
-    ControlFlow::Continue(self.stack.push(val))
+    OpRes::Continue(self.stack.push(val))
   }
 
   fn op_get_local_or_long(&mut self, is_long: bool) -> OpRes {
     let pos = operand![self, is_long];
     let val = self.stack[self.current_frame().return_idx + pos];
-    ControlFlow::Continue(self.stack.push(val))
+    OpRes::Continue(self.stack.push(val))
   }
 
   fn op_set_global_or_long(&mut self, is_long: bool) -> OpRes {
     let val = *self.peek_stack(0);
     let pos = operand![self, is_long];
     self.globals[pos] = val;
-    ControlFlow::Continue(())
+    OpRes::Continue(())
   }
 
   fn op_set_local_or_long(&mut self, is_long: bool) -> OpRes {
     let val = *self.peek_stack(0);
     let pos = operand![self, is_long];
     self.stack[pos] = val;
-    ControlFlow::Continue(())
+    OpRes::Continue(())
   }
 
   fn op_set_prop(&mut self) -> OpRes {
     todo!()
   }
 
-  fn op_unpack_assign(&mut self) -> OpRes {
-    todo!()
+  fn op_unpack_assign_or_ignore_or_long(&mut self, is_ignore: bool, is_long: bool) -> OpRes {
+    let seq = self.pop_stack();
+
+    let (lower, upper) = if is_long {
+      let l = self.next_short();
+      let u = self.next_short();
+      (l as usize, u as usize)
+    } else {
+      let bytes = self.next_short().to_be_bytes();
+      (bytes[0] as usize, bytes[1] as usize)
+    };
+
+    let check_bounds = |seq_len: usize| -> Result<(), RuntimeErrMsg> {
+      if seq_len < (lower + upper) {
+        // Hint: Expected at least # elements, got # instead.
+        Err(RuntimeErrMsg::Value("Not enough values to unpack.".into()))
+      } else {
+        Ok(())
+      }
+    };
+
+    match seq {
+      Object::Str(s) => {
+        let str = self.gc.get(&s).as_str_obj().unwrap().0.clone();
+
+        match check_bounds(str.len()) {
+          Ok(_) => {
+            for c in str[(str.len() - upper)..].chars().rev() {
+              self.stack.push(Object::Str(self.gc.push(c.into())))
+            }
+
+            if !is_ignore {
+              let middle_part = &str[lower..(str.len() - upper)];
+
+              // Unpack each character of the middle into an array of character strings.
+              let mut middle = vec![OBJ_NONE; middle_part.len()];
+              for (idx, c) in middle_part.chars().into_iter().enumerate() {
+                middle[idx] = Object::Str(self.gc.push(c.into()))
+              }
+
+              self.stack.push(Object::Array(self.gc.push(GcObject::Array(ArrayObj(middle)))))
+            }
+
+            for c in str[..lower].chars().rev() {
+              self.stack.push(Object::Str(self.gc.push(c.into())))
+            }
+          }
+          Err(err) => return OpRes::Break(Err(err)),
+        }
+      }
+      Object::Array(id) | Object::Tuple(id) => {
+        let objs = if let ObjKind::Array = seq.kind() {
+          self.gc.get(&id).as_array_obj().unwrap().0.clone()
+        } else {
+          self.gc.get(&id).as_tuple_obj().unwrap().0.clone()
+        };
+
+        match check_bounds(objs.len()) {
+          Ok(_) => {
+            let top = objs.len() - upper;
+            self.stack.append(&mut objs[top..].iter().copied().rev().collect());
+
+            if !is_ignore {
+              let array = self.gc.push(GcObject::Array(ArrayObj(objs[lower..top].to_vec())));
+              self.stack.push(Object::Array(array));
+            }
+
+            self.stack.append(&mut objs[..lower].iter().copied().rev().collect());
+          }
+          Err(err) => return OpRes::Break(Err(err)),
+        }
+      }
+      _ => {
+        let err_msg = format!("Objects of type '{}' cannot be unpacked.", seq.type_name());
+        // Hint: You can only unpack iterable objects like arrays, tuples, and strings.
+        return OpRes::Break(Err(RuntimeErrMsg::Type(err_msg)));
+      }
+    }
+
+    OpRes::Continue(())
   }
 
-  fn op_unpack_assign_long(&mut self) -> OpRes {
-    todo!()
-  }
+  fn op_unpack_seq_or_long(&mut self, is_long: bool) -> OpRes {
+    let count = operand![self, is_long];
+    let seq = self.pop_stack();
 
-  fn op_unpack_ignore(&mut self) -> OpRes {
-    todo!()
-  }
+    let check_bounds = |seq_len: usize| -> Result<(), RuntimeErrMsg> {
+      match seq_len {
+        // Hint: Expected # elements, got # instead.
+        l if l < count => Err(RuntimeErrMsg::Value("Not enough values to unpack.".into())),
+        // Hint: Got # more values than expected. Try adding a wildcard.
+        l if l > count => Err(RuntimeErrMsg::Value("Too many values to unpack.".into())),
+        _ => Ok(()),
+      }
+    };
 
-  fn op_unpack_ignore_long(&mut self) -> OpRes {
-    todo!()
-  }
+    match seq {
+      Object::Str(s) => {
+        let str = self.gc.get(&s).as_str_obj().unwrap().0.clone();
+        match check_bounds(str.len()) {
+          Ok(_) => {
+            for ch in str.chars().rev() {
+              self.stack.push(Object::Str(self.gc.push(ch.to_string().into())))
+            }
+          }
+          Err(err) => return OpRes::Break(Err(err)),
+        }
+      }
+      Object::Array(id) | Object::Tuple(id) => {
+        let objs = if let ObjKind::Array = seq.kind() {
+          &self.gc.get(&id).as_array_obj().unwrap().0
+        } else {
+          &self.gc.get(&id).as_tuple_obj().unwrap().0
+        };
 
-  fn op_unpack_seq(&mut self) -> OpRes {
-    todo!()
-  }
+        match check_bounds(objs.len()) {
+          Ok(_) => objs.iter().rev().for_each(|e| self.stack.push(*e)),
+          Err(err) => return OpRes::Break(Err(err)),
+        }
+      }
+      _ => {
+        let err_msg = format!("Objects of type '{}' cannot be unpacked.", seq.type_name());
+        // Hint: You can only unpack iterable objects like arrays, tuples, and strings.
+        return OpRes::Break(Err(RuntimeErrMsg::Type(err_msg)));
+      }
+    }
 
-  fn op_unpack_seq_long(&mut self) -> OpRes {
-    todo!()
+    OpRes::Continue(())
   }
 
   fn op_build_str_or_long(&mut self, is_long: bool) -> OpRes {
@@ -365,7 +469,7 @@ impl VM {
     }
 
     let s = self.gc.push(new_str.into());
-    ControlFlow::Continue(self.stack.push(Object::Str(s)))
+    OpRes::Continue(self.stack.push(Object::Str(s)))
   }
 
   fn op_make_array_or_long(&mut self, is_long: bool) -> OpRes {
@@ -373,7 +477,7 @@ impl VM {
     let stack_len = self.stack.len();
     let objs = self.stack.drain((stack_len - count)..stack_len).collect::<Vec<Object>>();
     let a = self.gc.push(GcObject::Array(ArrayObj(objs)));
-    ControlFlow::Continue(self.stack.push(Object::Array(a)))
+    OpRes::Continue(self.stack.push(Object::Array(a)))
   }
 
   fn op_make_array_repeat(&mut self) -> OpRes {
@@ -382,9 +486,9 @@ impl VM {
 
     if let Some(count) = count.as_int() {
       let a = self.gc.push(GcObject::Array(ArrayObj(vec![obj; count as usize])));
-      ControlFlow::Continue(self.stack.push(Object::Array(a)))
+      OpRes::Continue(self.stack.push(Object::Array(a)))
     } else {
-      ControlFlow::Break(Err(RuntimeErrMsg::Type("Expected an integer.".into())))
+      OpRes::Break(Err(RuntimeErrMsg::Type("Expected an integer.".into())))
     }
   }
 
@@ -416,8 +520,12 @@ impl VM {
     todo!()
   }
 
-  fn op_make_tuple_or_long(&mut self, _: bool) -> OpRes {
-    todo!()
+  fn op_make_tuple_or_long(&mut self, is_long: bool) -> OpRes {
+    let count = operand![self, is_long];
+    let stack_len = self.stack.len();
+    let objs = self.stack.drain((stack_len - count)..stack_len).collect::<Vec<Object>>();
+    let a = self.gc.push(GcObject::Tuple(TupleObj(objs)));
+    OpRes::Continue(self.stack.push(Object::Tuple(a)))
   }
 
   fn op_make_tuple_repeat(&mut self) -> OpRes {
@@ -436,13 +544,13 @@ impl VM {
       self.current_frame_mut().ip += jump;
     }
 
-    ControlFlow::Continue(())
+    OpRes::Continue(())
   }
 
   fn op_jump_forward(&mut self) -> OpRes {
     let jump = self.next_short() as usize;
     self.current_frame_mut().ip += jump;
-    ControlFlow::Continue(())
+    OpRes::Continue(())
   }
 
   fn op_jump_if_false_or_pop(&mut self) -> OpRes {
@@ -454,7 +562,7 @@ impl VM {
       self.pop_stack();
     }
 
-    ControlFlow::Continue(())
+    OpRes::Continue(())
   }
 
   fn op_jump_if_true_or_pop(&mut self) -> OpRes {
@@ -466,19 +574,19 @@ impl VM {
       self.pop_stack();
     }
 
-    ControlFlow::Continue(())
+    OpRes::Continue(())
   }
 
   fn op_loop_jump(&mut self) -> OpRes {
     let back_jump = self.next_short() as usize;
     self.current_frame_mut().ip -= back_jump;
-    ControlFlow::Continue(())
+    OpRes::Continue(())
   }
 
   fn op_pop_then_jump_if_false(&mut self) -> OpRes {
     let jump = self.next_short() as usize;
     self.current_frame_mut().ip += (self.pop_stack().is_falsy() as usize) * jump;
-    ControlFlow::Continue(())
+    OpRes::Continue(())
   }
 
   fn op_bind_defaults_or_long(&mut self) -> OpRes {
@@ -537,7 +645,7 @@ impl VM {
     let stack_len = self.stack.len();
     self.stack.drain(popped_frame.return_idx..stack_len);
     self.stack.push(result); // The value returned from the func call
-    ControlFlow::Continue(())
+    OpRes::Continue(())
   }
 
   fn op_set_up_val(&mut self) -> OpRes {
@@ -570,13 +678,13 @@ impl VM {
 
   fn op_dup_top(&mut self) -> OpRes {
     let obj = self.peek_stack(0);
-    ControlFlow::Continue(self.stack.push(*obj))
+    OpRes::Continue(self.stack.push(*obj))
   }
 
   fn op_dup_top_n_or_long(&mut self, is_long: bool) -> OpRes {
     let n = operand![self, is_long];
     let objs = &self.stack[(self.stack.len() - n - 1)..self.stack.len()];
-    ControlFlow::Continue(self.stack.append(&mut objs.to_vec()))
+    OpRes::Continue(self.stack.append(&mut objs.to_vec()))
   }
 
   fn op_dup_top_two(&mut self) -> OpRes {
@@ -584,12 +692,12 @@ impl VM {
     let obj2 = *self.peek_stack(1);
     self.stack.push(obj2);
     self.stack.push(obj1);
-    ControlFlow::Continue(())
+    OpRes::Continue(())
   }
 
   fn op_pop_stack_top(&mut self) -> OpRes {
     self.pop_stack();
-    ControlFlow::Continue(())
+    OpRes::Continue(())
   }
 
   fn op_pop_stack_top_n_or_long(&mut self, is_long: bool) -> OpRes {
@@ -600,7 +708,7 @@ impl VM {
       panic!("Attempted to pop {} objects, but the stack's len is {}.", n, stack_len);
     } else {
       self.stack.drain((stack_len - n)..stack_len);
-      ControlFlow::Continue(())
+      OpRes::Continue(())
     }
   }
 
@@ -613,12 +721,12 @@ impl VM {
     } else {
       let els: Vec<Object> = self.stack.drain((stack_len - n)..stack_len).rev().collect();
       els.iter().for_each(|e| self.stack.push(*e));
-      ControlFlow::Continue(())
+      OpRes::Continue(())
     }
   }
 
   fn op_end_virtual_machine(&mut self) -> OpRes {
     assert![self.stack.is_empty()];
-    ControlFlow::Break(Ok(()))
+    OpRes::Break(Ok(()))
   }
 }

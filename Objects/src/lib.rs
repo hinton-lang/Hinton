@@ -9,6 +9,7 @@ pub mod func_obj;
 pub mod gc;
 pub mod native_func_obj;
 pub mod str_obj;
+pub mod tuple_obj;
 
 /// An object (or first-class citizen) in Hinton.
 #[derive(Copy, Clone)]
@@ -19,6 +20,7 @@ pub enum Object {
   Bool(bool),
   Str(GcId),
   Array(GcId),
+  Tuple(GcId),
   Func(GcId),
   // We only store the index of the native function we are referring to.
   NativeFunc(NativeFuncObj),
@@ -32,6 +34,7 @@ pub enum ObjKind {
   Bool,
   Str,
   Array,
+  Tuple,
   Func,
   NativeFunc,
 }
@@ -53,6 +56,7 @@ impl Object {
       Object::Bool(_) => ObjKind::Bool,
       Object::Str(_) => ObjKind::Str,
       Object::Array(_) => ObjKind::Array,
+      Object::Tuple(_) => ObjKind::Tuple,
       Object::Func(_) => ObjKind::Func,
       Object::NativeFunc(_) => ObjKind::NativeFunc,
     }
@@ -67,6 +71,7 @@ impl Object {
       ObjKind::Bool => "Bool",
       ObjKind::Str => "Str",
       ObjKind::Array => "Array",
+      ObjKind::Tuple => "Tuple",
       ObjKind::Func | ObjKind::NativeFunc => "Func",
     }
   }
@@ -151,7 +156,7 @@ impl Object {
       Object::Float(f) => f.to_string(),
       Object::Bool(true) => "true".into(),
       Object::Bool(false) => "false".into(),
-      Object::Str(o) | Object::Func(o) | Object::Array(o) => gc.get(o).obj.display_plain(gc),
+      Object::Str(o) | Object::Func(o) | Object::Array(o) | Object::Tuple(o) => gc.get(o).obj.display_plain(gc),
       Object::NativeFunc(n) => n.display_plain(),
     }
   }
@@ -163,7 +168,7 @@ impl Object {
       Object::Float(f) => format!("\x1b[38;5;81m{}{}\x1b[0m", f, if f.fract() == 0.0 { ".0" } else { "" }),
       Object::Bool(true) => "\x1b[38;5;3mtrue\x1b[0m".into(),
       Object::Bool(false) => "\x1b[38;5;3mfalse\x1b[0m".into(),
-      Object::Str(o) | Object::Func(o) | Object::Array(o) => gc.get(o).obj.display_pretty(gc),
+      Object::Str(o) | Object::Func(o) | Object::Array(o) | Object::Tuple(o) => gc.get(o).obj.display_pretty(gc),
       Object::NativeFunc(n) => n.display_plain(),
     }
   }
@@ -691,8 +696,8 @@ impl Object {
         Object::Str(rhs) => lhs == rhs,
         _ => false,
       },
-      Object::Array(lhs) => match rhs {
-        Object::Array(rhs) => {
+      Object::Array(lhs) | Object::Tuple(lhs) => match rhs {
+        Object::Array(rhs) | Object::Tuple(rhs) => {
           // If the GcIDs are equal, then the two objects are equal
           if lhs == rhs {
             true
@@ -712,16 +717,6 @@ impl Object {
   /// Define subscripting for Hinton objects.
   pub fn subscript(&self, obj: &Object, gc: &mut GarbageCollector) -> Result<Object, RuntimeErrMsg> {
     match self {
-      Object::Array(a) => {
-        let index = try_convert_to_idx(obj, "Array")?;
-        let array = gc.get(a).as_array_obj().unwrap();
-
-        if let Some(idx) = to_wrapping_index(index, array.0.len()) {
-          Ok(array.0[idx])
-        } else {
-          Err(RuntimeErrMsg::Index("Array index out of bounds.".into()))
-        }
-      }
       Object::Str(a) => {
         let index = try_convert_to_idx(obj, "String")?;
         let string = gc.get(a).as_str_obj().unwrap();
@@ -733,8 +728,28 @@ impl Object {
           Err(RuntimeErrMsg::Index("String index out of bounds.".into()))
         }
       }
+      Object::Array(a) => {
+        let index = try_convert_to_idx(obj, "Array")?;
+        let array = gc.get(a).as_array_obj().unwrap();
+
+        if let Some(idx) = to_wrapping_index(index, array.0.len()) {
+          Ok(array.0[idx])
+        } else {
+          Err(RuntimeErrMsg::Index("Array index out of bounds.".into()))
+        }
+      }
+      Object::Tuple(a) => {
+        let index = try_convert_to_idx(obj, "Tuple")?;
+        let tuple = gc.get(a).as_tuple_obj().unwrap();
+
+        if let Some(idx) = to_wrapping_index(index, tuple.0.len()) {
+          Ok(tuple.0[idx])
+        } else {
+          Err(RuntimeErrMsg::Index("Tuple index out of bounds.".into()))
+        }
+      }
       _ => {
-        let err_msg = format!("Cannot index object of type '{}'.", self.type_name());
+        let err_msg = format!("Objects of type '{}' are not subscriptable.", self.type_name());
         Err(RuntimeErrMsg::Type(err_msg))
       }
     }

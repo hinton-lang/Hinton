@@ -245,6 +245,7 @@ impl<'a> Compiler<'a> {
     let obj = match obj_kind {
       GcObjectKind::Str => Object::Str(id),
       GcObjectKind::Array => Object::Array(id),
+      GcObjectKind::Tuple => Object::Tuple(id),
       GcObjectKind::Func => Object::Func(id),
     };
 

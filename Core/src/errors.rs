@@ -35,6 +35,8 @@ pub enum RuntimeErrMsg {
   Assertion(String),
   /// An error emitted when there is an issue with a function argument.
   Argument(String),
+  // An error emitted when there is an issue with a value in a statement or expression.
+  Value(String),
   /// An error emitted when there is an issue with a class instance.
   Instance(String),
   /// An error emitted when there is a stack overflow.
@@ -65,6 +67,7 @@ impl ErrMsg {
         RuntimeErrMsg::Key(_) => "KeyError",
         RuntimeErrMsg::Assertion(_) => "AssertionError",
         RuntimeErrMsg::Argument(_) => "ArgumentError",
+        RuntimeErrMsg::Value(_) => "ValueError",
         RuntimeErrMsg::Instance(_) => "InstanceError",
         RuntimeErrMsg::Recursion(_) => "RecursionError",
         RuntimeErrMsg::Reference(_) => "ReferenceError",
@@ -91,6 +94,7 @@ impl ErrMsg {
         | RuntimeErrMsg::Key(x)
         | RuntimeErrMsg::Assertion(x)
         | RuntimeErrMsg::Argument(x)
+        | RuntimeErrMsg::Value(x)
         | RuntimeErrMsg::Instance(x)
         | RuntimeErrMsg::Recursion(x)
         | RuntimeErrMsg::Reference(x)

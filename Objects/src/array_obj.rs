@@ -9,15 +9,10 @@ impl GcTrace for ArrayObj {}
 impl ArrayObj {
   pub fn equals(&self, obj: &GcObject, gc: &GarbageCollector) -> bool {
     match obj {
+      GcObject::Array(r) if self.0.len() != r.0.len() => false,
       GcObject::Array(r) => {
-        // If the arrays are different in length, then they are not equal.
-        if self.0.len() != r.0.len() {
-          return false;
-        }
-
-        // check all elements of both arrays are equal
         for idx in 0..self.0.len() {
-          if !&self.0[idx].equals(&self.0[idx], gc) {
+          if !&self.0[idx].equals(&r.0[idx], gc) {
             return false;
           }
         }
@@ -40,32 +35,36 @@ impl ArrayObj {
   }
 
   pub fn display_plain(&self, gc: &GarbageCollector) -> String {
-    let mut display = String::from("[");
-
-    if !self.0.is_empty() {
-      for v in &self.0[..self.0.len() - 1] {
-        display += &*(v.display_plain(gc) + ", ");
-      }
-
-      display += &*self.0[self.0.len() - 1].display_plain(gc);
-    }
-
-    display.push(']');
-    display
+    format!("[{}]", print_plain_item_list(&self.0, gc))
   }
 
   pub fn display_pretty(&self, gc: &GarbageCollector) -> String {
-    let mut display = String::from("[");
-
-    if !self.0.is_empty() {
-      for v in &self.0[..self.0.len() - 1] {
-        display += &*(v.display_pretty(gc) + ", ");
-      }
-
-      display += &*self.0[self.0.len() - 1].display_pretty(gc);
-    }
-
-    display.push(']');
-    display
+    format!("[{}]", print_pretty_item_list(&self.0, gc))
   }
+}
+
+pub fn print_plain_item_list(objs: &[Object], gc: &GarbageCollector) -> String {
+  let mut display = String::from("");
+
+  if !objs.is_empty() {
+    for v in &objs[..objs.len() - 1] {
+      display += &*(v.display_plain(gc) + ", ");
+    }
+    display += &*objs[objs.len() - 1].display_plain(gc);
+  }
+
+  display
+}
+
+pub fn print_pretty_item_list(objs: &[Object], gc: &GarbageCollector) -> String {
+  let mut display = String::from("");
+
+  if !objs.is_empty() {
+    for v in &objs[..objs.len() - 1] {
+      display += &*(v.display_pretty(gc) + ", ");
+    }
+    display += &*objs[objs.len() - 1].display_pretty(gc);
+  }
+
+  display
 }

@@ -1,11 +1,13 @@
 use crate::array_obj::ArrayObj;
 use crate::func_obj::FuncObj;
 use crate::str_obj::StrObj;
+use crate::tuple_obj::TupleObj;
 
 /// Garbage collected objects.
 pub enum GcObject {
   Str(StrObj),
   Array(ArrayObj),
+  Tuple(TupleObj),
   Func(FuncObj),
 }
 
@@ -14,6 +16,7 @@ pub enum GcObject {
 pub enum GcObjectKind {
   Str,
   Array,
+  Tuple,
   Func,
 }
 
@@ -29,6 +32,12 @@ impl From<&str> for GcObject {
   }
 }
 
+impl From<char> for GcObject {
+  fn from(s: char) -> Self {
+    GcObject::Str(StrObj(s.to_string()))
+  }
+}
+
 impl From<FuncObj> for GcObject {
   fn from(f: FuncObj) -> Self {
     GcObject::Func(f)
@@ -41,6 +50,7 @@ impl GcObject {
     match self {
       GcObject::Str(_) => GcObjectKind::Str,
       GcObject::Array(_) => GcObjectKind::Array,
+      GcObject::Tuple(_) => GcObjectKind::Tuple,
       GcObject::Func(_) => GcObjectKind::Func,
     }
   }
@@ -49,6 +59,7 @@ impl GcObject {
     match self {
       GcObject::Str(str) => str.equals(obj),
       GcObject::Array(arr) => arr.equals(obj, gc),
+      GcObject::Tuple(tup) => tup.equals(obj, gc),
       _ => false,
     }
   }
@@ -56,7 +67,8 @@ impl GcObject {
   pub fn display_plain(&self, gc: &GarbageCollector) -> String {
     match self {
       GcObject::Str(s) => s.display_plain().to_owned(),
-      GcObject::Array(s) => s.display_plain(gc),
+      GcObject::Array(a) => a.display_plain(gc),
+      GcObject::Tuple(t) => t.display_plain(gc),
       GcObject::Func(f) => f.display_plain(gc),
     }
   }
@@ -64,7 +76,8 @@ impl GcObject {
   pub fn display_pretty(&self, gc: &GarbageCollector) -> String {
     match self {
       GcObject::Str(s) => s.display_plain().to_owned(),
-      GcObject::Array(s) => s.display_pretty(gc),
+      GcObject::Array(a) => a.display_pretty(gc),
+      GcObject::Tuple(t) => t.display_pretty(gc),
       GcObject::Func(f) => f.display_plain(gc),
     }
   }
@@ -84,6 +97,12 @@ impl From<GcObject> for GcVal {
 impl From<String> for GcVal {
   fn from(s: String) -> Self {
     GcVal { obj: s.into() }
+  }
+}
+
+impl From<char> for GcVal {
+  fn from(c: char) -> Self {
+    GcVal { obj: c.into() }
   }
 }
 
@@ -117,6 +136,15 @@ impl GcVal {
   pub fn as_array_obj_mut(&mut self) -> Option<&mut ArrayObj> {
     match &mut self.obj {
       GcObject::Array(obj) => Some(obj),
+      _ => None,
+    }
+  }
+
+  /// Tries to extract an immutable reference to the
+  /// underlying `TupleObj` in this `GcVal`.
+  pub fn as_tuple_obj(&self) -> Option<&TupleObj> {
+    match &self.obj {
+      GcObject::Tuple(obj) => Some(obj),
       _ => None,
     }
   }

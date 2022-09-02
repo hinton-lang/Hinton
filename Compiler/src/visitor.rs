@@ -77,8 +77,8 @@ impl Compiler<'_> {
   }
 
   fn declare_id(&mut self, token: TokenIdx) {
-    // This block is actually safe because the SymbolTable ensures declarations and symbol resolutions are valid.
-    let symbol = unsafe { self.get_current_table().symbols.iter().find(|s| s.token_idx == token).unwrap_unchecked() };
+    // This is safe because the SymbolTable ensures declarations and symbol resolutions are valid.
+    let symbol = self.get_current_table().symbols.iter().find(|s| s.token_idx == token).unwrap();
 
     match symbol.loc {
       SymLoc::Global(_) => self.emit_op(OpCode::DefineGlobal, token),
@@ -116,28 +116,6 @@ impl Compiler<'_> {
     if count > 0 {
       self.emit_op_with_usize(OpCode::BindDefaults, OpCode::BindDefaultsLong, count, token);
     }
-  }
-
-  fn visit_logic_or_or_and_expr(&mut self, node: &ASTBinaryExprNode, data: ()) {
-    // First compile the lhs of the expression which will leave its value on the stack.
-    self.ast_visit_node(node.left, ());
-
-    let op_code = match node.kind {
-      // For 'AND' expressions, if the lhs is false, then the entire expression must be false.
-      // We emit an `JUMP_IF_FALSE_OR_POP` instruction to jump over the rest of this
-      // expression if the lhs is falsy.
-      BinaryExprKind::LogicAND => OpCode::JumpIfFalseOrPop,
-      // For 'OR' expressions, if the lhs is true, then the entire expression must be true.
-      // We emit an `JUMP_IF_TRUE_OR_POP` instruction to jump over to the next expression
-      // if the lhs is truthy.
-      BinaryExprKind::LogicOR => OpCode::JumpIfTrueOrPop,
-      // Other binary expressions are not allowed here.
-      _ => unreachable!("Can only compile logic 'OR' or 'AND' expressions here."),
-    };
-
-    let end_jump = self.emit_jump(op_code, node.token);
-    self.ast_visit_node(node.right, data);
-    self.patch_jump(end_jump, node.token);
   }
 
   fn visit_compound_reassignment_opr(&mut self, value: ASTNodeIdx, kind: &ReassignmentKind, operator: TokenIdx) {
@@ -410,8 +388,20 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
   }
 
   fn ast_visit_binary_expr(&mut self, node: &ASTBinaryExprNode, data: Self::Data) -> Self::Res {
+    // Short-handed logic-OR and logic-AND instructions
     if matches![node.kind, BinaryExprKind::LogicOR | BinaryExprKind::LogicAND] {
-      return self.visit_logic_or_or_and_expr(node, data);
+      self.ast_visit_node(node.left, ());
+
+      let op_code = match node.kind {
+        BinaryExprKind::LogicAND => OpCode::JumpIfFalseOrPop,
+        BinaryExprKind::LogicOR => OpCode::JumpIfTrueOrPop,
+        _ => unreachable!("Can only compile logic 'OR' or 'AND' expressions here."),
+      };
+
+      let end_jump = self.emit_jump(op_code, node.token);
+      self.ast_visit_node(node.right, data);
+      self.patch_jump(end_jump, node.token);
+      return;
     }
 
     // Compile the operands
