@@ -8,6 +8,26 @@ pub fn get_time_millis() -> u64 {
   time_since_epoch.as_secs() * 1000 + time_since_epoch.subsec_nanos() as u64 / 1_000_000
 }
 
+/// Takes an i64 integer and converts it into a collection index. This allows indexing objects with
+/// negative integers.
+///
+/// # Parameters
+/// - `x`: The positive or negative index.
+/// - `len`: The number of elements in the collection.
+///
+/// # Returns
+/// - `Option<usize>`: Return Some(usize) if the index is within the bounds of the collection's length
+/// or `None` otherwise.
+pub fn to_wrapping_index(x: i64, len: usize) -> Option<usize> {
+  if x >= 0 && (x as usize) < len {
+    Some(x as usize)
+  } else if x < 0 && (i64::abs(x) as usize <= len) {
+    Some(len - i64::abs(x) as usize)
+  } else {
+    None
+  }
+}
+
 /// Parses an integer literal lexeme into a Rust int.
 ///
 /// ```bnf

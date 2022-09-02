@@ -2,9 +2,12 @@ use std::ops::ControlFlow;
 
 use core::ast::BinaryExprKind;
 use core::bytecode::OpCode;
+use core::utils::to_wrapping_index;
+use objects::array_obj::ArrayObj;
+use objects::gc::GcObject;
 use objects::{OBJ_FALSE, OBJ_NONE, OBJ_TRUE};
 
-use crate::{Object, OpRes, RuntimeResult, VM};
+use crate::{Object, OpRes, RuntimeErrMsg, RuntimeResult, VM};
 
 /// Gets the operand of an instruction.
 macro_rules! operand {
@@ -41,6 +44,7 @@ impl VM {
 
         // Operators
         OpCode::Add => self.op_binary_expression(BinaryExprKind::Add),
+        OpCode::BinaryIn => self.op_binary_expression(BinaryExprKind::In),
         OpCode::BitwiseAnd => self.op_binary_expression(BinaryExprKind::BitAND),
         OpCode::BitwiseNot => self.op_bitwise_not(),
         OpCode::BitwiseOr => self.op_binary_expression(BinaryExprKind::BitOR),
@@ -85,8 +89,8 @@ impl VM {
         // Object makers/builders
         OpCode::BuildStr => self.op_build_str_or_long(false),
         OpCode::BuildStrLong => self.op_build_str_or_long(true),
-        OpCode::MakeArray => self.op_make_array(),
-        OpCode::MakeArrayLong => self.op_make_array_long(),
+        OpCode::MakeArray => self.op_make_array_or_long(false),
+        OpCode::MakeArrayLong => self.op_make_array_or_long(true),
         OpCode::MakeArrayRepeat => self.op_make_array_repeat(),
         OpCode::MakeClass => self.op_make_class(),
         OpCode::MakeDict => self.op_make_dict(),
@@ -95,8 +99,8 @@ impl VM {
         OpCode::MakeIter => self.op_make_iter(),
         OpCode::MakeRange => self.op_make_range(),
         OpCode::MakeRangeEq => self.op_make_range_eq(),
-        OpCode::MakeTuple => self.op_make_tuple(),
-        OpCode::MakeTupleLong => self.op_make_tuple_long(),
+        OpCode::MakeTuple => self.op_make_tuple_or_long(false),
+        OpCode::MakeTupleLong => self.op_make_tuple_or_long(true),
         OpCode::MakeTupleRepeat => self.op_make_tuple_repeat(),
 
         // Control Flow and Jumps
@@ -133,6 +137,10 @@ impl VM {
         OpCode::SetPropLong => self.op_set_prop_long(),
 
         // Direct stack manipulation
+        OpCode::DupTop => self.op_dup_top(),
+        OpCode::DupTopN => self.op_dup_top_n_or_long(false),
+        OpCode::DupTopNLong => self.op_dup_top_n_or_long(true),
+        OpCode::DupTopTwo => self.op_dup_top_two(),
         OpCode::PopStackTop => self.op_pop_stack_top(),
         OpCode::PopStackTopN => self.op_pop_stack_top_n_or_long(false),
         OpCode::PopStackTopNLong => self.op_pop_stack_top_n_or_long(true),
@@ -199,38 +207,38 @@ impl VM {
   }
 
   fn op_binary_expression(&mut self, operator: BinaryExprKind) -> OpRes {
-    let val2 = &self.pop_stack();
-    let val1 = &self.pop_stack();
+    let right = &self.pop_stack();
+    let left = &self.pop_stack();
 
     let result = match operator {
-      BinaryExprKind::Add => val1.add(val2, &mut self.gc),
-      BinaryExprKind::BitAND => val1.bit_and(val2),
-      BinaryExprKind::BitOR => val1.bit_or(val2),
-      BinaryExprKind::BitShiftLeft => val1.shl(val2),
-      BinaryExprKind::BitShiftRight => val1.shr(val2),
-      BinaryExprKind::BitXOR => val1.bit_xor(val2),
-      BinaryExprKind::Div => val1.div(val2),
-      BinaryExprKind::Pow => val1.pow(val2),
-      BinaryExprKind::Equals => Ok((val1 == val2).into()),
-      BinaryExprKind::GreaterThan => val1.gt(val2),
-      BinaryExprKind::GreaterThanEQ => val1.gt_eq(val2),
-      BinaryExprKind::LessThan => val1.lt(val2),
-      BinaryExprKind::LessThanEQ => val1.lt_eq(val2),
-      BinaryExprKind::NotEquals => Ok((val1 != val2).into()),
-      BinaryExprKind::Subtract => val1.sub(val2),
-      BinaryExprKind::Mod => val1.rem(val2),
-      BinaryExprKind::Mul => val1.mul(val2, &mut self.gc),
-      BinaryExprKind::In => todo!(),
+      BinaryExprKind::Add => left.add(right, &mut self.gc),
+      BinaryExprKind::BitAND => left.bit_and(right),
+      BinaryExprKind::BitOR => left.bit_or(right),
+      BinaryExprKind::BitShiftLeft => left.shl(right),
+      BinaryExprKind::BitShiftRight => left.shr(right),
+      BinaryExprKind::BitXOR => left.bit_xor(right),
+      BinaryExprKind::Div => left.div(right),
+      BinaryExprKind::Pow => left.pow(right),
+      BinaryExprKind::Equals => Ok((left.equals(right, &self.gc)).into()),
+      BinaryExprKind::GreaterThan => left.gt(right),
+      BinaryExprKind::GreaterThanEQ => left.gt_eq(right),
+      BinaryExprKind::LessThan => left.lt(right),
+      BinaryExprKind::LessThanEQ => left.lt_eq(right),
+      BinaryExprKind::NotEquals => Ok((!left.equals(right, &self.gc)).into()),
+      BinaryExprKind::Subtract => left.sub(right),
+      BinaryExprKind::Mod => left.rem(right),
+      BinaryExprKind::Mul => left.mul(right, &mut self.gc),
+      BinaryExprKind::In => left.is_in(right, &self.gc),
       BinaryExprKind::InstOf => todo!(),
       BinaryExprKind::MatMul => todo!(),
       BinaryExprKind::Pipe => todo!(),
       BinaryExprKind::Range => todo!(),
       BinaryExprKind::RangeEQ => todo!(),
       BinaryExprKind::Nonish => {
-        if matches!(val1, Object::None) {
-          Ok(*val2)
+        if matches!(left, Object::None) {
+          Ok(*right)
         } else {
-          Ok(*val1)
+          Ok(*left)
         }
       }
       _ => unreachable!("The other binary operations have special instruction methods."),
@@ -260,11 +268,30 @@ impl VM {
   }
 
   fn op_subscript(&mut self) -> OpRes {
-    todo!()
+    let index = self.pop_stack();
+    let target = self.pop_stack();
+
+    match target.subscript(&index, &mut self.gc) {
+      Ok(r) => ControlFlow::Continue(self.stack.push(r)),
+      Err(e) => ControlFlow::Break(Err(e)),
+    }
   }
 
   fn op_subscript_assign(&mut self) -> OpRes {
-    todo!()
+    let value = self.pop_stack();
+    let index = self.pop_stack();
+    let target = self.pop_stack();
+
+    match target {
+      Object::Array(id) => match self.gc.get_mut(&id).as_array_obj_mut().unwrap().assign_at(index, value) {
+        Ok(res) => ControlFlow::Continue(self.stack.push(res)),
+        Err(e) => ControlFlow::Break(Err(e)),
+      },
+      _ => {
+        let err_msg = format!("Objects of type '{}' are not subscriptable.", target.type_name());
+        ControlFlow::Break(Err(RuntimeErrMsg::Type(err_msg)))
+      }
+    }
   }
 
   fn op_define_global(&mut self) -> OpRes {
@@ -341,16 +368,24 @@ impl VM {
     ControlFlow::Continue(self.stack.push(Object::Str(s)))
   }
 
-  fn op_make_array(&mut self) -> OpRes {
-    todo!()
-  }
-
-  fn op_make_array_long(&mut self) -> OpRes {
-    todo!()
+  fn op_make_array_or_long(&mut self, is_long: bool) -> OpRes {
+    let count = operand![self, is_long];
+    let stack_len = self.stack.len();
+    let objs = self.stack.drain((stack_len - count)..stack_len).collect::<Vec<Object>>();
+    let a = self.gc.push(GcObject::Array(ArrayObj(objs)));
+    ControlFlow::Continue(self.stack.push(Object::Array(a)))
   }
 
   fn op_make_array_repeat(&mut self) -> OpRes {
-    todo!()
+    let count = self.pop_stack();
+    let obj = self.pop_stack();
+
+    if let Some(count) = count.as_int() {
+      let a = self.gc.push(GcObject::Array(ArrayObj(vec![obj; count as usize])));
+      ControlFlow::Continue(self.stack.push(Object::Array(a)))
+    } else {
+      ControlFlow::Break(Err(RuntimeErrMsg::Type("Expected an integer.".into())))
+    }
   }
 
   fn op_make_class(&mut self) -> OpRes {
@@ -381,11 +416,7 @@ impl VM {
     todo!()
   }
 
-  fn op_make_tuple(&mut self) -> OpRes {
-    todo!()
-  }
-
-  fn op_make_tuple_long(&mut self) -> OpRes {
+  fn op_make_tuple_or_long(&mut self, _: bool) -> OpRes {
     todo!()
   }
 
@@ -535,6 +566,25 @@ impl VM {
 
   fn op_set_prop_long(&mut self) -> OpRes {
     todo!()
+  }
+
+  fn op_dup_top(&mut self) -> OpRes {
+    let obj = self.peek_stack(0);
+    ControlFlow::Continue(self.stack.push(*obj))
+  }
+
+  fn op_dup_top_n_or_long(&mut self, is_long: bool) -> OpRes {
+    let n = operand![self, is_long];
+    let objs = &self.stack[(self.stack.len() - n - 1)..self.stack.len()];
+    ControlFlow::Continue(self.stack.append(&mut objs.to_vec()))
+  }
+
+  fn op_dup_top_two(&mut self) -> OpRes {
+    let obj1 = *self.peek_stack(0);
+    let obj2 = *self.peek_stack(1);
+    self.stack.push(obj2);
+    self.stack.push(obj1);
+    ControlFlow::Continue(())
   }
 
   fn op_pop_stack_top(&mut self) -> OpRes {

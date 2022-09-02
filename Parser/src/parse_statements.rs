@@ -305,7 +305,7 @@ impl<'a> Parser<'a> {
 
     // Only IDENTIFIER, INDEXING_EXPR, or MEMBER_ACCESS_EXPR can be deleted.
     let stmt = match &self.ast.get(target) {
-      IdLiteral(_) | Indexing(_) | MemberAccess(_) => target,
+      IdLiteral(_) | Subscript(_) | MemberAccess(_) => target,
       _ => {
         let err_msg = ErrMsg::Syntax("Invalid del target.".to_string());
         return Err(error_at_tok(target_tok, err_msg, None));

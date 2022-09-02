@@ -112,7 +112,7 @@ fn native_println(gc: &mut GarbageCollector, args: &mut [Object]) -> NativeFnRes
 /// # Returns:
 /// ```NativeFnResult```
 fn native_input(gc: &mut GarbageCollector, args: &mut [Object]) -> NativeFnResult {
-  print!("{}", args[0].debug_fmt(gc));
+  print!("{}", args[0].display_plain(gc));
 
   // Print the programmer-provided message
   match Write::flush(&mut stdout()) {
@@ -168,7 +168,7 @@ fn native_id(gc: &mut GarbageCollector, args: &mut [Object]) -> NativeFnResult {
     Object::Float(mut f) => &mut f as *const _ as *mut i64,
     Object::Bool(true) => &OBJ_TRUE as *const _ as *mut i64,
     Object::Bool(false) => &OBJ_FALSE as *const _ as *mut i64,
-    Object::Func(id) | Object::Str(id) => &mut gc.get_mut(&id).obj as *const _ as *mut _,
+    Object::Str(id) | Object::Array(id) | Object::Func(id) => &mut gc.get_mut(&id).obj as *const _ as *mut _,
     Object::NativeFunc(idx) => &NATIVES[idx.0] as *const _ as *mut _,
   };
 

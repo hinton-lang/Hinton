@@ -136,7 +136,7 @@ pub enum ASTNodeKind {
   IdLiteral(TokenIdx),
   IfStmt(ASTIfStmtNode),
   ImportDecl(ASTImportExportNode),
-  Indexing(ASTIndexingNode),
+  Subscript(ASTIndexingNode),
   Lambda(ASTLambdaNode),
   LoopExpr(ASTLoopExprNode),
   MemberAccess(ASTMemberAccessNode),
@@ -245,8 +245,8 @@ impl ReassignmentKind {
 /// An AST Ternary Conditional Node
 pub struct ASTTernaryConditionalNode {
   pub condition: ASTNodeIdx,
-  pub branch_true: ASTNodeIdx,
-  pub branch_false: ASTNodeIdx,
+  pub then_branch: (TokenIdx, ASTNodeIdx),
+  pub else_branch: (TokenIdx, ASTNodeIdx),
 }
 
 /// An AST Binary Expression Node
@@ -432,6 +432,7 @@ impl UnaryExprKind {
 
 /// An AST Indexing Node
 pub struct ASTIndexingNode {
+  pub token: TokenIdx,
   pub target: ASTNodeIdx,
   pub indexers: Vec<ASTNodeIdx>,
 }
@@ -794,7 +795,7 @@ pub trait ASTVisitor<'a> {
       ASTNodeKind::IdLiteral(node) => self.ast_visit_id_literal(node, data),
       ASTNodeKind::IfStmt(node) => self.ast_visit_if_stmt(node, data),
       ASTNodeKind::ImportDecl(node) => self.ast_visit_import_decl(node, data),
-      ASTNodeKind::Indexing(node) => self.ast_visit_indexing(node, data),
+      ASTNodeKind::Subscript(node) => self.ast_visit_indexing(node, data),
       ASTNodeKind::Lambda(node) => self.ast_visit_lambda(node, data),
       ASTNodeKind::LoopExpr(node) => self.ast_visit_loop_stmt(node, data),
       ASTNodeKind::MemberAccess(node) => self.ast_visit_member_access(node, data),

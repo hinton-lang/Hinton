@@ -140,55 +140,35 @@ impl Compiler<'_> {
     self.patch_jump(end_jump, node.token);
   }
 
-  fn visit_id_reassignment(&mut self, id: TokenIdx, operator: TokenIdx, kind: &ReassignmentKind, value: ASTNodeIdx) {
-    let current_table = self.get_current_table();
-
-    let (instr1, instr2, pos) = match current_table.resolved.iter().find(|x| x.0 == id) {
-      Some((_, SymRes::Stack(pos))) => (OpCode::SetLocal, OpCode::SetLocalLong, *pos),
-      Some((_, SymRes::UpVal(_))) => todo!("SymRes::UpVal(pos)"),
-      Some((_, SymRes::Global(pos))) => (OpCode::SetGlobal, OpCode::SetGlobalLong, *pos),
-      _ => unreachable!("Invalid id assignment should have been handled by the symbols analyzer.",),
+  fn visit_compound_reassignment_opr(&mut self, value: ASTNodeIdx, kind: &ReassignmentKind, operator: TokenIdx) {
+    // Emit a jump instruction if the operator is one of `||=` or `&&=`
+    let jump = match kind {
+      ReassignmentKind::LogicAnd => self.emit_jump(OpCode::JumpIfFalseOrPop, operator),
+      ReassignmentKind::LogicOr => self.emit_jump(OpCode::JumpIfTrueOrPop, operator),
+      _ => 0, // Dummy value. Not used.
     };
 
-    if let ReassignmentKind::Assign = kind {
-      // Simple reassignment does not need an expression de-sugaring.
-      self.ast_visit_node(value, ());
-    } else {
-      // The expression `a /= 2` expands to `a = a / 2`, so we
-      // must get the variable's value onto the stack first.
-      self.ast_visit_id_literal(&id, ());
+    // Visit the assignment value.
+    self.ast_visit_node(value, ());
 
-      // Emit a jump instruction if the operator is one of `||=` or `&&=`
-      let jump = match kind {
-        ReassignmentKind::LogicAnd => self.emit_jump(OpCode::JumpIfFalseOrPop, operator),
-        ReassignmentKind::LogicOr => self.emit_jump(OpCode::JumpIfTrueOrPop, operator),
-        _ => 0, // Dummy value. Not used.
-      };
-
-      // Visit the operand value.
-      self.ast_visit_node(value, ());
-
-      // And emit the desugared operator instruction.
-      match kind {
-        ReassignmentKind::Plus => self.emit_op(OpCode::Add, operator),
-        ReassignmentKind::Minus => self.emit_op(OpCode::Subtract, operator),
-        ReassignmentKind::Div => self.emit_op(OpCode::Divide, operator),
-        ReassignmentKind::Mul => self.emit_op(OpCode::Multiply, operator),
-        ReassignmentKind::Expo => self.emit_op(OpCode::Pow, operator),
-        ReassignmentKind::Mod => self.emit_op(OpCode::Modulus, operator),
-        ReassignmentKind::ShiftL => self.emit_op(OpCode::BitwiseShiftLeft, operator),
-        ReassignmentKind::ShiftR => self.emit_op(OpCode::BitwiseShiftRight, operator),
-        ReassignmentKind::BitAnd => self.emit_op(OpCode::BitwiseAnd, operator),
-        ReassignmentKind::Xor => self.emit_op(OpCode::BitwiseXor, operator),
-        ReassignmentKind::BitOr => self.emit_op(OpCode::BitwiseOr, operator),
-        ReassignmentKind::Nonish => self.emit_op(OpCode::Nonish, operator),
-        ReassignmentKind::MatMul => todo!(),
-        ReassignmentKind::LogicAnd | ReassignmentKind::LogicOr => self.patch_jump(jump, operator),
-        ReassignmentKind::Assign => unreachable!("Simple reassignment not handled here."),
-      }
+    // And emit the desugared operator instruction.
+    match kind {
+      ReassignmentKind::Plus => self.emit_op(OpCode::Add, operator),
+      ReassignmentKind::Minus => self.emit_op(OpCode::Subtract, operator),
+      ReassignmentKind::Div => self.emit_op(OpCode::Divide, operator),
+      ReassignmentKind::Mul => self.emit_op(OpCode::Multiply, operator),
+      ReassignmentKind::Expo => self.emit_op(OpCode::Pow, operator),
+      ReassignmentKind::Mod => self.emit_op(OpCode::Modulus, operator),
+      ReassignmentKind::ShiftL => self.emit_op(OpCode::BitwiseShiftLeft, operator),
+      ReassignmentKind::ShiftR => self.emit_op(OpCode::BitwiseShiftRight, operator),
+      ReassignmentKind::BitAnd => self.emit_op(OpCode::BitwiseAnd, operator),
+      ReassignmentKind::Xor => self.emit_op(OpCode::BitwiseXor, operator),
+      ReassignmentKind::BitOr => self.emit_op(OpCode::BitwiseOr, operator),
+      ReassignmentKind::Nonish => self.emit_op(OpCode::Nonish, operator),
+      ReassignmentKind::MatMul => todo!(),
+      ReassignmentKind::LogicAnd | ReassignmentKind::LogicOr => self.patch_jump(jump, operator),
+      ReassignmentKind::Assign => unreachable!("Simple reassignment not handled here."),
     }
-
-    self.emit_op_with_usize(instr1, instr2, pos as usize, id);
   }
 
   fn patch_breaks(&mut self, loop_start: usize, token: TokenIdx) {
@@ -449,7 +429,7 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
       BinaryExprKind::Equals => OpCode::Equals,
       BinaryExprKind::GreaterThan => OpCode::GreaterThan,
       BinaryExprKind::GreaterThanEQ => OpCode::GreaterThanEq,
-      BinaryExprKind::In => todo!("BinaryExprKind::In"),
+      BinaryExprKind::In => OpCode::BinaryIn,
       BinaryExprKind::InstOf => todo!("BinaryExprKind::InstOf"),
       BinaryExprKind::LessThan => OpCode::LessThan,
       BinaryExprKind::LessThanEQ => OpCode::LessThanEq,
@@ -490,11 +470,48 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
     todo!()
   }
 
-  fn ast_visit_reassignment(&mut self, node: &ASTReassignmentNode, _: Self::Data) -> Self::Res {
+  fn ast_visit_reassignment(&mut self, node: &ASTReassignmentNode, data: Self::Data) -> Self::Res {
     match self.ast.get(node.target) {
-      ASTNodeKind::IdLiteral(i) => self.visit_id_reassignment(*i, node.operator, &node.kind, node.value),
+      ASTNodeKind::IdLiteral(l) => {
+        let current_table = self.get_current_table();
+
+        let (instr1, instr2, pos) = match current_table.resolved.iter().find(|x| x.0 == *l) {
+          Some((_, SymRes::Stack(pos))) => (OpCode::SetLocal, OpCode::SetLocalLong, *pos),
+          Some((_, SymRes::UpVal(_))) => todo!("SymRes::UpVal(pos)"),
+          Some((_, SymRes::Global(pos))) => (OpCode::SetGlobal, OpCode::SetGlobalLong, *pos),
+          _ => unreachable!("Invalid id assignment should have been handled by the symbols analyzer.",),
+        };
+
+        if let ReassignmentKind::Assign = node.kind {
+          self.ast_visit_node(node.value, ());
+        } else {
+          self.ast_visit_id_literal(l, ());
+          self.visit_compound_reassignment_opr(node.value, &node.kind, node.operator);
+        }
+
+        self.emit_op_with_usize(instr1, instr2, pos as usize, *l);
+      }
+      ASTNodeKind::Subscript(s) => {
+        self.ast_visit_node(s.target, data);
+        self.ast_visit_all(&s.indexers, data);
+
+        // If we have multiple indexers, pack them into a tuple
+        if s.indexers.len() > 1 {
+          self.emit_op_with_usize(OpCode::MakeTuple, OpCode::MakeTupleLong, s.indexers.len(), s.token);
+        }
+
+        // Compile the value
+        if let ReassignmentKind::Assign = node.kind {
+          self.ast_visit_node(node.value, data);
+        } else {
+          self.emit_op(OpCode::DupTopTwo, node.operator);
+          self.emit_op(OpCode::Subscript, node.operator);
+          self.visit_compound_reassignment_opr(node.value, &node.kind, node.operator);
+        }
+
+        self.emit_op(OpCode::SubscriptAssign, node.operator);
+      }
       ASTNodeKind::MemberAccess(_) => todo!("Member reassignment."),
-      ASTNodeKind::Indexing(_) => todo!("Indexed reassignment."),
       _ => unreachable!("Parser should not allow other node kinds as reassignment target"),
     }
   }
@@ -508,8 +525,16 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
     self.emit_op_with_usize(OpCode::BuildStr, OpCode::BuildStrLong, node.parts.len(), node.token);
   }
 
-  fn ast_visit_ternary_conditional(&mut self, _: &ASTTernaryConditionalNode, _: Self::Data) -> Self::Res {
-    todo!()
+  fn ast_visit_ternary_conditional(&mut self, node: &ASTTernaryConditionalNode, data: Self::Data) -> Self::Res {
+    self.ast_visit_node(node.condition, data);
+
+    let then_jump = self.emit_jump(OpCode::PopJumpIfFalse, node.then_branch.0);
+    self.ast_visit_node(node.then_branch.1, data);
+    let else_jump = self.emit_jump(OpCode::JumpForward, node.else_branch.0);
+
+    self.patch_jump(then_jump, node.then_branch.0);
+    self.ast_visit_node(node.else_branch.1, data);
+    self.patch_jump(else_jump, node.else_branch.0);
   }
 
   fn ast_visit_unary_expr(&mut self, node: &ASTUnaryExprNode, data: Self::Data) -> Self::Res {
@@ -530,13 +555,7 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
     let vals_count = node.values.len();
 
     if vals_count <= (u16::MAX as usize) {
-      // We reverse the list here because at runtime, we pop each value of the stack in the
-      // opposite order (because it *is* a stack). Instead of performing that operation during
-      // runtime, we execute it once during compile time.
-      for node in node.values.iter().rev() {
-        self.ast_visit_node(*node, data);
-      }
-
+      self.ast_visit_all(&node.values, data);
       self.emit_op_with_usize(OpCode::MakeArray, OpCode::MakeArrayLong, vals_count, node.token);
     } else {
       let err_msg = ErrMsg::MaxCapacity("Too many literal values in the array.".to_string());
@@ -568,8 +587,21 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
     todo!()
   }
 
-  fn ast_visit_indexing(&mut self, _: &ASTIndexingNode, _: Self::Data) -> Self::Res {
-    todo!()
+  fn ast_visit_indexing(&mut self, node: &ASTIndexingNode, data: Self::Data) -> Self::Res {
+    self.ast_visit_node(node.target, data);
+    self.ast_visit_all(&node.indexers, data);
+
+    // If we have multiple indexers, pack them into a tuple
+    if node.indexers.len() > 1 {
+      self.emit_op_with_usize(
+        OpCode::MakeTuple,
+        OpCode::MakeTupleLong,
+        node.indexers.len(),
+        node.token,
+      );
+    }
+
+    self.emit_op(OpCode::Subscript, node.token)
   }
 
   fn ast_visit_repeat_literal(&mut self, node: &ASTRepeatLiteralNode, data: Self::Data) -> Self::Res {
@@ -588,17 +620,11 @@ impl<'a> ASTVisitor<'a> for Compiler<'a> {
     let vals_count = node.values.len();
 
     if vals_count <= (u16::MAX as usize) {
-      // We reverse the list here because at runtime, we pop each value of the stack in the
-      // opposite order (because it *is* a stack). Instead of performing that operation at
-      // runtime, we execute it once during compile time.
-      for node in node.values.iter().rev() {
-        self.ast_visit_node(*node, data);
-      }
-
+      self.ast_visit_all(&node.values, data);
       self.emit_op_with_usize(OpCode::MakeTuple, OpCode::MakeTupleLong, vals_count, node.token);
     } else {
       let err_msg = ErrMsg::MaxCapacity("Too many literal values in the tuple.".to_string());
-      self.emit_error(node.token, err_msg, Some("Try creating two separate arrays.".into()));
+      self.emit_error(node.token, err_msg, Some("Try creating two separate tuples.".into()));
     }
   }
 

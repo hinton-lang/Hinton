@@ -46,7 +46,7 @@ impl<'a> Parser<'a> {
       return match &self.ast.get(target) {
         // In the compiler, we simply check the kind of target we have
         // to emit the correct set of bytecode instructions.
-        IdLiteral(_) | MemberAccess(_) | Indexing(_) => {
+        IdLiteral(_) | MemberAccess(_) | Subscript(_) => {
           let node = ASTReassignmentNode { target, operator, kind, value };
           self.emit(Reassignment(node))
         }
@@ -70,13 +70,13 @@ impl<'a> Parser<'a> {
     let condition = self.parse_nonish_coalescing()?;
 
     if match_tok![self, QUESTION] {
-      let branch_true = self.parse_expr()?;
+      let then_branch = (self.current_pos - 1, self.parse_expr()?);
       let hint = Some("Ternary conditionals require an 'else' branch.");
+
       self.consume(&COLON, "Expected ':' after the expression.", hint)?;
-      let branch_false = self.parse_expr()?;
+      let else_branch = (self.current_pos - 1, self.parse_expr()?);
 
-      let node = ASTTernaryConditionalNode { condition, branch_true, branch_false };
-
+      let node = ASTTernaryConditionalNode { condition, then_branch, else_branch };
       return self.emit(TernaryConditional(node));
     }
 
@@ -424,6 +424,7 @@ impl<'a> Parser<'a> {
   /// INDEXING_EXPR ::= "[" INDEXER ("," INDEXER)* "]"
   /// ```
   pub(super) fn parse_indexing_expr(&mut self, target: ASTNodeIdx) -> NodeResult<ASTNodeIdx> {
+    let token = self.current_pos - 1;
     let mut indexers = vec![self.parse_indexer()?];
 
     while match_tok![self, COMMA] {
@@ -431,8 +432,8 @@ impl<'a> Parser<'a> {
     }
 
     self.consume(&R_BRACKET, "Expected matching ']' for indexing expression.", None)?;
-    let node = ASTIndexingNode { target, indexers };
-    self.emit(Indexing(node))
+    let node = ASTIndexingNode { token, target, indexers };
+    self.emit(Subscript(node))
   }
 
   /// Parses the indexer of an indexing expression.

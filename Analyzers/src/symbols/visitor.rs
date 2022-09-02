@@ -404,8 +404,8 @@ impl<'a> ASTVisitor<'a> for SymbolTableArena<'a> {
 
   fn ast_visit_ternary_conditional(&mut self, node: &ASTTernaryConditionalNode, data: Self::Data) -> Self::Res {
     self.ast_visit_node(node.condition, data);
-    self.ast_visit_node(node.branch_true, data);
-    self.ast_visit_node(node.branch_false, data);
+    self.ast_visit_node(node.then_branch.1, data);
+    self.ast_visit_node(node.else_branch.1, data);
   }
 
   fn ast_visit_unary_expr(&mut self, node: &ASTUnaryExprNode, data: Self::Data) -> Self::Res {

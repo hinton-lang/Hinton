@@ -244,6 +244,7 @@ impl<'a> Compiler<'a> {
 
     let obj = match obj_kind {
       GcObjectKind::Str => Object::Str(id),
+      GcObjectKind::Array => Object::Array(id),
       GcObjectKind::Func => Object::Func(id),
     };
 
@@ -262,7 +263,7 @@ impl<'a> Compiler<'a> {
   /// ```usize```
   pub fn emit_const(&mut self, val: Object, token: TokenIdx, load: bool) -> usize {
     // Try not to create unnecessary constant duplication.
-    let constant_pos = match self.constants.iter().position(|x| *x == val) {
+    let constant_pos = match self.constants.iter().position(|x| x.equals(&val, &self.gc_objs)) {
       Some(pos) => pos,
       None => {
         self.constants.push(val);

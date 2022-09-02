@@ -1,8 +1,10 @@
 use core::errors::RuntimeErrMsg;
+use core::utils::to_wrapping_index;
 
-use crate::gc::{GarbageCollector, GcId};
+use crate::gc::{GarbageCollector, GcId, GcObject};
 use crate::native_func_obj::NativeFuncObj;
 
+pub mod array_obj;
 pub mod func_obj;
 pub mod gc;
 pub mod native_func_obj;
@@ -15,8 +17,9 @@ pub enum Object {
   Int(i64),
   Float(f64),
   Bool(bool),
-  Func(GcId),
   Str(GcId),
+  Array(GcId),
+  Func(GcId),
   // We only store the index of the native function we are referring to.
   NativeFunc(NativeFuncObj),
 }
@@ -27,8 +30,9 @@ pub enum ObjKind {
   Int,
   Float,
   Bool,
-  Func,
   Str,
+  Array,
+  Func,
   NativeFunc,
 }
 
@@ -48,6 +52,7 @@ impl Object {
       Object::Float(_) => ObjKind::Float,
       Object::Bool(_) => ObjKind::Bool,
       Object::Str(_) => ObjKind::Str,
+      Object::Array(_) => ObjKind::Array,
       Object::Func(_) => ObjKind::Func,
       Object::NativeFunc(_) => ObjKind::NativeFunc,
     }
@@ -60,8 +65,9 @@ impl Object {
       ObjKind::Int => "Int",
       ObjKind::Float => "Float",
       ObjKind::Bool => "Bool",
-      ObjKind::Func | ObjKind::NativeFunc => "Func",
       ObjKind::Str => "Str",
+      ObjKind::Array => "Array",
+      ObjKind::Func | ObjKind::NativeFunc => "Func",
     }
   }
 
@@ -145,7 +151,7 @@ impl Object {
       Object::Float(f) => f.to_string(),
       Object::Bool(true) => "true".into(),
       Object::Bool(false) => "false".into(),
-      Object::Str(o) | Object::Func(o) => gc.get(o).obj.display_plain(gc),
+      Object::Str(o) | Object::Func(o) | Object::Array(o) => gc.get(o).obj.display_plain(gc),
       Object::NativeFunc(n) => n.display_plain(),
     }
   }
@@ -157,19 +163,7 @@ impl Object {
       Object::Float(f) => format!("\x1b[38;5;81m{}{}\x1b[0m", f, if f.fract() == 0.0 { ".0" } else { "" }),
       Object::Bool(true) => "\x1b[38;5;3mtrue\x1b[0m".into(),
       Object::Bool(false) => "\x1b[38;5;3mfalse\x1b[0m".into(),
-      Object::Str(o) | Object::Func(o) => gc.get(o).obj.display_plain(gc),
-      Object::NativeFunc(n) => n.display_plain(),
-    }
-  }
-
-  pub fn debug_fmt(&self, gc: &GarbageCollector) -> String {
-    match self {
-      Object::None => "none".into(),
-      Object::Int(i) => i.to_string(),
-      Object::Float(f) => f.to_string(),
-      Object::Bool(true) => "true".into(),
-      Object::Bool(false) => "false".into(),
-      Object::Str(o) | Object::Func(o) => format!("{:?}", gc.get(o)),
+      Object::Str(o) | Object::Func(o) | Object::Array(o) => gc.get(o).obj.display_pretty(gc),
       Object::NativeFunc(n) => n.display_plain(),
     }
   }
@@ -198,6 +192,7 @@ impl From<bool> for Object {
 }
 
 /// Construct a type-mismatch error message for a binary operation.
+#[macro_export]
 macro_rules! binary_opr_error_msg {
   ($opr: expr, $lhs_type: expr, $rhs_type: expr) => {
     Err(RuntimeErrMsg::Type(format!(
@@ -207,36 +202,15 @@ macro_rules! binary_opr_error_msg {
   };
 }
 
-/// Defines the equality operation for Hinton objects.
-impl PartialEq for Object {
-  fn eq(&self, rhs: &Self) -> bool {
-    match self {
-      Object::None => matches![rhs, Object::None],
-      Object::Int(lhs) => match rhs {
-        Object::Int(x) if lhs == x => true,
-        Object::Float(x) if (x - *lhs as f64) == 0f64 => true,
-        Object::Bool(x) if (lhs == &0i64 && !*x) || (lhs == &1i64 && *x) => true,
-        _ => false,
-      },
-      Object::Float(f) => match rhs {
-        Object::Int(x) if (f - *x as f64) == 0f64 => true,
-        Object::Float(x) if f == x => true,
-        Object::Bool(x) if (f == &0f64 && !*x) || (f == &1f64 && *x) => true,
-        _ => false,
-      },
-      Object::Bool(b) => match rhs {
-        Object::Int(x) if (x == &0i64 && !*b) || (x == &1i64 && *b) => true,
-        Object::Float(x) if (x == &0f64 && !*b) || (x == &1f64 && *b) => true,
-        Object::Bool(x) => !(b ^ x),
-        _ => false,
-      },
-      Object::Str(lhs) => match rhs {
-        Object::Str(rhs) => lhs == rhs,
-        _ => false,
-      },
-      // TODO: What about collections with identical elements?
-      _ => false,
-    }
+pub fn try_convert_to_idx(obj: &Object, name: &str) -> Result<i64, RuntimeErrMsg> {
+  match obj {
+    Object::Int(i) => Ok(*i),
+    Object::Bool(i) => Ok(*i as i64),
+    _ => Err(RuntimeErrMsg::Type(format!(
+      "{} index must be an Int or a Slice. Found '{}' instead.",
+      name,
+      obj.type_name()
+    ))),
   }
 }
 
@@ -688,5 +662,109 @@ impl Object {
     };
 
     Ok(Object::Bool(res))
+  }
+
+  /// Defines the equality operation for Hinton objects.
+  pub fn equals(&self, rhs: &Object, gc: &GarbageCollector) -> bool {
+    match self {
+      Object::None => matches![rhs, Object::None],
+      Object::Int(lhs) => match rhs {
+        Object::Int(x) if lhs == x => true,
+        Object::Float(x) if (x - *lhs as f64) == 0f64 => true,
+        Object::Bool(x) if (lhs == &0i64 && !*x) || (lhs == &1i64 && *x) => true,
+        _ => false,
+      },
+      Object::Float(f) => match rhs {
+        Object::Int(x) if (f - *x as f64) == 0f64 => true,
+        Object::Float(x) if f == x => true,
+        Object::Bool(x) if (f == &0f64 && !*x) || (f == &1f64 && *x) => true,
+        _ => false,
+      },
+      Object::Bool(b) => match rhs {
+        Object::Int(x) if (x == &0i64 && !*b) || (x == &1i64 && *b) => true,
+        Object::Float(x) if (x == &0f64 && !*b) || (x == &1f64 && *b) => true,
+        Object::Bool(x) => !(b ^ x),
+        _ => false,
+      },
+      Object::Str(lhs) => match rhs {
+        // This works because strings are not repeated in the garbage collector
+        Object::Str(rhs) => lhs == rhs,
+        _ => false,
+      },
+      Object::Array(lhs) => match rhs {
+        Object::Array(rhs) => {
+          // If the GcIDs are equal, then the two objects are equal
+          if lhs == rhs {
+            true
+          } else {
+            let lhs_arr = &gc.get(lhs).obj;
+            let rhs_arr = &gc.get(rhs).obj;
+            lhs_arr.equals(rhs_arr, gc)
+          }
+        }
+        _ => false,
+      },
+      // TODO: What about collections with identical elements?
+      _ => false,
+    }
+  }
+
+  /// Define subscripting for Hinton objects.
+  pub fn subscript(&self, obj: &Object, gc: &mut GarbageCollector) -> Result<Object, RuntimeErrMsg> {
+    match self {
+      Object::Array(a) => {
+        let index = try_convert_to_idx(obj, "Array")?;
+        let array = gc.get(a).as_array_obj().unwrap();
+
+        if let Some(idx) = to_wrapping_index(index, array.0.len()) {
+          Ok(array.0[idx])
+        } else {
+          Err(RuntimeErrMsg::Index("Array index out of bounds.".into()))
+        }
+      }
+      Object::Str(a) => {
+        let index = try_convert_to_idx(obj, "String")?;
+        let string = gc.get(a).as_str_obj().unwrap();
+
+        if let Some(idx) = to_wrapping_index(index, string.0.len()) {
+          let char = gc.push(string.0.chars().nth(idx).unwrap().to_string().into());
+          Ok(Object::Str(char))
+        } else {
+          Err(RuntimeErrMsg::Index("String index out of bounds.".into()))
+        }
+      }
+      _ => {
+        let err_msg = format!("Cannot index object of type '{}'.", self.type_name());
+        Err(RuntimeErrMsg::Type(err_msg))
+      }
+    }
+  }
+
+  /// Checks whether an object is in `self`, iff `self` is a collection-like object.
+  pub fn is_in(&self, rhs: &Object, gc: &GarbageCollector) -> Result<Object, RuntimeErrMsg> {
+    match rhs {
+      Object::Str(rhs) => match self {
+        Object::Str(lhs) => {
+          let lhs = gc.get(lhs).as_str_obj().unwrap();
+          let rhs = gc.get(rhs).as_str_obj().unwrap();
+          let contains = rhs.0.contains(&lhs.0);
+          Ok(if contains { OBJ_TRUE } else { OBJ_FALSE })
+        }
+        _ => binary_opr_error_msg!("in", self.type_name(), "Str"),
+      },
+      Object::Array(rhs) => {
+        let rhs = gc.get(rhs).as_array_obj().unwrap();
+        let mut contains = false;
+
+        for i in &rhs.0 {
+          if i.equals(self, gc) {
+            contains = true;
+          }
+        }
+
+        Ok(if contains { OBJ_TRUE } else { OBJ_FALSE })
+      }
+      _ => binary_opr_error_msg!("in", self.type_name(), rhs.type_name()),
+    }
   }
 }

@@ -87,6 +87,7 @@ impl<'a> PLVJsonGenerator<'a> {
   fn describe(&self, func: &FuncObj, ip: usize, instr: u8, gc: &GarbageCollector) -> (&str, u8, Option<String>) {
     match OpCode::from(instr) {
       OpCode::Add => ("ADD", 0, None),
+      OpCode::BinaryIn => ("BINARY_IN", 0, None),
       OpCode::BitwiseAnd => ("BITWISE_AND", 0, None),
       OpCode::BitwiseNot => ("BITWISE_NOT", 0, None),
       OpCode::BitwiseOr => ("BITWISE_OR", 0, None),
@@ -95,6 +96,8 @@ impl<'a> PLVJsonGenerator<'a> {
       OpCode::BitwiseXor => ("BITWISE_XOR", 0, None),
       OpCode::DefineGlobal => ("DEFINE_GLOBAL", 0, None),
       OpCode::Divide => ("DIVIDE", 0, None),
+      OpCode::DupTop => ("DUP_TOP", 0, None),
+      OpCode::DupTopTwo => ("DUP_TOP_TWO", 0, None),
       OpCode::EndVirtualMachine => ("END_VM", 0, None),
       OpCode::Equals => ("EQUALS", 0, None),
       OpCode::GreaterThan => ("GREATER_THAN", 0, None),
@@ -132,6 +135,7 @@ impl<'a> PLVJsonGenerator<'a> {
       OpCode::BindDefaults => ("BIND_DEFAULTS", 1, None),
       OpCode::BuildStr => ("BUILD_STR", 1, None),
       OpCode::CloseUpVal => ("CLOSE_UP_VAL", 1, None),
+      OpCode::DupTopN => ("DUP_TOP_N", 1, None),
       OpCode::FuncCall => ("FUNC_CALL", 1, None),
       OpCode::GetGlobal => ("GET_GLOBAL", 1, None),
       OpCode::GetLocal => ("GET_LOCAL", 1, None),
@@ -158,6 +162,7 @@ impl<'a> PLVJsonGenerator<'a> {
       OpCode::BindDefaultsLong => ("BIND_DEFAULTS_LONG", 2, None),
       OpCode::BuildStrLong => ("BUILD_STR_LONG", 2, None),
       OpCode::CloseUpValLong => ("CLOSE_UP_VAL_LONG", 2, None),
+      OpCode::DupTopNLong => ("DUP_TOP_N_LONG", 2, None),
       OpCode::ForIterNextOrJump => ("FOR_ITER_NEXT_OR_JUMP", 2, None),
       OpCode::FuncCallLong => ("FUNC_CALL_LONG", 2, None),
       OpCode::GetGlobalLong => ("GET_GLOBAL_LONG", 2, None),
@@ -206,6 +211,6 @@ impl<'a> PLVJsonGenerator<'a> {
       func.chunk.instructions[idx + 1] as usize
     };
 
-    Some(self.constants[pos].debug_fmt(gc))
+    Some(self.constants[pos].display_plain(gc))
   }
 }

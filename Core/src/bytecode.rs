@@ -7,6 +7,7 @@
 pub enum OpCode {
   // Instructions with zero chunk operands.
   Add,
+  BinaryIn,
   BitwiseAnd,
   BitwiseNot,
   BitwiseOr,
@@ -15,6 +16,8 @@ pub enum OpCode {
   BitwiseXor,
   DefineGlobal,
   Divide,
+  DupTop,
+  DupTopTwo,
   EndVirtualMachine,
   Equals,
   GreaterThan,
@@ -53,6 +56,7 @@ pub enum OpCode {
   BindDefaults,
   BuildStr,
   CloseUpVal,
+  DupTopN,
   FuncCall,
   GetGlobal,
   GetLocal,
@@ -80,6 +84,7 @@ pub enum OpCode {
   BindDefaultsLong,
   BuildStrLong,
   CloseUpValLong,
+  DupTopNLong,
   ForIterNextOrJump,
   FuncCallLong,
   GetGlobalLong,

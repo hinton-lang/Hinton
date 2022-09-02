@@ -55,7 +55,7 @@ impl<'a> PLVJsonGenerator<'a> {
       IdLiteral(node) => self.ast_visit_id_literal(node, data),
       IfStmt(node) => self.ast_visit_if_stmt(node, data),
       ImportDecl(node) => self.ast_visit_import_decl(node, data),
-      Indexing(node) => self.ast_visit_indexing(node, data),
+      Subscript(node) => self.ast_visit_indexing(node, data),
       Lambda(node) => self.ast_visit_lambda(node, data),
       LoopExpr(node) => self.ast_visit_loop_stmt(node, data),
       MemberAccess(node) => self.ast_visit_member_access(node, data),
@@ -262,8 +262,8 @@ impl<'a> ASTVisitor<'a> for PLVJsonGenerator<'a> {
 
   fn ast_visit_ternary_conditional(&mut self, node: &ASTTernaryConditionalNode, _: Self::Data) -> Self::Res {
     let cond = self.ast_to_json(node.condition, "condition");
-    let b_true = self.ast_to_json(node.branch_true, "true");
-    let b_false = self.ast_to_json(node.branch_false, "false");
+    let b_true = self.ast_to_json(node.then_branch.1, "true");
+    let b_false = self.ast_to_json(node.else_branch.1, "false");
     ("Ternary".into(), json!({}), vec![cond, b_true, b_false])
   }
 

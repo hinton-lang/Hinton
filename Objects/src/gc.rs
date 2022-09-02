@@ -1,12 +1,11 @@
-use std::fmt::{Debug, Formatter};
-
+use crate::array_obj::ArrayObj;
 use crate::func_obj::FuncObj;
 use crate::str_obj::StrObj;
 
 /// Garbage collected objects.
-#[derive(PartialEq)]
 pub enum GcObject {
   Str(StrObj),
+  Array(ArrayObj),
   Func(FuncObj),
 }
 
@@ -14,16 +13,8 @@ pub enum GcObject {
 #[derive(Copy, Clone)]
 pub enum GcObjectKind {
   Str,
+  Array,
   Func,
-}
-
-impl Debug for GcObject {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    match self {
-      GcObject::Str(s) => write!(f, "{:?}", s),
-      GcObject::Func(c) => write!(f, "{:?}", c),
-    }
-  }
 }
 
 impl From<String> for GcObject {
@@ -49,28 +40,39 @@ impl GcObject {
   pub fn kind(&self) -> GcObjectKind {
     match self {
       GcObject::Str(_) => GcObjectKind::Str,
+      GcObject::Array(_) => GcObjectKind::Array,
       GcObject::Func(_) => GcObjectKind::Func,
+    }
+  }
+
+  pub fn equals(&self, obj: &GcObject, gc: &GarbageCollector) -> bool {
+    match self {
+      GcObject::Str(str) => str.equals(obj),
+      GcObject::Array(arr) => arr.equals(obj, gc),
+      _ => false,
     }
   }
 
   pub fn display_plain(&self, gc: &GarbageCollector) -> String {
     match self {
       GcObject::Str(s) => s.display_plain().to_owned(),
+      GcObject::Array(s) => s.display_plain(gc),
+      GcObject::Func(f) => f.display_plain(gc),
+    }
+  }
+
+  pub fn display_pretty(&self, gc: &GarbageCollector) -> String {
+    match self {
+      GcObject::Str(s) => s.display_plain().to_owned(),
+      GcObject::Array(s) => s.display_pretty(gc),
       GcObject::Func(f) => f.display_plain(gc),
     }
   }
 }
 
 /// An object stored in the garbage collector.
-#[derive(PartialEq)]
 pub struct GcVal {
   pub obj: GcObject,
-}
-
-impl Debug for GcVal {
-  fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-    write!(f, "{:?}", self.obj)
-  }
 }
 
 impl From<GcObject> for GcVal {
@@ -97,6 +99,24 @@ impl GcVal {
   pub fn as_str_obj(&self) -> Option<&StrObj> {
     match &self.obj {
       GcObject::Str(obj) => Some(obj),
+      _ => None,
+    }
+  }
+
+  /// Tries to extract an immutable reference to the
+  /// underlying `ArrayObj` in this `GcVal`.
+  pub fn as_array_obj(&self) -> Option<&ArrayObj> {
+    match &self.obj {
+      GcObject::Array(obj) => Some(obj),
+      _ => None,
+    }
+  }
+
+  /// Tries to extract a mutable reference to the
+  /// underlying `ArrayObj` in this `GcVal`.
+  pub fn as_array_obj_mut(&mut self) -> Option<&mut ArrayObj> {
+    match &mut self.obj {
+      GcObject::Array(obj) => Some(obj),
       _ => None,
     }
   }
@@ -145,18 +165,18 @@ impl GarbageCollector {
   /// # Returns:
   /// ```GcId```
   pub fn push(&mut self, obj: GcObject) -> GcId {
-    let obj = GcVal::from(obj);
-
     // TODO: This is painfully slow, and only needed for string interning.
-    if let Some(idx) = self.objects.iter().position(|o| *o == obj) {
-      return GcId(idx);
+    if let GcObjectKind::Str = obj.kind() {
+      if let Some(idx) = self.objects.iter().position(|o| o.obj.equals(&obj, self)) {
+        return GcId(idx);
+      }
     }
 
     if let Some(idx) = self.tombstones.pop() {
-      self.objects[idx] = obj;
+      self.objects[idx] = GcVal::from(obj);
       GcId(idx)
     } else {
-      self.objects.push(obj);
+      self.objects.push(GcVal::from(obj));
       GcId(self.objects.len() - 1)
     }
   }
