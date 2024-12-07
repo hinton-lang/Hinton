@@ -1,13 +1,14 @@
 use core::errors::RuntimeErrMsg;
 use core::utils::to_wrapping_index;
 
-use crate::gc::{GarbageCollector, GcId, GcObject};
+use crate::gc::{GarbageCollector, GcId, GcObject, GcObjectKind};
 use crate::native_func_obj::NativeFuncObj;
 
 pub mod array_obj;
 pub mod func_obj;
 pub mod gc;
 pub mod native_func_obj;
+pub mod range_obj;
 pub mod str_obj;
 pub mod tuple_obj;
 
@@ -21,6 +22,7 @@ pub enum Object {
   Str(GcId),
   Array(GcId),
   Tuple(GcId),
+  Range(GcId),
   Func(GcId),
   // We only store the index of the native function we are referring to.
   NativeFunc(NativeFuncObj),
@@ -35,6 +37,7 @@ pub enum ObjKind {
   Str,
   Array,
   Tuple,
+  Range,
   Func,
   NativeFunc,
 }
@@ -57,6 +60,7 @@ impl Object {
       Object::Str(_) => ObjKind::Str,
       Object::Array(_) => ObjKind::Array,
       Object::Tuple(_) => ObjKind::Tuple,
+      Object::Range(_) => ObjKind::Range,
       Object::Func(_) => ObjKind::Func,
       Object::NativeFunc(_) => ObjKind::NativeFunc,
     }
@@ -72,6 +76,7 @@ impl Object {
       ObjKind::Str => "Str",
       ObjKind::Array => "Array",
       ObjKind::Tuple => "Tuple",
+      ObjKind::Range => "Range",
       ObjKind::Func | ObjKind::NativeFunc => "Func",
     }
   }
@@ -156,7 +161,9 @@ impl Object {
       Object::Float(f) => f.to_string(),
       Object::Bool(true) => "true".into(),
       Object::Bool(false) => "false".into(),
-      Object::Str(o) | Object::Func(o) | Object::Array(o) | Object::Tuple(o) => gc.get(o).obj.display_plain(gc),
+      Object::Str(o) | Object::Func(o) | Object::Array(o) | Object::Range(o) | Object::Tuple(o) => {
+        gc.get(o).obj.display_plain(gc)
+      }
       Object::NativeFunc(n) => n.display_plain(),
     }
   }
@@ -168,7 +175,9 @@ impl Object {
       Object::Float(f) => format!("\x1b[38;5;81m{}{}\x1b[0m", f, if f.fract() == 0.0 { ".0" } else { "" }),
       Object::Bool(true) => "\x1b[38;5;3mtrue\x1b[0m".into(),
       Object::Bool(false) => "\x1b[38;5;3mfalse\x1b[0m".into(),
-      Object::Str(o) | Object::Func(o) | Object::Array(o) | Object::Tuple(o) => gc.get(o).obj.display_pretty(gc),
+      Object::Str(o) | Object::Func(o) | Object::Array(o) | Object::Range(o) | Object::Tuple(o) => {
+        gc.get(o).obj.display_pretty(gc)
+      }
       Object::NativeFunc(n) => n.display_plain(),
     }
   }
@@ -709,7 +718,11 @@ impl Object {
         }
         _ => false,
       },
-      // TODO: What about collections with identical elements?
+      Object::Range(lhs) => match rhs {
+        // This works because ranges are not repeated in the garbage collector
+        Object::Range(rhs) => lhs == rhs,
+        _ => false,
+      },
       _ => false,
     }
   }
@@ -748,6 +761,26 @@ impl Object {
           Err(RuntimeErrMsg::Index("Tuple index out of bounds.".into()))
         }
       }
+      Object::Range(a) => {
+        let index = try_convert_to_idx(obj, "Range")?;
+        let range = gc.get(a).as_range_obj().unwrap();
+
+        let upper_bound = if range.min <= range.max {
+          range.max + if range.closed { 1 } else { 0 } - range.min
+        } else {
+          range.min - range.max + if range.closed { 1 } else { 0 }
+        };
+
+        if let Some(idx) = to_wrapping_index(index, upper_bound as usize) {
+          Ok(if range.min <= range.max {
+            (range.max + (idx as i64)).into()
+          } else {
+            (range.min - (idx as i64)).into()
+          })
+        } else {
+          Err(RuntimeErrMsg::Index("Range index out of bounds.".into()))
+        }
+      }
       _ => {
         let err_msg = format!("Objects of type '{}' are not subscriptable.", self.type_name());
         Err(RuntimeErrMsg::Type(err_msg))
@@ -767,15 +800,33 @@ impl Object {
         }
         _ => binary_opr_error_msg!("in", self.type_name(), "Str"),
       },
-      Object::Array(rhs) => {
-        let rhs = gc.get(rhs).as_array_obj().unwrap();
+      Object::Array(rhs) | Object::Tuple(rhs) => {
+        let obj = gc.get(rhs);
+        let rhs = if let GcObjectKind::Array = obj.obj.kind() {
+          &obj.as_array_obj().unwrap().0
+        } else {
+          &obj.as_tuple_obj().unwrap().0
+        };
+
         let mut contains = false;
 
-        for i in &rhs.0 {
+        for i in rhs {
           if i.equals(self, gc) {
             contains = true;
           }
         }
+
+        Ok(if contains { OBJ_TRUE } else { OBJ_FALSE })
+      }
+      Object::Range(rhs) if matches!(self.kind(), ObjKind::Int) => {
+        let lhs = self.as_int().unwrap();
+        let rhs = gc.get(rhs).as_range_obj().unwrap();
+
+        let contains = if rhs.min <= rhs.max {
+          lhs >= rhs.min && ((rhs.closed && lhs <= rhs.max) || (!rhs.closed && lhs < rhs.max))
+        } else {
+          lhs <= rhs.min && ((rhs.closed && lhs >= rhs.max) || (!rhs.closed && lhs > rhs.max))
+        };
 
         Ok(if contains { OBJ_TRUE } else { OBJ_FALSE })
       }

@@ -1,5 +1,6 @@
 use crate::array_obj::ArrayObj;
 use crate::func_obj::FuncObj;
+use crate::range_obj::RangeObj;
 use crate::str_obj::StrObj;
 use crate::tuple_obj::TupleObj;
 
@@ -8,6 +9,7 @@ pub enum GcObject {
   Str(StrObj),
   Array(ArrayObj),
   Tuple(TupleObj),
+  Range(RangeObj),
   Func(FuncObj),
 }
 
@@ -17,6 +19,7 @@ pub enum GcObjectKind {
   Str,
   Array,
   Tuple,
+  Range,
   Func,
 }
 
@@ -51,6 +54,7 @@ impl GcObject {
       GcObject::Str(_) => GcObjectKind::Str,
       GcObject::Array(_) => GcObjectKind::Array,
       GcObject::Tuple(_) => GcObjectKind::Tuple,
+      GcObject::Range(_) => GcObjectKind::Range,
       GcObject::Func(_) => GcObjectKind::Func,
     }
   }
@@ -69,6 +73,7 @@ impl GcObject {
       GcObject::Str(s) => s.display_plain().to_owned(),
       GcObject::Array(a) => a.display_plain(gc),
       GcObject::Tuple(t) => t.display_plain(gc),
+      GcObject::Range(r) => r.display_plain(),
       GcObject::Func(f) => f.display_plain(gc),
     }
   }
@@ -78,6 +83,7 @@ impl GcObject {
       GcObject::Str(s) => s.display_plain().to_owned(),
       GcObject::Array(a) => a.display_pretty(gc),
       GcObject::Tuple(t) => t.display_pretty(gc),
+      GcObject::Range(r) => r.display_pretty(),
       GcObject::Func(f) => f.display_plain(gc),
     }
   }
@@ -150,6 +156,15 @@ impl GcVal {
   }
 
   /// Tries to extract an immutable reference to the
+  /// underlying `RangeObj` in this `GcVal`.
+  pub fn as_range_obj(&self) -> Option<&RangeObj> {
+    match &self.obj {
+      GcObject::Range(obj) => Some(obj),
+      _ => None,
+    }
+  }
+
+  /// Tries to extract an immutable reference to the
   /// underlying `FuncObj` in this `GcVal`.
   pub fn as_func_obj(&self) -> Option<&FuncObj> {
     match &self.obj {
@@ -193,8 +208,8 @@ impl GarbageCollector {
   /// # Returns:
   /// ```GcId```
   pub fn push(&mut self, obj: GcObject) -> GcId {
-    // TODO: This is painfully slow, and only needed for string interning.
-    if let GcObjectKind::Str = obj.kind() {
+    // TODO: This is painfully slow, and only needed for some objects.
+    if matches!(obj.kind(), GcObjectKind::Str | GcObjectKind::Range) {
       if let Some(idx) = self.objects.iter().position(|o| o.obj.equals(&obj, self)) {
         return GcId(idx);
       }

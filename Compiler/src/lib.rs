@@ -246,6 +246,7 @@ impl<'a> Compiler<'a> {
       GcObjectKind::Str => Object::Str(id),
       GcObjectKind::Array => Object::Array(id),
       GcObjectKind::Tuple => Object::Tuple(id),
+      GcObjectKind::Range => Object::Range(id),
       GcObjectKind::Func => Object::Func(id),
     };
 

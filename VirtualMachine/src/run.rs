@@ -1,9 +1,12 @@
+use std::ops::ControlFlow;
+
 use core::ast::BinaryExprKind;
 use core::bytecode::OpCode;
 use objects::array_obj::ArrayObj;
 use objects::gc::GcObject;
+use objects::range_obj::RangeObj;
 use objects::tuple_obj::TupleObj;
-use objects::{ObjKind, OBJ_FALSE, OBJ_NONE, OBJ_TRUE};
+use objects::{binary_opr_error_msg, ObjKind, OBJ_FALSE, OBJ_NONE, OBJ_TRUE};
 
 use crate::{Object, OpRes, RuntimeErrMsg, RuntimeResult, VM};
 
@@ -95,8 +98,8 @@ impl VM {
         OpCode::MakeDictLong => self.op_make_dict_long(),
         OpCode::MakeInstance => self.op_make_instance(),
         OpCode::MakeIter => self.op_make_iter(),
-        OpCode::MakeRange => self.op_make_range(),
-        OpCode::MakeRangeEq => self.op_make_range_eq(),
+        OpCode::MakeRange => self.op_make_range(false),
+        OpCode::MakeRangeEq => self.op_make_range(true),
         OpCode::MakeTuple => self.op_make_tuple_or_long(false),
         OpCode::MakeTupleLong => self.op_make_tuple_or_long(true),
         OpCode::MakeTupleRepeat => self.op_make_tuple_repeat(),
@@ -512,12 +515,17 @@ impl VM {
     todo!()
   }
 
-  fn op_make_range(&mut self) -> OpRes {
-    todo!()
-  }
+  fn op_make_range(&mut self, closed: bool) -> OpRes {
+    let right = self.pop_stack();
+    let left = self.pop_stack();
 
-  fn op_make_range_eq(&mut self) -> OpRes {
-    todo!()
+    match (left.as_int(), right.as_int()) {
+      (Some(min), Some(max)) => {
+        let obj = self.gc.push(GcObject::Range(RangeObj { min, max, closed }));
+        ControlFlow::Continue(self.stack.push(Object::Range(obj)))
+      }
+      _ => ControlFlow::Break(binary_opr_error_msg!["..", left.type_name(), right.type_name()]),
+    }
   }
 
   fn op_make_tuple_or_long(&mut self, is_long: bool) -> OpRes {
