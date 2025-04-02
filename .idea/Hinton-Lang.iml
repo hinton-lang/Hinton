@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<module type="JAVA_MODULE" version="4">
+  <component name="NewModuleRootManager" inherit-compiler-output="true">
+    <exclude-output />
+    <content url="file://$MODULE_DIR$">
+      <sourceFolder url="file://$MODULE_DIR$/tests" isTestSource="true" />
+      <sourceFolder url="file://$MODULE_DIR$/Core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/Lexer/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/PLV/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/Parser/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/Analyzers/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/CLI/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/Compiler/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/Hinton/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/VirtualMachine/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/_src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/_src/core/Core/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/BuiltIn/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/BuiltIn_/src" isTestSource="false" />
+      <sourceFolder url="file://$MODULE_DIR$/Objects/src" isTestSource="false" />
+      <excludeFolder url="file://$MODULE_DIR$/target" />
+      <excludeFolder url="file://$MODULE_DIR$/_src/core/Core/target" />
+    </content>
+    <orderEntry type="inheritedJdk" />
+    <orderEntry type="sourceFolder" forTests="false" />
+  </component>
+</module>

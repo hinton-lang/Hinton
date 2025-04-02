@@ -1,0 +1,13 @@
+[package]
+name = "plv"
+version = "0.1.0"
+authors = ["Fausto German <fgermanj@gmail.com>"]
+edition = "2021"
+
+[dependencies]
+core = { path = "../Core" }
+parser = { path = "../Parser" }
+analyzers = { path = "../Analyzers" }
+compiler =  { path = "../Compiler" }
+objects = { path = "../Objects" }
+serde_json = "1.0.82"

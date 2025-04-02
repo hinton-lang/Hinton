@@ -1,0 +1,259 @@
+/// These grammar rules can be visualized using the https://bottlecaps.de/rr/ui tool.
+
+/// Notes on design choices
+/// 1) Hinton requires semicolons, which make block expressions possible
+///    without much ambiguity in the scanner, Parser, or the user's code.
+/// 2) Unlike Javascript, Hinton does not require parenthesis in while and for loops,
+///    as well as in if-else-if-expressions, but *does* require a block expression in
+///    all cases. This allows for better readability and a more expressive syntax.
+
+// ********************************************** The root of a Hinton program
+MODULE              ::= STATEMENT* EOF
+
+// ********************************************** STATEMENTS
+// The "pub" keyword is only allowed at the module or class level.
+STATEMENT           ::= BLOCK_STMT
+                    | LOOP_STMT
+                    | WHILE_LOOP_STMT
+                    | FOR_LOOP_STMT
+                    | BREAK_STMT
+                    | CONTINUE_STMT
+                    | RETURN_STMT
+                    | YIELD_STMT
+                    | WITH_AS_STMT
+                    | TRY_STMT
+                    | THROW_STMT
+                    | DEL_STMT
+                    | IF_STMT
+                    | MATCH_EXPR_STMT
+                    | VAR_DECL
+                    | "pub"? (CONST_DECL | ENUM_DECL)
+                    | IMPORT_EXPORT_DECL
+                    | DECORATOR_STMT* "pub"? (FUNC_DECL | CLASS_DECL)
+                    | EXPR_STMT
+                    | ";" // ignored
+
+BLOCK_STMT          ::= "{" STATEMENT* "}"
+
+// Loop tags do not exist in Hinton for the same reason they do not exist in Python
+LOOP_STMT           ::= "loop" BLOCK_STMT
+WHILE_LOOP_STMT     ::= "while" ("let" IDENTIFIER "=")? EXPRESSION BLOCK_STMT
+FOR_LOOP_STMT       ::= "for" FOR_LOOP_HEAD BLOCK_STMT
+FOR_LOOP_HEAD       ::= (IDENTIFIER | UNPACK_PATTERN) "in" EXPRESSION
+
+BREAK_STMT          ::= "break" ("if" EXPRESSION)? ";"
+CONTINUE_STMT       ::= "continue" ("if" EXPRESSION)? ";"
+RETURN_STMT         ::= "return" EXPRESSION ";"
+YIELD_STMT          ::= "yield" EXPRESSION ";"
+THROW_STMT          ::= "throw" EXPRESSION ";"
+// Only IDENTIFIER, INDEXING_EXPR, or MEMBER_ACCESS_EXPR can be deleted. 
+DEL_STMT            ::= "del" EXPRESSION ";"
+
+IF_STMT             ::= "if" EXPRESSION BLOCK_STMT ("else" (BLOCK_STMT | IF_STMT))?
+
+// TODO: Add support for match expression statements in the future.
+// Defaults to `none` if there is no `default` branch.
+// The `return` keyword will be allowed inside match blocks when used in the context of expressions
+// to return a value out of the block. However, match expression statements do not capture UpValues.
+MATCH_EXPR_STMT     ::= "match" EXPRESSION "{" (MATCH_PATT_ARM ("," MATCH_PATT_ARM)* ("," DEFAULT_ARM)? | DEFAULT_ARM ) "}"
+MATCH_PATT_ARM      ::= LITERAL_EXPR ("if" EXPRESSION)? ("," LITERAL_EXPR ("if" EXPRESSION)?)* "=>" (EXPRESSION | BLOCK_STMT)
+DEFAULT_ARM         ::= "default" "=>" (EXPRESSION | BLOCK_STMT)
+
+WITH_AS_STMT        ::= "with" WITH_STMT_HEAD ("," WITH_STMT_HEAD)* BLOCK_STMT
+WITH_STMT_HEAD      ::= EXPRESSION "as" IDENTIFIER
+
+TRY_STMT            ::= "try" BLOCK_STMT NAMED_CATCH+
+                    | "try" BLOCK_STMT NAMED_CATCH* (DEFAULT_CATCH | FINALLY_PART)
+                    | "try" BLOCK_STMT NAMED_CATCH+ DEFAULT_CATCH FINALLY_PART
+NAMED_CATCH         ::= "catch" IDENTIFIER ("as" IDENTIFIER)? BLOCK_STMT
+DEFAULT_CATCH       ::= "catch" BLOCK_STMT
+FINALLY_PART        ::= "finally" BLOCK_STMT
+
+EXPR_STMT           ::= EXPRESSION ";"
+
+// ********************************************** DECLARATION STATEMENTS
+IDENTIFIER_LIST     ::= IDENTIFIER ("," IDENTIFIER)*
+
+DECORATOR_STMT      ::= "#" (DECORATOR_BDY | "[" DECORATOR_BDY ("," DECORATOR_BDY)* ","? "]")
+DECORATOR_BDY       ::= IDENTIFIER | CALL_EXPR
+
+VAR_DECL            ::= "let" (IDENTIFIER | UNPACK_PATTERN) "=" EXPRESSION ";"
+CONST_DECL          ::= "const" (IDENTIFIER | UNPACK_PATTERN) "=" EXPRESSION ";"
+UNPACK_PATTERN    ::= "(" IDENTIFIER_LIST ")" // no wildcard
+                    |   "(" IDENTIFIER_LIST "," "..." IDENTIFIER? ")" // tail wildcard
+                    |   "(" IDENTIFIER_LIST "," "..." IDENTIFIER? "," IDENTIFIER_LIST ")" // middle wildcard
+                    |   "(" "..." IDENTIFIER? "," IDENTIFIER_LIST ")" // head wildcard
+
+ENUM_DECL           ::= "enum" IDENTIFIER "{" IDENTIFIER_LIST? "}"
+
+FUNC_DECL           ::= "async"? "func" "*"? IDENTIFIER "(" PARAMETERS? ")" BLOCK_STMT
+// TODO: The Parser allows for an optional trailing comma. Define that here as well.
+PARAMETERS          ::= IDENTIFIER_LIST? NON_REQ_PARAMS? REST_PARAM?
+NON_REQ_PARAMS      ::= IDENTIFIER NON_REQ_BODY ("," IDENTIFIER NON_REQ_BODY)*
+NON_REQ_BODY        ::= "?" | (":=" EXPRESSION)
+// Func declarations can only have one rest param (which must be at the end).
+// This becomes a dict with the "args" entry as a list of value arguments, and
+// "kwargs" for dict of named arguments.
+REST_PARAM          ::= "..." IDENTIFIER
+
+CLASS_DECL          ::= "abstract"? "class" IDENTIFIER CLS_PARAMS? CLS_EXTEND? CLS_IMPL? "{" CLS_MEMBER* "}"
+CLS_PARAMS          ::= "(" CLS_PARAM_ID_LIST? CLS_NON_REQ_PARAMS? REST_PARAM? ")"
+CLS_PARAM_ID_LIST   ::= CLS_PARAM_MODE? IDENTIFIER ("," CLS_PARAM_MODE? IDENTIFIER)*
+CLS_NON_REQ_PARAMS  ::= CLS_PARAM_MODE? IDENTIFIER NON_REQ_BODY ("," CLS_PARAM_MODE? IDENTIFIER NON_REQ_BODY)*
+CLS_PARAM_MODE      ::= DECORATOR_STMT* "pub"? "const"?
+CLS_EXTEND          ::= "->" IDENTIFIER_LIST
+CLS_IMPL            ::= "impl" IDENTIFIER_LIST
+CLS_MEMBER          ::= DECORATOR_STMT* "pub"? "override"? "static"? (VAR_DECL | CONST_DECL | FUNC_DECL)
+                    | "init" BLOCK_STMT // only one init block per class
+
+IMPORT_EXPORT_DECL  ::= ("import" | "export") ((GRANULAR_IMPORT | "..." IDENTIFIER) "from")? STRING_LITERAL ";"
+                    | ("import" | "export") GRANULAR_IMPORT "," "..." IDENTIFIER "from" STRING_LITERAL ";"
+                    | ("import" | "export") "..." IDENTIFIER "," GRANULAR_IMPORT "from" STRING_LITERAL ";"
+GRANULAR_IMPORT     ::= "{" IDENTIFIER ("as" IDENTIFIER)? ("," IDENTIFIER ("as" IDENTIFIER)?)* ","? "}"
+
+// ********************************************** GENERAL EXPRESSIONS
+EXPRESSION          ::= REASSIGNMENT_EXPR
+
+// The Parser checks that the lhs of the assignment is one of IDENTIFIER,
+// INDEXING_EXPR, or MEMBER_ACCESS_EXPR before proceeding. Unlike Rust,
+// MATCH_EXPR_STMT, and LOOP_EXPR_STMT are not allowed for assignment because,
+// in Hinton, the program would have to make too many assumptions to proceed.
+REASSIGNMENT_EXPR   ::= TERNARY_EXPR (ASSIGNMENT_OPR EXPRESSION)?
+
+TERNARY_EXPR        ::= NONE_COALESCE_EXPR ("?" EXPRESSION ":" EXPRESSION)?
+
+// Binary Operators
+NONE_COALESCE_EXPR  ::= LOGIC_OR_EXPR ("??" LOGIC_OR_EXPR)*
+LOGIC_OR_EXPR       ::= LOGIC_AND_EXPR (("||" | "or") LOGIC_AND_EXPR)*
+LOGIC_AND_EXPR      ::= BITWISE_OR_EXPR (("&&" | "and") BITWISE_OR_EXPR)*
+BITWISE_OR_EXPR     ::= BITWISE_XOR_EXPR ("|" BITWISE_XOR_EXPR)*
+BITWISE_XOR_EXPR    ::= BITWISE_AND_EXPR ("^" BITWISE_AND_EXPR)*
+BITWISE_AND_EXPR    ::= EQUALITY_EXPR ("&" EQUALITY_EXPR)*
+EQUALITY_EXPR       ::= RELATION_EXPR (("!=" | "==") RELATION_EXPR)*
+RELATION_EXPR       ::= BITWISE_SHIFT ((">" | ">=" | "<" | "<=" | "in" | "instof") BITWISE_SHIFT)*
+BITWISE_SHIFT       ::= RANGE_EXPR (("<<" | ">>") RANGE_EXPR)*
+RANGE_EXPR          ::= TERM_EXPR ((".." | "..=") TERM_EXPR)?
+TERM_EXPR           ::= FACTOR_EXPR (( "-" | "+") FACTOR_EXPR)*
+FACTOR_EXPR         ::= POW_EXPR (( "/" | "*" | "%" | "mod" | "@") POW_EXPR)*
+POW_EXPR            ::= PIPE_EXPR ("**" PIPE_EXPR)*
+PIPE_EXPR           ::= UNARY_EXPR ("|>" UNARY_EXPR)*
+
+// Unary Operators
+UNARY_EXPR          ::= (UNARY_OPR | "new" | "await" | "typeof") UNARY_EXPR
+                    | PRIMARY_EXPR
+
+PRIMARY_EXPR        ::= LAMBDA_EXPR
+                    | (LITERAL_EXPR | MATCH_EXPR_STMT) (INDEXING_EXPR | CALL_EXPR | MEMBER_ACCESS_EXPR)*
+
+// Array indexing works just like in Python. You can pass a comma separated list
+// of expressions or slices. This list is implicitly converted to a tuple so programmers
+// can access this tuple inside the `pub self[...idx] { }` operator overload.
+// The programmer, however, cannot directly index an array with a tuple. In fact, no
+// built-in data structure can be indexed by anything other than a single integer or slice.
+INDEXING_EXPR       ::= "[" INDEXER ("," INDEXER)* "]"
+INDEXER             ::= EXPRESSION | SLICE
+SLICE               ::= EXPRESSION? ":" EXPRESSION? (":" EXPRESSION?)?
+
+// TODO: The Parser allows for an optional trailing comma. Define that here as well.
+CALL_EXPR           ::= "(" ((NON_VAL_ARGS | (EXPRESSION ("," EXPRESSION)*)) ("," NON_VAL_ARGS)*)? ")"
+NON_VAL_ARGS        ::= SINGLE_SPREAD_EXPR | NAMED_ARGS
+NAMED_ARGS          ::= IDENTIFIER ":=" EXPRESSION
+
+MEMBER_ACCESS_EXPR  ::= ("." | "?.") IDENTIFIER
+
+// To assign a return type to a lambda (in future version of Hinton), we will
+// follow the following syntax: `"|" PARAMETERS "|" -> IDENTIFIER BLOCK_STMT`
+// Where the identifier represents the lambda's return type.
+LAMBDA_EXPR         ::= "async"? "|" PARAMETERS? "|" (EXPRESSION | BLOCK_STMT)
+
+// ********************************************** LITERAL EXPRESSIONS
+LITERAL_EXPR        ::= IDENTIFIER
+                    | INTEGER_LITERAL
+                    | FLOAT_LITERAL
+                    | SCIENTIFIC_LITERAL
+                    | HEX_LITERAL
+                    | OCT_LITERAL
+                    | BINARY_LITERAL
+                    | STRING_LITERAL
+                    | ARRAY_LITERAL
+                    | TUPLE_LITERAL
+                    | DICT_LITERAL
+                    | TRUE_LITERAL
+                    | FALSE_LITERAL
+                    | NONE_LITERAL
+                    | SELF_LITERAL
+                    | SUPER_LITERAL
+                    | "(" EXPRESSION ")"
+
+IDENTIFIER          ::= (LETTER_LIKE_CHAR | "_")+ (LETTER_LIKE_CHAR | "_" | DIGIT)*
+
+INTEGER_LITERAL     ::= DIGIT_NOT_ZERO ("_" DIGIT+)*
+
+FLOAT_LITERAL       ::= DIGIT+ "." DIGIT*
+                    | DIGIT* "." DIGIT+
+
+SCIENTIFIC_LITERAL  ::= (FLOAT_LITERAL | INTEGER_LITERAL) ("e" | "E") "-"? INTEGER_LITERAL
+
+HEX_LITERAL         ::= ("0x" | "0X") HEX_DIGIT+ ("_" HEX_DIGIT+)*
+HEX_DIGIT           ::= DIGIT
+                    | ("a" | "b" | "c" | "d" | "e" | "f")
+                    | ("A" | "B" | "C" | "D" | "E" | "F")
+
+OCT_LITERAL         ::= ("0o" | "0O") OCT_DIGIT+ ("_" OCT_DIGIT+)*
+OCT_DIGIT           ::= "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7"
+
+BINARY_LITERAL      ::= ("0b" | "0B") BINARY_DIGIT+ ("_" BINARY_DIGIT+)*
+BINARY_DIGIT        ::= "0" | "1"
+
+STRING_LITERAL      ::= ('"' STRING_SEQUENCE* '"') | ("'" STRING_SEQUENCE* "'")
+STRING_SEQUENCE     ::= ALMOST_ANY_CHAR
+                    | ESCAPED_CHAR
+                    | "$" "{" EXPRESSION "}"
+
+TRUE_LITERAL        ::= "true"
+FALSE_LITERAL       ::= "false"
+NONE_LITERAL        ::= "none"
+SELF_LITERAL        ::= "self"
+SUPER_LITERAL       ::= "super"
+
+// ********************************************** ARRAYS, TUPLES, DICTS, and other iterables
+ARRAY_LITERAL       ::= "[" ARR_TPL_BODY? "]"
+TUPLE_LITERAL       ::= "(" ARR_TPL_BODY? ")"
+
+ARR_TPL_BODY        ::= ARR_TPL_LIST | ARR_TPL_REPEAT | COMPACT_ARR_TPL
+ARR_TPL_LIST        ::= (EXPRESSION | SINGLE_SPREAD_EXPR) (("," (EXPRESSION | SINGLE_SPREAD_EXPR))* ","?)
+ARR_TPL_REPEAT      ::= EXPRESSION ";" EXPRESSION
+
+COMPACT_ARR_TPL     ::= COMPACT_FOR_LOOP+ (EXPRESSION | SINGLE_SPREAD_EXPR)
+COMPACT_FOR_LOOP    ::= "for" "(" FOR_LOOP_HEAD ")" ("if" "(" EXPRESSION ")")?
+
+DICT_LITERAL        ::= "{" DICT_BODY? "}"
+DICT_BODY           ::= (KEY_VAL_PAR | SINGLE_SPREAD_EXPR) (("," (KEY_VAL_PAR | SINGLE_SPREAD_EXPR))* ","?)
+                    | COMPACT_DICT
+
+COMPACT_DICT        ::= COMPACT_FOR_LOOP+ (KEY_VAL_PAR | SINGLE_SPREAD_EXPR)
+KEY_VAL_PAR         ::= (("[" EXPRESSION "]") | IDENTIFIER | STRING_LITERAL | INTEGER_LITERAL
+                        | HEX_LITERAL | OCT_LITERAL | BINARY_LITERAL | TUPLE_LITERAL |) ":" EXPRESSION
+
+SINGLE_SPREAD_EXPR  ::= "..." EXPRESSION
+
+// ********************************************** FIXED VALUES, SYMBOLS, AND CHAR SEQUENCES
+DIGIT               ::= "0" | DIGIT_NOT_ZERO
+DIGIT_NOT_ZERO      ::= "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9"
+
+// TODO: Define this is in a better (correct) way
+LETTER_LIKE_CHAR    ::= "[a-zA-Z]|$|_"
+
+// TODO: Define this is a better (correct) way
+ALMOST_ANY_CHAR     ::= "[a-zA-Z]" | "[^\x00-\x7F]+" | "[^\u0000-\u007F]+"
+
+// TODO: This list is not exhaustive
+ESCAPED_CHAR        ::= "\s" | "\'" | '\"' | "\\" | "\0" | "\t"
+
+UNARY_OPR           ::= "!" | "-" | "~"
+
+ASSIGNMENT_OPR      ::= "=" | "+=" | "-=" | "**=" | "*=" | "/="
+                    | "%=" | "<<=" | ">>=" | "&=" | "^=" | "|="
+                    | "&&=" | "||=" | "??=" | "@="
+
+EOF                 ::= "\0"

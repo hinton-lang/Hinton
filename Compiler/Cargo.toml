@@ -1,0 +1,14 @@
+[package]
+name = "compiler"
+version = "0.1.0"
+authors = ["Fausto German <fgermanj@gmail.com>"]
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+core = { path = "../Core" }
+lexer = { path = "../Lexer" }
+parser = { path = "../Parser" }
+analyzers = { path = "../Analyzers" }
+objects = { path = "../Objects" }
