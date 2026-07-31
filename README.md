@@ -35,6 +35,7 @@ freeze const HYPER = {"rate": 0.05, "batch": 64};
 
 enum Trend { Improving, Plateaued, Diverging }
 
+// A Hinton native function can be made differentiable for built-in autograd.
 // Axes carry names, so `x @ w` contracts "feature" against "feature". Passing
 // a ("batch", "token") tensor here is refused by name — even when every size
 // happens to match, which would be a silent bug.
@@ -51,14 +52,15 @@ fn loss(
 
 // The compiler transforms `loss`'s own tree. Nothing is traced, so branches
 // stay branches, loops stay loops, and an underivable line names itself.
-let step = grad_of(loss, wrt = ["w", "b"]);
+let step = grad_of(loss, wrt=["w", "b"]);
 
-let w = tensor.randn([784, 128], axes = ["feature", "hidden"]);
-let b = tensor.zeros([128], axes = ["hidden"]);
+let w = Tensor.randn([784, 128], axes=["feature", "hidden"]);
+let b = Tensor.zeros([128], axes=["hidden"]);
 let history = [];
 
-for (images, labels) in Tensor.load("mnist.npy").batches(size = HYPER["batch"]) {
-  let grads = step(w, b, images, labels); // forward and backward, once
+let data = Tensor.loadNumpy("mnist.npy");
+for (images, labels) in data.batches(size=HYPER["batch"]) {
+  let grads = step(w, b, images, labels); // forward and backward
   w -= HYPER["rate"] * grads["w"];
   b -= HYPER["rate"] * grads["b"];
   history.push(grads.value); // the loss, already computed
