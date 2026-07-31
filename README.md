@@ -3,11 +3,7 @@
 ![Hinton Logo](_assets/logos/banner_light_mode.png#gh-light-mode-only)
 ![Hinton Logo](_assets/logos/banner_dark_mode.png#gh-dark-mode-only)
 
-**The interpreted programming language for AI developers and Engineers.**
-
----
-
-## The idea
+**<p align="center">The interpreted programming language for AI developers and Engineers.</p>**
 
 Most numerical code today has two personalities. It looks like ordinary
 dynamic code — then a framework traces one execution of it, captures the
@@ -32,7 +28,7 @@ Hinton keeps the familiar syntax and progressive typing style of popular interpr
 collector, and ships with a single binary for the entire toolchain. It is meant for real world applications without friction, including ML and AI development, physics and engineering simulations, and data science with heavy workflows.
 
 
-## Tour of the Vision
+### Tour of the Vision
 
 ```rust
 freeze const HYPER = {"rate": 0.05, "batch": 64};
